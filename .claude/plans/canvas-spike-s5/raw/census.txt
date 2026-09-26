@@ -1,0 +1,33 @@
+nodes 8 | auto-layout nodes 3 Spike List Row:HORIZONTAL, Text block:VERTICAL, Status chip:HORIZONTAL
+al props on Spike List Row{gap=16,pad=16,16,16,16,main=MIN,cross=MIN,w=FIXED,h=HUG} Text block{gap=4,pad=0,0,0,0,main=MIN,cross=MIN,w=FILL,h=HUG} Status chip{gap=0,pad=4,8,4,8,main=CENTER,cross=CENTER,w=HUG,h=HUG}
+aliases 29 | resolved to a name 29
+   Spike List Row.boundVariables.itemSpacing → spacing/md
+   Spike List Row.boundVariables.paddingLeft → spacing/md
+   Spike List Row.boundVariables.paddingTop → spacing/md
+   Spike List Row.boundVariables.paddingRight → spacing/md
+   Spike List Row.boundVariables.paddingBottom → spacing/md
+   Avatar.boundVariables.fills.0 → color/primary/container
+   Avatar.fills[0].color → color/primary/container
+   Text block.boundVariables.itemSpacing → spacing/xs
+   Text 1.boundVariables.fills.0 → color/text/primary
+   Text 1.boundVariables.fontSize.0 → font/size/md
+   Text 1.fills[0].color → color/text/primary
+   Text 2.boundVariables.fills.0 → color/text/secondary
+   Text 2.boundVariables.fontSize.0 → font/size/sm
+   Text 2.fills[0].color → color/text/secondary
+   Status chip.boundVariables.paddingLeft → spacing/sm
+   Status chip.boundVariables.paddingTop → spacing/xs
+   Status chip.boundVariables.paddingRight → spacing/sm
+   Status chip.boundVariables.paddingBottom → spacing/xs
+   Status chip.boundVariables.topLeftRadius → radius/full
+   Status chip.boundVariables.topRightRadius → radius/full
+   Status chip.boundVariables.bottomLeftRadius → radius/full
+   Status chip.boundVariables.bottomRightRadius → radius/full
+   Status chip.boundVariables.fills.0 → color/success/container
+   Status chip.fills[0].color → color/success/container
+   Text 3.boundVariables.fills.0 → color/success
+   Text 3.boundVariables.fontSize.0 → font/size/xs
+   Text 3.fills[0].color → color/success
+   caret-right.boundVariables.fills.0 → color/text/disabled
+   caret-right.fills[0].color → color/text/disabled
+instance main [{"name":"state=active","setName":"Spike List Row"}]

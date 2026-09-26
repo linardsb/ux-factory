@@ -70,6 +70,7 @@ export const DROP_CLASS_OF = Object.freeze({
   "qualifier-dropped": "read-then-dropped",   // hug:N → hug, the :N discarded
   "literal-size": "read-then-dropped",        // a fixed px on an axis whose prop is {fill,hug}
   "prop-shape": "read-then-dropped",          // the IR is richer than the prop (D1: a four-side pad, a main axis)
+  "hidden-layer": "read-then-dropped",        // a layer the source hides (Figma visible:false) — read, understood, not a part (#310's)
   // Seen and not understood. The token reached the reader and no meaning came out of it.
   "unread-al-arg": "never-read",              // an al() argument with no mapping (S2's)
   "unread-atom": "never-read",                // any other atom the line grammar does not read

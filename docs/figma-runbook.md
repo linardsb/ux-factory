@@ -13,6 +13,7 @@ Reasoning and gates: `system/figma-import.md`. Architecture: `CLAUDE.md`.
 |---|---|
 | **A. Import a design as a pack** | **once per design** — 3 steps |
 | **B. Parity round-trip** (proof tokens survive a trip through Figma) | **once, ever** — 4 steps |
+| **C. Export a design for the importer** (the house plugin) | **once per component** — 4 steps |
 
 B is evidence, not plumbing. Once its artifact is committed you never repeat it.
 
@@ -262,3 +263,26 @@ Everything not imported is filled from the contract defaults and named in the pa
 **Components never come across.** Figma's API returns a description of a drawing — fills and
 coordinates — not a Button's hover state, focus ring or markup. No plan changes that. Components
 stay this repo's own, token-only, wearing the imported colours.
+
+---
+
+## C · Export a design for the importer (the house plugin)
+
+**C1 · Install, once.** In Figma desktop: Plugins → Development → Import plugin from manifest… → pick
+`tooling/figma/plugin/manifest.json`.
+
+**C2 · Select one component instance** on the canvas.
+
+**C3 · Run it.** Plugins → Development → ux-factory export → **Export selection**.
+
+**C4 · Save it.** Click **Download** (or **Copy**, paste into a new file) and save it as
+`<name>.export.json`.
+
+This is a file and not the API on purpose. The plugin runs inside Figma, so it needs no token, spends
+nothing from the per-file read budget, and reads variables without the Enterprise gate (see "The one
+rule about the API" above). It reads and never maps: it cannot send the design anywhere, and every
+rule that turns the dump into a design lives in the converter.
+
+What happens next: the converter is `import/figma.mjs`, and dropping the file on the portal is #311.
+
+This is **not** a pack path. A token or variables export still goes through A.

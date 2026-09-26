@@ -206,6 +206,7 @@ import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
+import vm from "node:vm";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -12187,9 +12188,13 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
 // Written in group 35's voice — a frozen roster iterated rather than re-listed, every refusal driven
 // rather than grepped, and the positive control stated before the mutation battery.
 //
-// WHAT THIS GROUP CANNOT REACH, stated as every other group states its own: whether a recognised name
-// is the RIGHT name for a human (that is #311's side-by-side view and #316's real run), whether an
-// UNBOUND source snaps correctly (group 42 — both fixtures here are bound on every layout slot),
+// WHAT THIS GROUP CANNOT REACH, stated as every other group states its own: whether the house plugin
+// runs in a Figma newer than S5's 126.9.10 (40.21 drives code.js against a fake `figma` only as current
+// as the plugin API docs of 2026-09-24), whether a designer's real file binds like S5's recipe (the
+// fixture was built for the test; #316's real run), whether a recognised name is the RIGHT name for a
+// human (that is #311's side-by-side view and #316's real run), whether an UNBOUND source snaps
+// correctly (group 42 — every layout slot all three fixtures carry is bound; the Figma export's one
+// unbound value is Text 2's line height),
 // whether a MEASURED glyph box is the box the designer meant (R4 reads the drawing's bounds, so a small
 // glyph drawn in a larger box reads the smaller one — #311's mapping editor, #456), and whether a
 // built composition RENDERS (group 3 owns renderComposition).
@@ -12204,7 +12209,12 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const R1 = await import("../import/recognise.mjs?a");
   const R2 = await import("../import/recognise.mjs?b");
   const IR = await import("../import/ir.mjs");
-  const { genLocSummary } = await import("../agent-layer/gen-loc-summary.mjs");
+  // #310's converter, busted the same way. figma.mjs imports brilliant.mjs, so the two instances share
+  // ONE brilliant.mjs (a relative import inside a busted module is not itself busted) — the claim is
+  // over figma.mjs's own module state, which is what it says.
+  const F1 = await import("../import/figma.mjs?a");
+  const F2 = await import("../import/figma.mjs?b");
+  const { genLocSummary, GROUPS: LOC_GROUPS } = await import("../agent-layer/gen-loc-summary.mjs");
 
   const deep = (v) => (v && typeof v === "object" && !Array.isArray(v)
     ? `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${deep(v[k])}`).join(",")}}`
@@ -12433,8 +12443,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
 
   // --- 40.7 THE IMPORT GRAPH (AC #2) -------------------------------------------------------------
   const graph = [];
-  ok(IMPORT_MJS.length >= 3 && ["ir.mjs", "brilliant.mjs", "recognise.mjs"].every((f) => IMPORT_MJS.includes(f)),
-    `the import/ sweep found [${IMPORT_MJS.join(", ")}] — a directory read that stopped finding the three known modules is a sweep checking nothing`);
+  ok(IMPORT_MJS.length >= 4 && ["ir.mjs", "brilliant.mjs", "figma.mjs", "recognise.mjs"].every((f) => IMPORT_MJS.includes(f)),
+    `the import/ sweep found [${IMPORT_MJS.join(", ")}] — a directory read that stopped finding the four known modules is a sweep checking nothing`);
   for (const file of IMPORT_MJS) {
     const src = readFileSync(join(ROOT, "import", file), "utf8");
     // Three forms, because two of them are how a stray dependency actually arrives: `from "x"`
@@ -12450,9 +12460,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   ok(graph.length > 0, "no import specifiers were extracted at all — the regex stopped matching and this case is checking nothing");
 
   // --- 40.8 import/ MATCHES NO loc-summary GROUP (AC #3) -----------------------------------------
-  // genLocSummary is the ONLY export of agent-layer/gen-loc-summary.mjs; GROUPS is module-private.
-  // Re-stating its three regexes here would be a second implementation that can drift, so this CALLS
-  // the generator. It reads the git INDEX, so it is only meaningful once import/ is tracked.
+  // Re-stating the generator's three regexes here would be a second implementation that can drift, so
+  // this CALLS the generator. (GROUPS is exported since #310, for 40.26's per-path read; this case
+  // still calls genLocSummary, because no drift over the whole tracked tree is what AC #3 names.) It reads the git INDEX, so it is only meaningful once import/ is tracked.
   const loc = genLocSummary({ check: true });
   ok((loc.drifted ?? []).length === 0,
     `gen-loc-summary reports drift (${(loc.drifted ?? []).join(", ")}) — import/ must match none of its groups: a converter is not a view-time module and must not move the number approach.html renders`);
@@ -12463,6 +12473,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     ["ir.DROP_CLASS_OF", IR.DROP_CLASS_OF], ["recognise.SIGNALS", R1.SIGNALS], ["recognise.BUILDERS", R1.BUILDERS],
     ["recognise.PROP_SOURCES", R1.PROP_SOURCES], ["recognise.TYPE_ROLE_PX", R1.TYPE_ROLE_PX],
     ["recognise.GLYPH_BOX_PX", R1.GLYPH_BOX_PX],
+    ["figma.ALIGN_OF", F1.ALIGN_OF], ["figma.ICON_TYPES", F1.ICON_TYPES], ["figma.SHAPE_TYPES", F1.SHAPE_TYPES],
+    ["figma.CONTAINER_TYPES", F1.CONTAINER_TYPES],
     ...R1.SIGNALS.map((s) => [`recognise.SIGNALS.${s.name}`, s]),
   ]) {
     const n = Array.isArray(obj) ? obj.length : Object.keys(obj).length;
@@ -12712,7 +12724,199 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   ok(drawn.hits.some((h) => h.signal === "prop-fit" && h.field === "name"),
     `SYNTHETIC: a text node drawing "Amara Okafor" did not fill \`avatar.name\` (hits: ${drawn.hits.map((h) => h.signal).join(", ") || "none"}) — PROP_SOURCES.name is still "first-text" everywhere the prop means words a designer drew, and R4's fill is gated on the entry declaring a glyph box precisely so it stays that way`);
 
-  group("import-chain", `the design-import core (#304): a Brilliant blueprint read → import/ir.mjs → import/recognise.mjs, with no portal, no agent, no network and no design tool in the loop · DETERMINISM as the anchor — convert+recognise run TWICE from two independently cache-busted module instances over the committed read and compared against import/fixtures/spike-c-instance.expected.json, with the three answers the ticket names asserted BY PATH: the person row → list-row scored, the container → stack via the STRUCTURAL FALLBACK (D2's rule, not a won contest), the label → text BY ROLE — and the person row's name-match hit pinned to the FIELD it read (component.name), because S2's end-anchored nodeName() returns "Frame 1" for that line and node.name alone makes the ticket's first answer unreachable · THE LIFT proven faithful against a FROZEN copy of #299's parked layout branch (import/fixtures/s2-layout-branch.baseline.txt, so a prune under .claude/plans/ cannot red CI), both toStacks driven over all 8 al() lines of both fixtures and compared on the \`layout\` object — scoped there because the lift re-points every drop row through ir.drop(), which adds a class field S2's rows cannot carry, so whole-return equality is impossible by construction · THE FLOOR held apart from the fallback by \`via\`, the two being one \`if\` apart: the avatar disc — a shape named "Avatar" with no layout, name-match alone — reads NOT COVERED with a real top candidate below ${R1.THRESHOLD} and a no-vocabulary-slot row beside it, while the Chevron, the floor's subject until #456, reads \`icon\` SCORED: R4 reads the glyph NAME out of \`icon.name\` (#449) and the glyph BOX from the measured long axis as the smallest md|lg|xl step that contains it (8.73 × 16 → md, #456), so kind-fit plus prop-fit on both required props covers it with no weight moved · THE SIZE-AXIS REFUSAL, S2's consumer contract: fixture 2's "Frame 1" carries the literal 360 THROUGH the converter and build() refuses it with a row naming size.w, with every built composition in both fixtures swept for a numeric size · ALL THREE E1 CLASSES present in the fixture-2 run and DROP_CLASS_OF iterated against them, so a converter kind with no class fails BY NAME and drop() refuses an unclassified one · THE BUILT COMPOSITIONS validated through the real validateComposition — and SCOPED, because only \`stack\`, \`text\` and \`icon\` survive build() on these two reads: list-row.value is a computed figure nobody drew and status-chip.value's enum is ok|due|overdue while the reads say "On call", so the emitted set and the recognised-but-refused set are each asserted BY NAME rather than left to be over-read off a green sweep · D5's absorption rule asserted PER TEXT and in all three halves — the person row's label, meta, status and value against the fixture's OWN WORDS (on the committed read plus the one line that makes the row emittable, since neither committed row survives build(); moving PROP_SOURCES.meta to "chip-text" makes the secondary line read the chip's words and passed all 40 groups before this), its avatar disc and chevron RECORDED as read-but-never-emitted rather than discarded, and a SURPLUS text under an otherwise-absorbed child dropped ON ITS OWN, because a per-child skip carried a row's footnote away in silence · THE IMPORT GRAPH read out of the three sources and required to be node built-ins plus ./-relative paths inside import/ · AC #3 proven by CALLING genLocSummary({check:true}) rather than by re-stating its private regexes · ten tables frozen BY MUTATION at both levels, GLYPH_BOX_PX pinned to the contract's --spacing-md/lg/xl · mode and grain refused by name on a third value, with the screen grain and mode 2 asserted SYNTHETICALLY and labelled so, because neither committed read is a screen · and SEVEN MORE SYNTHETIC cases — EIGHT in all, each saying so in its own failure messages: args()' boundary test on a line carrying both svg( and al( (no committed line reaches it — one svg( per fixture and it carries no al(), the list builder on a hand-built IR (neither fixture contains a list) emitting ONE list around three list-rows, then REFUSED by name on \`empty\`, the copy for a state nobody drew — and refused AGAIN through build(), the only entry point a source has, which discards the container and its rows TOGETHER (calling BUILDERS.list directly cannot see that, and a build() broken on every list verdict left every other group passing), THE TIE-BREAK's three rungs on the two ties a real source produces — a row named "List row" tying \`list\` and \`list-row\` on word containment, where the MORE SPECIFIC slug must win, and an unnamed text tying \`text\` and \`demo-notice\`, where an importer reading a stranger's drawing must reach for the PRIMITIVE rather than for one fictional demo's honesty chrome, THE ATOM ORDER, where a size lands by whether the line HAS an al() and not by which atom came first, so one source atom is one drop row in either order (latent on both fixtures, live at #310), THE PARSE BOUNDARY, where the provenance header is skipped by being first CONTENT rather than by split index — a leading blank line put the literal "lookup" into source.ids, the field the honesty contract turns on — and an indented first line is refused naming depth 0 rather than depth -1, THE GLYPH SLOT AND BOX, where a hand-built icon node earns kind-fit from EXACTLY ONE entry — the one DECLARING A GLYPH BOX, never the one spelled "icon" — fills \`name\` from \`icon.name\` and loses only that fill when the glyph slot is removed, reads the box at ten boundaries (the long axis in either orientation, 16.01 → lg with no tolerance, 19 → lg as the smallest CONTAINING step, 32 → xl, and over xl, one unmeasured axis, a zero or negative axis, or no size at all → not covered), and builds to {name, size} through BUILDERS.icon with no second literal-size pair, with \`avatar.name\` proven still first-text beside it (both committed reads draw the same one chevron, so one answer would prove it for one drawing), and R3 over EVERY vocabulary entry read at run time — a node named exactly after a slug and carrying nothing else scores below ${R1.THRESHOLD}, which is what lets the weights move without re-arguing "Text block" · with R2 beside it: ${R1.STRUCTURAL_FALLBACK} appears in NO candidates list anywhere, and the floor and the fallback are each exercised so neither is prose. What it cannot reach: whether a recognised name is the RIGHT name for a human — that is #311's side-by-side view and #316's real run; whether an UNBOUND source snaps correctly — group 42, both fixtures here being bound on every layout slot — whether a MEASURED glyph box is the box the designer meant — R4 reads the drawing's bounds, so a small glyph drawn in a larger box reads the smaller one (#311's mapping editor, #456); and whether a built composition RENDERS — group 3 owns renderComposition`);
+  // --- 40.19 FIGMA DETERMINISM, and the answers BY PATH (#310) ---------------------------------
+  // The house-plugin export S5 committed verbatim (.claude/plans/canvas-spike-s5/README.md), through
+  // figma → ir → recognise twice from independently busted instances and against its committed verdict.
+  // The by-path answers were written AFTER observing that verdict. Where Figma's answer differs from
+  // Brilliant's for the same drawing, THIS asserts what the Figma verdict says and the README's
+  // cross-source table records the difference — no weight moves (recognise.mjs R1–R4).
+  const FIG = fx("figma/spike-list-row.export.json");
+  const FIG_EXPECTED = JSON.parse(fx("figma/spike-list-row.expected.json"));
+  const fv1 = fold("run A (figma convert+recognise over the S5 export)", () => R1.recognise(F1.convert(FIG), VOCAB), { children: [] });
+  const fv2 = fold("run B (figma convert+recognise over the S5 export)", () => R2.recognise(F2.convert(FIG), VOCAB), { children: [] });
+  ok(deep(fv1) === deep(fv2), "40.19: two independent runs of figma convert+recognise over the SAME committed export disagree — the chain is not deterministic");
+  ok(deep(fv1) === deep(FIG_EXPECTED),
+    "40.19: the committed Figma verdict and the run disagree — import/fixtures/figma/spike-list-row.expected.json is stale, or a converter rule or a signal moved. Regenerate with `node import/regen-expected.mjs` (never by hand) and READ the diff");
+  const s5Ir = fold("figma convert over the S5 export", () => F1.convert(FIG), null);
+  // THE BRANCH is "every alias resolves" (S5 decision table row 1), NOT `bound`: the recipe leaves Text
+  // 2's 150 % line height unbound, so `bound` is false on branch 1 and the README names the slots.
+  ok(s5Ir?.source?.tool === "figma" && s5Ir.source.unresolved === 0 && s5Ir.source.bound === false && s5Ir.source.ids.length === 8,
+    `40.19: the Figma root's provenance reads ${JSON.stringify(s5Ir?.source && { ...s5Ir.source, ids: s5Ir.source.ids.length })} — S5 committed branch 1: tool "figma", 0 unresolved aliases, bound false (Text 2's unbound line height), 8 ids`);
+  const s5Row = at(fv1, [0]);
+  // CROSS-SOURCE DIFFERENCE, recorded not tuned: the Figma root carries auto-layout, so `list` earns
+  // kind-fit on the layout beside name-match ("Spike List Row" holds "list") and beats list-row; the
+  // Brilliant root line has no al(). README § Cross-source.
+  ok(s5Row?.name === "list" && s5Row.via === "scored" && s5Row.hits.some((h) => h.signal === "name-match" && h.field === "component.name"),
+    `40.19: ir.children[0] (the Figma row) reads ${JSON.stringify(s5Row?.name)} via ${s5Row?.via} — the committed Figma verdict is list, SCORED, with its name-match read from component.name (the SET's name, F5)`);
+  for (const [path, name, via, what] of [
+    [[0, 0], null, "floor", "Avatar"], [[0, 1], "stack", "structural-fallback", "Text block"],
+    [[0, 1, 0], "text", "scored", "Text 1"], [[0, 2], "status-chip", "scored", "Status chip"], [[0, 3], "icon", "scored", "caret-right"],
+  ]) {
+    const n = fold(`walk the Figma verdict to ${path}`, () => at(fv1, path), null);
+    ok(n?.name === name && n?.via === via,
+      `40.19: ir.children[${path.join("].children[")}] ("${what}") reads ${JSON.stringify(n?.name)} via ${n?.via} — the committed Figma verdict is ${JSON.stringify(name)} via ${via}, as Brilliant's is for the same drawing`);
+  }
+  ok(fold("walk the Figma verdict to Text 1", () => at(fv1, [0, 1, 0]).hits.some((h) => h.signal === "prop-fit" && h.field.includes("role")), false),
+    "40.19: the Figma Text 1 resolves to text without a role hit — the label must resolve to text BY ROLE, through the bound font/size/md");
+
+  // --- 40.20 NOT A HOUSE-PLUGIN EXPORT IS REFUSED, NAMING WHY (#310 F1) --------------------------
+  // Positive control first: the committed export converts.
+  ok(fold("figma convert (positive control)", () => !!F1.convert(FIG), false), "40.20: the committed S5 export does not convert — every refusal below would be vacuous");
+  const figParsed = JSON.parse(FIG);
+  for (const [what, input, words] of [
+    ["the committed tooling/figma/fixtures/scales-dtcg.json", readFileSync(join(ROOT, "tooling/figma/fixtures/scales-dtcg.json"), "utf8"), ["token export"]],
+    ["the committed tooling/figma/fixtures/scales-tokens-studio.json", readFileSync(join(ROOT, "tooling/figma/fixtures/scales-tokens-studio.json"), "utf8"), ["token export"]],
+    ["the real import/fixtures/spike-c-instance.blueprint.txt", INSTANCE, ["not JSON"]],
+    ["SYNTHETIC: a Figma REST file read", JSON.stringify({ document: {}, name: "x" }), ["REST"]],
+    ["SYNTHETIC: a foreign format", JSON.stringify({ format: "x", version: 1, selection: [] }), ["format"]],
+    ["the S5 export at version 2 (in memory)", JSON.stringify({ ...figParsed, version: 2 }), ["version 2"]],
+    ["the S5 export with an empty selection (in memory)", JSON.stringify({ ...figParsed, selection: [] }), ["no selection"]],
+    ["a non-string input", 42, ["expected the file's text"]],
+    ["SYNTHETIC: an instance whose main component the plugin could not read (#461 F1)",
+      JSON.stringify({ format: F1.FORMAT, version: F1.VERSION, variables: {}, selection: [{ id: "u:1", name: "Row", type: "INSTANCE", main: { unreadable: "SYNTHETIC" } }] }),
+      ["selection[0].main", "unreadable"]],
+  ]) {
+    const m = names(() => F1.convert(input), ...words);
+    ok(m === null, `40.20: ${what} was not refused naming ${words.map((w) => JSON.stringify(w)).join(" + ")} — got: ${m}`);
+  }
+
+  // --- 40.21 THE PLUGIN AND THE CONVERTER AGREE ON THE FORMAT, AND THE EXPORT WRITES NOTHING -----
+  // tooling/figma/plugin/code.js run in node:vm against a SYNTHETIC fake `figma` (a plain script, no
+  // import — exactly what Figma loads). The fake has NO create*, setBoundVariable, setBoundVariableForPaint
+  // or combineAsVariants, so an export that reached one would throw here. The fake is only as current as
+  // the plugin API docs of 2026-09-24; whether the plugin runs in a NEWER Figma is the cannot-reach clause.
+  const PLUGIN_SRC = readFileSync(join(ROOT, "tooling/figma/plugin/code.js"), "utf8");
+  ok(fold("compile tooling/figma/plugin/code.js", () => !!new vm.Script(PLUGIN_SRC), false),
+    "40.21: tooling/figma/plugin/code.js does not compile as a script — drift-check syntax-checks .mjs only, so this is the plugin's one syntax gate");
+  const runPlugin = (command, variables = {}, getMainComponentAsync = async () => ({ name: "state=active", parent: { type: "COMPONENT_SET", name: "Spike List Row" } })) => new Promise((settle) => {
+    const timer = setTimeout(() => settle({ timeout: true }), 2000);
+    const done = (r) => { clearTimeout(timer); settle(r); };
+    const mixed = Symbol("mixed");
+    const label = { id: "s:2", name: "Label", type: "TEXT", visible: true, x: 0, y: 0, width: 80, height: 16, characters: "Amara Okafor", fontSize: mixed };
+    const inst = { id: "s:1", name: "Spike List Row", type: "INSTANCE", visible: true, x: 0, y: 0, width: 200, height: 40, children: [label], getMainComponentAsync };
+    const figma = {
+      command, mixed, root: { name: "SYNTHETIC" }, currentPage: { name: "Page 1", selection: [inst] },
+      variables: { getVariableByIdAsync: async () => null, getVariableCollectionByIdAsync: async () => null, ...variables },
+      showUI() {}, notify() {}, closePlugin: (message) => done({ closed: message ?? "" }), ui: { postMessage: (m) => done({ message: m }) },
+    };
+    try { vm.runInNewContext(PLUGIN_SRC, { figma, __html__: "" }); } catch (e) { done({ threw: e.message }); }
+  });
+  const exported = await runPlugin("export");
+  const json = exported.message?.json;
+  ok(typeof json === "string", `40.21: the plugin's export command posted no JSON string (got ${JSON.stringify(exported)}) — SYNTHETIC fake figma`);
+  if (typeof json === "string") {
+    const e = fold("parse the plugin's SYNTHETIC export", () => JSON.parse(json), {});
+    ok(e.format === F1.FORMAT, `40.21: the plugin writes format ${JSON.stringify(e.format)} and import/figma.mjs reads ${JSON.stringify(F1.FORMAT)} — the two halves of the file format disagree`);
+    const conv = fold("figma convert over the plugin's SYNTHETIC export", () => F1.convert(json), null);
+    ok(conv?.children?.[0]?.component?.name === "Spike List Row",
+      `40.21: the SYNTHETIC export's instance converted to component.name ${JSON.stringify(conv?.children?.[0]?.component?.name)} — the plugin must dump main.setName and the converter must read it (F5)`);
+    ok(e.selection?.[0]?.children?.[0]?.fontSize === "mixed",
+      `40.21: a SYNTHETIC fontSize of figma.mixed arrived as ${JSON.stringify(e.selection?.[0]?.children?.[0]?.fontSize)} — it must be the string "mixed"; JSON.stringify drops a symbol-valued key, which is a miss nobody recorded`);
+  }
+  // An unreachable main component marks the one field and the export still posts (#461 F1); the
+  // converter then refuses it by path (40.20), so the marker never reads as "no component name".
+  const noMain = await runPlugin("export", {}, async () => { throw new Error("SYNTHETIC: main component unreachable"); });
+  const noMainSel = fold("parse the plugin's SYNTHETIC unreadable-main export", () => JSON.parse(noMain.message?.json ?? "null")?.selection, null);
+  ok(noMainSel?.[0]?.main?.unreadable === "SYNTHETIC: main component unreachable",
+    `40.21: a SYNTHETIC getMainComponentAsync that throws gave ${JSON.stringify(noMain)} — the plugin must record main as {unreadable} and still post the export, not close with "Export failed"`);
+  // THE POSITIVE CONTROL for "writes nothing": the builder, run against the same fake, fails at the first
+  // WRITE — so the fake really lacks the write methods. getLocalVariableCollectionsAsync is supplied so the
+  // run gets past "refuse a second build" to the write itself.
+  const s5Built = await runPlugin("build-fixture", { getLocalVariableCollectionsAsync: async () => [] });
+  ok(typeof s5Built.closed === "string" && s5Built.closed.startsWith("Build failed at variables"),
+    `40.21: the builder against the SYNTHETIC fake closed with ${JSON.stringify(s5Built)} — it must fail at "variables" (createVariableCollection is absent), or the fake is not proving the export path writes nothing`);
+
+  // --- 40.22 THE SET'S NAME, NOT THE VARIANT'S (F5) ---------------------------------------------
+  const figExport = (selection, variables = {}) => JSON.stringify({ format: F1.FORMAT, version: F1.VERSION, source: { plugin: "SYNTHETIC" }, variables, selection });
+  const setIr = fold("figma convert over a SYNTHETIC variant instance", () => F1.convert(figExport([{
+    id: "v:1", name: "Row", type: "INSTANCE", main: { name: "state=active", setName: "Spike List Row" },
+    componentProperties: { state: { type: "VARIANT", value: "active" } },
+    children: [{ id: "v:2", name: "Label", type: "TEXT", characters: "Amara Okafor", fontSize: 16 }],
+  }])), null);
+  ok(setIr?.children?.[0]?.component?.name === "Spike List Row" && setIr.children[0].component.variant?.state === "active",
+    `40.22: SYNTHETIC: a variant instance converted to component ${JSON.stringify(setIr?.children?.[0]?.component)} — component.name must be the SET's ("Spike List Row"), the variant carried as {state: "active"}`);
+  const setV = fold("recognise the SYNTHETIC variant instance", () => R1.recognise(setIr, VOCAB), { children: [] });
+  ok(fold("walk the SYNTHETIC variant verdict", () => at(setV, [0]).hits.some((h) => h.signal === "name-match" && h.field === "component.name"), false),
+    "40.22: SYNTHETIC: the variant instance earned no name-match on component.name — reading main.name gives \"state=active\", the Frame 1 defect again");
+
+  // --- 40.23 FIGMA DEFAULTS ARE ABSENCE, BOTH WAYS (F3) -------------------------------------------
+  const frame = (over = {}, boundVariables = {}) => ({
+    id: "d:1", name: "Box", type: "FRAME", layoutMode: "HORIZONTAL", itemSpacing: 0,
+    paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0,
+    primaryAxisAlignItems: "MIN", counterAxisAlignItems: "CENTER", layoutSizingHorizontal: "HUG", layoutSizingVertical: "HUG",
+    boundVariables, ...over,
+  });
+  const s5One = (sel, variables) => fold("figma convert over a SYNTHETIC frame", () => F1.convert(figExport([sel], variables)).children[0], { layout: null, drops: [] });
+  const zero = s5One(frame());
+  ok(zero.layout?.pad === null && zero.layout?.gap === null && zero.drops.length === 0,
+    `40.23: SYNTHETIC: an unbound all-zero pad and gap read pad ${JSON.stringify(zero.layout?.pad)}, gap ${JSON.stringify(zero.layout?.gap)} with ${zero.drops.length} drop(s) — a Figma default nobody set is ABSENT, not a read`);
+  const sided = s5One(frame({ paddingRight: 8, paddingLeft: 8 }));
+  ok(deep(sided.layout?.pad) === deep([IR.tok(0, null), IR.tok(8, null), IR.tok(0, null), IR.tok(8, null)]),
+    `40.23: SYNTHETIC: pad [0,8,0,8] unbound read ${JSON.stringify(sided.layout?.pad)} — one non-zero side keeps all four sides, each unbound for the snap step`);
+  const NONE_VAR = { "V:none": { name: "spacing/none", collection: "SYNTHETIC", resolvedType: "FLOAT" } };
+  const alias = { type: "VARIABLE_ALIAS", id: "V:none" };
+  const boundZero = s5One(frame({}, { paddingTop: alias, paddingRight: alias, paddingBottom: alias, paddingLeft: alias }), NONE_VAR);
+  ok(boundZero.drops.some((d) => d.kind === "no-token" && d.ref === "$spacing.none"),
+    `40.23: SYNTHETIC: a pad BOUND to spacing/none filed ${JSON.stringify(boundZero.drops.map((d) => d.kind))} — a bound zero is a read and takes the no-token path, as Brilliant's pad(0:$spacing.none)`);
+  for (const [main, want, drops] of [["MIN", null, 0], ["CENTER", "center", 0], ["SPACE_BETWEEN", null, 1]]) {
+    const n = s5One(frame({ primaryAxisAlignItems: main }));
+    const got = n.drops.filter((d) => d.kind === "prop-shape" && d.slot === "layout.align.main").length;
+    ok(n.layout?.align?.main === want && got === drops,
+      `40.23: SYNTHETIC: primaryAxisAlignItems ${main} read align.main ${JSON.stringify(n.layout?.align?.main)} with ${got} prop-shape row(s) — expected ${JSON.stringify(want)} and ${drops}`);
+  }
+
+  // --- 40.24 O4 LAYOUT INFERENCE ------------------------------------------------------------------
+  const rect = (id, x, y) => ({ id, name: `r${id}`, type: "RECTANGLE", x, y, width: 20, height: 20 });
+  const loose = (children, over = {}) => ({ id: "o:1", name: "Group 7", type: "FRAME", layoutMode: "NONE", x: 0, y: 0, width: 200, height: 200, children, ...over });
+  const inferred = (kids, over) => s5One(loose(kids, over)).layout;
+  const s5InfRow = inferred([rect("1", 0, 0), rect("2", 30, 3), rect("3", 60, 1)]);
+  ok(s5InfRow?.dir === "row" && s5InfRow.inferred === true && deep(s5InfRow.gap) === deep(IR.tok(10, null)),
+    `40.24: SYNTHETIC: three children on one row (y within 3px) inferred ${JSON.stringify(s5InfRow)} — expected row, inferred, gap tok(10, null)`);
+  const s5InfCol = inferred([rect("1", 0, 0), rect("2", 2, 30), rect("3", 1, 60)]);
+  ok(s5InfCol?.dir === "column" && s5InfCol.inferred === true, `40.24: SYNTHETIC: three children in one column inferred ${JSON.stringify(s5InfCol)} — expected column`);
+  ok(inferred([rect("1", 0, 0), rect("2", 50, 40), rect("3", 10, 90)]) === null, "40.24: SYNTHETIC: a scatter was given a layout — a free drawing has none to record");
+  ok(inferred([rect("1", 0, 0)]) === null, "40.24: SYNTHETIC: a single child was given a layout — inference needs two");
+  const s5Declared = inferred([rect("1", 0, 0), rect("2", 50, 40)], { layoutMode: "HORIZONTAL", itemSpacing: 8 });
+  ok(s5Declared?.dir === "row" && !Object.hasOwn(s5Declared, "inferred"),
+    `40.24: SYNTHETIC: a HORIZONTAL frame with scattered children read ${JSON.stringify(s5Declared)} — a declared layout is kept, never re-inferred`);
+  const s5RowV = fold("recognise the SYNTHETIC inferred row", () => R1.recognise(F1.convert(figExport([loose([rect("1", 0, 0), rect("2", 30, 3), rect("3", 60, 1)])])), VOCAB), { children: [] });
+  const rowNode = fold("walk the SYNTHETIC inferred-row verdict", () => at(s5RowV, [0]), null);
+  ok(rowNode?.name === "stack" && rowNode?.via === "structural-fallback",
+    `40.24: SYNTHETIC: the inferred row reads ${JSON.stringify(rowNode?.name)} via ${rowNode?.via} — an inferred layout reaches the stack fallback (the owner's O4 intent)`);
+
+  // --- 40.25 FIXTURES ARE DATA (#457 F4) -----------------------------------------------------------
+  // CLAUDE.md's "Design-import core" bullet says fixtures are committed data, never .mjs, and until #310
+  // nothing asserted it. The walk is the git INDEX (as 40.8 and 40.26 read it), so a subdirectory is
+  // reached without a recursive readdir that would also return directories and a local .DS_Store.
+  const FIXTURE_TYPES = [".txt", ".json", ".png", ".md", ".css"];
+  const fixtureFiles = execFileSync("git", ["ls-files", "import/fixtures"], { cwd: ROOT, encoding: "utf8" }).split("\n").filter(Boolean);
+  // Positive control first: files two levels down are in the list, so the walk is not top-level only.
+  ok(fixtureFiles.includes("import/fixtures/s3/ref.png") && fixtureFiles.includes("import/fixtures/figma/spike-list-row.export.json")
+    && fixtureFiles.some((f) => f.startsWith("import/fixtures/records/")),
+    `40.25: the fixture walk did not reach import/fixtures/s3/ref.png, import/fixtures/figma/spike-list-row.export.json and import/fixtures/records/ (saw ${fixtureFiles.length} files) — the check would pass on subdirectories it never read`);
+  for (const f of fixtureFiles) {
+    const ext = (f.match(/\.[^./]+$/) ?? ["(none)"])[0];
+    ok(FIXTURE_TYPES.includes(ext),
+      `40.25: ${f} is not a data fixture (${ext}) — fixtures are ${FIXTURE_TYPES.join("/")}, never code, so a fixture cannot run when a check reads it (CLAUDE.md "Design-import core", #457 F4)`);
+  }
+
+  // --- 40.26 THE NEW PATHS MATCH NO loc-summary GROUP (#310, AC #3) -------------------------------
+  // 40.8 proves the committed summary did not drift; this names the GROUP a path would fall into, per
+  // path, over import/ and the house plugin (tooling/figma/plugin/ — plain .js, the one extension the
+  // runtime group's regex shares with a shipped module). It reads the git INDEX, as 40.8 does.
+  const locGroupOf = (p) => LOC_GROUPS.filter((g) => g.test(p)).map((g) => g.id);
+  ok(deep(locGroupOf("system/site.js")) === deep(["runtime"]),
+    `40.26: the positive control system/site.js matched ${JSON.stringify(locGroupOf("system/site.js"))}, not ["runtime"] — GROUPS no longer reads the way this case assumes, so its "no group" answers mean nothing`);
+  const factoryPaths = execFileSync("git", ["ls-files", "import", "tooling/figma/plugin"], { cwd: ROOT, encoding: "utf8" }).split("\n").filter(Boolean);
+  ok(factoryPaths.includes("tooling/figma/plugin/code.js"),
+    `40.26: tooling/figma/plugin/code.js is not in the index (saw ${factoryPaths.length} paths) — an empty or partial list passes vacuously; git add the plugin before trusting this case`);
+  for (const p of factoryPaths) {
+    const hit = locGroupOf(p);
+    ok(hit.length === 0,
+      `40.26: ${p} matches the loc-summary group(s) ${hit.join(", ")} — import/ and the house plugin are factory tooling, not the shipped surface approach.html counts (agent-layer/gen-loc-summary.mjs GROUPS)`);
+  }
+
+  group("import-chain", `the design-import core (#304): a Brilliant blueprint read → import/ir.mjs → import/recognise.mjs, with no portal, no agent, no network and no design tool in the loop · DETERMINISM as the anchor — convert+recognise run TWICE from two independently cache-busted module instances over the committed read and compared against import/fixtures/spike-c-instance.expected.json, with the three answers the ticket names asserted BY PATH: the person row → list-row scored, the container → stack via the STRUCTURAL FALLBACK (D2's rule, not a won contest), the label → text BY ROLE — and the person row's name-match hit pinned to the FIELD it read (component.name), because S2's end-anchored nodeName() returns "Frame 1" for that line and node.name alone makes the ticket's first answer unreachable · THE LIFT proven faithful against a FROZEN copy of #299's parked layout branch (import/fixtures/s2-layout-branch.baseline.txt, so a prune under .claude/plans/ cannot red CI), both toStacks driven over all 8 al() lines of both fixtures and compared on the \`layout\` object — scoped there because the lift re-points every drop row through ir.drop(), which adds a class field S2's rows cannot carry, so whole-return equality is impossible by construction · THE FLOOR held apart from the fallback by \`via\`, the two being one \`if\` apart: the avatar disc — a shape named "Avatar" with no layout, name-match alone — reads NOT COVERED with a real top candidate below ${R1.THRESHOLD} and a no-vocabulary-slot row beside it, while the Chevron, the floor's subject until #456, reads \`icon\` SCORED: R4 reads the glyph NAME out of \`icon.name\` (#449) and the glyph BOX from the measured long axis as the smallest md|lg|xl step that contains it (8.73 × 16 → md, #456), so kind-fit plus prop-fit on both required props covers it with no weight moved · THE SIZE-AXIS REFUSAL, S2's consumer contract: fixture 2's "Frame 1" carries the literal 360 THROUGH the converter and build() refuses it with a row naming size.w, with every built composition in both fixtures swept for a numeric size · ALL THREE E1 CLASSES present in the fixture-2 run and DROP_CLASS_OF iterated against them, so a converter kind with no class fails BY NAME and drop() refuses an unclassified one · THE BUILT COMPOSITIONS validated through the real validateComposition — and SCOPED, because only \`stack\`, \`text\` and \`icon\` survive build() on these two reads: list-row.value is a computed figure nobody drew and status-chip.value's enum is ok|due|overdue while the reads say "On call", so the emitted set and the recognised-but-refused set are each asserted BY NAME rather than left to be over-read off a green sweep · D5's absorption rule asserted PER TEXT and in all three halves — the person row's label, meta, status and value against the fixture's OWN WORDS (on the committed read plus the one line that makes the row emittable, since neither committed row survives build(); moving PROP_SOURCES.meta to "chip-text" makes the secondary line read the chip's words and passed all 40 groups before this), its avatar disc and chevron RECORDED as read-but-never-emitted rather than discarded, and a SURPLUS text under an otherwise-absorbed child dropped ON ITS OWN, because a per-child skip carried a row's footnote away in silence · THE IMPORT GRAPH read out of the three sources and required to be node built-ins plus ./-relative paths inside import/ · AC #3 proven by CALLING genLocSummary({check:true}) rather than by re-stating its regexes · The Figma chain (#310): the house plugin's export (\`tooling/figma/plugin/\`) → \`import/figma.mjs\` → the same IR and matcher. 40.19 runs S5's verbatim export (\`import/fixtures/figma/\`) twice from busted instances against its committed verdict, pins provenance to branch 1 (0 unresolved aliases, \`bound\` false for Text 2's unbound line height), and asserts the answers by path — the root reads \`list\` where Brilliant's reads \`list-row\`, because the Figma root carries auto-layout and earns \`kind-fit\` on it; that difference is recorded in S5's README, not tuned; 40.20 refuses nine non-exports by name (both committed token files as \`token export\`, the Brilliant blueprint as \`not JSON\`, a REST read, a foreign format, version 2, an empty selection, a non-string, and an instance whose \`main\` the plugin marked \`unreadable\`, refused by path); 40.21 runs \`code.js\` in \`node:vm\` against a fake \`figma\` with no write methods, ties the plugin's \`FORMAT\` to the converter's, proves \`figma.mixed\` arrives as \`"mixed"\`, proves a throwing \`getMainComponentAsync\` marks \`main\` \`{unreadable}\` and still posts the export (#461 F1), and uses the builder's \`Build failed at variables\` as the positive control that the fake really cannot write; 40.22 pins the component name to the SET's, not the variant's; 40.23 drives F3 both ways (an unbound zero is absent, a bound \`spacing/none\` is a \`no-token\` read, \`MIN\`/\`CENTER\`/\`SPACE_BETWEEN\` on the main axis); 40.24 drives O4 layout inference (row, column, scatter, single child, a declared layout kept, and the inferred row reaching the \`stack\` fallback). · THE REPOSITORY'S SHAPE (#310): 40.25 walks git ls-files import/fixtures and refuses any fixture that is not .txt/.json/.png/.md/.css (the CLAUDE.md fixture rule, ungated until #457 F4) behind a two-levels-down positive control, and 40.26 reads the exported GROUPS and asserts no tracked path under import/ or tooling/figma/plugin/ falls in a loc-summary group, with system/site.js → runtime as the positive control and the plugin's code.js required in the list so an empty index cannot pass · ten tables frozen BY MUTATION at both levels, GLYPH_BOX_PX pinned to the contract's --spacing-md/lg/xl · mode and grain refused by name on a third value, with the screen grain and mode 2 asserted SYNTHETICALLY and labelled so, because neither committed read is a screen · and SEVEN MORE SYNTHETIC cases — EIGHT in all, each saying so in its own failure messages: args()' boundary test on a line carrying both svg( and al( (no committed line reaches it — one svg( per fixture and it carries no al(), the list builder on a hand-built IR (neither fixture contains a list) emitting ONE list around three list-rows, then REFUSED by name on \`empty\`, the copy for a state nobody drew — and refused AGAIN through build(), the only entry point a source has, which discards the container and its rows TOGETHER (calling BUILDERS.list directly cannot see that, and a build() broken on every list verdict left every other group passing), THE TIE-BREAK's three rungs on the two ties a real source produces — a row named "List row" tying \`list\` and \`list-row\` on word containment, where the MORE SPECIFIC slug must win, and an unnamed text tying \`text\` and \`demo-notice\`, where an importer reading a stranger's drawing must reach for the PRIMITIVE rather than for one fictional demo's honesty chrome, THE ATOM ORDER, where a size lands by whether the line HAS an al() and not by which atom came first, so one source atom is one drop row in either order (latent on both fixtures, live at #310), THE PARSE BOUNDARY, where the provenance header is skipped by being first CONTENT rather than by split index — a leading blank line put the literal "lookup" into source.ids, the field the honesty contract turns on — and an indented first line is refused naming depth 0 rather than depth -1, THE GLYPH SLOT AND BOX, where a hand-built icon node earns kind-fit from EXACTLY ONE entry — the one DECLARING A GLYPH BOX, never the one spelled "icon" — fills \`name\` from \`icon.name\` and loses only that fill when the glyph slot is removed, reads the box at ten boundaries (the long axis in either orientation, 16.01 → lg with no tolerance, 19 → lg as the smallest CONTAINING step, 32 → xl, and over xl, one unmeasured axis, a zero or negative axis, or no size at all → not covered), and builds to {name, size} through BUILDERS.icon with no second literal-size pair, with \`avatar.name\` proven still first-text beside it (both committed reads draw the same one chevron, so one answer would prove it for one drawing), and R3 over EVERY vocabulary entry read at run time — a node named exactly after a slug and carrying nothing else scores below ${R1.THRESHOLD}, which is what lets the weights move without re-arguing "Text block" · with R2 beside it: ${R1.STRUCTURAL_FALLBACK} appears in NO candidates list anywhere, and the floor and the fallback are each exercised so neither is prose. What it cannot reach: whether the house plugin runs in a Figma newer than S5's (126.9.10) — 40.21 drives code.js against a fake figma only as current as the plugin API docs of 2026-09-24; whether a designer's real file binds like S5's recipe — the fixture was built for the test (#316's real run); whether a recognised name is the RIGHT name for a human — that is #311's side-by-side view and #316's real run; whether an UNBOUND source snaps correctly — group 42, every layout slot all three fixtures carry being bound (the Figma export's one unbound value is Text 2's line height) — whether a MEASURED glyph box is the box the designer meant — R4 reads the drawing's bounds, so a small glyph drawn in a larger box reads the smaller one (#311's mapping editor, #456); and whether a built composition RENDERS — group 3 owns renderComposition`);
 }
 
 // --- 41 · the committed icon subset (#305) ---------------------------------------------------------
