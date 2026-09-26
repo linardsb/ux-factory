@@ -6,8 +6,9 @@ epic [#295](https://github.com/linardsb/ux-factory/issues/295) · `docs/epics/ca
 
 The fixture was **built for the test**, not drawn by a designer. The plugin's **Build S5 fixture** command
 created the variables, the component set and every binding from the plan's Task A5 recipe, and the owner then ran
-**Export selection**. *Derived, not reported:* the owner did not name the path. The file-list screenshot is
-11:17 and the export 11:27; ten minutes fits Build (about 5) and not the hand recipe (30–45). The census shows the
+**Export selection**. *Owner-confirmed (2026-09-26, PR #461):* first derived from the timing (the file-list
+screenshot is 11:17 and the export 11:27; ten minutes fits Build, about 5, and not the hand recipe, 30–45), then
+confirmed by the owner when asked. Build's closing message was still not reported. The census shows the
 recipe's exact names and values either way. So this run answers whether a plugin can **read**
 auto-layout and variable names. It does not show how a real designer binds (PRD § Assumptions; #316's real run).
 The export is committed verbatim: `cmp` against the owner's download reported no difference. `census.txt` is the
@@ -65,7 +66,7 @@ The committed verdicts `import/fixtures/spike-c-instance.expected.json` (Brillia
 | Figma file / page | `ux-factory S5 spike` / `Page 1` (`.source` in the export) |
 | Plugin | `tooling/figma/plugin/` at commit `0307940`: `code.js` sha256 `ea8dad707cb1…`, `manifest.json` `8f25ec402f77…`, `ui.html` `207a8216fb4d…` |
 | Manifest id | `ux-factory-house-export`, as committed |
-| Fixture built by | the **Build S5 fixture** command — *derived* from the 10-minute window (screenshot 11:17, export 11:27), not reported by the owner |
+| Fixture built by | the **Build S5 fixture** command — derived from the 10-minute window (screenshot 11:17, export 11:27), then **confirmed by the owner** (2026-09-26, PR #461) |
 | Export | `raw/spike-list-row.export.json`, 15 417 bytes, sha256 `b61fa79d4c0c6dcf…` |
 | Fixture copy | `import/fixtures/figma/spike-list-row.export.json`, byte-identical (`cmp`), sha256 `b61fa79d4c0c6dcf…` |
 | Variables | 13 in the export, all in the collection `ux-factory`: the recipe's 7 FLOAT + 6 COLOR |
