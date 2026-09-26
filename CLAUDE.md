@@ -148,6 +148,7 @@ tooling/
   figma/figma-read.mjs        the shared read — auth, the Enterprise gate, the cache, --from
   figma/figma-parity.mjs      READ-BACK: a Figma file diffed against the token contract
   figma/figma-pull.mjs        IMPORT: a Figma file's ramps → system/tokens.<slug>.css, mapped by ROLE
+  figma/plugin/               the HOUSE PLUGIN — plain JS + manifest, loaded from disk in Figma desktop; reads, never maps
   mcp/                        local MCP helper scripts
   icons/                      the Phosphor package — a dependency-carrying tool dir, never loaded by a page
   style-dictionary/           a dependency-carrying tool; emits css/ios/android token targets
@@ -177,7 +178,7 @@ The kb (`_factory/kb/` in the jobs folder) is the database — record shapes + p
 - **New composition proposal** → a REAL run. **UI-first path (preferred):** the portal's "Compose a view" drawer — answer /build's ten method questions, and `portal/lib/builder.mjs`'s three committed rules draft the question from two of them; the drafted question is EDITABLE before the run, and the PIV phases stream live. Leave the `--dry` box checked for the first run: a dry run is a full agent run over the real fixtures that writes nothing, so `in-process validateComposition ✓` is what proves the question is answerable before a real one is spent. **The equivalent CLI:** `node portal/record-composition.mjs <scenario> "<question>" <slot> [--slug <slug>]`. The scenario must carry a `scenarios/<scenario>/compose.json`. Verify the numbers against the fixture (Fieldwork has `node tooling/fieldwork-kpis.mjs`). Same honesty rule as traces — never hand-write a composition or hand-feed an example; the `compose.json` computeRules carries DEFINITIONS ONLY.
 - **Design-import core** → a module under `import/` (Node-only; node built-ins + `import/` only in its import
   graph, and it matches no `loc-summary` group — both asserted by build-checks group 40, not assumed). Fixtures are
-  committed `.txt`/`.json` — or `.png` (frozen renders) and `.md` (generated projections) — never `.mjs`. A recognition weight is a rule with a reason in the module header, never a
+  committed `.txt`/`.json` — or `.png` (frozen renders), `.md` (generated projections) and `.css` (a spike's pack) — never `.mjs`, asserted by build-checks group 40 (40.25). A recognition weight is a rule with a reason in the module header, never a
   number tuned until a ticket-named answer comes out.
 - **Platform capability (epic work)** → check `docs/epics/ai-first-ux-factory.architecture.md` first — most "new" pieces are already-decided Missing pieces with format and placement pinned.
 

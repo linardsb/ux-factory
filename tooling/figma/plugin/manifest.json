@@ -1,0 +1,14 @@
+{
+  "name": "ux-factory export",
+  "id": "ux-factory-house-export",
+  "api": "1.0.0",
+  "main": "code.js",
+  "ui": "ui.html",
+  "editorType": ["figma"],
+  "documentAccess": "dynamic-page",
+  "networkAccess": { "allowedDomains": ["none"] },
+  "menu": [
+    { "name": "Export selection", "command": "export" },
+    { "name": "Build S5 fixture", "command": "build-fixture" }
+  ]
+}

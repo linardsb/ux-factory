@@ -19,7 +19,7 @@ const DEST = "system/loc-summary.json";
 
 // Group membership is explicit regex, not pathspec glob (git's `*` crosses slashes — too easy
 // to over-match). Order here is the emitted order.
-const GROUPS = [
+export const GROUPS = [
   { id: "runtime",    label: "design system (system/ — tokens, components, view-time modules)", test: (p) => /^system\/(wc\/)?[^/]+\.(css|mjs|js)$/.test(p) },
   { id: "pages",      label: "shipped pages (root + proto/)",                                   test: (p) => /^(?:[^/]+|proto\/[^/]+)\.html$/.test(p) },
   { id: "generators", label: "build-time generators (agent-layer/)",                            test: (p) => /^agent-layer\/[^/]+\.mjs$/.test(p) },
