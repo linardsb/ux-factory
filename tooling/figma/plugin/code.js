@@ -17,7 +17,7 @@
 // 3. figma.mixed IS WRITTEN "mixed", at the top level of a prop. JSON.stringify silently OMITS a
 //    symbol-valued key, so without plain() a mixed fontSize would vanish from the file, which is a miss
 //    nobody recorded (import/ir.mjs, "A MISS IS RECORDED"). A getter that throws is recorded as
-//    {unreadable: <message>} for the same reason, never skipped.
+//    {unreadable: <message>} for the same reason, never skipped — getMainComponentAsync() included.
 // 4. NO CLOCK. The export carries no timestamp, so two honest runs over the same file are byte-identical.
 // 5. THE BUILDER WRITES; THE EXPORT NEVER DOES. "Build S5 fixture" is test scaffolding: it creates the
 //    variables, the component set and the bindings of the plan's Task A5 recipe in the open file. The
@@ -55,10 +55,13 @@ async function dump(node, aliases) {
   var paints = [].concat(Array.isArray(out.fills) ? out.fills : [], Array.isArray(out.strokes) ? out.strokes : []);
   for (var j = 0; j < paints.length; j++) collect(paints[j].boundVariables, aliases);
   if (node.type === "INSTANCE") {
-    var main = await node.getMainComponentAsync();
-    out.main = main
-      ? { name: main.name, setName: main.parent && main.parent.type === "COMPONENT_SET" ? main.parent.name : null }
-      : null;
+    // Caught like a PROPS read: a deleted or unlinked main component marks this field, not the whole export.
+    try {
+      var main = await node.getMainComponentAsync();
+      out.main = main
+        ? { name: main.name, setName: main.parent && main.parent.type === "COMPONENT_SET" ? main.parent.name : null }
+        : null;
+    } catch (e) { out.main = { unreadable: String(e && e.message) }; }
   }
   if ("children" in node) {
     out.children = [];

@@ -25,7 +25,9 @@
 //      not a string, not JSON, a Figma REST file read (a top-level `document`), a token export (no
 //      `format`, and anywhere in the file a `$value` key — DTCG — or a `value` key beside a `type` key —
 //      Tokens Studio; measured on tooling/figma/fixtures/scales-*.json), a wrong `format`, a version
-//      other than 1, an empty selection, and a node without `id` or `type`. A token export is a PACK
+//      other than 1, an empty selection, a node without `id` or `type`, and an instance whose `main` the
+//      plugin marked `{unreadable}` (named by path, so the marker never reads as "no component name",
+//      #461 F1). A token export is a PACK
 //      input (runbook § A), and the refusal says so rather than "bad format".
 //
 // F2 · REFS. {type:"VARIABLE_ALIAS", id} → "$" + the variable's name with "/" read as ".", so
@@ -136,6 +138,9 @@ const checkNodes = (nodes, at) => nodes.forEach((n, i) => {
   if (!n || typeof n !== "object" || Array.isArray(n)) throw new Error(`figma export: ${path} is not a node object`);
   for (const key of ["id", "type"]) {
     if (typeof n[key] !== "string" || !n[key]) throw new Error(`figma export: ${path} has no ${key}`);
+  }
+  if (n.main && Object.hasOwn(n.main, "unreadable")) {
+    throw new Error(`figma export: ${path}.main is unreadable (${n.main.unreadable}) — the instance's main component could not be reached (deleted, or a broken library link); relink it in Figma and export again`);
   }
   if (n.children !== undefined) {
     if (!Array.isArray(n.children)) throw new Error(`figma export: ${path}.children is not an array`);
