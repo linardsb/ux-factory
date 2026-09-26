@@ -578,6 +578,9 @@ export function build(node, verdict, vocab, drops = []) {
   };
 
   const out = builder(node, verdict, entry, ctx, drops);
+  // The owner's part name from #311's mapping editor (portal/lib/import-run.mjs applyMapping writes
+  // verdict.partId). It becomes the node's id, which the renderer emits as data-part.
+  if (typeof verdict.partId === "string") out.id = verdict.partId;
 
   if (verdict.name !== "list") {
     // Everything below a leaf entry is absorbed into a prop or dropped — never emitted as a child.
