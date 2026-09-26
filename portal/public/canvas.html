@@ -30,11 +30,14 @@
         <p class="cv-where" data-canvas-where></p>
       </div>
       <button class="btn btn-secondary cv-btn" type="button" data-canvas-verb="annotate">Add note</button>
+      <button class="btn btn-secondary cv-btn" type="button" data-canvas-verb="import" aria-controls="cv-import-panel">Import</button>
       <p class="cv-save" role="status" data-canvas-save></p>
     </div>
+    <section class="cv-import-view" data-import-view hidden></section>
     <div class="cv-layout">
       <div class="cv-stage" data-studio-canvas></div>
       <aside class="cv-rail">
+        <div class="cv-import" id="cv-import-panel" data-import-panel hidden></div>
         <div data-studio-minimap></div>
         <div data-studio-layers></div>
       </aside>
@@ -44,5 +47,6 @@
   <div popover="auto" class="cv-inspector" id="cv-inspector"></div>
 
   <script type="module" src="/canvas.mjs"></script>
+  <script type="module" src="/canvas-import.mjs"></script>
 </body>
 </html>

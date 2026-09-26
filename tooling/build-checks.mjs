@@ -11213,10 +11213,10 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const names = (fn, ...must) => { const m = threw(fn); return m && must.every((w) => m.includes(w)) ? null : `${m ?? "NO THROW"}`; };
 
   // --- 35.1 the roster, BOTH directions, frozen BY MUTATION -------------------------------------
-  ok(COPS.length === 10 && Object.keys(CPARAMS).length === COPS.length
+  ok(COPS.length === 11 && Object.keys(CPARAMS).length === COPS.length
     && COPS.every((v) => Array.isArray(CPARAMS[v]))
     && Object.keys(CPARAMS).every((v) => COPS.includes(v)),
-    `OPS (${COPS.join(", ")}) and PARAMS (${Object.keys(CPARAMS).join(", ")}) are not the same ten verbs — #302's six and #306's four`);
+    `OPS (${COPS.join(", ")}) and PARAMS (${Object.keys(CPARAMS).join(", ")}) are not the same eleven verbs — #302's six, #306's four and #311's one`);
   for (const [label, arr] of [["OPS", COPS], ...COPS.map((v) => [`PARAMS.${v}`, CPARAMS[v]])]) {
     const n = arr.length;
     ok(Object.isFrozen(arr) && threw(() => arr.push("smuggled")) !== null && arr.length === n,
@@ -11242,6 +11242,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     "frame.link": { frameId: "f1", decisionRefs: ["7"] },
     annotate: { text: "check the copy with legal" },
     "variant.add": { key: "b", overrides: { f1: { set: {} } } },
+    "component.propose": { name: "spike-list-row", recordId: "i1", mode: 1 },
   };
   for (const verb of COPS) {
     ok(VALID_FOR[verb], `no VALID_FOR fixture for "${verb}" — every verb needs one minimal valid op here, or this group iterates OPS in name only`);
@@ -11587,7 +11588,43 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     ok(deep(placeDecision(null, [])) === deep({ x: 0, y: 0 }), "a junk anchor must answer the origin, never throw");
   }
 
-  group("canvas ops", `#306's four verbs and frame.size's free width: annotate minting n1 and EDITING in place (a noteId that does not resolve is refused, or it is the smuggling slot), frame.link REPLACING the list, frame.size {width} recording preset null, variant.add one lane, frame.remove taking its arrows with it — and 19 refusals naming the blocker (a state or a variant lane overriding the frame), each rule on decisionRefs, blank text, the lane key, the override map, and exactly-one-of preset/width with the 320–2560 bounds · frameTree resolving base sets, then the state\'s override, then its own sets, DROPPING a hidden node rather than writing `+"`"+`hidden`+"`"+` (the real validateComposition refuses that prop, and the returned trees pass it), flagging a dangling set and a hidden root, total over junk · placeDecision right of the anchor\'s whole ROW (894 then 1206 on the spine, where right-of-the-anchor is 422, on top of f2), a lower row ignored, total over junk · non-data inside params (a function, a symbol, nested) refused BY PATH before structuredClone's unnamed DataCloneError can speak (#437) · OPS ↔ PARAMS the same ${COPS.length} verbs in BOTH directions, every list frozen BY MUTATION at both levels (Object.freeze is shallow, and a pushable PARAMS entry lets the frozen case pass for the wrong reason), STATE_KEYS pinned as the five-state floor with "ideal" leading it, and NO PARAMS entry offering an id slot for the thing its op creates — the only way to enforce board-ops' mint-from-the-document rule is on the key set · a VALID_FOR fixture per verb so an ELEVENTH verb with no fixture fails BY NAME, each fixture's keys asserted to be in its own PARAMS entry · EVERY constructive call routed through one fold() that turns a throw into a NAMED failure rather than an uncaught one: ok() only accumulates and group() prints at the end, so an unguarded throw here kills the process before a single named failure speaks — found by mutation (widening a PARAMS entry with an id slot makes 35.1's own assertion false AND makes the fold throw, and unguarded the throw won) · the happy six-op fold: ids minted f1/f2 and a1 with no op carrying one, a state proven to be a SIBLING carrying an override rather than a copy of its base, frame.size recording BOTH the preset name and the width so a later table edit moves new frames and leaves committed ones, and PURITY proven by mutating the input and by mutating the return · 19 refusals each DRIVEN by a broken op and matched on the words it must NAME — including D4's `+"`"+`why`+"`"+` three ways (absent, EMPTY, non-string), a state outside the minimum, a dangling frameId in each of four positions, an unknown verb, an unknown param, an unknown ENVELOPE key, a document that is not one, and PR #432's three open questions as the owner closed them on 2026-09-21: a state OF a state (which missingStates walks base frames only and could never have reported), a DUPLICATE (baseId, stateKey) (which its Set absorbed silently), and an unknown key INSIDE connect's from or to — with ENDPOINT_KEYS frozen at both levels beside PARAMS and `+"`"+`partId`+"`"+` proven to be `+"`"+`from`+"`"+`'s alone — behind the positive control that EVERY verb's minimal valid op is ACCEPTED, without which the battery would pass on an applier that refuses everything, plus applyOps naming the failing INDEX and verb · the TWO-LAYER rule gated: frame.sets (screen.set's) and frame.overrides.set (state.add's) proven to be the SAME SHAPE so ONE resolve applies both, with the state's layer proven to win over the base's — measured rather than assumed, because the spine's first render dropped its screen.set entirely and nothing said who joined the composition to the sets · resolve() proven to FLAG a dangling override and to keep it OUT of the resolved parts (never dropped, because it is a real thing someone wrote) with landing set and hide both applied, total over 6 junk shapes · missingStates as a LIST rather than a count, only BASE frames considered, a base with the floor met OMITTED so an empty answer means met rather than unchecked, total over 6 · canDeleteBasePart refusing by naming the state, its frame and what to do instead, with the part NOTHING overrides proven to pass so the refusal does not fire on everything · the preset table frozen with presetWidth answering NULL rather than a default · and the import graph pinned to device-presets.mjs alone. What it cannot reach: whether a composition RENDERS (group 3's), whether a frame ever reaches the canvas or the page renders frameTree's output (studio-journey's and canvas-journey's), and whether a `+"`"+`why`+"`"+` is any GOOD — a sentence that says nothing while passing .trim() is a human read`);
+  // --- 35.12 component.propose (#311): determinism, the refusals, and no road to the vocabulary ---
+  {
+    const propose = { op: "component.propose", params: VALID_FOR["component.propose"] };
+    const base = fold([{ op: "screen.compose", params: VALID_FOR["screen.compose"] }]) ?? emptyDoc();
+    const a = fold([propose], base) ?? emptyDoc();
+    const b = fold([propose], base) ?? emptyDoc();
+    ok(deep(a) === deep(b) && a.proposals?.[0]?.id === "pr1",
+      `component.propose is not deterministic, or did not mint pr1: ${deep(a.proposals)} vs ${deep(b.proposals)}`);
+    const two = fold([{ op: "component.propose", params: { name: "other-row", recordId: "i2", mode: 2 } }], a) ?? emptyDoc();
+    ok(two.proposals?.[1]?.id === "pr2" && two.proposals[1].mode === 2, `a second proposal did not mint pr2: ${deep(two.proposals)}`);
+    const pbroke = (patch) => () => applyOp(a, { op: "component.propose", params: { ...VALID_FOR["component.propose"], name: "fresh-row", recordId: "i9", ...patch } });
+    for (const [label, fn, ...must] of [
+      ["a name with spaces and capitals", pbroke({ name: "Spike Row" }), "component.propose", "Spike Row", "not a component name"],
+      ["a one-letter name", pbroke({ name: "x" }), "component.propose", "\"x\"", "not a component name"],
+      ["a duplicate name", pbroke({ name: "spike-list-row" }), "component.propose", "duplicate name", "spike-list-row"],
+      ["a duplicate recordId", pbroke({ recordId: "i1" }), "component.propose", "i1", "one proposal per import record"],
+      ["a recordId that is not an import id", pbroke({ recordId: "1" }), "component.propose", "\"1\"", "import record id"],
+      ["mode 3", pbroke({ mode: 3 }), "component.propose", "mode 3", "1 or 2"],
+      ["mode as a string", pbroke({ mode: "1" }), "component.propose", "mode \"1\"", "1 or 2"],
+      ["an id slot (PARAMS exactness)", pbroke({ id: "pr7" }), "component.propose", "id"],
+    ]) {
+      ok(names(fn, ...must) === null, `35.12 ${label}: the refusal must name ${must.map((w) => JSON.stringify(w)).join(" and ")} — got ${threw(fn) ?? "NO THROW"}`);
+    }
+    // A PROPOSAL NEVER REACHES THE VOCABULARY WITHOUT #313: every other key of the document is
+    // untouched, the ref stays "proposed", and there is no verb that could move it.
+    const { proposals: _pa, ...restA } = a;
+    const { proposals: _pb, ...restBase } = base;
+    ok(deep(restA) === deep(restBase), `component.propose touched more than proposals: ${deep(restA)} vs ${deep(restBase)}`);
+    ok(a.proposals?.[0]?.status === "proposed", `a new proposal's status is ${deep(a.proposals?.[0]?.status)} — only proposal.ratify (#313) moves it`);
+    ok(!COPS.includes("proposal.ratify"), "OPS includes proposal.ratify — #313 adds proposal.ratify and must move this assertion in the same PR");
+    // A document saved before #311 has no proposals key and still folds.
+    const { proposals: _old, ...pre311 } = emptyDoc();
+    const folded = fold([propose], pre311);
+    ok(folded?.proposals?.length === 1, `a pre-#311 document (no proposals key) did not fold component.propose: ${deep(folded)}`);
+  }
+
+  group("canvas ops", `#311's component.propose (35.12): pr1 minted deterministically and pr2 after it, eight refusals each matched on what they name (a bad name two ways, a duplicate name, a duplicate recordId, a recordId that is not i<n>, mode 3 and mode "1", an id slot), every key but proposals untouched, status "proposed" and no proposal.ratify in OPS — a proposal never reaches the vocabulary without #313 — and a pre-#311 document with no proposals key folding · #306's four verbs and frame.size's free width: annotate minting n1 and EDITING in place (a noteId that does not resolve is refused, or it is the smuggling slot), frame.link REPLACING the list, frame.size {width} recording preset null, variant.add one lane, frame.remove taking its arrows with it — and 19 refusals naming the blocker (a state or a variant lane overriding the frame), each rule on decisionRefs, blank text, the lane key, the override map, and exactly-one-of preset/width with the 320–2560 bounds · frameTree resolving base sets, then the state\'s override, then its own sets, DROPPING a hidden node rather than writing `+"`"+`hidden`+"`"+` (the real validateComposition refuses that prop, and the returned trees pass it), flagging a dangling set and a hidden root, total over junk · placeDecision right of the anchor\'s whole ROW (894 then 1206 on the spine, where right-of-the-anchor is 422, on top of f2), a lower row ignored, total over junk · non-data inside params (a function, a symbol, nested) refused BY PATH before structuredClone's unnamed DataCloneError can speak (#437) · OPS ↔ PARAMS the same ${COPS.length} verbs in BOTH directions, every list frozen BY MUTATION at both levels (Object.freeze is shallow, and a pushable PARAMS entry lets the frozen case pass for the wrong reason), STATE_KEYS pinned as the five-state floor with "ideal" leading it, and NO PARAMS entry offering an id slot for the thing its op creates — the only way to enforce board-ops' mint-from-the-document rule is on the key set · a VALID_FOR fixture per verb so an ELEVENTH verb with no fixture fails BY NAME, each fixture's keys asserted to be in its own PARAMS entry · EVERY constructive call routed through one fold() that turns a throw into a NAMED failure rather than an uncaught one: ok() only accumulates and group() prints at the end, so an unguarded throw here kills the process before a single named failure speaks — found by mutation (widening a PARAMS entry with an id slot makes 35.1's own assertion false AND makes the fold throw, and unguarded the throw won) · the happy six-op fold: ids minted f1/f2 and a1 with no op carrying one, a state proven to be a SIBLING carrying an override rather than a copy of its base, frame.size recording BOTH the preset name and the width so a later table edit moves new frames and leaves committed ones, and PURITY proven by mutating the input and by mutating the return · 19 refusals each DRIVEN by a broken op and matched on the words it must NAME — including D4's `+"`"+`why`+"`"+` three ways (absent, EMPTY, non-string), a state outside the minimum, a dangling frameId in each of four positions, an unknown verb, an unknown param, an unknown ENVELOPE key, a document that is not one, and PR #432's three open questions as the owner closed them on 2026-09-21: a state OF a state (which missingStates walks base frames only and could never have reported), a DUPLICATE (baseId, stateKey) (which its Set absorbed silently), and an unknown key INSIDE connect's from or to — with ENDPOINT_KEYS frozen at both levels beside PARAMS and `+"`"+`partId`+"`"+` proven to be `+"`"+`from`+"`"+`'s alone — behind the positive control that EVERY verb's minimal valid op is ACCEPTED, without which the battery would pass on an applier that refuses everything, plus applyOps naming the failing INDEX and verb · the TWO-LAYER rule gated: frame.sets (screen.set's) and frame.overrides.set (state.add's) proven to be the SAME SHAPE so ONE resolve applies both, with the state's layer proven to win over the base's — measured rather than assumed, because the spine's first render dropped its screen.set entirely and nothing said who joined the composition to the sets · resolve() proven to FLAG a dangling override and to keep it OUT of the resolved parts (never dropped, because it is a real thing someone wrote) with landing set and hide both applied, total over 6 junk shapes · missingStates as a LIST rather than a count, only BASE frames considered, a base with the floor met OMITTED so an empty answer means met rather than unchecked, total over 6 · canDeleteBasePart refusing by naming the state, its frame and what to do instead, with the part NOTHING overrides proven to pass so the refusal does not fire on everything · the preset table frozen with presetWidth answering NULL rather than a default · and the import graph pinned to device-presets.mjs alone. What it cannot reach: whether a composition RENDERS (group 3's), whether a frame ever reaches the canvas or the page renders frameTree's output (studio-journey's and canvas-journey's), and whether a `+"`"+`why`+"`"+` is any GOOD — a sentence that says nothing while passing .trim() is a human read`);
 }
 
 // --- 36 · the build package's round trip (#302) ----------------------------------------------------
@@ -12916,7 +12953,30 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       `40.26: ${p} matches the loc-summary group(s) ${hit.join(", ")} — import/ and the house plugin are factory tooling, not the shipped surface approach.html counts (agent-layer/gen-loc-summary.mjs GROUPS)`);
   }
 
-  group("import-chain", `the design-import core (#304): a Brilliant blueprint read → import/ir.mjs → import/recognise.mjs, with no portal, no agent, no network and no design tool in the loop · DETERMINISM as the anchor — convert+recognise run TWICE from two independently cache-busted module instances over the committed read and compared against import/fixtures/spike-c-instance.expected.json, with the three answers the ticket names asserted BY PATH: the person row → list-row scored, the container → stack via the STRUCTURAL FALLBACK (D2's rule, not a won contest), the label → text BY ROLE — and the person row's name-match hit pinned to the FIELD it read (component.name), because S2's end-anchored nodeName() returns "Frame 1" for that line and node.name alone makes the ticket's first answer unreachable · THE LIFT proven faithful against a FROZEN copy of #299's parked layout branch (import/fixtures/s2-layout-branch.baseline.txt, so a prune under .claude/plans/ cannot red CI), both toStacks driven over all 8 al() lines of both fixtures and compared on the \`layout\` object — scoped there because the lift re-points every drop row through ir.drop(), which adds a class field S2's rows cannot carry, so whole-return equality is impossible by construction · THE FLOOR held apart from the fallback by \`via\`, the two being one \`if\` apart: the avatar disc — a shape named "Avatar" with no layout, name-match alone — reads NOT COVERED with a real top candidate below ${R1.THRESHOLD} and a no-vocabulary-slot row beside it, while the Chevron, the floor's subject until #456, reads \`icon\` SCORED: R4 reads the glyph NAME out of \`icon.name\` (#449) and the glyph BOX from the measured long axis as the smallest md|lg|xl step that contains it (8.73 × 16 → md, #456), so kind-fit plus prop-fit on both required props covers it with no weight moved · THE SIZE-AXIS REFUSAL, S2's consumer contract: fixture 2's "Frame 1" carries the literal 360 THROUGH the converter and build() refuses it with a row naming size.w, with every built composition in both fixtures swept for a numeric size · ALL THREE E1 CLASSES present in the fixture-2 run and DROP_CLASS_OF iterated against them, so a converter kind with no class fails BY NAME and drop() refuses an unclassified one · THE BUILT COMPOSITIONS validated through the real validateComposition — and SCOPED, because only \`stack\`, \`text\` and \`icon\` survive build() on these two reads: list-row.value is a computed figure nobody drew and status-chip.value's enum is ok|due|overdue while the reads say "On call", so the emitted set and the recognised-but-refused set are each asserted BY NAME rather than left to be over-read off a green sweep · D5's absorption rule asserted PER TEXT and in all three halves — the person row's label, meta, status and value against the fixture's OWN WORDS (on the committed read plus the one line that makes the row emittable, since neither committed row survives build(); moving PROP_SOURCES.meta to "chip-text" makes the secondary line read the chip's words and passed all 40 groups before this), its avatar disc and chevron RECORDED as read-but-never-emitted rather than discarded, and a SURPLUS text under an otherwise-absorbed child dropped ON ITS OWN, because a per-child skip carried a row's footnote away in silence · THE IMPORT GRAPH read out of the three sources and required to be node built-ins plus ./-relative paths inside import/ · AC #3 proven by CALLING genLocSummary({check:true}) rather than by re-stating its regexes · The Figma chain (#310): the house plugin's export (\`tooling/figma/plugin/\`) → \`import/figma.mjs\` → the same IR and matcher. 40.19 runs S5's verbatim export (\`import/fixtures/figma/\`) twice from busted instances against its committed verdict, pins provenance to branch 1 (0 unresolved aliases, \`bound\` false for Text 2's unbound line height), and asserts the answers by path — the root reads \`list\` where Brilliant's reads \`list-row\`, because the Figma root carries auto-layout and earns \`kind-fit\` on it; that difference is recorded in S5's README, not tuned; 40.20 refuses nine non-exports by name (both committed token files as \`token export\`, the Brilliant blueprint as \`not JSON\`, a REST read, a foreign format, version 2, an empty selection, a non-string, and an instance whose \`main\` the plugin marked \`unreadable\`, refused by path); 40.21 runs \`code.js\` in \`node:vm\` against a fake \`figma\` with no write methods, ties the plugin's \`FORMAT\` to the converter's, proves \`figma.mixed\` arrives as \`"mixed"\`, proves a throwing \`getMainComponentAsync\` marks \`main\` \`{unreadable}\` and still posts the export (#461 F1), and uses the builder's \`Build failed at variables\` as the positive control that the fake really cannot write; 40.22 pins the component name to the SET's, not the variant's; 40.23 drives F3 both ways (an unbound zero is absent, a bound \`spacing/none\` is a \`no-token\` read, \`MIN\`/\`CENTER\`/\`SPACE_BETWEEN\` on the main axis); 40.24 drives O4 layout inference (row, column, scatter, single child, a declared layout kept, and the inferred row reaching the \`stack\` fallback). · THE REPOSITORY'S SHAPE (#310): 40.25 walks git ls-files import/fixtures and refuses any fixture that is not .txt/.json/.png/.md/.css (the CLAUDE.md fixture rule, ungated until #457 F4) behind a two-levels-down positive control, and 40.26 reads the exported GROUPS and asserts no tracked path under import/ or tooling/figma/plugin/ falls in a loc-summary group, with system/site.js → runtime as the positive control and the plugin's code.js required in the list so an empty index cannot pass · ten tables frozen BY MUTATION at both levels, GLYPH_BOX_PX pinned to the contract's --spacing-md/lg/xl · mode and grain refused by name on a third value, with the screen grain and mode 2 asserted SYNTHETICALLY and labelled so, because neither committed read is a screen · and SEVEN MORE SYNTHETIC cases — EIGHT in all, each saying so in its own failure messages: args()' boundary test on a line carrying both svg( and al( (no committed line reaches it — one svg( per fixture and it carries no al(), the list builder on a hand-built IR (neither fixture contains a list) emitting ONE list around three list-rows, then REFUSED by name on \`empty\`, the copy for a state nobody drew — and refused AGAIN through build(), the only entry point a source has, which discards the container and its rows TOGETHER (calling BUILDERS.list directly cannot see that, and a build() broken on every list verdict left every other group passing), THE TIE-BREAK's three rungs on the two ties a real source produces — a row named "List row" tying \`list\` and \`list-row\` on word containment, where the MORE SPECIFIC slug must win, and an unnamed text tying \`text\` and \`demo-notice\`, where an importer reading a stranger's drawing must reach for the PRIMITIVE rather than for one fictional demo's honesty chrome, THE ATOM ORDER, where a size lands by whether the line HAS an al() and not by which atom came first, so one source atom is one drop row in either order (latent on both fixtures, live at #310), THE PARSE BOUNDARY, where the provenance header is skipped by being first CONTENT rather than by split index — a leading blank line put the literal "lookup" into source.ids, the field the honesty contract turns on — and an indented first line is refused naming depth 0 rather than depth -1, THE GLYPH SLOT AND BOX, where a hand-built icon node earns kind-fit from EXACTLY ONE entry — the one DECLARING A GLYPH BOX, never the one spelled "icon" — fills \`name\` from \`icon.name\` and loses only that fill when the glyph slot is removed, reads the box at ten boundaries (the long axis in either orientation, 16.01 → lg with no tolerance, 19 → lg as the smallest CONTAINING step, 32 → xl, and over xl, one unmeasured axis, a zero or negative axis, or no size at all → not covered), and builds to {name, size} through BUILDERS.icon with no second literal-size pair, with \`avatar.name\` proven still first-text beside it (both committed reads draw the same one chevron, so one answer would prove it for one drawing), and R3 over EVERY vocabulary entry read at run time — a node named exactly after a slug and carrying nothing else scores below ${R1.THRESHOLD}, which is what lets the weights move without re-arguing "Text block" · with R2 beside it: ${R1.STRUCTURAL_FALLBACK} appears in NO candidates list anywhere, and the floor and the fallback are each exercised so neither is prose. What it cannot reach: whether the house plugin runs in a Figma newer than S5's (126.9.10) — 40.21 drives code.js against a fake figma only as current as the plugin API docs of 2026-09-24; whether a designer's real file binds like S5's recipe — the fixture was built for the test (#316's real run); whether a recognised name is the RIGHT name for a human — that is #311's side-by-side view and #316's real run; whether an UNBOUND source snaps correctly — group 42, every layout slot all three fixtures carry being bound (the Figma export's one unbound value is Text 2's line height) — whether a MEASURED glyph box is the box the designer meant — R4 reads the drawing's bounds, so a small glyph drawn in a larger box reads the smaller one (#311's mapping editor, #456); and whether a built composition RENDERS — group 3 owns renderComposition`);
+  // --- 40.27 BOTH CONVERTERS, ONE SPACING RULE (#461 F2, carried by #311) -------------------------
+  // figma.mjs mirrors brilliant.mjs's toStack rule (unbound → carried, bound → by role through
+  // mapSpacing). SYNTHETIC on the Brilliant side: the committed read's own gap is $spacing.xs, not 16.
+  {
+    const figGap = (mutate) => fold("figma convert over the S5 export (40.27)", () => {
+      const e = JSON.parse(FIG);
+      mutate(e.selection[0]);
+      return F1.convert(JSON.stringify(e)).children[0].layout;
+    }, {});
+    const bpGap = (atoms) => fold(`brilliant convert over a synthetic ${atoms} line (40.27)`, () =>
+      B1.convert(`aaaa0000aaaa0000 al(h,y(c),${atoms}) s(hug,hug) "Synthetic row"`).children[0].layout, {});
+    const fb = figGap(() => {});
+    const bb = bpGap("g(16:$spacing.md),pad(16:$spacing.md)");
+    ok(deep(fb.gap) === deep({ value: 16, ref: "--spacing-md" }) && deep(fb.gap) === deep(bb.gap),
+      `40.27: BOUND — Figma's gap ${JSON.stringify(fb.gap)} and a blueprint's g(16:$spacing.md) ${JSON.stringify(bb.gap)} must be the same tok {16, --spacing-md}: both converters map $spacing roles through mapSpacing`);
+    ok(deep(fb.pad?.[0]) === deep(bb.pad?.[0]) && deep(fb.pad?.[0]) === deep({ value: 16, ref: "--spacing-md" }),
+      `40.27: BOUND — Figma's pad[0] ${JSON.stringify(fb.pad?.[0])} and the blueprint's ${JSON.stringify(bb.pad?.[0])} disagree`);
+    const fu = figGap((n) => { delete n.boundVariables.itemSpacing; n.itemSpacing = 13; });
+    const bu = bpGap("g(13),pad(16:$spacing.md)");
+    ok(deep(fu.gap) === deep({ value: 13, ref: null }) && deep(fu.gap) === deep(bu.gap),
+      `40.27: UNBOUND — Figma's gap ${JSON.stringify(fu.gap)} and a blueprint's g(13) ${JSON.stringify(bu.gap)} must both be {13, null}, carried for the snap step`);
+  }
+
+  group("import-chain", `the design-import core (#304): a Brilliant blueprint read → import/ir.mjs → import/recognise.mjs, with no portal, no agent, no network and no design tool in the loop · DETERMINISM as the anchor — convert+recognise run TWICE from two independently cache-busted module instances over the committed read and compared against import/fixtures/spike-c-instance.expected.json, with the three answers the ticket names asserted BY PATH: the person row → list-row scored, the container → stack via the STRUCTURAL FALLBACK (D2's rule, not a won contest), the label → text BY ROLE — and the person row's name-match hit pinned to the FIELD it read (component.name), because S2's end-anchored nodeName() returns "Frame 1" for that line and node.name alone makes the ticket's first answer unreachable · THE LIFT proven faithful against a FROZEN copy of #299's parked layout branch (import/fixtures/s2-layout-branch.baseline.txt, so a prune under .claude/plans/ cannot red CI), both toStacks driven over all 8 al() lines of both fixtures and compared on the \`layout\` object — scoped there because the lift re-points every drop row through ir.drop(), which adds a class field S2's rows cannot carry, so whole-return equality is impossible by construction · THE FLOOR held apart from the fallback by \`via\`, the two being one \`if\` apart: the avatar disc — a shape named "Avatar" with no layout, name-match alone — reads NOT COVERED with a real top candidate below ${R1.THRESHOLD} and a no-vocabulary-slot row beside it, while the Chevron, the floor's subject until #456, reads \`icon\` SCORED: R4 reads the glyph NAME out of \`icon.name\` (#449) and the glyph BOX from the measured long axis as the smallest md|lg|xl step that contains it (8.73 × 16 → md, #456), so kind-fit plus prop-fit on both required props covers it with no weight moved · THE SIZE-AXIS REFUSAL, S2's consumer contract: fixture 2's "Frame 1" carries the literal 360 THROUGH the converter and build() refuses it with a row naming size.w, with every built composition in both fixtures swept for a numeric size · ALL THREE E1 CLASSES present in the fixture-2 run and DROP_CLASS_OF iterated against them, so a converter kind with no class fails BY NAME and drop() refuses an unclassified one · THE BUILT COMPOSITIONS validated through the real validateComposition — and SCOPED, because only \`stack\`, \`text\` and \`icon\` survive build() on these two reads: list-row.value is a computed figure nobody drew and status-chip.value's enum is ok|due|overdue while the reads say "On call", so the emitted set and the recognised-but-refused set are each asserted BY NAME rather than left to be over-read off a green sweep · D5's absorption rule asserted PER TEXT and in all three halves — the person row's label, meta, status and value against the fixture's OWN WORDS (on the committed read plus the one line that makes the row emittable, since neither committed row survives build(); moving PROP_SOURCES.meta to "chip-text" makes the secondary line read the chip's words and passed all 40 groups before this), its avatar disc and chevron RECORDED as read-but-never-emitted rather than discarded, and a SURPLUS text under an otherwise-absorbed child dropped ON ITS OWN, because a per-child skip carried a row's footnote away in silence · THE IMPORT GRAPH read out of the three sources and required to be node built-ins plus ./-relative paths inside import/ · AC #3 proven by CALLING genLocSummary({check:true}) rather than by re-stating its regexes · The Figma chain (#310): the house plugin's export (\`tooling/figma/plugin/\`) → \`import/figma.mjs\` → the same IR and matcher. 40.19 runs S5's verbatim export (\`import/fixtures/figma/\`) twice from busted instances against its committed verdict, pins provenance to branch 1 (0 unresolved aliases, \`bound\` false for Text 2's unbound line height), and asserts the answers by path — the root reads \`list\` where Brilliant's reads \`list-row\`, because the Figma root carries auto-layout and earns \`kind-fit\` on it; that difference is recorded in S5's README, not tuned; 40.20 refuses nine non-exports by name (both committed token files as \`token export\`, the Brilliant blueprint as \`not JSON\`, a REST read, a foreign format, version 2, an empty selection, a non-string, and an instance whose \`main\` the plugin marked \`unreadable\`, refused by path); 40.21 runs \`code.js\` in \`node:vm\` against a fake \`figma\` with no write methods, ties the plugin's \`FORMAT\` to the converter's, proves \`figma.mixed\` arrives as \`"mixed"\`, proves a throwing \`getMainComponentAsync\` marks \`main\` \`{unreadable}\` and still posts the export (#461 F1), and uses the builder's \`Build failed at variables\` as the positive control that the fake really cannot write; 40.22 pins the component name to the SET's, not the variant's; 40.23 drives F3 both ways (an unbound zero is absent, a bound \`spacing/none\` is a \`no-token\` read, \`MIN\`/\`CENTER\`/\`SPACE_BETWEEN\` on the main axis); 40.24 drives O4 layout inference (row, column, scatter, single child, a declared layout kept, and the inferred row reaching the \`stack\` fallback). · THE REPOSITORY'S SHAPE (#310): 40.25 walks git ls-files import/fixtures and refuses any fixture that is not .txt/.json/.png/.md/.css (the CLAUDE.md fixture rule, ungated until #457 F4) behind a two-levels-down positive control, and 40.26 reads the exported GROUPS and asserts no tracked path under import/ or tooling/figma/plugin/ falls in a loc-summary group, with system/site.js → runtime as the positive control and the plugin's code.js required in the list so an empty index cannot pass · 40.27 (#461 F2): both converters give one spacing tok for one drawing — bound 16 → {16, --spacing-md} for gap and pad[0] from the S5 export and a SYNTHETIC blueprint line, unbound 13 → {13, null} from both · ten tables frozen BY MUTATION at both levels, GLYPH_BOX_PX pinned to the contract's --spacing-md/lg/xl · mode and grain refused by name on a third value, with the screen grain and mode 2 asserted SYNTHETICALLY and labelled so, because neither committed read is a screen · and SEVEN MORE SYNTHETIC cases — EIGHT in all, each saying so in its own failure messages: args()' boundary test on a line carrying both svg( and al( (no committed line reaches it — one svg( per fixture and it carries no al(), the list builder on a hand-built IR (neither fixture contains a list) emitting ONE list around three list-rows, then REFUSED by name on \`empty\`, the copy for a state nobody drew — and refused AGAIN through build(), the only entry point a source has, which discards the container and its rows TOGETHER (calling BUILDERS.list directly cannot see that, and a build() broken on every list verdict left every other group passing), THE TIE-BREAK's three rungs on the two ties a real source produces — a row named "List row" tying \`list\` and \`list-row\` on word containment, where the MORE SPECIFIC slug must win, and an unnamed text tying \`text\` and \`demo-notice\`, where an importer reading a stranger's drawing must reach for the PRIMITIVE rather than for one fictional demo's honesty chrome, THE ATOM ORDER, where a size lands by whether the line HAS an al() and not by which atom came first, so one source atom is one drop row in either order (latent on both fixtures, live at #310), THE PARSE BOUNDARY, where the provenance header is skipped by being first CONTENT rather than by split index — a leading blank line put the literal "lookup" into source.ids, the field the honesty contract turns on — and an indented first line is refused naming depth 0 rather than depth -1, THE GLYPH SLOT AND BOX, where a hand-built icon node earns kind-fit from EXACTLY ONE entry — the one DECLARING A GLYPH BOX, never the one spelled "icon" — fills \`name\` from \`icon.name\` and loses only that fill when the glyph slot is removed, reads the box at ten boundaries (the long axis in either orientation, 16.01 → lg with no tolerance, 19 → lg as the smallest CONTAINING step, 32 → xl, and over xl, one unmeasured axis, a zero or negative axis, or no size at all → not covered), and builds to {name, size} through BUILDERS.icon with no second literal-size pair, with \`avatar.name\` proven still first-text beside it (both committed reads draw the same one chevron, so one answer would prove it for one drawing), and R3 over EVERY vocabulary entry read at run time — a node named exactly after a slug and carrying nothing else scores below ${R1.THRESHOLD}, which is what lets the weights move without re-arguing "Text block" · with R2 beside it: ${R1.STRUCTURAL_FALLBACK} appears in NO candidates list anywhere, and the floor and the fallback are each exercised so neither is prose. What it cannot reach: whether the house plugin runs in a Figma newer than S5's (126.9.10) — 40.21 drives code.js against a fake figma only as current as the plugin API docs of 2026-09-24; whether a designer's real file binds like S5's recipe — the fixture was built for the test (#316's real run); whether a recognised name is the RIGHT name for a human — that is #311's side-by-side view and #316's real run; whether an UNBOUND source snaps correctly — group 42, every layout slot all three fixtures carry being bound (the Figma export's one unbound value is Text 2's line height) — whether a MEASURED glyph box is the box the designer meant — R4 reads the drawing's bounds, so a small glyph drawn in a larger box reads the smaller one (#311's mapping editor, #456); and whether a built composition RENDERS — group 3 owns renderComposition`);
 }
 
 // --- 41 · the committed icon subset (#305) ---------------------------------------------------------
@@ -13554,6 +13614,35 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   ok(deep(sidePad.map((t) => t?.ref)) === deep(["--spacing-lg", "--spacing-md", "--spacing-md", "--spacing-md"]),
     `42.11: SYNTHETIC — an override on layout.pad[0] alone left the sides as ${JSON.stringify(sidePad.map((t) => t?.ref))} — a snap write must put a fresh tok in its own slot, never set .ref on the object a 1-value pad shares across four sides`);
 
+  // --- 42.13 A 4-VALUE PAD, BOUND AND UNBOUND SIDES MIXED (#457 F2, carried by #311) -------------
+  // SYNTHETIC — no committed read carries a mixed pad. ONE row, the bound sides by their step and the
+  // unbound ones by their raw px, so the record says which sides a snap must still resolve.
+  const mixIr = fold("IR.root(a synthetic mixed pad)", () => IR.root({ mode: 1, grain: "component", source: { tool: "synthetic", ids: [], bound: false }, children: [
+    IR.node({ kind: "frame", name: "Mixed pad", layout: { dir: "column", gap: null, pad: [IR.tok(8, "--spacing-sm"), IR.tok(13, null), IR.tok(16, "--spacing-md"), IR.tok(7, null)], align: null, size: null } }),
+  ] }), { children: [{}] });
+  const mixV = fold("recognise(the mixed pad)", () => Rc.recognise(mixIr, VOCAB), { children: [{}] });
+  const mixDrops = [];
+  fold("build(the mixed pad)", () => Rc.build(mixIr.children[0], mixV.children[0], VOCAB, mixDrops));
+  const padRows = mixDrops.filter((d) => d.slot === "layout.pad");
+  ok(padRows.length === 1 && padRows[0].kind === "no-token" && padRows[0].value === "sm,13px,md,7px"
+    && padRows[0].reason.includes("13px") && padRows[0].reason.includes("7px"),
+    `42.13: SYNTHETIC — a pad [sm, 13, md, 7] built the rows ${JSON.stringify(padRows)}; exactly one no-token row valued "sm,13px,md,7px", its reason naming both raw values`);
+
+  // --- 42.14 THE TYPE ROLE FOLLOWS THE SNAPPED REF (the #307 forward note, closed by #311) ---------
+  // SYNTHETIC. 14px is inside caption's tolerance, so the snap PROPOSES and writes no ref; an owner
+  // override writing --type-body must then move the emitted role, or the record and the output disagree.
+  const typeIr = fold("IR.root(a synthetic 14px text)", () => IR.root({ mode: 1, grain: "component", source: { tool: "synthetic", ids: [], bound: false }, children: [
+    IR.node({ kind: "text", name: "Label", text: { content: "Hello", family: null, size: IR.tok(14, null), weight: null, align: null, lineHeight: null } }),
+  ] }), { children: [{}] });
+  const roleOf = (overrides) => fold(`the 14px text through snap → recognise → build (${overrides ? "overridden" : "no override"})`, () => {
+    const snapped = S.snap(typeIr, TARGETS, overrides).ir;
+    const v = Rc.recognise(snapped, VOCAB);
+    return Rc.build(snapped.children[0], { ...v.children[0], covered: true, name: "text" }, VOCAB, [])?.props?.role ?? null;
+  });
+  ok(roleOf(null) === "caption", `42.14: SYNTHETIC — the unoverridden 14px text built role ${JSON.stringify(roleOf(null))}; nearest px is caption (13)`);
+  ok(roleOf({ snaps: [{ path: "ir.children[0]", slot: "text.size", ref: "--type-body" }] }) === "body",
+    `42.14: SYNTHETIC — an override writing --type-body built role ${JSON.stringify(roleOf({ snaps: [{ path: "ir.children[0]", slot: "text.size", ref: "--type-body" }] }))}; the role must follow the ref the snap wrote`);
+
   // --- 42.12 THE TABLES --------------------------------------------------------------------------
   const spacingGroup = Object.fromEntries(Object.entries(CONTRACT.spacing).filter(([k]) => !k.startsWith("$")).map(([k, v]) => [k, Number.parseFloat(v.$value)]));
   ok(deep(B.SPACING) === deep(spacingGroup), `42.12: brilliant.mjs SPACING ${deep(B.SPACING)} is not the contract's spacing group ${deep(spacingGroup)} — the snap step's spacing targets come from it`);
@@ -13570,12 +13659,282 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     ok(Object.isFrozen(obj) && !landed, `42.12: ${label} is not frozen — a mutation landed`);
   }
 
-  group("import-record", `the import record and the snap rules (#307, epic #295 G18/G30): import/fidelity.mjs (S3's rung 6 — ink-colour ΔE, CIEDE2000 — lifted and cut to one rung, THRESHOLD ${F.THRESHOLD.toFixed(1)}) + import/snap-rules.mjs + import/report.mjs, with the two fixture records regenerated by tooling/regen-import-records.mjs · THE ORACLE FIRST: ciede2000 on five of Sharma 2005's reference pairs to 4 dp · S3's frozen pair: the wrong candidate 17.9597 RED, the faithful one 0.8716 and WebKit's 2.6888 GREEN, the chevron NAMED as excluded in all three · a text that vanished reads 25.278, not S3's 0 · an empty measurement MISSING over six inputs, and a {} fidelity stored as green refused · the drop list DERIVED — deleted, shortened, re-classed and a hollowed verdict tree each refused by name, the avatar disc's floor row asserted in the committed record · both records regenerated byte for byte, verdicts red/green, no % the template wrote, no # line, and both RENDERED through the real renderMarkdown behind a ragged-table control · O3b both ways · the Polaris fixture's 20 snap rows pinned row by row (9 exact / 4 proposed / 7 dropped), the input untouched, a bound read untouched · O3a's three outcomes, a distance-0 tie and a synthetic near colour both proposals · the override table changing exactly its two rows, a one-byte-changed source getting none, and both bad overrides refused by name · the master's real unbound rd(16), #7C6BF0 and w(1) · the converter carrying a synthetic unbound gap and stackShape refusing to emit it unsnapped · the tables pinned to the contract and frozen. What it cannot reach: whether a proposal is the RIGHT token for a human (#311), whether a live candidate render is faithful to its IR (#311's import-run — both fixture candidates are S3's harness renders, and each record says so), whether the markdown reads well in the handoff (#314), and the glyph box, which is R4's read and group 40's (#456)`);
+  group("import-record", `the import record and the snap rules (#307, epic #295 G18/G30): import/fidelity.mjs (S3's rung 6 — ink-colour ΔE, CIEDE2000 — lifted and cut to one rung, THRESHOLD ${F.THRESHOLD.toFixed(1)}) + import/snap-rules.mjs + import/report.mjs, with the two fixture records regenerated by tooling/regen-import-records.mjs · THE ORACLE FIRST: ciede2000 on five of Sharma 2005's reference pairs to 4 dp · S3's frozen pair: the wrong candidate 17.9597 RED, the faithful one 0.8716 and WebKit's 2.6888 GREEN, the chevron NAMED as excluded in all three · a text that vanished reads 25.278, not S3's 0 · an empty measurement MISSING over six inputs, and a {} fidelity stored as green refused · the drop list DERIVED — deleted, shortened, re-classed and a hollowed verdict tree each refused by name, the avatar disc's floor row asserted in the committed record · both records regenerated byte for byte, verdicts red/green, no % the template wrote, no # line, and both RENDERED through the real renderMarkdown behind a ragged-table control · O3b both ways · the Polaris fixture's 20 snap rows pinned row by row (9 exact / 4 proposed / 7 dropped), the input untouched, a bound read untouched · O3a's three outcomes, a distance-0 tie and a synthetic near colour both proposals · the override table changing exactly its two rows, a one-byte-changed source getting none, and both bad overrides refused by name · the master's real unbound rd(16), #7C6BF0 and w(1) · the converter carrying a synthetic unbound gap and stackShape refusing to emit it unsnapped · a SYNTHETIC mixed pad [sm, 13, md, 7] giving ONE no-token row valued "sm,13px,md,7px" (#457 F2) · the type role following the snapped ref: a 14px text reads caption, and body once an override writes --type-body (the #307 forward note, closed by #311) · the tables pinned to the contract and frozen. What it cannot reach: whether a proposal is the RIGHT token for a human (#311), whether a live candidate render is faithful to its IR (#311's import-run — both fixture candidates are S3's harness renders, and each record says so), whether the markdown reads well in the handoff (#314), and the glyph box, which is R4's read and group 40's (#456)`);
+}
+
+// --- 43 · the recorded import (#311) ---------------------------------------------------------------
+//
+// portal/lib/import-run.mjs, the caller the import chain (#304, #307, #310) never had: a Brilliant read
+// or a dropped file → the chain → an import record, its markdown, a transcript and a proposal in the
+// build package, plus one component.propose op. Written in group 40's voice — controls first, every
+// constructive call through fold(), every scratch write under a fresh temp directory.
+//
+// WHAT THIS GROUP CANNOT REACH: whether the SDK half BEHAVES (CI has no portal/node_modules — the
+// canvas journey's importPass and the owner-run probe are the observation); whether Brilliant's live
+// response shapes are what Phase 0 will capture (the live read is not built — readBrilliant refuses by
+// name once reach succeeds); whether a draft is any GOOD (a human read at #313); and pixels (the
+// portal has no baseline).
+
+{
+  const { cpSync } = await import("node:fs");
+  const deep = (v) => (v && typeof v === "object" && !Array.isArray(v)
+    ? `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${deep(v[k])}`).join(",")}}`
+    : (Array.isArray(v) ? `[${v.map(deep).join(",")}]` : JSON.stringify(v)));
+  const threw = (fn) => { try { fn(); return null; } catch (e) { return e.message; } };
+  const athrew = async (fn) => { try { await fn(); return null; } catch (e) { return e.message; } };
+  const fold = (what, fn, fallback = null) => {
+    try { return fn(); } catch (e) { ok(false, `${what} threw instead of answering: ${e.message}`); return fallback; }
+  };
+  const afold = async (what, fn, fallback = null) => {
+    try { return await fn(); } catch (e) { ok(false, `${what} threw instead of answering: ${e.message}`); return fallback; }
+  };
+  const fx = (n) => readFileSync(join(ROOT, `import/fixtures/${n}`));
+  const BLUEPRINT = fx("spike-c-instance.blueprint.txt");
+  const FIGMA = fx("figma/spike-list-row.export.json");
+  const scratch = (tag) => mkdtempSync(join(tmpdir(), `uxf-g43-${tag}-`));
+  // A scratch copy of the committed spine — never the committed package itself.
+  const pkgCopy = (tag) => { const d = join(scratch(tag), "pkg"); cpSync(join(ROOT, "discovery/faster-payment"), d, { recursive: true }); return d; };
+  const ledger = (pkg) => readFileSync(join(pkg, "build/ops.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
+  const gitSnap = () => execFileSync("git", ["status", "--porcelain", "--", "system", "handoff", "discovery", "import/overrides"], { cwd: ROOT, encoding: "utf8" });
+  const GIT_BEFORE = gitSnap();
+  const VOCAB_BYTES = readFileSync(join(ROOT, "handoff/verdant/vocabulary.json"));
+
+  // --- 43.1 SDK-FREE: the import succeeding IS the proof in CI (no portal/node_modules) ---------------
+  let IR_ = null;
+  try { IR_ = await import("../portal/lib/import-run.mjs"); }
+  catch (e) { ok(false, `43.1: portal/lib/import-run.mjs did not import (${e.message}) — a static SDK or zod import slipped in, and CI has no portal/node_modules`); }
+  const src = readFileSync(join(ROOT, "portal/lib/import-run.mjs"), "utf8");
+  const code = src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  ok(!/^\s*import\s[^;]*["']@anthropic-ai\/claude-agent-sdk["']/m.test(code) && !/^\s*import\s[^;]*["']zod["']/m.test(code) && !/\bzod\b/.test(code),
+    "43.1: portal/lib/import-run.mjs imports the Agent SDK or zod statically — the SDK is reached by one `await import` inside readBrilliant, so CI can import the rest");
+  const lazy = [...code.matchAll(/await import\(\s*["']@anthropic-ai\/claude-agent-sdk["']\s*\)/g)].map((m) => m.index);
+  const rbAt = code.indexOf("export async function readBrilliant");
+  const rbEnd = code.indexOf("\nexport ", rbAt + 1) === -1 ? code.length : code.indexOf("\nexport ", rbAt + 1);
+  ok(lazy.length === 1 && rbAt >= 0 && lazy[0] > rbAt && lazy[0] < rbEnd,
+    `43.1: expected exactly ONE await import of the SDK, inside readBrilliant — found ${lazy.length}${lazy.length ? ` (first at ${lazy[0]}, readBrilliant spans ${rbAt}–${rbEnd})` : ""}`);
+  const opts = code.slice(rbAt, rbEnd);
+  for (const pin of ["strictMcpConfig: true", "tools: []", "allowedTools: []", "canUseTool: importCanUseTool({ allowed", "hooks: importFenceHooks({ allowed"]) {
+    ok(opts.includes(pin), `43.1: readBrilliant's query options lack \`${pin}\` — the run's MCP surface is Brilliant alone and both fence sites are built from the same allow-list`);
+  }
+
+  if (IR_) {
+    const M = IR_;
+    const { validateComposition: vc } = await import("../system/agentic-renderer.mjs");
+    const { checkRecord, projectRecord: proj } = await import("../import/report.mjs");
+    const { sourceHash } = await import("../import/snap-rules.mjs");
+    const { foldLedger } = await import("../portal/lib/canvas-store.mjs");
+    const INPUTS = fold("loadInputs()", () => M.loadInputs(), null);
+
+    // --- 43.2 THE FENCE: one predicate, two sites, the record gate both ways ------------------------
+    for (const t of M.READ_TOOLS) ok(M.importFenceDecision(t, M.READ_TOOLS).allow === true, `43.2: the positive control ${t} was DENIED — a fence that denies everything also "denies Write"`);
+    for (const t of ["Write", "Edit", "Bash", "WebSearch", "WebFetch", "Read", "mcp__brilliant__create_modify_elements", "mcp__brilliant__execute_commands", undefined]) {
+      const d = M.importFenceDecision(t, M.READ_TOOLS);
+      ok(d.allow === false && d.reason.includes(String(t)), `43.2: ${String(t)} was ${d.allow ? "ALLOWED" : "denied without naming itself"} on an import run`);
+    }
+    const lines = [];
+    const write = (l) => lines.push(l);
+    const hooks = M.importFenceHooks({ allowed: M.READ_TOOLS, mainTools: ["Write"], write });
+    const pre = await afold("the PreToolUse hook on Write", () => hooks.PreToolUse[0].hooks[0]({ tool_name: "Write", tool_input: { file_path: "system/x.css", content: "x" } }), {});
+    ok(pre?.hookSpecificOutput?.permissionDecision === "deny" && lines.length === 1 && lines[0].type === "denied" && lines[0].via === "PreToolUse" && lines[0].tool === "Write",
+      `43.2: PreToolUse on an advertised Write answered ${deep(pre)} and wrote ${deep(lines)} — one denied line via PreToolUse`);
+    const can = await afold("canUseTool on Write", () => M.importCanUseTool({ allowed: M.READ_TOOLS, mainTools: ["Write"], write })("Write", {}), {});
+    ok(can?.behavior === "deny" && lines.length === 2 && lines[1].via === "canUseTool", `43.2: canUseTool on Write answered ${deep(can)} with lines ${deep(lines.slice(1))}`);
+    const okRead = await afold("canUseTool on lookup", () => M.importCanUseTool({ allowed: M.READ_TOOLS, write })("mcp__brilliant__lookup", { a: 1 }), {});
+    ok(okRead?.behavior === "allow" && deep(okRead.updatedInput) === deep({ a: 1 }), `43.2: canUseTool on the read tool answered ${deep(okRead)} — the input is handed back unchanged`);
+    const warm = [];
+    const warmPre = await afold("PreToolUse on an unadvertised Write", () => M.importFenceHooks({ allowed: M.READ_TOOLS, write: (l) => warm.push(l) }).PreToolUse[0].hooks[0]({ tool_name: "Write", tool_input: {} }), {});
+    ok(warmPre?.hookSpecificOutput?.permissionDecision === "deny" && warm.length === 0,
+      `43.2: an unadvertised Write (a CLI warmup call) was ${warmPre?.hookSpecificOutput?.permissionDecision ?? "not denied"} and wrote ${warm.length} lines — denied, and recorded NOWHERE (the record gate)`);
+    const mcpDeny = [];
+    await afold("PreToolUse on a Brilliant write tool", () => M.importFenceHooks({ allowed: M.READ_TOOLS, write: (l) => mcpDeny.push(l) }).PreToolUse[0].hooks[0]({ tool_name: "mcp__brilliant__create_modify_elements", tool_input: {} }));
+    ok(mcpDeny.length === 1 && mcpDeny[0].tool === "mcp__brilliant__create_modify_elements", `43.2: a denied mcp__ write tool wrote ${deep(mcpDeny)} — an mcp__ denial is always the import agent's, so it is recorded`);
+    const hostile = new Proxy([], { get(t, k) { if (k === "includes") throw new Error("hostile allow-list"); return Reflect.get(t, k); } });
+    const hPre = await afold("PreToolUse with a throwing allow-list", () => M.importFenceHooks({ allowed: hostile, write: () => {} }).PreToolUse[0].hooks[0]({ tool_name: "mcp__brilliant__lookup", tool_input: {} }), {});
+    ok(hPre?.hookSpecificOutput?.permissionDecision === "deny", `43.2: a predicate that THROWS answered ${deep(hPre)} — it must DENY (fail closed)`);
+    const bWrite = await afold("canUseTool with a throwing writer", () => M.importCanUseTool({ allowed: M.READ_TOOLS, mainTools: ["Write"], write: () => { throw new Error("disk full"); } })("Write", {}), {});
+    ok(bWrite?.behavior === "deny", `43.2: a writer that throws changed the decision to ${deep(bWrite)} — a recording bug must not alter the run`);
+    ok(threw(() => M.deniedLine({ tool: "Write", via: "PostToolUse" })) !== null, "43.2: deniedLine accepted a via outside FENCE_SITES");
+
+    // --- 43.3 REACH: three init branches + junk, the read's two refusals, one action each ------------
+    const init = (status, tools) => ({ mcp_servers: status ? [{ name: "brilliant", status }] : [], tools });
+    const rNot = M.classifyReach(init("failed", []));
+    const rAbsent = M.classifyReach(init(null, []));
+    const rUnreach = M.classifyReach(init("connected", ["mcp__brilliant__init"]));
+    const rOk = M.classifyReach(init("connected", ["mcp__brilliant__get_selection"]));
+    ok(rNot?.kind === "not-running" && rNot.message.includes("failed") && rAbsent?.kind === "not-running" && rUnreach?.kind === "not-reachable" && rOk === null,
+      `43.3: classifyReach answered failed → ${rNot?.kind}, absent → ${rAbsent?.kind}, no get_selection → ${rUnreach?.kind}, reachable → ${deep(rOk)}`);
+    for (const junk of [null, undefined, 42, "x", { mcp_servers: "no" }]) ok(M.classifyReach(junk)?.kind === "not-running", `43.3: classifyReach(${JSON.stringify(junk)}) is not a not-running refusal`);
+    const reads = [M.classifyRead({ timedOut: true }), M.classifyRead({ failures: [{ error: "Request timed out" }], selection: ["a"] }), M.classifyRead({ selection: [] })];
+    ok(reads[0]?.kind === "stale-binding" && reads[1]?.kind === "stale-binding" && reads[2]?.kind === "nothing-selected" && M.classifyRead({ selection: ["a"] }) === null,
+      `43.3: classifyRead answered ${deep(reads.map((r) => r?.kind))} and a clean read ${deep(M.classifyRead({ selection: ["a"] }))}`);
+    for (const r of [rNot, rUnreach, ...reads]) ok(r?.action && typeof r.action === "object" && typeof r.action.label === "string", `43.3: the ${r?.kind} refusal does not carry exactly one action: ${deep(r)}`);
+
+    // --- 43.4 THE DROP SNIFF -----------------------------------------------------------------------
+    ok(fold("sniffDrop(the Figma export)", () => M.sniffDrop(FIGMA, "x.json").tool) === "figma", "43.4: the committed Figma export did not sniff as figma");
+    ok(fold("sniffDrop(the blueprint)", () => M.sniffDrop(BLUEPRINT, "x.txt").tool) === "brilliant", "43.4: the committed blueprint did not sniff as brilliant");
+    for (const [label, bytes, must] of [
+      ["a REST read", Buffer.from('{"document":{}}'), "REST"],
+      ["a token export", readFileSync(join(ROOT, "import/fixtures/s3/tokens.polaris.spike.css")).length ? Buffer.from('{"color":{"accent":{"$value":"#000000","$type":"color"}}}') : Buffer.from("{}"), "token"],
+      ["an empty file", Buffer.alloc(0), "empty"],
+      ["a PNG", Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00]), "not a text file"],
+      ["prose", Buffer.from("hello world"), "16 hex"],
+    ]) {
+      const m = threw(() => M.sniffDrop(bytes, "f"));
+      ok(m !== null && m.includes(must), `43.4: ${label} was ${m === null ? "ACCEPTED" : `refused without naming "${must}" (${m})`}`);
+    }
+
+    // --- 43.5 THE PIPELINE, BOTH SOURCES, ONE RECORD SHAPE ---------------------------------------
+    const recOf = (text, tool, file) => fold(`runPipeline + recordFor (${tool})`, () => {
+      const pipe = M.runPipeline({ text, tool, ...INPUTS });
+      return M.recordFor({ id: "i1", source: { tool, project: null, ids: pipe.ir.source.ids, bound: pipe.ir.source.bound, file, sha256: sourceHash(Buffer.from(text)) },
+        pipe, mapping: { parts: {} }, packTokens: INPUTS.packTokens, mode: 1, elapsedMs: 3 });
+    });
+    const recB = recOf(BLUEPRINT.toString("utf8"), "brilliant", "b.txt");
+    const recF = recOf(FIGMA.toString("utf8"), "figma", "f.json");
+    for (const [label, r] of [["brilliant", recB], ["figma", recF]]) {
+      ok(r && threw(() => checkRecord(r)) === null, `43.5: the ${label} record does not pass checkRecord: ${r ? threw(() => checkRecord(r)) : "no record"}`);
+      ok(r?.fidelity?.verdict === "missing" && r.fidelity.wcag?.total > 0, `43.5: the ${label} record's fidelity is ${deep(r?.fidelity && { verdict: r.fidelity.verdict, total: r.fidelity.wcag?.total })} — missing, with WCAG computed`);
+      ok(r && proj(r).includes("missing"), `43.5: the ${label} record's markdown does not say missing`);
+    }
+    const keysOf = (r) => deep({ top: Object.keys(r ?? {}).sort(), ...Object.fromEntries(["source", "fidelity", "provenance", "elapsed"].map((k) => [k, Object.keys(r?.[k] ?? {}).sort()])) });
+    ok(recB && recF && keysOf(recB) === keysOf(recF), `43.5: the two sources' records differ in shape — ${keysOf(recB)} vs ${keysOf(recF)} (AC #1: the same record shape)`);
+    // AC #1b's own pair: the SAME blueprint text through a reader and through a drop.
+    const pa = pkgCopy("sel"), pb = pkgCopy("drop");
+    const base0 = ledger(pa).length;
+    const viaSel = await afold("runImport via an injected reader", () => M.runImport({ pkgRoot: pa, provenance: "real", base: base0, entrance: "selection",
+      reader: async () => ({ text: BLUEPRINT.toString("utf8"), transcript: [{ type: "meta", entrance: "selection" }] }), overridesDir: scratch("ov") }));
+    const viaDrop = await afold("runImport via a drop", () => M.runImport({ pkgRoot: pb, provenance: "real", base: base0, entrance: "drop", file: { name: "spike-c.txt", bytes: BLUEPRINT }, overridesDir: scratch("ov") }));
+    const rs = viaSel && JSON.parse(readFileSync(join(pa, "build/imports/i1.json"), "utf8"));
+    const rd = viaDrop && JSON.parse(readFileSync(join(pb, "build/imports/i1.json"), "utf8"));
+    ok(rs && rd && keysOf(rs) === keysOf(rd) && ["ir", "recognition", "drops", "snaps", "unbound"].every((k) => deep(rs[k]) === deep(rd[k])) && rs.source.sha256 === rd.source.sha256,
+      `43.5: the same blueprint read through a reader and dropped gave different records (${rs && rd ? ["ir", "recognition", "drops", "snaps", "unbound"].filter((k) => deep(rs[k]) !== deep(rd[k])).join(", ") || "key sets" : "a run failed"})`);
+
+    // --- 43.6 THE WRITER stays under the build root ------------------------------------------------
+    const wroot = join(scratch("w"), "build");
+    const recW = recB ?? {};
+    const drafts = fold("draftProposal", () => M.draftProposal({ name: "spike-list-row", record: recW, compositions: [null] }), {});
+    for (const [label, args, must] of [
+      ["a traversal name", { name: "../../system/x" }, "not a component name"],
+      ["a traversal id", { id: "../x" }, "not an import id"],
+    ]) {
+      const m = threw(() => M.writeImport(wroot, { id: "i1", record: recW, transcript: [], source: { text: "x" }, name: "spike-list-row", mapping: { record: "i1", parts: {} }, drafts, ...args }));
+      ok(m !== null && m.includes(must) && !existsSync(wroot), `43.6: ${label} was ${m === null ? "WRITTEN" : `refused (${m}) but the scratch root ${existsSync(wroot) ? "now exists" : "is clean"}`}`);
+    }
+    ok(threw(() => M.underRoot(wroot, "../escape")) !== null && threw(() => M.underRoot(wroot, "imports/i1.json")) === null, "43.6: underRoot let ../escape through, or refused an in-root path");
+    fold("writeImport (the happy write)", () => M.writeImport(wroot, { id: "i1", record: recW, transcript: [{ type: "meta" }], source: { text: "x" }, name: "spike-list-row", mapping: { record: "i1", parts: {} }, drafts }));
+    const files = existsSync(wroot) ? execFileSync("find", [wroot, "-type", "f"], { encoding: "utf8" }).split("\n").filter(Boolean).map((f) => f.slice(wroot.length + 1)).sort() : [];
+    ok(deep(files) === deep(["imports/i1.json", "imports/i1.md", "imports/i1.transcript.jsonl", ...["block.css", "mapping.json", "source.json", "spec.md", "template.txt"].map((f) => `proposals/spike-list-row/${f}`)].sort()),
+      `43.6: writeImport wrote ${deep(files)}`);
+    ok(drafts["block.css"] && !/#[0-9a-fA-F]{3,8}\b|\d+px/.test(drafts["block.css"].replace(/\/\*[\s\S]*?\*\//g, "")) && drafts["spec.md"].includes("not by an agent") && drafts["template.txt"].includes("not by an agent"),
+      "43.6: a draft carries a literal, or does not say it is the importer's rather than an agent's");
+
+    // --- 43.7 THE MAPPING EDITOR re-derives from source.json --------------------------------------
+    const pe = pkgCopy("edit");
+    const ovDir = join(scratch("ov7"), "overrides");
+    const figU = JSON.parse(FIGMA.toString("utf8"));
+    const t1 = figU.selection[0].children[1].children[0];
+    delete t1.boundVariables.fontSize; t1.fontSize = 14;                  // SYNTHETIC: one unbound text size
+    const figUBytes = Buffer.from(JSON.stringify(figU));
+    const ed = await afold("runImport (43.7's synthetic unbound export)", () => M.runImport({ pkgRoot: pe, provenance: "real", base: ledger(pe).length, entrance: "drop", file: { name: "u.json", bytes: figUBytes }, overridesDir: ovDir }));
+    const T1 = "ir.children[0].children[1].children[0]";
+    const edit = (e) => fold(`editMapping ${deep(e)}`, () => M.editMapping({ pkgRoot: pe, provenance: "real", name: ed?.name, edit: e, inputs: INPUTS, overridesDir: ovDir }));
+    const find = (tree, pred) => (pred(tree) ? tree : (tree?.children ?? []).map((c) => find(c, pred)).find(Boolean));
+    if (ed) {
+      const rec0 = JSON.parse(readFileSync(join(pe, "build/imports", `${ed.recordId}.json`), "utf8"));
+      const v1 = edit({ path: "ir.children[0]", map: "stack" });
+      ok(v1?.compositions?.[0]?.name === "stack" && ed.view.compositions[0] === null, `43.7: remapping the root to stack gave ${deep(v1?.compositions?.[0]?.name)} (was ${deep(ed.view.compositions[0])})`);
+      const v2 = edit({ path: "ir.children[0]", rename: "person" });
+      ok(v2?.compositions?.[0]?.id === "person" && JSON.parse(readFileSync(join(pe, "build/proposals", ed.name, "template.txt"), "utf8")).compositions[0].id === "person",
+        `43.7: a rename did not reach template.txt's part id: ${deep(v2?.compositions?.[0]?.id)}`);
+      for (const c of v2?.compositions ?? []) if (c) ok(threw(() => vc(VOCAB, c)) === null, `43.7: an edited composition does not validate: ${threw(() => vc(VOCAB, c))}`);
+      const before = find(v2?.compositions?.[0], (n) => n?.props?.content === "Amara Okafor")?.props?.role;
+      const v3 = edit({ path: T1, slot: "text.size", ref: "--type-body" });
+      const after = find(v3?.compositions?.[0], (n) => n?.props?.content === "Amara Okafor")?.props?.role;
+      const ovFile = join(ovDir, `${sourceHash(figUBytes)}.json`);
+      ok(before === "caption" && after === "body" && existsSync(ovFile) && deep(JSON.parse(readFileSync(ovFile, "utf8")).snaps) === deep([{ path: T1, slot: "text.size", ref: "--type-body" }]),
+        `43.7: SYNTHETIC — a snap edit moved the role ${before} → ${after} and wrote ${existsSync(ovFile) ? readFileSync(ovFile, "utf8") : "no override file"} — caption → body, one {path, slot, ref} row named by the source hash`);
+      const dropsBefore = v3?.record?.drops?.length ?? 0;
+      const v4 = edit({ path: "ir.children[0].children[3]", drop: true });
+      const mRows = (v4?.record?.drops ?? []).filter((d) => d.path === "mapping");
+      ok(mRows.length === 1 && mRows[0].class === "read-then-dropped" && v4.record.drops.length === dropsBefore + 1 && threw(() => checkRecord(v4.record)) === null,
+        `43.7: a drop added ${mRows.length} mapping rows (${v4?.record?.drops?.length} vs ${dropsBefore}) — exactly one read-then-dropped row, and the record still passes checkRecord`);
+      ok(v4?.record?.elapsed?.recognition === rec0.elapsed.recognition, `43.7: an edit changed elapsed.recognition ${rec0.elapsed.recognition} → ${v4?.record?.elapsed?.recognition} — an edit is not a new recognition`);
+      const mapBefore = readFileSync(join(pe, "build/proposals", ed.name, "mapping.json"), "utf8");
+      for (const [label, e, must] of [["an unknown path", { path: "ir.children[9]", drop: true }, "ir.children[9]"], ["a cross-family ref", { path: T1, slot: "text.size", ref: "--spacing-md" }, "not a type token"]]) {
+        const m = threw(() => M.editMapping({ pkgRoot: pe, provenance: "real", name: ed.name, edit: e, inputs: INPUTS, overridesDir: ovDir }));
+        ok(m !== null && m.includes(must) && readFileSync(join(pe, "build/proposals", ed.name, "mapping.json"), "utf8") === mapBefore, `43.7: ${label} was ${m === null ? "ACCEPTED" : `refused (${m})`} or moved mapping.json`);
+      }
+    }
+
+    // --- 43.8 runImport: one op line, the order, the lock, the stale page, a refusal ---------------
+    const p8 = pkgCopy("run");
+    const b8 = ledger(p8).length;
+    const r8 = await afold("runImport (43.8)", () => M.runImport({ pkgRoot: p8, provenance: "real", base: b8, entrance: "selection", reader: async () => ({ text: BLUEPRINT.toString("utf8"), transcript: [] }), overridesDir: scratch("ov8") }));
+    const l8 = ledger(p8);
+    const last = l8[l8.length - 1];
+    ok(r8 && l8.length === b8 + 1 && last.source === "owner" && last.op === "component.propose" && last.status === "applied" && deep(last.params) === deep({ name: r8.name, recordId: "i1", mode: 1 }),
+      `43.8: the run appended ${l8.length - b8} lines, the last ${deep(last)}`);
+    ok(fold("foldLedger after an import", () => foldLedger(l8).doc.proposals?.[0]?.id) === "pr1", "43.8: the folded document has no pr1 proposal");
+    ok(["i1.json", "i1.md", "i1.transcript.jsonl"].every((f) => existsSync(join(p8, "build/imports", f))), "43.8: the record, its md or its transcript is missing");
+    // THE ORDER: a reader that deletes canvas.json makes the op append throw; the read is on disk anyway.
+    const pOrd = pkgCopy("order");
+    const oMsg = await athrew(() => M.runImport({ pkgRoot: pOrd, provenance: "real", base: ledger(pOrd).length, entrance: "selection", overridesDir: scratch("ovo"),
+      reader: async () => { rmSync(join(pOrd, "build/canvas.json")); return { text: BLUEPRINT.toString("utf8"), transcript: [] }; } }));
+    ok(oMsg !== null && ["i1.json", "i1.md", "i1.transcript.jsonl"].every((f) => existsSync(join(pOrd, "build/imports", f))),
+      `43.8: with the op append failing (${oMsg ?? "it did NOT fail"}), the record, md and transcript must already be on disk — they are written before the append`);
+    // THE LOCK.
+    const pl = pkgCopy("lock");
+    let release;
+    const gate = new Promise((r) => { release = r; });
+    const first = M.runImport({ pkgRoot: pl, provenance: "real", base: ledger(pl).length, entrance: "selection", overridesDir: scratch("ovl"),
+      reader: async () => { await gate; return { text: BLUEPRINT.toString("utf8"), transcript: [] }; } });
+    const lockMsg = await athrew(() => M.runImport({ pkgRoot: pl, provenance: "real", base: ledger(pl).length, entrance: "drop", file: { name: "b.txt", bytes: BLUEPRINT } }));
+    release();
+    const firstOk = await afold("the first run after the lock refusal", () => first);
+    ok(lockMsg !== null && lockMsg.includes("already in flight") && firstOk?.recordId === "i1", `43.8: a second run during the first answered ${lockMsg ?? "NO REFUSAL"}; the first returned ${deep(firstOk?.recordId)}`);
+    // The refusal names the HOLDER: an import holds it here, so the words must say so (PR #462 F3).
+    ok(lockMsg?.includes("an import is already in flight") && !lockMsg.includes("composition"), `43.8: the lock refusal during an import names the wrong run: ${lockMsg}`);
+    // An oversize DECLARED drop is a refusal with one action; at the cap, or undeclared, it is not (F2).
+    const big = M.dropTooLarge(M.MAX_DROP_BYTES + 1);
+    ok(big?.kind === "too-large" && typeof big.action?.label === "string" && M.dropTooLarge(M.MAX_DROP_BYTES) === null && M.dropTooLarge(NaN) === null,
+      `43.8: dropTooLarge answered ${deep(big)} over the cap, ${deep(M.dropTooLarge(M.MAX_DROP_BYTES))} at it, ${deep(M.dropTooLarge(NaN))} undeclared`);
+    // The routes' name check (F4): a traversal and a non-string refused, a real proposal name kept.
+    ok(!M.isProposalName("../../../etc") && !M.isProposalName(null) && M.isProposalName(firstOk?.name), `43.8: isProposalName misjudged a traversal, null or ${deep(firstOk?.name)}`);
+    // THE STALE PAGE: refused before the reader is called.
+    let calls = 0;
+    const pst = pkgCopy("stale");
+    const stMsg = await athrew(() => M.runImport({ pkgRoot: pst, provenance: "real", base: ledger(pst).length - 1, entrance: "selection", reader: async () => { calls += 1; return { text: "" }; } }));
+    ok(stMsg !== null && stMsg.includes("this page last saw") && calls === 0, `43.8: a stale base answered ${stMsg ?? "NO REFUSAL"} after ${calls} reader calls — refused before any spend`);
+    // A REFUSED read writes nothing.
+    const pr = pkgCopy("refused");
+    const ref = await afold("runImport with a refusing reader", () => M.runImport({ pkgRoot: pr, provenance: "real", base: ledger(pr).length, entrance: "selection", reader: async () => ({ refused: { kind: "nothing-selected", message: "x", action: { label: "y" } } }) }));
+    ok(ref?.refused?.kind === "nothing-selected" && !existsSync(join(pr, "build/imports")) && ledger(pr).length === ledger(pkgCopy("ref2")).length, `43.8: a refused read answered ${deep(ref)} and ${existsSync(join(pr, "build/imports")) ? "WROTE an imports/ dir" : "wrote nothing"}`);
+    const png = await afold("runImport with a PNG drop", () => M.runImport({ pkgRoot: pr, provenance: "real", base: ledger(pr).length, entrance: "drop", file: { name: "x.png", bytes: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x00]) } }));
+    ok(png?.refused?.kind === "not-an-export" && png.refused.message.includes("x.png") && !existsSync(join(pr, "build/imports")), `43.8: a PNG drop answered ${deep(png)} — refused naming the file, nothing written`);
+
+    // --- 43.9 NAMES ------------------------------------------------------------------------------
+    const irNamed = (n) => ({ children: [{ name: n, component: null }] });
+    const vocabNames = Object.keys(VOCAB.components);
+    ok(M.proposalName(irNamed("Spike List Row")) === "spike-list-row", `43.9: "Spike List Row" named ${M.proposalName(irNamed("Spike List Row"))}`);
+    ok(M.proposalName(irNamed("Spike List Row"), { taken: ["spike-list-row"] }) === "spike-list-row-2", "43.9: a taken name was not suffixed -2");
+    ok(M.proposalName(irNamed("List row"), { vocabNames }) === "list-row-2", `43.9: a vocabulary name was not suffixed: ${M.proposalName(irNamed("List row"), { vocabNames })}`);
+    for (const junk of [null, {}, irNamed("***"), irNamed("9 lives")]) ok(M.proposalName(junk) === "import", `43.9: proposalName(${JSON.stringify(junk)}) did not fall back to import: ${M.proposalName(junk)}`);
+
+    // --- 43.10 unboundCount ------------------------------------------------------------------------
+    ok(deep(M.unboundCount([{ source: { bound: false } }, { source: { bound: true } }, { source: { bound: false } }, null])) === deep({ unbound: 2, total: 3 }),
+      `43.10: unboundCount over three records answered ${deep(M.unboundCount([{ source: { bound: false } }, { source: { bound: true } }, { source: { bound: false } }, null]))}`);
+  }
+
+  // AC #4: nothing under system/, handoff/, discovery/ or import/overrides/ moved.
+  ok(gitSnap() === GIT_BEFORE && readFileSync(join(ROOT, "handoff/verdant/vocabulary.json")).equals(VOCAB_BYTES),
+    `43: the group moved a tracked path — git status for system handoff discovery import/overrides went from ${JSON.stringify(GIT_BEFORE)} to ${JSON.stringify(gitSnap())}`);
+
+  group("import run", `portal/lib/import-run.mjs (#311): IMPORTED in CI with no portal/node_modules, the decommented source holding no static SDK or zod import and exactly ONE await import of the SDK, inside readBrilliant, whose options pin strictMcpConfig, tools: [], allowedTools: [] and both fence sites from one allow-list · THE FENCE: the three read tools allowed (the positive control), Write, Edit, Bash, WebSearch, WebFetch, Read, two Brilliant write tools and undefined denied by name, an advertised Write denied at PreToolUse and at canUseTool with ONE denied line each, an unadvertised Write (a CLI warmup call) denied and recorded NOWHERE, an mcp__ denial recorded, a throwing predicate DENYING and a throwing writer leaving the denial intact · REACH: classifyReach's three branches and junk, classifyRead's timeout two ways and the empty selection, every refusal carrying one action · THE DROP SNIFF: both committed fixtures sniffed to their tool, a REST read, a token export, an empty file, a PNG and prose refused naming why · BOTH SOURCES through runPipeline + recordFor passing checkRecord with EQUAL key sets, fidelity missing with WCAG computed and "missing" in the markdown — and AC #1b's pair: the same blueprint through an injected reader and through a drop giving deep-equal ir, recognition, drops, snaps and unbound · THE WRITER: a traversal name and id refused before any byte, exactly the eight-file set written, the drafts literal-free and saying they are the importer's · THE MAPPING EDITOR on a SYNTHETIC unbound Figma export: a remap to stack emitting what list could not, a rename reaching template.txt's part id, a snap edit moving the role caption → body and writing one override row named by the source hash, a drop adding exactly one read-then-dropped row, elapsed.recognition unchanged, and an unknown path and a cross-family ref refused with mapping.json untouched · runImport: ONE owner component.propose line folding to pr1, the record, md and transcript on disk when the op append fails (so they are written first), a second run during the first refused "already in flight", naming the import as the holder, and the first still returning, dropTooLarge refusing only a declared size over the cap, isProposalName refusing a traversal, a stale base refused with ZERO reader calls, a refused read and a PNG drop writing nothing · proposalName and unboundCount · and git status over system, handoff, discovery and import/overrides unchanged across the group. What it cannot reach: whether the SDK half BEHAVES (CI has no SDK — the canvas journey's importPass and the owner-run probe are the observation), whether Brilliant's live response shapes are what the Phase 0 probe will capture (the live read is not built: readBrilliant refuses by name once reach succeeds), whether a draft is any good (a human read at #313), and pixels (the portal has no baseline)`);
 }
 
   if (failures) {
     console.error(`\nbuild ✗  ${failures} failure(s)`);
     process.exit(1);
   }
-  console.log("\nbuild ✓  all 42 groups pass");
+  console.log("\nbuild ✓  all 43 groups pass");
 }

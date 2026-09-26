@@ -53,7 +53,7 @@ import { join } from "node:path";
 import { SPACING } from "./brilliant.mjs";
 import { deltaEHex, r4 } from "./fidelity.mjs";
 import { checkIr, drop, tok, walk } from "./ir.mjs";
-import { TYPE_ROLE_PX } from "./recognise.mjs";
+import { TYPE_ROLE_PX, TYPE_TOKEN } from "./recognise.mjs";
 
 export const FAMILIES = Object.freeze(["spacing", "type", "radius", "colour"]);
 export const TOLERANCE = Object.freeze({ spacing: 2, type: 1, radius: 2, colour: 2.3 });
@@ -71,8 +71,9 @@ export const SLOT_FAMILY = Object.freeze({
   "style.stroke.width": null,
 });
 
-// recognise.mjs:112-118's four roles → the contract token each is pinned to.
-export const TYPE_TOKEN = Object.freeze({ display: "--type-display", heading: "--type-h2", body: "--type-body", caption: "--type-caption" });
+// The four roles → the contract token each is pinned to. It lives in recognise.mjs (#311), which
+// reads it back to fill a role from a snapped ref; re-exported so every reader here is unchanged.
+export { TYPE_TOKEN } from "./recognise.mjs";
 
 const COLOUR_GROUPS = Object.freeze(["fg-surface", "accent", "inverse"]);
 const HEX = /^#[0-9a-f]{6}$/;

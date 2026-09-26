@@ -510,16 +510,36 @@ discovery/<slug>/
     ops.jsonl            THE TRUTH — append-only, one line per op
     canvas.json          the arrangement — DERIVED, rewritten whole on every save
     groups/<id>.json     LATER — a defined group, {id, name, parts, provenance}
-    proposals/<name>/    LATER — a proposed component: spec.md · block.css · template.txt · source.json · mapping.json
-    imports/<id>.json    LATER — the import record (+ its .md projection, which the handoff carries)
+    proposals/<name>/    a proposed component (#311): spec.md · block.css · template.txt · source.json · mapping.json
+    imports/<id>.json    the import record (#311), + <id>.md (its projection, which the handoff carries),
+                         <id>.transcript.jsonl and, from a live read, <id>.reference.png
 ```
 
-**Only the first two exist.** The three siblings marked LATER are named by
-`docs/epics/canvas-design-import.architecture.md` § Data model and nothing writes them yet; they are
-listed here so a reader meeting `build/` knows what the folder is eventually for, not because a
-package carries them today.
+**`groups/` is still LATER** (#315); nothing writes it yet. `imports/` and `proposals/` are written by
+`portal/lib/import-run.mjs` (#311), a package's only import writer, and only through the canvas page's
+Import panel. An import is a recorded run: a Brilliant read or a dropped file goes through the import
+chain (`import/`), and the program writes, in this order, `imports/<id>.transcript.jsonl` (its line types:
+`meta` — the entrance, the file or the model and its allowed tools; `denied` — a fence refusal and the
+site that caught it; and, once the live read exists, `tool` and `result`), `proposals/<name>/source.json`
+(`{ tool, entrance, file, sha256, text }` — the read VERBATIM, which is what every re-derivation starts
+from), `imports/<id>.json` and `.md`, the three drafts and `mapping.json`. Only then does it append one
+op line through `saveRun`: `component.propose { name, recordId, mode }`, `source: "owner"` (the owner's
+click caused it; the program wrote it deterministically). Ids are the lowest free `i<n>`; a proposal's
+name is its first node's slug, suffixed `-2`, `-3` when taken or a vocabulary name.
 
-`portal/lib/canvas-store.mjs` is the only writer, with two writers of different kinds (#306).
+- **The drafts are the importer's, never an agent's.** `spec.md`, `block.css` and `template.txt` are
+  deterministic strings, and each says so in its first line. Props, states, behaviour and the
+  accessibility model are left for the owner at ratify (#313). `block.css` carries contract tokens only.
+- **`mapping.json`** is `{ record: "<id>", parts: { "<ir path>": { name?, map?, drop? } } }` — a part's
+  new name (it becomes the built node's `id`), a vocabulary entry to map it to (one with a builder), or
+  `drop: true`. The mapping editor writes it one edit at a time and then RE-DERIVES the record, its md
+  and the three drafts from `source.json`; nothing is ever patched. A snap edit writes the per-source
+  override file instead (`import/overrides/README.md`).
+- **A live record's fidelity is `missing`.** It carries WCAG over the neutral pack and no ΔE measurement;
+  the view says "missing — not measured, never a pass".
+
+`portal/lib/canvas-store.mjs` is the only writer of `ops.jsonl` and `canvas.json`, with two writers of
+different kinds (#306).
 `saveRun(pkgRoot, { base, ops, positions, decisions })` is the LIVE path — the portal's
 `/api/canvas/save`, behind `portal/public/canvas.html` — and it only ever APPENDS: it checks the page's
 `base` against the ledger's length (a mismatch is a 409, so two tabs cannot interleave), stamps each op

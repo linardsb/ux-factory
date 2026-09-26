@@ -142,6 +142,9 @@ export const STRUCTURAL_FALLBACK = "stack";
 // made and this is it, written down. Nothing in the committed fixtures is near either.
 // Distance is `contract − source`, S2's pinned sign convention, carried into the hit's detail.
 export const TYPE_ROLE_PX = Object.freeze({ display: 40, heading: 24, body: 16, caption: 13 });
+// …and the token each role is pinned to. Here rather than in snap-rules.mjs, which imports this file:
+// the role fill reads it back, and the other direction is a cycle (#311).
+export const TYPE_TOKEN = Object.freeze({ display: "--type-display", heading: "--type-h2", body: "--type-body", caption: "--type-caption" });
 
 // WHICH SLOT OF A DESIGN READ FILLS WHICH PROP. A prop with no row here is not fillable from a read
 // (see the header). FOUR SLOTS ARE RESOLVED STRUCTURALLY BEFORE THIS TABLE IS CONSULTED — a prop
@@ -246,6 +249,10 @@ function fillProp(node, propName, spec, ctx, entry) {
   if (spec.enum && sameSet(spec.enum, GLYPH_BOX_ENUM) && node.kind === "icon" && declaresGlyphBox(entry)) return glyphBox(node);
   if (spec.enum && sameSet(spec.enum, ROW_ENUM)) return node.layout?.dir ?? null;
   if (spec.enum && sameSet(spec.enum, ROLE_NAMES)) {
+    // A snap or an owner override writes `ref`, and the record and the output must agree: a ref that
+    // IS a role's token names the role outright (#307 plan, forward note; #311). Otherwise nearest px.
+    const byRef = Object.keys(TYPE_TOKEN).find((r) => TYPE_TOKEN[r] === node.text?.size?.ref);
+    if (byRef) return byRef;
     const near = node.text ? nearestRole(node.text.size?.value) : null;
     return near ? near.role : null;
   }
@@ -571,6 +578,9 @@ export function build(node, verdict, vocab, drops = []) {
   };
 
   const out = builder(node, verdict, entry, ctx, drops);
+  // The owner's part name from #311's mapping editor (portal/lib/import-run.mjs applyMapping writes
+  // verdict.partId). It becomes the node's id, which the renderer emits as data-part.
+  if (typeof verdict.partId === "string") out.id = verdict.partId;
 
   if (verdict.name !== "list") {
     // Everything below a leaf entry is absorbed into a prop or dropped — never emitted as a child.

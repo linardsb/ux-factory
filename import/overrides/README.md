@@ -37,3 +37,10 @@ made for. A file whose inner `source` disagrees with its own name is refused.
 Gate fixtures. An override is the owner's decision, and a fixture written to exercise the mechanism is not
 one; build-checks group 42's fixture lives in `import/fixtures/overrides/`. Nothing in this directory is
 written by an agent — the mapping editor (#311) is where an owner makes these decisions.
+
+## Where a real source's overrides go
+
+This directory holds overrides for FICTIONAL packages only, because it is committed. For a package under
+the jobs folder (`provenance: real`), `portal/lib/import-run.mjs` writes the same file format to
+`<JOBS_DIR>/_import-overrides/` instead: a real designer's source hash is never committed. The directory is
+chosen by the ROOT the package was opened from, never by its `run.json`'s declaration (#311).

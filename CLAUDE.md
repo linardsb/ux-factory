@@ -100,8 +100,9 @@ portal/                       local-first workbench (127.0.0.1 only, never deplo
   lib/builder.mjs             the OPERATOR PATH — /build's ten answers → a real composition question
   lib/canvas-store.mjs        the build package: list · load · append-only save, the ledger fold and the
                               canvas.json derivation (verifyBuild is the gate); routes in server.mjs
+  lib/import-run.mjs          the RECORDED IMPORT — Brilliant read (lazy SDK) or a dropped file → record + proposal
   public/                     vanilla SPA — hash routing, template strings, no framework; plus
-                              canvas.html + canvas.mjs, the one MODULE page (the build canvas, #306)
+                              canvas.html + canvas.mjs (+ canvas-import.mjs, #311), the one MODULE page (the build canvas, #306)
   record-trace.mjs            build-time trace recorder (CLI) — a REAL agent run
   record-composition.mjs      build-time composition runner (CLI) — a REAL Agent SDK run per scenario
   record-build.mjs            build-time INCREMENTAL build recorder (CLI) — one op per tool call
@@ -132,7 +133,7 @@ docs/epics/                   PRD + architecture decisions governing the platfor
 docs/figma-runbook.md         operator steps for the Figma boundary + the request-budget rules
 
 tooling/
-  build-checks.mjs            42 PURE groups, in CI — the repo's main gate  (→ references/gates.md)
+  build-checks.mjs            43 PURE groups, in CI — the repo's main gate  (→ references/gates.md)
   build-journey.mjs           /build ×3 engines, operator-run             (→ references/gates.md)
   proto-journey.mjs           the two proto pages ×3 engines              (→ references/gates.md)
   studio-journey.mjs          the studio ×3 engines + the INP gate        (→ references/gates.md)
@@ -160,7 +161,7 @@ The kb (`_factory/kb/` in the jobs folder) is the database — record shapes + p
 
 ## Where new code goes
 - **Portal API endpoint** → a route branch in `portal/server.mjs` (`readBody` → delegate → `json(res, …)`); logic in a `portal/lib/<concern>.mjs` module, one concern per module.
-- **Portal UI feature** → `portal/public/portal.js`: a hash route + render function using the existing `api()` helper; styles in `portal.css`. The one exception is `portal/public/canvas.html` + `canvas.mjs`, a module page (the canvas needs `system/` modules a classic script cannot import); the SPA links to it from `#/canvas`.
+- **Portal UI feature** → `portal/public/portal.js`: a hash route + render function using the existing `api()` helper; styles in `portal.css`. The one exception is `portal/public/canvas.html` + `canvas.mjs` (+ `canvas-import.mjs`, #311), a module page (the canvas needs `system/` modules a classic script cannot import); the SPA links to it from `#/canvas`.
 - **Machine-layer artifact** → `agent-layer/gen-<output>.mjs` exporting `gen<Name>(ledger)`; register in `build.mjs` (import + call + `✓` log line), keep the standalone-run guard. Shared parsing belongs in `lib.mjs`.
 - **Component** → token-only CSS in `system/components.css`; a new semantic token gets added to `system/tokens.source.json` (contract group) first, then regenerate: `node agent-layer/gen-token-css.mjs`.
 - **New component spec** → `system/specs/<component>.md` (+ `.contract.json` if data-bound) per `.claude/references/kb-format.md`, then regenerate the pack: `node agent-layer/gen-handoff.mjs`. The chain is not finished at the spec: a component also needs its **`components.css` block** (header `/* ---------- <class> (system/specs/<name>.md) ---------- */`, token-only) **and its `agentic-renderer.mjs` template**, because `build-checks` group 3 asserts that EVERY generated vocabulary entry has a render path. A spec with a vocabulary entry and no block and no template is *documented but not composable*, and it is a red build. The optional `example` head key is validated SEMANTICALLY at generation time — it must actually render, or CI `verify` goes red naming the spec. A new spec also moves the **design importer's** committed verdict, because `import/fixtures/spike-c-instance.expected.json` and `import/fixtures/figma/spike-list-row.expected.json` carry a candidates list scored against the WHOLE vocabulary: run `node import/regen-expected.mjs` in the same PR, or build-checks group 40 reds on a ticket that never touched `import/`. The same goes for the two fixture import records under `import/fixtures/records/` (a function of the whole vocabulary and `tokens.source.json`): run `node tooling/regen-import-records.mjs` beside it, or group 42 reds.
@@ -209,7 +210,7 @@ The kb (`_factory/kb/` in the jobs folder) is the database — record shapes + p
 ## On-demand context
 Route on-demand detail to `.claude/references/` — never back into this file.
 
-- **`gates.md`** — the gate stack: build-checks' 42 groups, the six journey drivers, the pixel gate, the morph gates, and what each one states it CANNOT reach. Read before adding or changing a gate, or before trusting a green run.
+- **`gates.md`** — the gate stack: build-checks' 43 groups, the six journey drivers, the pixel gate, the morph gates, and what each one states it CANNOT reach. Read before adding or changing a gate, or before trusting a green run.
 - **`token-system.md`** — the three-layer mechanic and how to add a token.
 - **`kb-format.md`** — kb record shapes + the ComponentSpec / DataContract format.
 - **`backend-api-best-practices.md`** — API route work · **`frontend-component-best-practices.md`** — UI work.
