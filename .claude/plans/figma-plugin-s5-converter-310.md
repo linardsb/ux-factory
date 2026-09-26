@@ -1077,6 +1077,13 @@ and a Figma behaviour the docs do not state (a builder call that throws, an unex
 
 ## AMENDMENTS
 
+- 2026-09-26 — implementation, commit 3 (plan errors):
+  - **40.19's REDDENS cannot redden 40.19.** `ALIGN_OF.CENTER → "start"` changes only the Status chip's IR
+    align, and a status-chip verdict does not carry align, so the committed-verdict compare stays green. It
+    reddens 40.23 instead (observed). 40.19's mutation is F2's ref separator (`split("/").join("-")`), which
+    moves every ref and so the verdict (observed red).
+  - **40.21's builder control needs `getLocalVariableCollectionsAsync` on the fake.** Without it the run fails at
+    "refuse a second build", before any write. The fake supplies it, and the case asserts `Build failed at variables`.
 - 2026-09-26 — implementation pre-flight, commit 1 (plan errors):
   - **40.25's positive control named a file commit 1 cannot have** (`import/fixtures/figma/spike-list-row.export.json`
     arrives in commit 3). Commit 1 proves recursion with `s3/ref.png` plus a `records/` file; commit 3 adds the figma file.

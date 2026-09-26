@@ -244,7 +244,7 @@ const PAD_SIDE = ["top", "right", "bottom", "left"];
 
 // THE AXIS KEEPS THE RAW VALUE (inherited contract 4). Extracted out of toStack so the SAME two rows
 // fire for a node that carries no al() at all — a fixed px on a plain frame is the same loss.
-const sizeDrops = (size, where) => {
+export const sizeDrops = (size, where) => {
   const out = [];
   if (!size) return out;
   for (const axis of ["w", "h"]) {

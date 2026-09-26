@@ -39,6 +39,22 @@ Under the plan's F3 rule, the three unbound zeros/defaults arrive as absent, not
 children's `width`/`height`). The chevron's long axis is the one the glyph box reads, and it matches spike C's
 `s(8.73,16)`.
 
+## Cross-source: the same drawing through both converters
+
+The committed verdicts `import/fixtures/spike-c-instance.expected.json` (Brilliant) and
+`import/fixtures/figma/spike-list-row.expected.json` (Figma), node by node. Nothing was tuned to make these match
+(recognise.mjs R1–R4). Build-checks 40.19 asserts the Figma column by path.
+
+| Node | Brilliant | Figma | Why they differ |
+|---|---|---|---|
+| root (the person row) | `list-row`, scored 0.575 (name-match + prop-fit on `label`) | **`list`, scored 0.7** (name-match + kind-fit on `layout`) | The Figma root is auto-layout (`HORIZONTAL`), so it has a layout and `list` earns kind-fit on it beside the name match ("Spike List Row" holds "list"). Spike C's root line carries no `al()`, so there `list` scored the name match alone (0.45). `list-row` still scores 0.575 in Figma and comes second. `list` needs `empty`, which no design read has, so `build()` would refuse the container (case 40.12's rule). **The read is the owner's:** whether an auto-layout row component should read as a list. |
+| Avatar | floor, 0.45 | floor, 0.45 | same |
+| Text block | `stack`, structural fallback | `stack`, structural fallback | same. The Figma pad is absent (an unbound 0, F3). Brilliant's is a `no-token` drop for `$spacing.none` |
+| Text 1 / Text 2 | `text`, scored 0.95 | `text`, scored 0.95 | same, by role through the bound size. Figma reads `Inter` with `ref: null` (the recipe binds no family) and the text sizing as `hug` (Brilliant: `fill`) |
+| Status chip | `status-chip`, scored 0.575 | `status-chip`, scored 0.575 | same |
+| Text 3 | `text`, scored 0.95 | `text`, scored 0.95 | same |
+| Chevron / `caret-right` | `icon`, scored 0.5 | `icon`, scored 0.5 | same. 8.73 × 16 reads `md` in both |
+
 ## Setup
 
 | | |
@@ -49,6 +65,7 @@ children's `width`/`height`). The chevron's long axis is the one the glyph box r
 | Manifest id | `ux-factory-house-export`, as committed |
 | Fixture built by | the **Build S5 fixture** command. It is the path handed to the owner, and the census shows its exact names and values; the owner did not report using the hand recipe |
 | Export | `raw/spike-list-row.export.json`, 15 417 bytes, sha256 `b61fa79d4c0c6dcf…` |
+| Fixture copy | `import/fixtures/figma/spike-list-row.export.json`, byte-identical (`cmp`), sha256 `b61fa79d4c0c6dcf…` |
 | Variables | 13 in the export, all in the collection `ux-factory`: the recipe's 7 FLOAT + 6 COLOR |
 
 ## Not done
