@@ -104,6 +104,7 @@ const describeOp = (o) => {
     case "frame.link": return `linked ${p.frameId} to ${p.decisionRefs?.length ? `decisions ${p.decisionRefs.join(", ")}` : "no decision"}`;
     case "frame.remove": return `removed ${p.frameId}`;
     case "frame.size": return `resized ${p.frameId} to ${p.preset ?? `${p.width} px`}`;
+    case "component.propose": return `proposed ${p.name} from import ${p.recordId}`;
     default: return o.op;
   }
 };

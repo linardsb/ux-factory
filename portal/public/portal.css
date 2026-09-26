@@ -364,3 +364,34 @@
 }
 .cv-run a { display: inline-flex; align-items: center; min-height: 44px; }
 .cv-run-meta { font-size: var(--type-caption); color: var(--color-fg-muted); }
+
+/* the import panel, view and mapping editor (#311, canvas-import.mjs). Contract tokens only; 44×44
+   targets. The page-wide [hidden] rule above already beats an author display here. */
+.cv-import, .cv-import-view {
+  display: flex; flex-direction: column; gap: var(--spacing-sm);
+  background: var(--color-bg-surface); border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+  padding: var(--spacing-sm);
+}
+.cv-import-view { margin-bottom: var(--spacing-md); }
+.cv-import-title { margin: 0; font-size: var(--type-body); }
+.cv-import h3, .cv-import-view h3 { margin: 0; font-size: var(--type-caption); }
+.cv-import-binding, .cv-import-status, .cv-import-hint { margin: 0; font-size: var(--type-caption); color: var(--color-fg-muted); overflow-wrap: anywhere; }
+.cv-import-mode { display: flex; flex-direction: column; gap: var(--spacing-xs); margin: 0; padding: var(--spacing-xs); border: 1px solid var(--color-border); border-radius: var(--radius-sm); }
+.cv-import-mode label { display: flex; align-items: center; gap: var(--spacing-xs); min-height: 44px; font-size: var(--type-caption); }
+.cv-import-refusal:not(:empty) { display: flex; flex-direction: column; gap: var(--spacing-xs); padding: var(--spacing-xs); border: 1px solid var(--color-accent); border-radius: var(--radius-sm); }
+.cv-import-refusal p { margin: 0; overflow-wrap: anywhere; }
+.cv-import-drop {
+  display: flex; flex-direction: column; gap: var(--spacing-xs); min-height: 44px; padding: var(--spacing-sm);
+  border: 1px dashed var(--color-border); border-radius: var(--radius-sm); font-size: var(--type-caption); cursor: pointer;
+}
+.cv-import-drop.is-over { border-color: var(--color-accent); }
+.cv-import-file { min-height: 44px; max-width: 100%; }
+.cv-import-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr)); gap: var(--spacing-md); }
+.cv-import-col { min-width: 0; display: flex; flex-direction: column; gap: var(--spacing-xs); }
+.cv-import-col img { max-width: 100%; height: auto; }
+.cv-import-outline, .cv-import-drops ul, .cv-import-editor { margin: 0; padding-left: var(--spacing-md); font-size: var(--type-caption); overflow-wrap: anywhere; }
+.cv-import-drop-class, .cv-import-fidelity { margin: 0; font-size: var(--type-caption); }
+.cv-import-editor { list-style: none; padding: 0; display: flex; flex-direction: column; gap: var(--spacing-xs); }
+.cv-import-editor li { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-xs); }
+.cv-import-path { flex: 1 1 100%; color: var(--color-fg-muted); }
+.cv-import-editor input, .cv-import-editor select { min-height: 44px; min-width: 0; font: inherit; }

@@ -24,8 +24,18 @@
 // NOTHING UNDER discovery/ MAY CHANGE. Step 2 opens the in-repo spine and asserts zero save requests;
 // `git status --porcelain -- discovery/` is compared before and after every leg.
 //
-// WHAT IT CANNOT REACH: the page's pixels (no baseline — the portal is not in the VR set), a real
-// Brilliant import (#311), and two-tab behaviour beyond the 409 the server returns.
+// THE IMPORT PASS (#311). The portal child runs with UXF_BRILLIANT_MCP pointing at a server that exits
+// at once, so "Import selection" meets the real SDK and gets the not-running refusal with ONE action and
+// no spend (costUsd null — the abort precedes any model call); then the Brilliant fixture and the Figma
+// fixture are DROPPED through the page, each writing a record, its markdown, a transcript, a proposal
+// and one component.propose line; the two records share one shape; a mapping edit rewrites mapping.json,
+// re-derives the record and re-renders the view; and a SECOND portal child, whose Brilliant server never
+// answers, holds the run lock while a drop is refused "already in flight". git status over system/,
+// handoff/, discovery/ and import/overrides/ is compared across the pass (AC #4).
+//
+// WHAT IT CANNOT REACH: the page's pixels (no baseline — the portal is not in the VR set), a live
+// Brilliant READ (the reader is reach-only until the owner-run Phase 0 probe — #311's PR B), and two-tab
+// behaviour beyond the 409 the server returns.
 //
 // Run it:
 //   (cd portal && npm ci)                                   # server.mjs imports the Agent SDK
@@ -33,12 +43,13 @@
 
 import { createRequire } from "node:module";
 import { spawn, execFileSync } from "node:child_process";
-import { cpSync, existsSync, mkdirSync, mkdtempSync, openSync, readFileSync, realpathSync, rmSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, openSync, readdirSync, readFileSync, realpathSync, rmSync } from "node:fs";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { foldLedger, loadBuild, verifyBuild } from "../portal/lib/canvas-store.mjs";
+import { checkRecord } from "../import/report.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, "..");
@@ -85,13 +96,19 @@ const freePort = () => new Promise((resolve, reject) => {
   s.listen(0, "127.0.0.1", () => { const { port } = s.address(); s.close(() => resolve(port)); });
 });
 
+// A Brilliant MCP server that exits at once: the import's reach check meets a real failed server.
+const MCP_DOWN = JSON.stringify({ type: "stdio", command: process.execPath, args: ["-e", "process.exit(1)"] });
+// One that never answers initialize — and exits on stdin EOF, as a real stdio server does, so the CLI's
+// teardown leaves no orphan.
+const MCP_HANG = JSON.stringify({ type: "stdio", command: process.execPath, args: ["-e", "process.stdin.resume();process.stdin.on('end',()=>process.exit(0))"] });
+
 async function boot(attempt = 1) {
   const port = await freePort();
   const fd = openSync(LOG, "a");
   childExit = null;
   child = spawn(process.execPath, [path.join(REPO, "portal/server.mjs")], {
     cwd: path.join(REPO, "portal"),
-    env: { ...process.env, PORT: String(port), JOBS_DIR: scratch },
+    env: { ...process.env, PORT: String(port), JOBS_DIR: scratch, UXF_BRILLIANT_MCP: MCP_DOWN, UXF_IMPORT_TIMEOUT_MS: "8000" },
     stdio: ["ignore", fd, fd],
   });
   child.on("exit", (code, signal) => { childExit = { code, signal }; });
@@ -139,6 +156,11 @@ function seed() {
   mkdirSync(s);
   cpSync(path.join(src, "run.json"), path.join(s, "run.json"));
   cpSync(path.join(src, "build"), path.join(s, "build"), { recursive: true });
+  // #311's import pass works on its own copy, so the steps above keep their line counts.
+  const imp = path.join(DISC(), "fp-import");
+  mkdirSync(imp);
+  for (const f of ["run.json", "answers.jsonl", "transcript.jsonl"]) cpSync(path.join(src, f), path.join(imp, f));
+  cpSync(path.join(src, "build"), path.join(imp, "build"), { recursive: true });
 }
 const buildDir = (slug) => path.join(DISC(), slug, "build");
 const ledger = (slug) => readFileSync(path.join(buildDir(slug), "ops.jsonl"), "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l));
@@ -148,6 +170,7 @@ async function waitLines(slug, n, ms = 6000) {
   return ledger(slug);
 }
 const gitDiscovery = () => execFileSync("git", ["status", "--porcelain", "--", "discovery/"], { cwd: REPO, encoding: "utf8" });
+const gitImportScope = () => execFileSync("git", ["status", "--porcelain", "--", "system/", "handoff/", "discovery/", "import/overrides/"], { cwd: REPO, encoding: "utf8" });
 
 // ---- page helpers -------------------------------------------------------------------------------------
 async function openCanvas(page, base, provenance, slug) {
@@ -498,6 +521,8 @@ async function leg(engine, base, results) {
       await page.keyboard.press("Escape");
     });
 
+    await importPass(engine, base, page, t, step);
+
     t("16 · no page errors or console errors across the leg", errors.length === 0, errors.slice(0, 3).join(" | "));
     const gitAfter = gitDiscovery();
     t("the leg changed nothing under discovery/ (git status identical before and after)", gitAfter === gitBefore, gitAfter);
@@ -505,6 +530,124 @@ async function leg(engine, base, results) {
   } finally {
     await browser.close();
   }
+}
+
+// ---- the import pass (#311) ---------------------------------------------------------------------------
+const importsDir = () => path.join(buildDir("fp-import"), "imports");
+const readRec = (id) => JSON.parse(readFileSync(path.join(importsDir(), `${id}.json`), "utf8"));
+const keysOf = (r) => canon({ top: Object.keys(r).sort(), ...Object.fromEntries(["source", "fidelity", "provenance", "elapsed"].map((k) => [k, Object.keys(r[k] ?? {}).sort()])) });
+
+async function dropFile(page, file) {
+  await page.locator("[data-canvas-verb=import]").click();
+  // A CHANGED ?import=, not any: after the first drop the URL already carries one, and a plain match
+  // resolved at once on the old page (found on the first run — the second drop's step read i1's view).
+  const before = page.url();
+  const nav = page.waitForURL((u) => u.toString() !== before && u.searchParams.has("import"), { timeout: 15000 });
+  await page.locator("[data-import-file]").setInputFiles(file);
+  await nav;
+  await page.waitForSelector("[data-import-view]:not([hidden]) [data-import-label]", { timeout: 20000 });
+}
+
+async function importPass(engine, base, page, t, step) {
+  const gitBefore = gitImportScope();
+  await step("I1 · Import selection with the MCP down", async () => {
+    await openCanvas(page, base, "real", "fp-import");
+    await page.locator("[data-canvas-verb=import]").click();
+    const resp = page.waitForResponse((r) => r.url().endsWith("/api/canvas/import") && r.request().method() === "POST", { timeout: 60000 });
+    await page.locator("[data-import-selection]").click();
+    const body = await (await resp).json();
+    await page.waitForSelector("[data-import-refusal] p", { timeout: 5000 });
+    const text = await page.locator("[data-import-refusal]").textContent();
+    t("I1 · the refusal names \"did not start\" with exactly ONE action", text.includes("did not start") && (await page.locator("[data-import-action]").count()) === 1, text);
+    t("I1 · …it spent nothing: costUsd null (the abort precedes any model call)", body.refused?.kind === "not-running" && body.refused.costUsd === null, JSON.stringify(body));
+    t("I1 · …and wrote nothing under build/imports/", !existsSync(importsDir()));
+    const small = [];
+    for (const sel of ["[data-canvas-verb=import]", "[data-import-selection]", "[data-import-action]", "[data-import-drop]"]) {
+      const b = await page.locator(sel).boundingBox();
+      if (!b || b.width < 44 || b.height < 44) small.push(`${sel} ${b?.width}×${b?.height}`);
+    }
+    t("I1 · the panel's controls measure at least 44×44", small.length === 0, small.join(", "));
+  });
+
+  await step("I2 · drop the Brilliant blueprint", async () => {
+    await dropFile(page, path.join(REPO, "import/fixtures/spike-c-instance.blueprint.txt"));
+    const name = new URL(page.url()).searchParams.get("import");
+    const pfiles = existsSync(path.join(buildDir("fp-import"), "proposals", name)) ? readdirSync(path.join(buildDir("fp-import"), "proposals", name)).sort() : [];
+    t("I2 · imports/i1.json, .md and .transcript.jsonl on disk",
+      ["i1.json", "i1.md", "i1.transcript.jsonl"].every((f) => existsSync(path.join(importsDir(), f))), readdirSync(importsDir()).join(","));
+    t(`I2 · proposals/${name}/ holds the five files`, canon(pfiles) === canon(["block.css", "mapping.json", "source.json", "spec.md", "template.txt"]), pfiles.join(","));
+    let err = null;
+    try { checkRecord(readRec("i1")); } catch (e) { err = e.message; }
+    t("I2 · the record passes checkRecord", err === null, err ?? "");
+    const last = ledger("fp-import").at(-1);
+    t("I2 · the ledger's last line is component.propose {name, i1, mode 1}", last?.op === "component.propose" && last.params?.recordId === "i1" && last.params?.name === name, JSON.stringify(last));
+    const label = await page.locator("[data-import-label]").textContent();
+    t("I2 · the view labels it the importer's, and fidelity missing — never a pass", label.includes("not by an agent") && (await page.locator("[data-import-fidelity]").textContent()).includes("missing — not measured, never a pass"), label);
+  });
+
+  await step("I3 · drop the Figma export — the same record shape", async () => {
+    await dropFile(page, path.join(REPO, "import/fixtures/figma/spike-list-row.export.json"));
+    t("I3 · i2 written", existsSync(path.join(importsDir(), "i2.json")));
+    t("I3 · i2's record has i1's key set (AC #1b)", keysOf(readRec("i2")) === keysOf(readRec("i1")), `${keysOf(readRec("i2"))} vs ${keysOf(readRec("i1"))}`);
+  });
+
+  await step("I4 · edit the mapping", async () => {
+    const name = new URL(page.url()).searchParams.get("import");
+    const mapFile = path.join(buildDir("fp-import"), "proposals", name, "mapping.json");
+    const count = async () => Number((await page.locator("[data-import-drops] h3").textContent()).match(/\((\d+)\)/)?.[1]);
+    const editAndWait = async (sel, value) => {
+      const resp = page.waitForResponse((r) => r.url().endsWith("/api/canvas/import/mapping"), { timeout: 10000 });
+      await page.locator(sel).selectOption(value);
+      await resp;
+      await page.waitForFunction(() => /re-derived/.test(document.querySelector("[data-import-status]")?.textContent ?? ""), null, { timeout: 5000 });
+    };
+    const before = readFileSync(mapFile, "utf8");
+    const dropsBefore = await count();
+    await editAndWait('[data-import-remap="ir.children[0].children[3]"]', "drop");
+    const after = readFileSync(mapFile, "utf8");
+    t("I4 · a drop rewrote mapping.json on disk", after !== before && JSON.parse(after).parts["ir.children[0].children[3]"]?.drop === true, after);
+    t("I4 · the view's drop list grew by exactly one", (await count()) === dropsBefore + 1, `${dropsBefore} → ${await count()}`);
+    let err = null;
+    try { checkRecord(readRec("i2")); } catch (e) { err = e.message; }
+    t("I4 · imports/i2.json was re-derived and still passes checkRecord", err === null && readRec("i2").drops.some((d) => d.path === "mapping"), err ?? "");
+    // The root is `list`, which build() cannot emit; remapping it to stack makes the Mapped pane render,
+    // and a rename then shows as data-part — the view re-rendered from the response, not the old DOM.
+    await editAndWait('[data-import-remap="ir.children[0]"]', "stack");
+    const resp = page.waitForResponse((r) => r.url().endsWith("/api/canvas/import/mapping"), { timeout: 10000 });
+    await page.locator('[data-import-rename="ir.children[0]"]').fill("person");
+    await page.locator('[data-import-rename="ir.children[0]"]').press("Enter");
+    await resp;
+    await page.waitForSelector('[data-import-mapped] [data-part="person"]', { timeout: 5000 }).catch(() => {});
+    t("I4 · remap to stack + rename → the Mapped pane renders data-part=\"person\"", (await page.locator('[data-import-mapped] [data-part="person"]').count()) === 1);
+  });
+
+  await step("I5 · the run lock (a second portal child, Brilliant never answers)", async () => {
+    const port = await freePort();
+    const fd = openSync(LOG, "a");
+    const hang = spawn(process.execPath, [path.join(REPO, "portal/server.mjs")], {
+      cwd: path.join(REPO, "portal"),
+      env: { ...process.env, PORT: String(port), JOBS_DIR: scratch, UXF_BRILLIANT_MCP: MCP_HANG, UXF_IMPORT_TIMEOUT_MS: "8000" },
+      stdio: ["ignore", fd, fd],
+    });
+    const b2 = `http://127.0.0.1:${port}`;
+    try {
+      for (let i = 0; i < 75; i += 1) { try { if ((await fetch(`${b2}/api/health`)).ok) break; } catch { /* not yet */ } await sleep(200); }
+      const n = ledger("fp-import").length;
+      const first = fetch(`${b2}/api/canvas/import`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ provenance: "real", slug: "fp-import", base: n, entrance: "selection", mode: 1 }) }).then((r) => r.json());
+      await sleep(1500);
+      const q = new URLSearchParams({ provenance: "real", slug: "fp-import", base: String(n), mode: "1", name: "spike-c.txt" });
+      const second = await (await fetch(`${b2}/api/canvas/import/drop?${q}`, { method: "POST", body: readFileSync(path.join(REPO, "import/fixtures/spike-c-instance.blueprint.txt")) })).json();
+      t("I5 · a drop during a pending selection read is refused \"already in flight\"", String(second.error ?? "").includes("already in flight"), JSON.stringify(second));
+      const firstBody = await first;
+      t("I5 · the pending read resolves to the stale-binding refusal (timeout, no retry)", firstBody.refused?.kind === "stale-binding", JSON.stringify(firstBody));
+      const third = await (await fetch(`${b2}/api/canvas/import/drop?${q}`, { method: "POST", body: readFileSync(path.join(REPO, "import/fixtures/spike-c-instance.blueprint.txt")) })).json();
+      t("I5 · after it, a drop succeeds", typeof third.recordId === "string", JSON.stringify(third).slice(0, 200));
+    } finally {
+      hang.kill("SIGTERM");
+    }
+  });
+
+  t("I6 · git status over system/, handoff/, discovery/ and import/overrides/ unchanged across the pass (AC #4)", gitImportScope() === gitBefore, gitImportScope());
 }
 
 // ---- run -------------------------------------------------------------------------------------------------
@@ -532,5 +675,5 @@ try {
 }
 console.log(totalFails
   ? `\ncanvas-journey ✗  ${totalFails} assertion(s) failed`
-  : `\ncanvas-journey ✓  the run list · the in-repo spine opened with ZERO saves and its save notice · run.json's provenance label with the root flagged · frames, the arrow and decision cards rendered from the ledger and the transcript with no overlap · a note, a decision link, a refused remove, a remove and its undo, a numeric width and a pointer resize each ONE ledger entry and ONE undo · a reload that keeps them · verifyBuild [] on disk and the disk document equal to the page's · 403 cross-origin and 409 stale · the stand-in flagged, not blocked · the inspector in the viewport on both branches · 44×44 targets · no page errors · nothing under discovery/ changed (${toRun.join(", ")})`);
+  : `\ncanvas-journey ✓  the run list · the in-repo spine opened with ZERO saves and its save notice · run.json's provenance label with the root flagged · frames, the arrow and decision cards rendered from the ledger and the transcript with no overlap · a note, a decision link, a refused remove, a remove and its undo, a numeric width and a pointer resize each ONE ledger entry and ONE undo · a reload that keeps them · verifyBuild [] on disk and the disk document equal to the page's · 403 cross-origin and 409 stale · the stand-in flagged, not blocked · the inspector in the viewport on both branches · 44×44 targets · the import pass: the MCP-down refusal with one action and no spend, two drops writing record + proposal + one component.propose line each with one record shape, a mapping edit re-deriving the record and the view, the run lock refusing a drop "already in flight" · no page errors · nothing under system/, handoff/, discovery/ or import/overrides/ changed (${toRun.join(", ")})`);
 process.exit(totalFails ? 1 : 0);

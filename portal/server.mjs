@@ -28,6 +28,9 @@ import { BOOT_SHA, headSha, isStale } from './lib/version.mjs';
 // SDK-free canvas-ops.mjs, pinned by build-checks group 36.6.
 import { foldLedger, listBuilds, loadBuild, loadDecisions, provenanceLabel, saveConflict, saveRun } from './lib/canvas-store.mjs';
 import { questionById } from '../discovery/bank.mjs';
+// The recorded import (#311). Statically SDK-free (build-checks 43.1); the SDK is reached only inside
+// readBrilliant, which runImport calls for a selection read.
+import { editMapping, importView, readUpload, runImport } from './lib/import-run.mjs';
 
 const PUBLIC_DIR = path.join(PORTAL_DIR, 'public');
 const MIME = {
@@ -425,6 +428,42 @@ const server = createServer(async (req, res) => {
       const conflict = saveConflict(path.join(root, 'build'), b.base);
       if (conflict) return json(res, 409, { error: conflict });
       return json(res, 200, saveRun(root, { base: b.base, ops: b.ops, positions: b.positions, decisions: loadDecisions(root) }));
+    }
+
+    // --- the recorded import (#311) ---
+    // A stale page is a 409 checked HERE, before runImport, as /api/canvas/save does: the in-lock check
+    // stays as the second line, but a throw there reaches the catch-all as a 500. A refusal the owner
+    // should read (not reachable, nothing selected, not an export) is DATA — 200 { refused }.
+    if (p === '/api/canvas/import' && req.method === 'POST') {
+      const b = await readBody(req);
+      const root = resolveRunRoot({ provenance: b.provenance, slug: b.slug });
+      assertProvenanceRoot(b.provenance, root);
+      const conflict = saveConflict(path.join(root, 'build'), b.base);
+      if (conflict) return json(res, 409, { error: conflict });
+      return json(res, 200, await runImport({ pkgRoot: root, provenance: b.provenance, base: b.base, entrance: b.entrance, ids: b.ids ?? null, mode: b.mode }));
+    }
+    if (p === '/api/canvas/import/drop' && req.method === 'POST') {
+      const provenance = url.searchParams.get('provenance');
+      const root = resolveRunRoot({ provenance, slug: url.searchParams.get('slug') });
+      assertProvenanceRoot(provenance, root);
+      const base = Number(url.searchParams.get('base'));
+      const conflict = saveConflict(path.join(root, 'build'), base);
+      if (conflict) { req.resume(); return json(res, 409, { error: conflict }); }
+      const bytes = await readUpload(req);
+      return json(res, 200, await runImport({ pkgRoot: root, provenance, base, entrance: 'drop', mode: Number(url.searchParams.get('mode') || 1),
+        file: { name: url.searchParams.get('name') || 'dropped file', bytes } }));
+    }
+    if (p === '/api/canvas/import/view' && req.method === 'GET') {
+      const provenance = url.searchParams.get('provenance');
+      const root = resolveRunRoot({ provenance, slug: url.searchParams.get('slug') });
+      assertProvenanceRoot(provenance, root);
+      return json(res, 200, importView(root, url.searchParams.get('name')));
+    }
+    if (p === '/api/canvas/import/mapping' && req.method === 'POST') {
+      const b = await readBody(req);
+      const root = resolveRunRoot({ provenance: b.provenance, slug: b.slug });
+      assertProvenanceRoot(b.provenance, root);
+      return json(res, 200, editMapping({ pkgRoot: root, provenance: b.provenance, name: b.name, edit: b.edit }));
     }
 
     // --- embedded site previews: /sites/<slug>/... → the card's site_root on disk ---

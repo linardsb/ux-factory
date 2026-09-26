@@ -161,6 +161,22 @@ const LIVE_READ_NOT_BUILT = Object.freeze({
 
 export const MAX_DROP_BYTES = 8 * 1024 * 1024;
 
+// The drop route's body, STREAMED with a cap (portal/lib/figma.mjs receiveExport's shape): refused on
+// the declared size before a byte is read, and the request destroyed the moment the cap is passed —
+// never readBody, whose 1 MB cap stays where it is for every other route.
+export async function readUpload(req, max = MAX_DROP_BYTES) {
+  const declared = Number(req.headers?.["content-length"]);
+  if (Number.isFinite(declared) && declared > max) throw new Error(`import-run: the dropped file is ${declared} bytes, over the ${max}-byte cap`);
+  const chunks = [];
+  let n = 0;
+  for await (const c of req) {
+    n += c.length;
+    if (n > max) { req.destroy(); throw new Error(`import-run: the dropped file exceeds the ${max}-byte cap`); }
+    chunks.push(c);
+  }
+  return Buffer.concat(chunks);
+}
+
 // A dropped file → { tool, text }. JSON goes to figma.readExport, whose own refusals (a REST read, a
 // token export, a wrong format) name why; anything else is a blueprint and brilliant.convert refuses it.
 export function sniffDrop(bytes, filename = "the dropped file") {
@@ -409,7 +425,8 @@ export function editMapping({ pkgRoot, provenance, name, edit, inputs = loadInpu
     const part = { ...(nextMapping.parts[edit.path] ?? {}) };
     if (keys[0] === "rename") part.name = edit.rename;
     if (keys[0] === "map") { part.map = edit.map; delete part.drop; }
-    if (keys[0] === "drop") { if (edit.drop === true) part.drop = true; else delete part.drop; }
+    // drop: false is "as recognised": it clears a drop AND a remap, keeping a rename.
+    if (keys[0] === "drop") { if (edit.drop === true) part.drop = true; else { delete part.drop; delete part.map; } }
     nextMapping.parts[edit.path] = part;
   }
   // Re-derive BEFORE writing anything: an unknown path or a cross-family ref throws here, and the
@@ -513,12 +530,16 @@ export function importView(pkgRoot, name) {
     outline.push({ path: p, kind: n.kind, name: n.name, text: n.text?.content ?? null, recognised: v?.covered ? v.name : null,
       snaps: (n.snaps ?? []).map((s) => ({ slot: s.slot, family: s.family, outcome: s.outcome, ref: s.ref, value: s.value })) });
   });
+  const targets = targetsFrom(loadInputs().contract);
   const fidelity = record.fidelity.verdict === "missing" ? "fidelity: missing — not measured, never a pass" : `fidelity: ${record.fidelity.verdict}`;
   return {
     name, recordId: record.id, record, md, mapping, outline,
     compositions: template.compositions,
     reference: existsSync(png) ? `data:image/png;base64,${readFileSync(png).toString("base64")}` : null,
     unbound: unboundCount(records),
+    // What the editor may offer: only a name with a builder, only a token of the slot's own family.
+    builders: Object.keys(BUILDERS),
+    snapChoices: Object.fromEntries(Object.entries(targets).map(([f, list]) => [f, list.map((t) => t.ref)])),
     label: `mode ${record.provenance.mode} · source ${record.source.tool}${record.source.file ? ` (${record.source.file})` : ""} · drafted by the importer, not by an agent · ${fidelity}`,
   };
 }
