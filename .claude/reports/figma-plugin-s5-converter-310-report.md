@@ -83,7 +83,7 @@ Each mutation was applied alone and reverted, and `git diff --quiet` was clean a
 - **O4 applies F3 to an inferred gap**: a zero median gives no gap, not `tok(0, null)`.
 
 ## Assumptions carried
-- Q1 (F3) shipped as written, with no owner objection. Q2: the icon name is the layer name, read verbatim.
+- Q1 (F3) shipped as written: the plan's default, not put to the owner. Q2: the icon name is the layer name, read verbatim.
 - `code.js` stays at ES2017 with no top-level `await`. The Figma sandbox accepted it (observed: the owner's run).
 - `bound` is expected false on branch 1 (R5). The branch is decided by `unresolved === 0`.
 
@@ -97,5 +97,5 @@ Each mutation was applied alone and reverted, and `git diff --quiet` was clean a
 - The name `figIr` already exists in 40.6's scope. The new cases use `s5`-prefixed names.
 
 ## Findings for the owner
-- **The Figma root reads `list`, not `list-row`.** Figma's root is auto-layout, so `list` adds `kind-fit` on the layout to its name match (0.7 against 0.575). Brilliant's root line has no `al()`. This is recorded, and no weight moved. Whether an auto-layout row component should read as a list is the owner's read (README § Cross-source).
+- **The Figma root reads `list`, not `list-row`.** Figma's root is auto-layout, so `list` adds `kind-fit` on the layout to its name match (0.7 against 0.575). Brilliant's root line has no `al()`. This is recorded, and no weight moved. The emitted set is the same for both sources (`stack`, `text` ×3, `icon`), because both roots are refused (`list-row.value` / `list.empty`), observed by the per-node build sweep. Whether an auto-layout row component should read as a list is the owner's read (README § Cross-source).
 - **Paint bindings appear twice**, at the node level and the paint level, with one id. Text bindings are one-entry arrays. The converter reads the node level first.

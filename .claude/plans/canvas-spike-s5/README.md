@@ -4,9 +4,11 @@
 epic [#295](https://github.com/linardsb/ux-factory/issues/295) · `docs/epics/canvas-design-import.architecture.md`
 § Spikes item 4. Executable plan `.claude/plans/figma-plugin-s5-converter-310.md`.
 
-The fixture was **built for the test**, not drawn by a designer: the plugin's **Build S5 fixture** command
+The fixture was **built for the test**, not drawn by a designer. The plugin's **Build S5 fixture** command
 created the variables, the component set and every binding from the plan's Task A5 recipe, and the owner then ran
-**Export selection** on the instance it left selected. So this run answers whether a plugin can **read**
+**Export selection**. *Derived, not reported:* the owner did not name the path. The file-list screenshot is
+11:17 and the export 11:27; ten minutes fits Build (about 5) and not the hand recipe (30–45). The census shows the
+recipe's exact names and values either way. So this run answers whether a plugin can **read**
 auto-layout and variable names. It does not show how a real designer binds (PRD § Assumptions; #316's real run).
 The export is committed verbatim: `cmp` against the owner's download reported no difference. `census.txt` is the
 plan's Task A6 command output, verbatim.
@@ -47,7 +49,7 @@ The committed verdicts `import/fixtures/spike-c-instance.expected.json` (Brillia
 
 | Node | Brilliant | Figma | Why they differ |
 |---|---|---|---|
-| root (the person row) | `list-row`, scored 0.575 (name-match + prop-fit on `label`) | **`list`, scored 0.7** (name-match + kind-fit on `layout`) | The Figma root is auto-layout (`HORIZONTAL`), so it has a layout and `list` earns kind-fit on it beside the name match ("Spike List Row" holds "list"). Spike C's root line carries no `al()`, so there `list` scored the name match alone (0.45). `list-row` still scores 0.575 in Figma and comes second. `list` needs `empty`, which no design read has, so `build()` would refuse the container (case 40.12's rule). **The read is the owner's:** whether an auto-layout row component should read as a list. |
+| root (the person row) | `list-row`, scored 0.575 (name-match + prop-fit on `label`) | **`list`, scored 0.7** (name-match + kind-fit on `layout`) | The Figma root is auto-layout (`HORIZONTAL`), so it has a layout and `list` earns kind-fit on it beside the name match ("Spike List Row" holds "list"). Spike C's root line carries no `al()`, so there `list` scored the name match alone (0.45). `list-row` still scores 0.575 in Figma and comes second. **The emitted set does not change.** `build()` over every node of both verdicts (40.6's sweep, run by hand) emits `stack`, `text` ×3 and `icon` for both sources. Both roots are refused: Brilliant's for `list-row.value`, Figma's for `list.empty` (plus the chip's `status-chip.value`), observed 2026-09-26. **The read is the owner's:** whether an auto-layout row component should read as a list. |
 | Avatar | floor, 0.45 | floor, 0.45 | same |
 | Text block | `stack`, structural fallback | `stack`, structural fallback | same. The Figma pad is absent (an unbound 0, F3). Brilliant's is a `no-token` drop for `$spacing.none` |
 | Text 1 / Text 2 | `text`, scored 0.95 | `text`, scored 0.95 | same, by role through the bound size. Figma reads `Inter` with `ref: null` (the recipe binds no family) and the text sizing as `hug` (Brilliant: `fill`) |
@@ -63,7 +65,7 @@ The committed verdicts `import/fixtures/spike-c-instance.expected.json` (Brillia
 | Figma file / page | `ux-factory S5 spike` / `Page 1` (`.source` in the export) |
 | Plugin | `tooling/figma/plugin/` at commit `0307940`: `code.js` sha256 `ea8dad707cb1…`, `manifest.json` `8f25ec402f77…`, `ui.html` `207a8216fb4d…` |
 | Manifest id | `ux-factory-house-export`, as committed |
-| Fixture built by | the **Build S5 fixture** command. It is the path handed to the owner, and the census shows its exact names and values; the owner did not report using the hand recipe |
+| Fixture built by | the **Build S5 fixture** command — *derived* from the 10-minute window (screenshot 11:17, export 11:27), not reported by the owner |
 | Export | `raw/spike-list-row.export.json`, 15 417 bytes, sha256 `b61fa79d4c0c6dcf…` |
 | Fixture copy | `import/fixtures/figma/spike-list-row.export.json`, byte-identical (`cmp`), sha256 `b61fa79d4c0c6dcf…` |
 | Variables | 13 in the export, all in the collection `ux-factory`: the recipe's 7 FLOAT + 6 COLOR |
