@@ -339,3 +339,57 @@ screen on (issue requirement 5). This ticket turns nothing on: `SCREEN_AUDIT` st
 screens only on `screen: true`.
 
 No wording, model, K, parse, mapping or scoring rule moves after this commit.
+
+### Result (recorded after the runs, 2026-09-27)
+
+Three answered calls, each the first and only attempt of its kind; there was no no-answer. All three `ranAt`
+follow the pre-registration commit `7947aa4` (12:18:10Z, pushed before the first call). Costs are `costUsd`
+(observed), which includes two helper calls the harness bills on every query (see "Who answered").
+
+| Run | `ranAt` | Answered in | Cost | Returned | Kept | Parse |
+|---|---|---|---|---|---|---|
+| smoke (`SMOKE_DOC`, never scored) | 12:19:22Z | 2.2 s | $0.0323 | 1 | 1 | ok (direct) |
+| fixture | 12:19:45Z | 94.4 s | $0.1895 | 4 | 4 | ok (direct) |
+| live (`e820f96b…`) | 12:21:28Z | 151.9 s | $0.3111 | 6 | 3 | ok (direct) |
+
+**The smoke.** Init advertised no tool, no MCP server and no skill. `claude-opus-5` answered: its `modelUsage`
+entry (480 in, 155 out) is the call's `usage`. The one returned pair was the planted contradiction, mapped to
+c003 ↔ c005. No harness amendment was needed.
+
+**Who answered.** On every run `modelUsage` carries `claude-opus-5` plus two keys the harness adds:
+`claude-sonnet-4-5-20250929` (≈ $0.014 per run) and `claude-haiku-4-5-20251001` ($0.003–0.014). Their token
+counts do not match the call's `usage`, which is Opus's alone. Per the rule above they are reported and do not
+enter the score.
+
+**Fixture, scored** (`scoreClaudeRun` over `tooling/jev-screen/claude-fixture-run.json`; build-checks 45.14
+recomputes it):
+
+| Finding | Class | State | By pair |
+|---|---|---|---|
+| #2 | contradiction | **FOUND** | #0 (c044 ↔ c054) |
+| #6 | contradiction | MISSED | — |
+| #8 | contradiction | MISSED | — |
+| #4 | tension-shaped | MISSED | — |
+| #5 | tension-shaped | MISSED | — |
+| #7 | tension-shaped | MISSED | — |
+
+**Contradiction-class findings FOUND: 1 / 3 (#2).** Tension-shaped: 0 / 3, itemised and not added. Every returned
+pair, with its mapping:
+
+| # | Mapping | Kept | Joins |
+|---|---|---|---|
+| 0 | c054 ↔ c044, both mapped | yes | #2 |
+| 1 | c051 ↔ c078, both mapped | yes | — |
+| 2 | c001 ↔ c063, both mapped | yes | — |
+| 3 | c029 ↔ c058, both mapped | yes | — |
+
+No quote was unmapped or ambiguous, so no miss belongs to the mapper. Precision is **pending the owner**
+(`tooling/jev-screen/claude-labels.json`, `by: null`, 4 pairs).
+
+**Live, not scored** (`tooling/jev-screen/claude-live-run.json`, 138 claims): kept c038 ↔ c047, c044 ↔ c047 and
+c038 ↔ c131. Three more returned pairs were dropped as `same-claim`, two of them with both quotes inside c001,
+which the splitter makes from the live PRD's lines 3–16 as one claim. The kept pairs are in `claude-labels.json`
+for the owner. Reported beside the fixture, never pooled with it.
+
+**Against the decision rule.** One contradiction-class finding is FOUND, so a later ticket *may* turn the screen
+on. This ticket turned nothing on.

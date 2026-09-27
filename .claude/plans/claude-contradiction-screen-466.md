@@ -917,3 +917,17 @@ implementation failure.
     dashes, 4 links, no ellipses);
   - the timeout raised from 180 s to 300 s.
 
+- 2026-09-27 — during execution (piv-implement):
+  - **Q1–Q3 answered by the owner**: Phase 0 as its own PR (#467), stacked; the model is **`claude-opus-5`**, not
+    the default `claude-sonnet-5` (the owner's choice after asking which is better; the rubric records the budget
+    overrun as deliberate); the Task 1 wording as drafted; the three paid runs in this session.
+  - **(plan error) Task 12's sha pin cannot ship with Phases 1–3.** The rubric's `promptSha` line does not exist
+    until Task 11, and Task 11's commit may touch only the rubric, so the pin would red every commit before it.
+    It landed as its own commit straight after the pre-registration commit.
+  - **(plan error) `timeoutMs` inside the hashed `CLAUDE_SCREEN`** contradicted Task 11's rule that harness
+    options may move after the smoke without moving the registered sha. It is `CLAUDE_TIMEOUT_MS`, outside the
+    table, and was raised from 300 s to 600 s for Opus's thinking time (the route's screen is off regardless).
+  - **(plan error) interlock (ii) forces a commit order**: `claude-score.mjs`, then each run file, committed before
+    the next paid call.
+  - The smoke's run file also embeds its screened text (the plan named `text` for the live file only), so 45.14
+    replays it without importing the CLI, whose top level exits.
