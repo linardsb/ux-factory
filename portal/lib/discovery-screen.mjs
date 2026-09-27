@@ -59,7 +59,8 @@
 // screen-run.json and discovery/partner-audit-3) found 0 of MVP 13's scored findings, and #465's
 // diagnostic showed stage 2 recognises 0/3 even when handed the known joins. #466's Claude screen found
 // 1/3 on the same fixture (#2; tooling/jev-screen/claude-fixture-run.json, the rubric's §Result), which
-// meets the rubric's bar for a LATER ticket to turn it on. This module never turns itself on.
+// meets the rubric's bar for a LATER ticket to turn it on — precision pending the owner (#468). This
+// module never turns itself on.
 //
 // NO LATENCY IN ANY LINE: a line is a pure function of the responses (plus `ts`), so build-checks
 // replays each committed real run and compares every line. The CLI times its own requests.

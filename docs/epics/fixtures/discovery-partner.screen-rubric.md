@@ -383,7 +383,10 @@ pair, with its mapping:
 | 2 | c001 ↔ c063, both mapped | yes | — |
 | 3 | c029 ↔ c058, both mapped | yes | — |
 
-No quote was unmapped or ambiguous, so no miss belongs to the mapper. Precision is **pending the owner**
+No quote was unmapped or ambiguous, so no miss belongs to the mapper. The FOUND pair runs through the wide claim
+c044: its c044 quote ("regulated because the first run is regulated fintech") sits on `:157`, #2's side-B anchor
+(the worked example), not on #4's AI-module lines `:163-173`; its c054 quote sits on `:206`, inside side A
+(`:204-208`). Whether the pair is about the right part of c044 is what the owner's precision labels check. Precision is **pending the owner**
 (`tooling/jev-screen/claude-labels.json`, `by: null`, 4 pairs).
 
 **Live, not scored** (`tooling/jev-screen/claude-live-run.json`, 138 claims): kept c038 ↔ c047, c044 ↔ c047 and
