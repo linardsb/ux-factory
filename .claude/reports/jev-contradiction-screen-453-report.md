@@ -2,8 +2,9 @@
 
 **Plan**: `.claude/plans/jev-contradiction-screen-453.md`   **Branch**: `feat/jev-contradiction-screen-453` (worktree `../ux-factory-453`)
 **Base**: `a9918a9` at start → `a9918a9` at report (`git fetch` + `git merge origin/main`: already up to date)   **Head**: `e473451`
-**Status**: PARTIAL — the code, the gate, the CLI screen and 20 of run 3's 23 turns are done. Run 3 stopped at t21 on
-`Credit balance is too low`. Three turns, the close, the projection and the owner's labels remain (§Not run).
+**Status**: COMPLETE except the owner's labels (AC #2's precision). Run 3 stopped at t21 on a credit stop, and
+it was resumed from disk after the owner topped up. All 23 turns are recorded, the session is closed and the
+package is projected.
 
 ## Summary
 
@@ -36,7 +37,7 @@ screen kept three other pairs.
 - Task 16 → commits `f81236c` (pre-registration) and `e604f6d` (code), both before any answered call.
 - Task 16b → smoke run; calibration commit `469d810`.
 - Task 17 → `tooling/jev-screen/screen-run.json` (commit `a9a88be`).
-- Task 18 → `discovery/partner-audit-3/` opened and recorded through the real drawer, t1–t20. **Uncommitted: the session is open.**
+- Task 18 → `discovery/partner-audit-3/` opened, recorded through the real drawer (t1–t23), closed with Finish, and projected with `node discovery/prd-projection.mjs partner-audit-3`. Committed unedited.
 - Task 19 → `tooling/jev-screen/labels.json` template (commit `e473451`), every `real` null.
 
 ## Tests added
@@ -77,7 +78,7 @@ import (TDZ) and proved nothing. It was replaced by the empty-list form above.
 
 ## Validation results
 
-- `node tooling/build-checks.mjs` → `build ✗ 1 failure(s)`, which is 45.9's missing `prd.md`. Every other case of all 45 groups is green (observed, on `e473451`).
+- `node tooling/build-checks.mjs` → `build ✓  all 45 groups pass` (observed, after run 3 was projected).
 - `node tooling/drift-check.mjs` → `drift-check ✓ syntax · … · group-count` (observed).
 - `node --check` on the three new `.mjs` files → clean (observed).
 - Stamps after Task 6 (observed): Grill `76b7847d…`, Grill-on-Opus `ba124c3c…`, Think `7efdde37…`. All three are unchanged from the plan's printout.
@@ -88,7 +89,7 @@ import (TDZ) and proved nothing. It was replaced by the empty-list form above.
 - **A resume never re-screens** (observed): the drawer resumed `partner-audit-3` four times, and `screen.jsonl`
   still holds 96 lines, exactly one `summary`, and one `ts` (`10:11:32.835Z`) across every line. A re-screen
   would have thrown in `writeScreen` and 500'd the route.
-- Every recorded turn t1–t20 has exactly one closing op, and no `turnStats` entry lacks a closer (observed).
+- Every turn t1–t23 has exactly one closing op, and there are 23 `turnStats` entries with no duplicate, none lacking a closer, and all `ok` (observed after the close).
 
 ### The screens (Jev)
 
@@ -122,9 +123,9 @@ pre-registered text-criteria variant. It is not a change to this run.
 **Precision** = owner-judged real / kept, from `tooling/jev-screen/labels.json`. Not yet labelled (n = 3 per
 screen). The session does not judge whether the pairs are real.
 
-**Raised by the audit (run 3, D4)**: after t20, none of the three kept pairs is raised. No
-`flag_weak_answer` among the 15 filed names a claim id, and `raisedBy` returns null for all three (observed).
-This is interim until t21–t23 run.
+**Raised by the audit (run 3, D4)**: **none of the three kept pairs was raised.** No `flag_weak_answer`
+among the 18 filed names a claim id, and `prd.md`'s Tensions section reads `not raised` for all three
+(observed).
 
 ### What Jev saw (AC #3)
 
@@ -137,35 +138,26 @@ any request. Jev is a classifier endpoint with no tools, so run 2's fence proble
 
 `partner-audit-3`: fictional · existing-prd · full-discovery · facets `hasModel` only · Grill on `claude-opus-5`
 · `frontEnd: portal` · fixture md5 `ab6eb0ee…` (observed). Every head field equals `partner-audit-2`'s except
-`frontEnd` (`terminal` there), which D6 intends. t1–t20 are recorded, each `ok: true` and each stamped
-`screenFingerprint 1dd1b6e4…` and `postureFingerprint ba124c3c…`. Cost is **$1.5402**, the sum of `turnStats`
-`costUsd` (observed); run 2 cost $1.6152 over 23 turns. t21 wrote one transcript line,
-`{"type":"text","turn":"t21","text":"Credit balance is too low"}`, and no stats entry. The portal answered
-`Claude Code process exited with code 1`.
+`frontEnd` (`terminal` there), which D6 intends. All 23 turns are recorded, each `ok: true` and each stamped
+`screenFingerprint 1dd1b6e4…` and `postureFingerprint ba124c3c…`. Cost is **$2.0747**, the sum of
+`turnStats` `costUsd` (observed); run 2 cost $1.6152 over 23 turns. That is above my $1.84 estimate: t21 on a
+cold cache cost $0.351, not the $0.152 I estimated. t21's first attempt wrote one transcript line,
+`{"type":"text","turn":"t21","text":"Credit balance is too low"}`, and no stats entry (the portal answered
+`Claude Code process exited with code 1`). After the owner topped up, t21 was resumed from disk 32 minutes
+later on the same turn id; that text line stays, since the transcript is append-only.
 
 ## Not run
 
 | Step | Why | Tracker |
 |---|---|---|
-| Run 3 t21–t23, the close, `node discovery/prd-projection.mjs partner-audit-3`, and the package commit | The Anthropic credit balance ran out at t21 | Owner: top up, then resume from disk (below). 45.9 stays red until then |
-| README §The screened audit (partner-audit-3) | Needs run 3's final numbers | Same |
-| Owner labels (`real`, `by`, `at` in `labels.json`) | The owner's call | Owner |
-| Confirming the kept-0 re-open rule | Never exercised: run 3's first open kept 3 | — |
-| README §Files `partner-audit-3/` line and §The screened audit (name t21's `Credit balance is too low` text line there, as `later-not-never-1`'s entry does) | Waits on run 3 | Same as run 3 |
+| Owner labels (`real`, `by`, `at` in `tooling/jev-screen/labels.json`) | The owner's call; the session writes no verdict | Owner — AC #2's precision waits on it |
+| The kept-0 re-open rule | Never exercised: run 3's first open kept 3 | — |
 | CI (`gh pr checks`) | No PR opened yet | `piv-create-pr` |
 
 **The driver's `isError` check was vacuous**: the main transport's `turnStats` carry no `isError` field (only
 the probe's do). The guard that caught t21 was the cursor-advance and stats-count check.
 
-**Remaining cost (derived)**: t21 starts on a cold cache, about t1's $0.152, and t22–t23 about $0.07 each, so
-roughly $0.30. That puts run 3 near $1.84, inside the plan's $1.6–1.9.
-
-**To resume run 3**: `cd ../ux-factory-453/portal && PORT=<free> node server.mjs`, then drive the drawer's
-"Start or resume" with slug `partner-audit-3` and "Audit this question" three more times, then Finish. The
-Playwright driver used for t1–t20 is `scratchpad/drawer.cjs` (`turns <port>`, then `finish <port>`). Answer
-inside five minutes of each turn for the prompt cache. Before projecting, check t1–t23 each have exactly one
-closing op and no `turnStats` entry lacks a closer (a credit error can wear `ok: true`). Then run `node
-discovery/prd-projection.mjs partner-audit-3` and commit the package unedited.
+**Remaining cost was under-estimated**: I derived ≈ $0.30 for t21–t23; observed $0.535 ($0.351 + $0.101 + $0.083).
 
 ## Deviations from the plan
 

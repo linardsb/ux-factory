@@ -101,6 +101,7 @@ discovery/
   faster-payment/        the SCORED run (#291) — the FIRST faceted package (regulated preset, 22 of the 31), the first scored against a key written before the epic, and the first whose answers were drafted offline and pasted warm (§The Faster Payment run; since #302 the only package with a build/ half, MVP 14's spine)
   partner-audit-1/       the AUDIT fixture (#376) — the first committed existing-prd run: three Grill turns over the frozen docs/epics/fixtures/discovery-partner.prd.pre-grill-2026-08-27.md, carrying the flag_weak_answer and open_question verdicts a blank-idea package does not produce
   partner-audit-2/       the SCORED AUDIT (#292) — the first full-discovery existing-prd run, 23 of 23 over the same frozen fixture, and the first package on which the AI-interaction module fires (hasModel), on claude-opus-5; scored against a rubric committed before the first turn (§The pre-grill audit)
+  partner-audit-3/       the SCREENED AUDIT (#453) — run 2's configuration through the portal drawer with the contradiction screen in front of it: screen.jsonl, 23 of 23, every turn stamped screenFingerprint; carries one credit-exhaustion text line at t21 (§The screened audit)
 ```
 
 **A run package is THREE files during a session and FIVE after a proposal run** — and an existing-prd
@@ -1121,6 +1122,41 @@ success); the drawer's route recorded it as a `text` line under `t21` with no `t
 balance was topped up and the same session resumed from disk 2 m 40 s later — inside the cache window —
 so the turn ran once more under the same `t21`. The line stays: `transcript.jsonl` is append-only and
 nothing under the package is edited. `turnStats` holds 23 entries, all `ok`.
+
+## The screened audit (partner-audit-3)
+
+Run 2's configuration — fictional, existing-prd, full-discovery, facets `hasModel` only, Grill on
+`claude-opus-5`, the frozen fixture (md5 `ab6eb0ee6cdd3b7802ecfcbe90db2377`) — driven through the portal
+drawer (`frontEnd: portal`), with ONE difference: the contradiction screen ran at create and its three kept
+pairs sat in every turn's system prompt. Opened 2026-09-27 10:11Z, closed 11:03Z.
+
+- **Stamps.** Every one of the 23 `turnStats` entries carries `postureFingerprint` `ba124c3c…` (Grill on
+  Opus, unmoved from run 2) and `screenFingerprint` `1dd1b6e4d0aaf43273190239ac74f18a`. Build-checks 32.7
+  pins both.
+- **Cost.** $2.0747 over 23 turns (the sum of `costUsd`); t21 was re-run on a cold prompt cache after a
+  credit stop and cost $0.351 on its own. Run 2 was $1.6152. The screen itself: 119,490 Jev input tokens,
+  ≈ $0.005 at $0.042/M.
+- **The credit stop.** t21's first attempt wrote one `text` line, `Credit balance is too low`, and no stats
+  entry; the turn was resumed from disk 32 minutes later on the same turn id. That line stays — the
+  transcript is append-only — and it is why t21 carries two text lines before its closer.
+- **What the screen kept and what the audit did with it.** The screen's own lines, one of each type:
+
+  ```
+  {"type":"pick","ts":"2026-09-27T10:11:32.835Z","model":"jev-1.13.0","claim":"c005","picked":"c061","p":0.36}
+  {"type":"pair",…,"a":{"id":"c005",…},"b":{"id":"c061",…},"stage1P":0.36,"relation":{"choice":"contradicts","probabilities":{"not_established":0.01,"contradicts":0.98,"supports":0.01}},"sameSubject":0.86,"kept":true}
+  {"type":"summary","ts":"2026-09-27T10:11:32.835Z","model":"jev-1.13.0","docMd5":"ab6eb0ee6cdd3b7802ecfcbe90db2377","claimsVersion":1,"claims":90,"picks":5,"candidates":5,"kept":3,"t1":0,"thresholds":{"T_SAME":0.5,"T2":0.5,"K":10},"requests":4,"inputTokens":119490}
+  ```
+
+  An `unavailable` line, from the no-key route smoke on a throwaway package (deleted):
+  `{"type":"unavailable","ts":"2026-09-27T09:57:49.348Z","reason":"jev: TYPESAFE_API_KEY is not set in portal/.env"}`.
+
+  Kept: c005 ↔ c061, c029 ↔ c030, c035 ↔ c066. The audit raised **none** of them — 18 `flag_weak_answer`
+  ops, none naming a claim id or quoting both claims of a pair — which is `prd.md`'s Tensions section.
+- **Score against MVP 13** (`docs/epics/fixtures/discovery-partner.screen-rubric.md`): the screen joined
+  none of the six scored findings, so none could reach the agent through it — 0/3 contradiction-class,
+  0/3 tension-shaped, all MISSED at stage 1 (every anchor claim picked `none`). The same held for the CLI
+  screen (`tooling/jev-screen/screen-run.json`). Whether each kept pair is a real contradiction is the
+  owner's, in `tooling/jev-screen/labels.json`.
 
 ## The read fence (#287)
 
