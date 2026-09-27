@@ -1,6 +1,6 @@
 {
-  "by": null,
-  "at": null,
+  "by": "owner",
+  "at": "2026-09-27",
   "screens": {
     "claude-fixture": [
       {
@@ -14,7 +14,7 @@
           "section": "discovery-partner.prd.md › MVP",
           "text": "**A transition note is the pack's seventh artefact.** D9 currently lists six, and none of them covers getting an organisation from today's state to the built one: data migration, training materials, support setup, business continuity. **Required for the internal-tool and regulated branches**, and explicitly markable n/a elsewhere — Faster Payment needs none of it, which is what makes n/a an honest answer rather than an escape hatch."
         },
-        "real": null,
+        "real": false,
         "note": ""
       },
       {
@@ -28,7 +28,7 @@
           "section": "discovery-partner.prd.md › Open questions",
           "text": "[ ] **The escape hatch's filing rule.** What happens when an off-script exchange maps to no banked question — a new open question, a new decision, or dropped with a note?"
         },
-        "real": null,
+        "real": true,
         "note": ""
       },
       {
@@ -42,7 +42,7 @@
           "section": "discovery-partner.prd.md › Success metrics",
           "text": "Metric: **Disclosure held** · Target: Always-loaded context ≤ **11k tokens** · How measured: Measured: CLAUDE.md words + every skill description · Cobra check → guardrail: Split Tier 0 into references a hook re-injects anyway → the budget is on what a session **loads**, not on file count. Baseline after the 2026-08-27 trim: **9.5k** (2,761-word CLAUDE.md + 73 skill descriptions at ~80 tokens each), leaving ~1.5k for the partner's own always-on body"
         },
-        "real": null,
+        "real": false,
         "note": ""
       },
       {
@@ -56,7 +56,7 @@
           "section": "discovery-partner.prd.md › Success metrics",
           "text": "Metric: **Switch** · Target: The next real discovery session starts in the UI · How measured: Which front end was used, recorded in the run package · Cobra check → guardrail: Could be forced once out of loyalty → the **second** unprompted session must too, or the switch didn't happen"
         },
-        "real": null,
+        "real": true,
         "note": ""
       }
     ],
@@ -72,7 +72,7 @@
           "section": "discovery-partner.prd.md › Constraints",
           "text": "**C3 — no job titles.** No role or seniority title appears in the bank, the UI, the run package, the generated PRD or this document. The questions stand on their own per-question attributions, which name people and publications rather than seniority. The bank's source file is named and cited accordingly."
         },
-        "real": null,
+        "real": false,
         "note": ""
       },
       {
@@ -86,7 +86,7 @@
           "section": "discovery-partner.prd.md › Constraints",
           "text": "**C3 — no job titles.** No role or seniority title appears in the bank, the UI, the run package, the generated PRD or this document. The questions stand on their own per-question attributions, which name people and publications rather than seniority. The bank's source file is named and cited accordingly."
         },
-        "real": null,
+        "real": false,
         "note": ""
       },
       {
@@ -100,7 +100,7 @@
           "section": "discovery-partner.prd.md › Epic close — 2026-09-14",
           "text": "**What wave 2 inherits:** the canvas (D6) and component import (D7) with Q2b and Q6 → [canvas-design-import.prd.md](./canvas-design-import.prd.md) (#295) · the guest path (D1), a different build rather than a deployment — per-guest spend caps cannot be metered against a subscription token, so it needs an API key, a budget ledger and a server-side runtime · D11's a11y gating, with #271 closed for shipped pages and the portal gated by review · D19's replace-then-remove · wiring elicited quality attributes into build-checks · a rung between full discovery and the whole bank for a product ticking three or more facets."
         },
-        "real": null,
+        "real": false,
         "note": ""
       }
     ]
