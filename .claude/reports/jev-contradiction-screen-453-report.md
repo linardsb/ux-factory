@@ -164,6 +164,15 @@ the probe's do). The guard that caught t21 was the cursor-advance and stats-coun
 
 ## Deviations from the plan
 
+- **The screen ships OFF (owner's decision, 2026-09-27, after the result).** The route screens only on an
+  explicit `screen: true`; the drawer's `SCREEN_AUDIT` is `false`. Reason: 0 of 6 scored findings on both
+  screens and 0 of 3 kept pairs real, so on by default it adds noise to every audit prompt. Pinned by two new
+  45.7 cases, each reddened by mutation: route `if (view.created` → `45.7: the session route screens without
+  an explicit screen: true …`; `SCREEN_AUDIT = true` → `45.7: the drawer does not send screen: SCREEN_AUDIT
+  with SCREEN_AUDIT false …`. Observed live with no key: no flag → created, no `screen`, no `screen.jsonl`;
+  `screen: true` → `screen: {status: 'unavailable'}` and a `screen.jsonl`. Both throwaway packages deleted.
+  Follow-up: a pre-registered stage 1 whose options carry claim text, CLI-run on the fixture first.
+
 - **The token estimator was calibrated after the pre-registration commit (plan error, amended in the plan
   before the full run).** `chars/3` was not conservative: a request it estimated at 55,580 tokens was refused
   `400 max_tokens_exceeded`. `CHARS_PER_TOKEN` was set once, from the smoke, to 1.5 (`469d810`, 10:08:02Z,

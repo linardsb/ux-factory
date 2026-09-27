@@ -47,6 +47,12 @@
 //      first full run, and committed with the smoke's printout as the reason; the proviso reads
 //      whatever estimator is committed at that run. Neither moves after it.
 //
+// OFF BY DEFAULT (owner, 2026-09-27). The session route screens only when the request sends
+// `screen: true`, and the drawer's SCREEN_AUDIT is false. Both measured screens (tooling/jev-screen/
+// screen-run.json and discovery/partner-audit-3) found 0 of MVP 13's scored findings — every anchor
+// claim picked `none` at stage 1 — and kept 3 pairs the owner-directed labels judge not real. The
+// follow-up is a pre-registered stage 1 whose options carry claim TEXT, not bare ids.
+//
 // NO LATENCY IN ANY LINE: a line is a pure function of the responses (plus `ts`), so build-checks
 // 45.8 replays the committed real run and compares every line. The CLI times its own requests.
 //

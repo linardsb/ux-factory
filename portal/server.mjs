@@ -209,8 +209,11 @@ const server = createServer(async (req, res) => {
       // #453. The contradiction screen, on an audit's CREATE path only (a resume never re-screens). It
       // writes screen.jsonl once — the run's lines, or one `unavailable` line — and never throws for a
       // Jev failure. The same resolveRunRoot + assertProvenanceRoot pair the GET route runs.
+      // OFF UNLESS ASKED (owner, 2026-09-27): it runs only when the request sends `screen: true`. Both
+      // measured screens found 0 of MVP 13's scored findings and kept 3 pairs, none real, so on by
+      // default it would put noise into every audit prompt. The drawer's SCREEN_AUDIT sends false.
       let screen = null;
-      if (view.created && view.head.entryMode === 'existing-prd') {
+      if (b.screen === true && view.created && view.head.entryMode === 'existing-prd') {
         const root = resolveRunRoot({ provenance: b.provenance, slug: b.slug });
         assertProvenanceRoot(b.provenance, root);
         screen = await screenSession(root, documentOf(view.answers).text);

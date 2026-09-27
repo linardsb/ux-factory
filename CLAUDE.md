@@ -99,7 +99,7 @@ portal/                       local-first workbench (127.0.0.1 only, never deplo
   lib/origin.mjs              the CSRF guard server.mjs applies before ANY routing
   lib/jev.mjs                 the TypeSafe (Jev) fetch client — no SDK; model pinned; #453 reuses it
   lib/discovery-guard.mjs     the answer-box guard — two Noul questions, decide(), fail-open (#454)
-  lib/discovery-screen.mjs    the contradiction screen — Jev picks + pair confirms → screen.jsonl, fail-visible (#453)
+  lib/discovery-screen.mjs    the contradiction screen — Jev picks + pair confirms → screen.jsonl, fail-visible, OFF by default (#453)
   lib/builder.mjs             the OPERATOR PATH — /build's ten answers → a real composition question
   lib/canvas-store.mjs        the build package: list · load · append-only save, the ledger fold and the
                               canvas.json derivation (verifyBuild is the gate); routes in server.mjs

@@ -286,8 +286,10 @@ is the specification):
    `same_subject` (a noul). A pair is KEPT when `same_subject ≥ 0.5` and `contradicts ≥ 0.5`, ranked by
    `contradicts`, at most ten. The thresholds are pre-registered and label-free; the module header
    gives each one's reason, and `docs/epics/fixtures/discovery-partner.screen-rubric.md` is the receipt.
-4. `POST /api/discovery/session` runs the screen on an audit's CREATE only (a resume never re-screens)
-   and writes `screen.jsonl` ONCE. Every audit turn reads the kept pairs from it, and the audit's
+4. **OFF BY DEFAULT** (owner, 2026-09-27, after §The screened audit measured it): `POST
+   /api/discovery/session` screens only when the request sends `screen: true`, and the drawer's
+   `SCREEN_AUDIT` constant is `false`. When on, it runs on an audit's CREATE only (a resume never
+   re-screens) and writes `screen.jsonl` ONCE. Every audit turn reads the kept pairs from it, and the audit's
    system prompt carries a "Candidate tensions (machine screen, unverified)" block after the document —
    only when at least one pair was kept, so an unscreened audit's prompt is byte-identical to before.
    A screened turn's `turnStats` entry carries a `screenFingerprint` beside the unmoved

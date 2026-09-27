@@ -14347,6 +14347,11 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     ok(/screenFingerprint:\s*screenFingerprintOf\(posture\)/.test(transportCode) && /posture\.build\(\{[^)]*\btensions\b/.test(transportCode),
       "45.7: the transport does not pass tensions to posture.build and stamp screenFingerprintOf(posture) off the RESOLVED posture");
     ok(/tensions:\s*audit\s*\?\s*tensionsOf\(readScreen\(root\)\)\s*:\s*\[\]/.test(specs("portal/lib/discovery.mjs").code), "45.7: runTurn does not read the screen's kept pairs on an audit (and [] otherwise)");
+    // THE OFF SWITCH (owner, 2026-09-27): the route screens only on an explicit `screen: true`, and the
+    // drawer sends its SCREEN_AUDIT constant, which is false until a screen is measured to find something.
+    ok(/if\s*\(\s*b\.screen\s*===\s*true\s*&&\s*view\.created/.test(specs("portal/server.mjs").code), "45.7: the session route screens without an explicit screen: true — the screen is off by default");
+    const drawerCode = specs("portal/public/portal.js").code;
+    ok(/const SCREEN_AUDIT = false;/.test(drawerCode) && /screen:\s*SCREEN_AUDIT/.test(drawerCode), "45.7: the drawer does not send screen: SCREEN_AUDIT with SCREEN_AUDIT false — turning the screen on is a measured decision, not a default");
 
     // --- 45.8 replay the committed real run ---------------------------------------------------------
     const RUN_FILE = join(ROOT, "tooling/jev-screen/screen-run.json");

@@ -953,6 +953,10 @@ for (const id of ['#discovery-provenance', '#discovery-depth'])
   $(id).addEventListener('change', renderDiscoveryNotes);
 $('#discovery-entry').addEventListener('change', renderDiscoveryEntry);
 
+// #453: the contradiction screen before an audit. OFF (owner, 2026-09-27): both measured screens found
+// none of MVP 13's scored findings and kept only false alarms. The server screens only when this is true.
+const SCREEN_AUDIT = false;
+
 $('#discovery-open').addEventListener('click', async () => {
   const { slug, provenance, entryMode, depth, posture, facets, model, documentText, documentPath } = discoveryEls();
   if (!slug) { $('#discovery-start-status').textContent = 'A run slug is needed — it names the package directory.'; return; }
@@ -967,7 +971,7 @@ $('#discovery-open').addEventListener('click', async () => {
   const plan = facetPlanNow();
   if (depthComposes() && plan.overflow.length) { $('#discovery-facet-note').scrollIntoView({ block: 'nearest' }); $('#discovery-start-status').textContent = `The vector overflows full discovery's ${plan.budget}: ${$('#discovery-facet-note').textContent}`; return; }
   // #453: an audit's create runs the contradiction screen before the route answers, and it can take a minute.
-  $('#discovery-start-status').textContent = entryMode === 'existing-prd'
+  $('#discovery-start-status').textContent = entryMode === 'existing-prd' && SCREEN_AUDIT
     ? 'Screening the document for contradictions (Jev) — this can take up to a minute.'
     : 'Opening…';
   try {
@@ -977,7 +981,7 @@ $('#discovery-open').addEventListener('click', async () => {
       // will not take, by name.
       // #288 sends `facets` — the declared five-key vector, or null for the unfaceted list. A resume
       // that names another depth or another vector comes back 409 and its message renders below.
-      body: JSON.stringify({ slug, provenance, entryMode, depth, facets, frontEnd: 'portal', posture, model, document: documentText, documentPath }),
+      body: JSON.stringify({ slug, provenance, entryMode, depth, facets, frontEnd: 'portal', posture, model, document: documentText, documentPath, screen: SCREEN_AUDIT }),
     });
   } catch (err) {
     $('#discovery-start-status').textContent = `Refused: ${err.message}`;
