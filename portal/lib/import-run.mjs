@@ -41,7 +41,8 @@
 // SUGGESTIONS (#455). runImport's `suggester` is injected by the two import routes (portal/lib/
 // import-suggest.mjs's suggest); the default is none, so group 43 and every other caller never reach the
 // network. It runs after the recognition clock stops, and its outcome is one `suggest` transcript line.
-// An edit carries the prior list forward unchanged: a mapping edit never calls Jev.
+// An edit carries the prior list forward while each node is still unnamed, pruning any the re-derived
+// verdict now scores: a mapping edit never calls Jev.
 //
 // THE OP LINE'S SOURCE IS `owner`. saveRun hardcodes it, and it is right here: the owner's click caused
 // the import and this program wrote the op deterministically; an agent only relayed the read.
@@ -446,8 +447,14 @@ export function editMapping({ pkgRoot, provenance, name, edit, inputs = loadInpu
   // Re-derive BEFORE writing anything: an unknown path or a cross-family ref throws here, and the
   // files stay as they were.
   const pipe = runPipeline({ text: source.text, tool: source.tool, mode: prior.provenance.mode, mapping: nextMapping, overrides, ...inputs });
+  // Suggestions ride forward only while their node is still unnamed: a matcher or vocabulary that
+  // now scores one prunes it here, where checkRecord would otherwise refuse every later edit.
+  const unnamed = new Set();
+  const gather = (v) => { if (v.kind && v.via !== "scored") unnamed.add(v.path); (v.children ?? []).forEach(gather); };
+  gather(pipe.verdict);
+  const suggestions = prior.suggestions?.filter((s) => unnamed.has(s.path));
   const record = recordFor({ id: prior.id, source: prior.source, pipe, mapping: nextMapping, packTokens: inputs.packTokens,
-    mode: prior.provenance.mode, attribution: prior.provenance.attribution, elapsedMs: prior.elapsed?.recognition ?? null, suggestions: prior.suggestions });
+    mode: prior.provenance.mode, attribution: prior.provenance.attribution, elapsedMs: prior.elapsed?.recognition ?? null, suggestions });
   if (keys[0] === "slot") {
     mkdirSync(overridesDir, { recursive: true });
     writeFileSync(path.join(overridesDir, `${overrides.source}.json`), jsonText(overrides));
