@@ -26,12 +26,14 @@
 // one answer and the banked question, never the package, and the person sees the result before
 // anything is recorded.
 //
-// THE THRESHOLDS. T_LOOK_UP and T_ASIDE are chosen by the pre-registered rule in
-// tooling/jev-guard-eval.mjs (plan D3), never tuned until a wanted answer comes out, and they mean
-// something only against jev-1.13.0 and the committed tooling/jev-guard/eval-run.json (build-checks
-// group 44 recomputes every number below from it). decide() THROWS on a null look-up threshold, so a
-// module without them fails open rather than prompting on a guess; T_ASIDE === null alone would
-// disable the aside question.
+// THE THRESHOLDS. T_LOOK_UP and T_ASIDE are chosen by the rule in tooling/jev-guard-eval.mjs (plan
+// D3), pre-registered and amended once by the owner after run 1 (O1), never tuned until a wanted
+// answer comes out, and they mean something only against jev-1.13.0 and the committed
+// tooling/jev-guard/eval-run.json. Build-checks group 44 recomputes the recall, false-prompt and
+// prompt counts below from it; the gap figures, the named aside refs and the latency are the eval's
+// printout, not re-derived by the gate. decide() THROWS on a null look-up threshold, so a module
+// without them fails open rather than prompting on a guess. T_ASIDE === null stops decide() acting on
+// the aside score, but the aside question is still sent and its noul still required.
 //
 // Measured 2026-09-27 on jev-1.13.0, n = 4 positives (run 1's faster-payment a3, a5, a10, a23) and 160
 // deduplicated negatives (every other banked answer line):
@@ -41,12 +43,14 @@
 //     positives open "Look it up:"; a look-up phrased another way is unmeasured, which is why the margin
 //     sits in the middle of the gap rather than just under the positives.
 //   T_ASIDE = 0.35 — the lowest grid T keeping the combined prompt count within 4/160 (3%). Combined
-//     prompt 4/160, all four from aside (graded-opus-a a13, a22, a65; later-not-never-1 a24). Aside
-//     recall is unmeasured: there are no labelled asides.
+//     prompt 4/160, all four from aside (graded-opus-a a13, a22, a65; later-not-never-1 a24), and all
+//     four are misfires: each is an on-topic answer to its own question, read by eye. Aside recall is
+//     unmeasured: there are no labelled asides. Shipped anyway (owner, 2026-09-27): a misfire costs one
+//     "Send as my answer" click.
 //   Latency over 164 calls: p50 250 ms, p95 295 ms, 0 over the drawer's 1500 ms cap.
 //   Jev's scores are not bit-stable across runs: an earlier run of the same eval put the highest
 //     negative at 0.31 and a different fourth aside prompt. The committed run is the one these numbers
-//     come from, and group 44 recomputes them from it.
+//     come from, and group 44 recomputes its counts from it.
 import { assertProvenanceRoot, readRun, resolveRunRoot } from './discovery.mjs';
 import { AFFORDANCES } from './discovery-postures.mjs';
 import { questionById } from '../../discovery/bank.mjs';
@@ -109,7 +113,8 @@ export async function checkAnswer({ slug, provenance, questionId, text }, { ask 
   if ((head.entryMode ?? 'blank-idea') === 'existing-prd') bad('an existing-prd audit has no answer box, so there is nothing to guard (#454 Design 5)');
   const q = questionById(questionId);
   if (!q) bad(`question "${questionId}" is not in the bank`);
-  if (typeof text !== 'string' || !text.trim()) bad('an empty answer has nothing to check');
+  if (typeof text !== 'string') bad(`the answer is a ${typeof text}, not a string`);
+  if (!text.trim()) bad('an empty answer has nothing to check');
 
   const t0 = performance.now();
   try {

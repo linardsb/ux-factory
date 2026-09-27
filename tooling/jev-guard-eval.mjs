@@ -123,6 +123,7 @@ const recallAt = (t) => count(pos, t, null, "look-up");
 const fpAt = (t) => count(neg, t, null, "look-up");
 const maxRecall = Math.max(...GRID.map(recallAt));
 const atMax = GRID.filter((t) => recallAt(t) === maxRecall).at(-1);
+const minRecall = Math.ceil(0.75 * pos.length); // the fallback's "recall ≥ 3/4", as a count
 let lookUp = null;
 let rule;
 const minPos = Math.min(...pos.map((i) => i.answers.look_up.noul));
@@ -136,11 +137,11 @@ if (minPos > maxNeg && recallAt(nearest) === maxRecall && fpAt(nearest) <= lookU
   lookUp = atMax;
   rule = `highest T at the grid's maximum look_up recall (${maxRecall}/${pos.length}), false-prompt ${fpAt(atMax)}/${neg.length} ≤ ${lookUpCeil}`;
 } else {
-  lookUp = GRID.filter((t) => recallAt(t) >= 3 && fpAt(t) <= lookUpCeil).at(-1) ?? null;
-  rule = `fallback: highest T with recall ≥ 3/${pos.length} and false-prompt ≤ ${lookUpCeil}/${neg.length} (at max recall ${maxRecall}, T ${atMax} false-prompted ${fpAt(atMax)})`;
+  lookUp = GRID.filter((t) => recallAt(t) >= minRecall && fpAt(t) <= lookUpCeil).at(-1) ?? null;
+  rule = `fallback: highest T with recall ≥ ${minRecall}/${pos.length} and false-prompt ≤ ${lookUpCeil}/${neg.length} (at max recall ${maxRecall}, T ${atMax} false-prompted ${fpAt(atMax)})`;
 }
 if (lookUp === null) {
-  console.error(`jev-guard-eval: no admissible look_up threshold — at max recall ${maxRecall}/${pos.length} (T ${atMax}) false-prompt is ${fpAt(atMax)}/${neg.length} > ${lookUpCeil}, and no T reaches recall ≥ 3 within that ceiling. Nothing written; this is the owner's decision (plan D3).`);
+  console.error(`jev-guard-eval: no admissible look_up threshold — at max recall ${maxRecall}/${pos.length} (T ${atMax}) false-prompt is ${fpAt(atMax)}/${neg.length} > ${lookUpCeil}, and no T reaches recall ≥ ${minRecall} within that ceiling. Nothing written; this is the owner's decision (plan D3).`);
   process.exit(1);
 }
 const aside = GRID.find((t) => count(neg, lookUp, t, "prompt") <= promptCeil) ?? null;

@@ -13959,7 +13959,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
 // tooling/jev-guard-eval.mjs wrote from real API responses. An injected `ask` or `fetchImpl` may only
 // FAIL — throw, reject, report a status, answer the wrong model, or return a shape with a field missing.
 // It never returns a noul number: a fake answering { look_up: { noul: 0.9 } } would be a hand-written
-// Jev response. And every case injects `key`, `fetchImpl` or `ask`: the operator's real key is in
+// Jev response. The one exception is a REPLAY: an `ask` handing back a committed eval-run.json item's
+// { model, answers } verbatim, which is a recorded Jev response, not a fabricated one. And every case injects `key`, `fetchImpl` or `ask`: the operator's real key is in
 // process.env when this runs locally, and a case reaching the real API would spend a call here and
 // fail in CI — the check that behaves differently in the two places.
 //
@@ -14053,11 +14054,11 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       const at = (i) => threw(() => G.decide(i.answers)) === null ? G.decide(i.answers) : null;
       ok(RUN.items.some((i) => i.label === "positive" && at(i) === "look-up"), '44.4: no committed positive decides "look-up" at T');
       ok(RUN.items.some((i) => i.label === "negative" && at(i) === "answer"), '44.4: no committed negative decides "answer" at T');
-      if (G.T_ASIDE === null) {
-        ok(RUN.items.every((i) => at(i) !== "aside"), '44.4: T_ASIDE is null (aside disabled) yet a committed item decides "aside"');
-        ok(RUN.items.every((i) => threw(() => G.decide(i.answers, { lookUp: G.T_LOOK_UP, aside: null })) !== null || G.decide(i.answers, { lookUp: G.T_LOOK_UP, aside: null }) !== "aside"),
-          '44.4: decide returned "aside" with the aside question disabled');
-      }
+      // The aside-disabled case, unconditionally: T_ASIDE is 0.35 today, so a branch on it never ran.
+      // Its positive control is an item that DOES decide "aside" with the question enabled.
+      const off = (i) => threw(() => G.decide(i.answers, { lookUp: G.T_LOOK_UP, aside: null })) ?? G.decide(i.answers, { lookUp: G.T_LOOK_UP, aside: null });
+      ok(RUN.items.some((i) => G.decide(i.answers, { lookUp: G.T_LOOK_UP, aside: 0.35 }) === "aside"), '44.4: no committed item decides "aside" at aside 0.35 — the disabled case below would prove nothing');
+      ok(RUN.items.every((i) => off(i) !== "aside"), `44.4: decide returned "aside" with the aside question disabled (aside: null) — ${RUN.items.filter((i) => off(i) === "aside").length} of ${RUN.items.length} committed items`);
       ok(/look_up/.test(threw(() => G.decide(RUN.items[0].answers, { lookUp: null })) ?? ""), "44.4: decide accepted a null look_up threshold instead of refusing it by name");
     }
     // Needs no response at all: a valid threshold and an empty answers object.
@@ -14096,11 +14097,27 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
         `44.5: checkAnswer ${m !== null ? `threw on ${what} instead of failing open (${m})` : `answered ${JSON.stringify(r)} on ${what} — it must fail open to verdict "answer" naming why`}`);
     }
 
+    // THE SUCCESS PATH, by REPLAY: the ask stub hands back a committed eval-run.json response verbatim
+    // ({ model: RUN.model, answers }), never a fabricated noul. One item per verdict the run holds.
+    if (RUN) {
+      for (const want of ["look-up", "aside", "answer"]) {
+        const item = RUN.items.find((i) => G.decide(i.answers) === want);
+        if (!item) { ok(false, `44.5: no committed item decides "${want}" to replay`); continue; }
+        const replay = counting(async () => ({ model: RUN.model, answers: item.answers }));
+        let r = null;
+        const m = await athrew(async () => { r = await G.checkAnswer(CALL, { ask: replay }); });
+        ok(m === null && replay.calls === 1 && r?.verdict === want && r.failOpen === null
+            && r.lookUp === item.answers.look_up.noul && r.aside === item.answers.aside.noul,
+          `44.5: checkAnswer replaying ${item.package ?? ""}/${item.ref ?? ""} (decides "${want}") ${m !== null ? `threw (${m})` : `answered ${JSON.stringify(r)}`} — it must return that verdict, both nouls and failOpen null`);
+      }
+    }
+
     // --- 44.6 refusals never reach Jev --------------------------------------------------------------------
     const REFUSALS = [
       ["an existing-prd audit", { slug: "partner-audit-1", provenance: "fictional", questionId: A3.question_id, text: "x" }, /existing-prd/],
       ["an unknown question", { ...CALL, questionId: "no-such-question-454" }, /no-such-question-454/],
       ["empty text", { ...CALL, text: "   " }, /empty/],
+      ["a non-string text", { ...CALL, text: 42 }, /a number, not a string/],
       ["a bad slug", { ...CALL, slug: "Bad Slug!" }, /not a usable run slug/],
       ["a real run with no package", { ...CALL, provenance: "real", slug: "no-such-run-454" }, /no run\.json/],
     ];
@@ -14118,7 +14135,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   // --- 44.7 nothing moved -------------------------------------------------------------------------------
   ok(gitSnap() === GIT_BEFORE, `44.7: the group moved a tracked path — git status for discovery portal/lib tooling/jev-guard went from ${JSON.stringify(GIT_BEFORE)} to ${JSON.stringify(gitSnap())}`);
 
-  group("jev guard", `portal/lib/jev.mjs + portal/lib/discovery-guard.mjs (#454): IMPORTED in CI with no portal/node_modules, jev.mjs importing only ./env.mjs and the guard only its four named modules, neither holding the SDK or zod, the model pinned to jev-1.13.0 at the documented endpoint · THE COMMITTED EVAL bound to the tree: its model, the QUESTIONS sha, its positives equal to labels.json, every item's text present and unchanged at its package/ref, every noul finite · THE STATED NUMBERS recomputed by running decide at the module's own thresholds over the committed responses and matched to the summary and to the header's recall and false-prompt literals · decide's branches found among the REAL responses, the aside-disabled case, and a null threshold and a missing noul refused by name · FAIL-OPEN through the real askJev with injected FAILURES only — a missing key before any fetch, a 429, a timeout and a model mismatch each throwing after one call, and checkAnswer turning each of them and a response with no answers into verdict "answer" naming why · FIVE REFUSALS (an audit, an unknown question, empty text, a bad slug, a real run with no package) each thrown by name with zero calls, and a valid call reaching ask exactly once · and git status over discovery, portal/lib and tooling/jev-guard unchanged across the group. What it cannot reach: the live API's behaviour today (the committed responses are what was measured), whether T generalises beyond the 164 texts it was chosen on, the drawer (portal.js has no CI runner — the owner-run walk is the observation), and the route wiring (server.mjs imports chat.mjs, which reaches the SDK, and CI has no portal/node_modules)`);
+  group("jev guard", `portal/lib/jev.mjs + portal/lib/discovery-guard.mjs (#454): IMPORTED in CI with no portal/node_modules, jev.mjs importing only ./env.mjs and the guard only its four named modules, neither holding the SDK or zod, the model pinned to jev-1.13.0 at the documented endpoint · THE COMMITTED EVAL bound to the tree: its model, the QUESTIONS sha, its positives equal to labels.json, every item's text present and unchanged at its package/ref, every noul finite · THE STATED NUMBERS recomputed by running decide at the module's own thresholds over the committed responses and matched to the summary and to the header's recall and false-prompt literals · decide's branches found among the REAL responses, the aside-disabled case run over every committed item against a positive control that decides "aside" when enabled, and a null threshold and a missing noul refused by name · FAIL-OPEN through the real askJev with injected FAILURES only — a missing key before any fetch, a 429, a timeout and a model mismatch each throwing after one call, and checkAnswer turning each of them and a response with no answers into verdict "answer" naming why · THE SUCCESS PATH by verbatim REPLAY of a committed response per verdict, checkAnswer returning that verdict, both nouls and failOpen null · SIX REFUSALS (an audit, an unknown question, empty text, a non-string text, a bad slug, a real run with no package) each thrown by name with zero calls, and a valid call reaching ask exactly once · and git status over discovery, portal/lib and tooling/jev-guard unchanged across the group. What it cannot reach: the live API's behaviour today (the committed responses are what was measured), whether T generalises beyond the 164 texts it was chosen on, the drawer (portal.js has no CI runner — the owner-run walk is the observation), and the route wiring (server.mjs imports chat.mjs, which reaches the SDK, and CI has no portal/node_modules)`);
 }
 
   if (failures) {

@@ -1491,7 +1491,9 @@ $('#discovery-answer').addEventListener('input', () => { if (discovery.guard) hi
 
 // "Send as a look-up" / "Send as something else": the existing off-script turn, with the text moved to
 // the off-script box. The answer box KEEPS its text (owner, 2026-09-27): a mixed "look it up … answer
-// …" text is the norm, and the person trims it to their own answer.
+// …" text is the norm, and the person trims it to their own answer. Anything already typed in the
+// off-script box is REPLACED, by intent: the guard's choice is about the answer-box text, and that
+// box is the one the person was just using (PR #463 review F7).
 $('#discovery-guard-offscript').addEventListener('click', async () => {
   const g = discovery.guard;
   if (!g) return;
