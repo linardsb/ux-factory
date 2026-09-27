@@ -14294,13 +14294,17 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       `45.5: chooseT1 over ${S.STAGE2_MAX_REQUESTS} stage-2 requests returned ${t1} — it must be the lowest grid value that fits (fits(T1) ${fits(S.T1)})`);
     ok(same(S.tensionsOf([{ type: "unavailable", reason: "x" }]), []) && same(S.tensionsOf([]), []), "45.5: tensionsOf did not return [] for an unavailable line or no lines");
 
-    // --- 45.6 fail-visible, through the real askJev with injected FAILURES only --------------------
-    const noFetch = counting(async () => { throw new Error("unreachable"); });
+    // --- 45.6 fail-visible: screenSession (the Claude screen, #466) with injected FAILURES only -------
+    // askJev's own failures (a missing key, a 429, a timeout, a model mismatch) are group 44's; the route
+    // no longer reaches Jev. The success path is 45.14's verbatim replay of the committed fixture run.
+    {
+      const root = tempRoot();
+      const m = await athrew(() => S.screenSession(root, FIXTURE, {}));
+      ok(/needs ask/.test(m ?? "") && !existsSync(join(root, "screen.jsonl")), `45.6: screenSession with no ask ${m === null ? "did not throw" : `threw ${JSON.stringify(m)}`}${existsSync(join(root, "screen.jsonl")) ? " and wrote screen.jsonl" : ""} — it must refuse by name before any write`);
+    }
     const FAIL = {
-      "a missing key": [(x, o) => J.askJev(x, { ...o, key: "", fetchImpl: noFetch }), /TYPESAFE_API_KEY/],
-      "a 429": [(x, o) => J.askJev(x, { ...o, key: "k", fetchImpl: async () => ({ ok: false, status: 429, text: async () => "" }) }), /429/],
-      "a timeout": [(x, o) => J.askJev(x, { ...o, key: "k", fetchImpl: async () => { throw new DOMException("The operation was aborted due to timeout", "TimeoutError"); } }), /abort|timeout/i],
-      "a model mismatch": [(x, o) => J.askJev(x, { ...o, key: "k", fetchImpl: async () => ({ ok: true, json: async () => ({ model: "jev-9" }) }) }), /jev-9/],
+      "an ask failure": [async () => { throw new Error("screen-call: no answer — error_during_execution: x"); }, /error_during_execution: x/],
+      "a timeout": [async () => { throw new DOMException("This operation was aborted", "AbortError"); }, /abort/i],
     };
     for (const [what, [ask, re]] of Object.entries(FAIL)) {
       const root = tempRoot();
@@ -14310,7 +14314,6 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       ok(m === null && r?.status === "unavailable" && re.test(r.reason ?? "") && lines.length === 1 && lines[0].type === "unavailable" && re.test(lines[0].reason),
         `45.6: screenSession ${m !== null ? `threw on ${what} instead of writing unavailable (${m})` : `on ${what} returned ${JSON.stringify(r)} and wrote ${JSON.stringify(lines)} — it must write exactly one unavailable line naming the reason`}`);
     }
-    ok(noFetch.calls === 0, `45.6: a missing key reached fetch ${noFetch.calls} time(s)`);
     const existing = tempRoot();
     writeFileSync(join(existing, "screen.jsonl"), "");
     ok(/already exists/.test(threw(() => S.writeScreen(existing, [{ type: "unavailable", ts: "t", reason: "r" }])) ?? ""), "45.6: writeScreen overwrote an existing screen.jsonl");
@@ -14318,6 +14321,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     writeFileSync(join(junk, "screen.jsonl"), `${JSON.stringify({ type: "pick" })}\n${JSON.stringify({ type: "verdict" })}\n`);
     ok(/line 2/.test(threw(() => S.readScreen(junk)) ?? ""), "45.6: readScreen accepted an unknown type, or did not name its line");
     ok(same(S.readScreen(tempRoot()), []), "45.6: readScreen of a package with no screen.jsonl is not []");
+    const claudeTyped = tempRoot();
+    writeFileSync(join(claudeTyped, "screen.jsonl"), `${JSON.stringify({ type: "quoted-pair" })}\n${JSON.stringify({ type: "claude-summary" })}\n`);
+    ok(threw(() => S.readScreen(claudeTyped)) === null, "45.6: readScreen refused a quoted-pair or claude-summary line — the Claude screen's two line types");
 
     // --- 45.7 the prompt surface and its stamp -----------------------------------------------------
     const plain = buildGrillTurn(AUDIT_FINGERPRINT_INPUTS);
@@ -14399,11 +14405,6 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
         const moved = fo?.lines.find((l) => l.type === "pair" && l.a.id === target.a.id && l.b.id === target.b.id);
         ok(moved && moved.kept !== target.kept, `45.8: flipping ${target.a.id} ↔ ${target.b.id}'s stage-2 answer in memory did not change its kept flag — the compare above cannot see selection`);
       } else notes.push("45.8's positive control had no pair line to flip (the run confirmed no candidate)");
-      // 45.6's positive control: a successful screenSession writes pick / pair / summary only.
-      const okRoot = tempRoot();
-      const r = await S.screenSession(okRoot, FIXTURE, { ask: replayOf(RUN.requests) });
-      const types = [...new Set(S.readScreen(okRoot).map((l) => l.type))];
-      ok(r.status === "ran" && types.every((t) => ["pick", "pair", "summary"].includes(t)) && types.includes("summary"), `45.6: a successful replay wrote types ${JSON.stringify(types)} (${JSON.stringify(r)})`);
     }
 
     // --- 45.9 the projection -----------------------------------------------------------------------
@@ -14426,6 +14427,14 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     const sumLine = { type: "summary", ts: "t", model: "jev-1.13.0", claims: 90, kept: 1, candidates: 5, thresholds: { T_SAME: 0.5, T2: 0.5, K: 10 } };
     const synthPage = projectPrd({ ...noScreen, screen: [keptLine, sumLine] });
     ok(synthPage.includes("#### c017 ↔ c052 · contradicts 0.80 · not raised") && synthPage.includes("tooling/jev-screen/labels.json"), "45.9: a synthetic kept pair does not render its heading, raised state and the owner's-verdict pointer");
+    // The Claude screen's lines (#466), SYNTHETIC: a kept quoted pair and an unparseable answer.
+    const qp = { type: "quoted-pair", ts: "t", model: "claude-x", index: 0, quoteA: "qa", quoteB: "qb", why: "Both cannot hold.", sideA: { status: "mapped", claim: "c017", reason: null }, sideB: { status: "mapped", claim: "c052", reason: null }, a: A, b: B, kept: true };
+    const cs = { type: "claude-summary", ts: "t", model: "claude-x", claims: 90, returned: 1, malformed: 0, kept: 1, parse: "ok" };
+    const claudePage = projectPrd({ ...noScreen, screen: [qp, cs] });
+    ok(claudePage.includes("#### c017 ↔ c052 · quoted · not raised") && claudePage.includes("*Why (model):* Both cannot hold.") && claudePage.includes("tooling/jev-screen/claude-labels.json") && claudePage.includes("Claude `claude-x` · 90 claims · 1 pair(s) returned · 1 kept"),
+      "45.9: a synthetic Claude kept pair does not render its quoted heading, the model's why and the claude-labels.json pointer");
+    const unparsed = projectPrd({ ...noScreen, screen: [{ ...cs, returned: 0, kept: 0, parse: "not JSON" }] });
+    ok(unparsed.includes("answer unparseable: not JSON") && unparsed.includes("The screen ran and kept no pair."), "45.9: an unparseable Claude answer does not project \"answer unparseable\" and no pair");
     // The REAL one: partner-audit-3's Tensions section, re-projected, equals the committed prd.md's.
     const PA3 = join(ROOT, "discovery/partner-audit-3");
     const cut = (s) => { const i = s.indexOf("## Tensions (machine screen)"); return i === -1 ? "" : s.slice(i, s.indexOf("\nArchitecture:", i)); };
@@ -14480,6 +14489,71 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
         ok(v.verdict === "FAIL" && v.found.length === 0, `45.12: the recomputed verdict is ${v.verdict} (${v.found.length}/3) — the committed diagnostic reads FAIL, 0/3`);
         ok(re.some((p) => p.recognised) && D.verdictOf(re.map((p) => ({ ...p, recognised: p.class === "contradiction" }))).verdict === "PASS", "45.12: the verdict cannot reach PASS or no pair is recognised — the compare above is vacuous");
       }
+    }
+
+    // --- 45.13 the Claude screen's pure half (#466), SYNTHETIC answers + the REAL fixture's lines ----
+    // Drives parseClaudeAnswer, mapQuote, mapPairs, claudeLines and tensionsOf directly — nothing here
+    // passes through `ask`. The mapper's positive controls run on the real fixture and the committed
+    // fixture-claims.json, so a 0/3 cannot be the mapper's.
+    {
+      const P = (t) => S.parseClaudeAnswer(t);
+      const body = JSON.stringify({ pairs: [{ quote_a: "x", quote_b: "y", why: "w" }] });
+      ok(P(body).ok && P(body).parsedBy === "direct" && P(body).pairs.length === 1, `45.13: a bare JSON answer did not parse direct — ${JSON.stringify(P(body))}`);
+      ok(P("```json\n" + body + "\n```").parsedBy === "fence" && P("```json\n" + body + "\n```").pairs.length === 1, "45.13: a fenced answer did not parse by fence");
+      ok(P(`Here are the pairs: ${body} Hope this helps.`).parsedBy === "braces" && P(`Here are the pairs: ${body} Hope this helps.`).pairs.length === 1, "45.13: prose around the object did not parse by braces");
+      ok(same(P("not JSON at all"), { ok: false, reason: "not JSON" }), "45.13: a non-JSON answer did not read not JSON");
+      ok(P(JSON.stringify({ items: [] })).ok === false && P("[1]").ok === false, "45.13: a top level with no pairs array, or an array, parsed ok");
+      const mixed = P(JSON.stringify({ pairs: [{ quote_a: "a", quote_b: "b", why: "" }, { quote_a: "", quote_b: "b", why: "w" }, { quote_a: "c", quote_b: "d", why: "w", extra: 1 }] }));
+      ok(mixed.ok && same(mixed.pairs.map((p) => p.index), [0, 2]) && same(mixed.malformed, [1]), `45.13: one malformed item among two valid ones did not give 2 pairs + 1 malformed — ${JSON.stringify(mixed)}`);
+      ok(P('{"pairs":[]}').ok && P('{"pairs":[]}').pairs.length === 0, "45.13: an empty pairs list is not ok with 0 pairs");
+
+      const FCL = JSON.parse(readFileSync(join(ROOT, "tooling/jev-screen/fixture-claims.json"), "utf8")).claims;
+      const M = (q) => S.mapQuote(q, FIXTURE, FCL);
+      const src = FIXTURE.split(/\r?\n/);
+      const win = (id) => {
+        const c = FCL.find((x) => x.id === id);
+        const w = src.slice(c.line - 1, c.endLine).join(" ").replace(/[*_`|]/g, " ").split(/\s+/).filter(Boolean);
+        for (let i = 0; i + 8 <= w.length; i += 1) { const q = w.slice(i, i + 8).join(" "); const r = M(q); if (r.status === "mapped" && r.claim === id) return q; }
+        return null;
+      };
+      let DG = null;
+      try { DG = await import("./jev-screen/diagnostic.mjs"); } catch { /* 45.12 reports the import */ }
+      const joinIds = DG ? [...new Set(DG.DIAGNOSTIC_JOINS.filter((j) => j.class !== "control").flatMap((j) => [j.a, j.b]))] : [];
+      const unreached = joinIds.filter((id) => !win(id));
+      ok(joinIds.length === 13 && unreached.length === 0, `45.13: the mapper does not reach ${unreached.join(", ") || `13 join claims (got ${joinIds.length})`} on the fixture — a 0/3 could then be the mapper's`);
+      ok(M("The bank itself. Seeded from").claim === "c044", `45.13: c044 quoted without its asterisks mapped ${M("The bank itself. Seeded from").status}, not c044`);
+      ok(M("The bank itself. Seeded from the CXO doc\u2019s ten stages").claim === "c044", "45.13: a curly apostrophe where the fixture has a straight one did not map c044");
+      ok(M("CXO_CPO_VP_Product.md - 10 stages, ~30 attributed questions").claim === "c018", "45.13: a hyphen where the fixture has an em dash did not map c018");
+      ok(M("The bank itself. Seeded from the CXO doc's ten stages.").claim === "c044", "45.13: a quote closed with an added full stop did not map");
+      ok(M("The bank itself … ten stages").status === "unmapped" && M("The bank itself ... ten stages").reason === "ellipsis", "45.13: an ellipsis did not read unmapped");
+      ok(M("a sentence this fixture never holds anywhere").status === "unmapped", "45.13: a string absent from the fixture mapped");
+      ok(M("Target user and JTBD").status === "unmapped", `45.13: the heading-only text mapped ${JSON.stringify(M("Target user and JTBD"))} — its claim set is empty`);
+      ok(M("ten stages").status === "ambiguous", `45.13: "ten stages" (c044 and c048) mapped ${JSON.stringify(M("ten stages"))}, not ambiguous by repetition`);
+      const c = FCL.find((x) => x.id === "c043");
+      const crossing = `${src[c.endLine - 1].replace(/[*_`]/g, "").trim().split(/\s+/).slice(-3).join(" ")} ${src[c.endLine].replace(/[*_`]/g, "").trim().split(/\s+/).slice(0, 4).join(" ")}`;
+      ok(M(crossing).status === "ambiguous" && /boundary/.test(M(crossing).reason ?? ""), `45.13: a span crossing two claims (${JSON.stringify(crossing)}) mapped ${JSON.stringify(M(crossing))}, not ambiguous`);
+      ok(FCL.every((x, i) => i === 0 || x.line > FCL[i - 1].endLine), "45.13: a claim's line span overlaps the previous claim's — a quote would be ambiguous by construction");
+
+      const ids = FCL.map((x) => x.id).filter((id) => win(id)).slice(0, 24);
+      const pairOf = (i, j, k) => ({ index: k, quote_a: win(ids[i]), quote_b: win(ids[j]), why: "w" });
+      const same1 = S.mapPairs([{ index: 0, quote_a: win("c044"), quote_b: "The bank itself. Seeded from", why: "w" }], FIXTURE, FCL)[0];
+      ok(same1.kept === false && same1.reason === "same-claim", `45.13: both quotes on one claim read ${same1.reason}, not same-claim`);
+      const dup = S.mapPairs([pairOf(0, 1, 0), { ...pairOf(1, 0, 1) }], FIXTURE, FCL);
+      ok(dup[0].kept && !dup[1].kept && dup[1].reason === "duplicate" && dup[0].a.id < dup[0].b.id, "45.13: a repeated pair (sides swapped) is not a duplicate of the first, or a is not the lower id");
+      const twelve = S.mapPairs(Array.from({ length: 12 }, (_, k) => pairOf(2 * k, 2 * k + 1, k)), FIXTURE, FCL);
+      ok(ids.length === 24 && twelve.filter((r) => r.kept).length === 10 && twelve.slice(10).every((r) => r.reason === "outside-K"), `45.13: 12 mapped pairs kept ${twelve.filter((r) => r.kept).length} with the rest ${JSON.stringify(twelve.filter((r) => !r.kept).map((r) => r.reason))} — CLAUDE_SCREEN.K is ${S.CLAUDE_SCREEN.K}; 10 kept then outside-K is the registered rule`);
+      const unm = S.mapPairs([{ index: 0, quote_a: "nowhere at all in it", quote_b: win("c044"), why: "w" }], FIXTURE, FCL)[0];
+      ok(unm.reason === "unmapped" && !("a" in unm), "45.13: a pair with an unmapped side is not dropped as unmapped with no claims");
+
+      const res = (resultText) => ({ model: "claude-x", resultText, costUsd: 0.1, usage: { input_tokens: 5, output_tokens: 6 } });
+      const cl = S.claudeLines({ text: FIXTURE, result: res(JSON.stringify({ pairs: [pairOf(0, 1, 0), pairOf(2, 3, 1)].map(({ quote_a, quote_b, why }) => ({ quote_a, quote_b, why })) })), now: () => "T" });
+      ok(cl.length === 3 && cl.at(-1).type === "claude-summary" && cl.at(-1).kept === 2 && cl.at(-1).returned === 2 && cl.at(-1).docMd5 === md5(FIXTURE) && cl.at(-1).promptSha === S.claudePromptSha(), `45.13: claudeLines over two mapped pairs gave ${JSON.stringify(cl.at(-1))}`);
+      const bad = S.claudeLines({ text: FIXTURE, result: res("no json here"), now: () => "T" });
+      ok(bad.length === 1 && bad[0].parse === "not JSON" && bad[0].kept === 0, "45.13: an unparseable answer did not write one summary line with parse named and kept 0");
+      const ts = S.tensionsOf([...cl].reverse());
+      ok(ts.length === 2 && ts[0].a.id === cl[0].a.id && ts.every((t) => t.contradicts === null), "45.13: tensionsOf on Claude lines is not the kept pairs in index order with contradicts null");
+      if (RUN) ok(S.tensionsOf(RUN.lines).length === RUN.lines.at(-1).kept && S.tensionsOf(RUN.lines).every((t) => Number.isFinite(t.contradicts)), "45.13: tensionsOf on the committed Jev run no longer takes the Jev path");
+      ok(same(S.claudeRequest("x"), { model: S.CLAUDE_SCREEN.model, system: S.CLAUDE_SCREEN.system, prompt: `${S.CLAUDE_SCREEN.open}\nx\n${S.CLAUDE_SCREEN.close}` }), "45.13: claudeRequest does not wrap the document in the delimiters with the frozen system and model");
     }
   }
 

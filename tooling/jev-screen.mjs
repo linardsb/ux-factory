@@ -1,7 +1,7 @@
-// tooling/jev-screen.mjs — the #453 contradiction screen's operator CLI, over the SAME functions the
-// portal's audit route runs (portal/lib/discovery-screen.mjs). It never touches a run package.
+// tooling/jev-screen.mjs — the contradiction screen's operator CLI (#453, #466), over the SAME functions
+// the portal's audit route runs (portal/lib/discovery-screen.mjs). It never touches a run package.
 //
-// Five modes:
+// The Jev modes (#453 — the measured record):
 //   node tooling/jev-screen.mjs <document.md> --claims   FREE. Prints the split; for the frozen fixture
 //        only (md5 below) writes tooling/jev-screen/fixture-claims.json — the committed claim ids the
 //        screen rubric and build-checks 45.2 read.
@@ -20,21 +20,45 @@
 //        every kept pair of both screens and `real: null`, for the OWNER to fill. Refuses to overwrite a
 //        file whose `by` is set. The session never writes a verdict.
 //
-// screen-run.json and diagnostic-run.json are GENERATED from real API responses. Never hand-edit it (honesty contract): an
-// edited question wording moves questionsSha, which 45.8 and 45.12 check. One completed run is the result —
-// never re-run for a better score.
+// The Claude modes (#466 — pre-registered in the rubric's §One Claude call):
+//   node tooling/jev-screen.mjs <document.md> --claude   FREE, the default. Prints the exact request,
+//        claudePromptSha, the model, the document's md5 and which run file a paid run would write (the
+//        fixture → claude-fixture-run.json, docs/epics/discovery-partner.prd.md → claude-live-run.json,
+//        anything else → nothing), and checks the mapper reaches every rubric join on the fixture.
+//        Never imports the SDK.
+//   node tooling/jev-screen.mjs --claude --smoke         FREE. The same, for SMOKE_DOC below.
+//   node tooling/jev-screen.mjs <document.md> --claude --paid <sha8>   PAID. <sha8> is the first 8 hex of
+//        claudePromptSha, copied from the dry run. Refused before the SDK is imported unless (i) the rubric
+//        registers this promptSha, (ii) nothing under the screen's files is uncommitted, (iii) the last
+//        rubric commit is on a remote branch, and (iv) for the fixture and live runs, the smoke's run file
+//        exists. A no-answer writes nothing and may be repeated; the first ANSWER is the run, written
+//        once whatever it says, and never re-run.
+//   node tooling/jev-screen.mjs --claude --smoke --paid <sha8>   PAID. The mechanism smoke on SMOKE_DOC,
+//        never scored: writes claude-smoke-run.json once.
+//   node tooling/jev-screen.mjs --claude-labels-template   FREE. Writes tooling/jev-screen/
+//        claude-labels.json with every kept pair of each Claude run and `real: null`, for the OWNER.
+//        Refuses to overwrite a file whose `by` is set.
+//
+// Any other --flag is refused by name, so a typo never falls through to the paid Jev run.
+//
+// Every run file is GENERATED from real API responses. Never hand-edit one (honesty contract): an edited
+// wording moves questionsSha or promptSha, which build-checks group 45 checks. One completed run is the
+// result — never re-run for a better score.
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { askJev, JEV_MODEL } from "../portal/lib/jev.mjs";
+import { execFileSync } from "node:child_process";
 import { CLAIMS_VERSION, splitClaims } from "../discovery/claims.mjs";
 import {
-  batches, estTokens, QUESTION_TEMPLATES, readScreen, REQUEST_TOKEN_BUDGET, SCREEN_TIMEOUT_MS,
+  batches, CLAUDE_SCREEN, CLAUDE_TIMEOUT_MS, claudeLines, claudePromptSha, claudeRequest, estTokens,
+  mapQuote, QUESTION_TEMPLATES, readScreen, REQUEST_TOKEN_BUDGET, SCREEN_TIMEOUT_MS,
   screenDocument, stage1Question, stage1State, stage2Questions, tensionsOf,
   T2, T_SAME,
 } from "../portal/lib/discovery-screen.mjs";
 import { diagnosticBatches, recognise, verdictOf } from "./jev-screen/diagnostic.mjs";
+import { JOINS, scoreClaudeRun } from "./jev-screen/claude-score.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const DIR = join(ROOT, "tooling/jev-screen");
@@ -64,9 +88,54 @@ async function ask(body, opts) {
   }
 }
 
+// ---------------------------------------------------------------------------------------------------
+// The Claude screen (#466). SMOKE_DOC is synthetic and never scored: one invented product, one planted
+// contradiction (the first Monday against the 15th). It proves the harness before the scored run.
+// ---------------------------------------------------------------------------------------------------
+export const SMOKE_DOC = `# Kettle Club — product brief
+
+Kettle Club is a monthly tea subscription for people who brew loose-leaf tea at home.
+
+## What a member gets
+
+- One box a month with three loose-leaf teas and a tasting card.
+- Every box ships on the first Monday of the month.
+- Members can pause deliveries from their account page.
+
+## Operations
+
+Boxes ship on the 15th of each month from our Leeds warehouse.
+Tracking links are emailed the day a box leaves the warehouse.
+`;
+
+const RUBRIC = "docs/epics/fixtures/discovery-partner.screen-rubric.md";
+const LIVE_PRD = "docs/epics/discovery-partner.prd.md";
+const FIXTURE_PATH = "docs/epics/fixtures/discovery-partner.prd.pre-grill-2026-08-27.md";
+const git = (...a) => execFileSync("git", a, { cwd: ROOT, encoding: "utf8" }).trim();
+
 const argv = process.argv.slice(2);
 const flag = (f) => argv.includes(f);
-const docArg = argv.find((a) => !a.startsWith("--"));
+const FLAGS = ["--claims", "--smoke", "--diagnostic", "--labels-template", "--claude", "--paid", "--claude-labels-template"];
+for (const a of argv) if (a.startsWith("--") && !FLAGS.includes(a)) die(`unknown flag ${a} — the flags are ${FLAGS.join(" ")}`);
+const paidSha = flag("--paid") ? argv[argv.indexOf("--paid") + 1] : null;
+if (flag("--paid") && !flag("--claude")) die("--paid belongs to --claude");
+const docArg = argv.find((a, i) => !a.startsWith("--") && argv[i - 1] !== "--paid");
+
+if (flag("--claude-labels-template")) {
+  const out = join(DIR, "claude-labels.json");
+  if (existsSync(out) && JSON.parse(readFileSync(out, "utf8")).by) die(`${relative(ROOT, out)} carries the owner's verdicts (by is set) — refusing to overwrite it`);
+  const screens = {};
+  for (const [name, file] of [["claude-fixture", "claude-fixture-run.json"], ["claude-live", "claude-live-run.json"]]) {
+    const f = join(DIR, file);
+    if (existsSync(f)) screens[name] = tensionsOf(JSON.parse(readFileSync(f, "utf8")).lines).map(({ a, b }) => ({ a, b, real: null, note: "" }));
+  }
+  if (!Object.keys(screens).length) die("no claude-fixture-run.json or claude-live-run.json — run the paid Claude screen first");
+  writeFileSync(out, `${JSON.stringify({ by: null, at: null, screens }, null, 2)}\n`);
+  console.log(`jev-screen ✓ wrote ${relative(ROOT, out)} — ${Object.entries(screens).map(([k, v]) => `${k}: ${v.length} pair(s)`).join(" · ")}. The owner sets real (true|false), by: "owner" and at.`);
+  process.exit(0);
+}
+
+if (flag("--claude")) await claudeMode();
 
 if (flag("--labels-template")) {
   const out = join(DIR, "labels.json");
@@ -201,3 +270,74 @@ writeFileSync(out, `${JSON.stringify({
   requests: requests.map((r, i) => ({ ...r, ms: timed[i] })), lines,
 }, null, 2)}\n`);
 console.log(`jev-screen ✓ wrote ${relative(ROOT, out)}`);
+
+async function claudeMode() {
+  const smoke = flag("--smoke");
+  if (smoke && docArg) die("--claude --smoke screens SMOKE_DOC and takes no document");
+  if (!smoke && !docArg) die("usage: node tooling/jev-screen.mjs <document.md> --claude [--paid <sha8>] | --claude --smoke [--paid <sha8>]");
+  const text = smoke ? SMOKE_DOC : readFileSync(resolve(docArg), "utf8");
+  const docMd5 = md5(text);
+  const kind = smoke ? "smoke" : docMd5 === FIXTURE_MD5 ? "fixture" : resolve(docArg) === join(ROOT, LIVE_PRD) ? "live" : null;
+  const out = kind && join(DIR, `claude-${kind}-run.json`);
+  const req = claudeRequest(text);
+  const sha = claudePromptSha();
+  console.log(`claude screen · model ${CLAUDE_SCREEN.model} · K ${CLAUDE_SCREEN.K} · timeout ${CLAUDE_TIMEOUT_MS} ms · promptSha ${sha}`);
+  console.log(`document ${smoke ? "SMOKE_DOC (synthetic, never scored)" : relative(ROOT, resolve(docArg))} · md5 ${docMd5} · ${splitClaims(text).length} claims · claims version ${CLAIMS_VERSION}`);
+  console.log(`system ${req.system.length} chars · prompt ${req.prompt.length} chars`);
+  console.log(`prompt head: ${JSON.stringify(req.prompt.slice(0, 200))}`);
+  console.log(`prompt tail: ${JSON.stringify(req.prompt.slice(-200))}`);
+  console.log(out ? `→ would write ${relative(ROOT, out)}` : "→ nothing (not the fixture, the live PRD or the smoke)");
+  if (out && existsSync(out)) die(`${relative(ROOT, out)} exists — one run, never re-run`);
+  // The mapper's self-check: an 8-word window of every non-control join claim's own source lines must
+  // map to that claim on the fixture, or a 0/3 could be the mapper's.
+  const fx = readFileSync(join(ROOT, FIXTURE_PATH), "utf8");
+  const fc = JSON.parse(readFileSync(join(DIR, "fixture-claims.json"), "utf8")).claims;
+  const lines = fx.split(/\r?\n/);
+  const ids = [...new Set(JOINS.flatMap((j) => [j.a, j.b]))];
+  const unreached = ids.filter((id) => {
+    const c = fc.find((x) => x.id === id);
+    const w = lines.slice(c.line - 1, c.endLine).join(" ").replace(/[*_`|]/g, " ").split(/\s+/).filter(Boolean);
+    for (let i = 0; i + 8 <= w.length; i += 1) { const r = mapQuote(w.slice(i, i + 8).join(" "), fx, fc); if (r.status === "mapped" && r.claim === id) return false; }
+    return true;
+  });
+  if (unreached.length) die(`mapper does not reach ${unreached.join(", ")} on the fixture`);
+  console.log(`mapper reaches all ${JOINS.length} joins ✓ (${ids.length} claims)`);
+  if (!flag("--paid")) { console.log(`dry run — nothing sent. To spend the run: --paid ${sha.slice(0, 8)}`); process.exit(0); }
+
+  // PAID. Every interlock refuses before the SDK is imported.
+  if (paidSha !== sha.slice(0, 8)) die(`sha8 ${paidSha} is not claudePromptSha's ${sha.slice(0, 8)} — read the dry run first`);
+  if (!kind) die("--paid runs only on the fixture, the live PRD or --smoke — nothing else is written, so nothing else is paid for");
+  if (!readFileSync(join(ROOT, RUBRIC), "utf8").includes(`promptSha = ${sha}`)) die(`the rubric does not register promptSha ${sha}`);
+  const dirty = git("status", "--porcelain", "--", "portal/lib/discovery-screen.mjs", "portal/lib/discovery-screen-call.mjs", RUBRIC, "tooling/jev-screen.mjs", "tooling/jev-screen/");
+  if (dirty) die(`uncommitted changes are in play — commit them first:\n${dirty}`);
+  const receipt = git("log", "-1", "--format=%H", "--", RUBRIC);
+  if (!git("branch", "-r", "--contains", receipt)) die(`the pre-registration commit ${receipt} is on no remote branch — push it first`);
+  if (kind !== "smoke" && !existsSync(join(DIR, "claude-smoke-run.json"))) die("run the smoke first (--claude --smoke --paid <sha8>)");
+
+  const { askScreen } = await import("../portal/lib/discovery-screen-call.mjs");
+  const ranAt = new Date().toISOString();
+  let response;
+  const t0 = performance.now();
+  try { response = await askScreen(req, { timeoutMs: CLAUDE_TIMEOUT_MS }); }
+  catch (e) { die(`no answer after ${Math.round(performance.now() - t0)} ms — ${e.message} — nothing written; a no-answer may be repeated, and the report counts it`); }
+  const runLines = claudeLines({ text, result: response });
+  writeFileSync(out, `${JSON.stringify({
+    $description: "GENERATED by tooling/jev-screen.mjs --claude --paid from one real Claude answer — never edit; never re-run",
+    model: CLAUDE_SCREEN.model, ranAt, receipt, docMd5, claimsVersion: CLAIMS_VERSION, promptSha: sha,
+    ...(kind === "fixture" ? {} : { text }),
+    request: req, response, lines: runLines,
+  }, null, 2)}\n`, { flag: "wx" });
+  const sum = runLines.at(-1);
+  console.log(`answered in ${Math.round(performance.now() - t0)} ms · init tools ${JSON.stringify(response.init?.tools)} · mcp ${JSON.stringify(response.init?.mcpServers)} · modelUsage ${JSON.stringify(Object.keys(response.modelUsage ?? {}))} · cost $${response.costUsd} (observed)`);
+  console.log(`parse ${sum.parse}${sum.parsedBy ? ` (${sum.parsedBy})` : ""} · returned ${sum.returned} · malformed ${sum.malformed} · kept ${sum.kept}`);
+  for (const l of runLines.filter((x) => x.type === "quoted-pair"))
+    console.log(`#${l.index} ${l.kept ? "KEPT" : `dropped (${l.reason})`} · ${l.sideA.status}${l.sideA.claim ? ` ${l.sideA.claim}` : ` (${l.sideA.reason})`} ↔ ${l.sideB.status}${l.sideB.claim ? ` ${l.sideB.claim}` : ` (${l.sideB.reason})`}\n    a: ${JSON.stringify(l.quoteA)}\n    b: ${JSON.stringify(l.quoteB)}\n    why: ${l.why}`);
+  if (kind === "fixture") {
+    const sc = scoreClaudeRun(runLines);
+    console.log("finding · class · state · by pair");
+    for (const f of sc.findings) console.log(`${f.finding} · ${f.class} · ${f.state} · ${f.by.join(", ") || "—"}`);
+    console.log(`contradiction-class findings FOUND: ${sc.found.length} / ${sc.of} (${sc.found.join(", ") || "none"})`);
+  }
+  console.log(`jev-screen ✓ wrote ${relative(ROOT, out)}`);
+  process.exit(0);
+}
