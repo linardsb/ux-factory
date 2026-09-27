@@ -1,0 +1,10 @@
+{
+  "$description": "Owner-labelled positives for the #454 guard: run-1 answer lines that were look-ups typed into the answer box. Confirmed by the owner in the #454 planning session, 2026-09-27. a22 is NOT a positive (its look-up half is absent). Negatives are derived by tooling/jev-guard-eval.mjs, never listed here.",
+  "positives": [
+    { "package": "faster-payment", "ref": "a3" },
+    { "package": "faster-payment", "ref": "a5" },
+    { "package": "faster-payment", "ref": "a10" },
+    { "package": "faster-payment", "ref": "a23" }
+  ],
+  "synthetic": []
+}

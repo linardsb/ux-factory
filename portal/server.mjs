@@ -28,6 +28,8 @@ import { BOOT_SHA, headSha, isStale } from './lib/version.mjs';
 // SDK-free canvas-ops.mjs, pinned by build-checks group 36.6.
 import { foldLedger, listBuilds, loadBuild, loadDecisions, provenanceLabel, saveConflict, saveRun } from './lib/canvas-store.mjs';
 import { questionById } from '../discovery/bank.mjs';
+// The answer-box guard (#454): Jev's pre-submit check. Writes nothing; fails open inside the module.
+import { checkAnswer } from './lib/discovery-guard.mjs';
 // The recorded import (#311). Statically SDK-free (build-checks 43.1); the SDK is reached only inside
 // readBrilliant, which runImport calls for a selection read.
 import { dropTooLarge, editMapping, importView, isProposalName, readUpload, runImport } from './lib/import-run.mjs';
@@ -343,6 +345,14 @@ const server = createServer(async (req, res) => {
       appendFileSync(path.join(root, 'proposals.jsonl'), `${JSON.stringify(line)}\n`);
       writeProposalsMd(root);
       return json(res, 200, proposalsView(readProposalPackage(root)));
+    }
+    // The answer-box guard (#454). EVERY PARAMETER NAMED — the reason is /api/build/run's comment. It
+    // answers 200 even when Jev fails: fail-open lives in checkAnswer, which returns verdict "answer".
+    // Its refusals (a bad slug, a missing package, an audit, an unknown question, empty text) throw into
+    // the catch-all, and the drawer submits as before on any non-2xx.
+    if (p === '/api/discovery/check-answer' && req.method === 'POST') {
+      const b = await readBody(req);
+      return json(res, 200, await checkAnswer({ slug: b.slug, provenance: b.provenance, questionId: b.questionId, text: b.text }));
     }
     if (p === '/api/discovery/turn' && req.method === 'POST') {
       const body = await readBody(req);

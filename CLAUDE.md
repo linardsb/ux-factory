@@ -97,6 +97,8 @@ portal/                       local-first workbench (127.0.0.1 only, never deplo
   lib/chat.mjs                the Agent SDK behind SSE
   lib/trace-recorder.mjs      Agent SDK hooks → Trace JSONL
   lib/origin.mjs              the CSRF guard server.mjs applies before ANY routing
+  lib/jev.mjs                 the TypeSafe (Jev) fetch client — no SDK; model pinned; #453 reuses it
+  lib/discovery-guard.mjs     the answer-box guard — two Noul questions, decide(), fail-open (#454)
   lib/builder.mjs             the OPERATOR PATH — /build's ten answers → a real composition question
   lib/canvas-store.mjs        the build package: list · load · append-only save, the ledger fold and the
                               canvas.json derivation (verifyBuild is the gate); routes in server.mjs
@@ -133,7 +135,7 @@ docs/epics/                   PRD + architecture decisions governing the platfor
 docs/figma-runbook.md         operator steps for the Figma boundary + the request-budget rules
 
 tooling/
-  build-checks.mjs            43 PURE groups, in CI — the repo's main gate  (→ references/gates.md)
+  build-checks.mjs            44 PURE groups, in CI — the repo's main gate  (→ references/gates.md)
   build-journey.mjs           /build ×3 engines, operator-run             (→ references/gates.md)
   proto-journey.mjs           the two proto pages ×3 engines              (→ references/gates.md)
   studio-journey.mjs          the studio ×3 engines + the INP gate        (→ references/gates.md)
@@ -146,6 +148,7 @@ tooling/
   curate-trace.mjs · validate-trace.mjs   deterministic curation + the Trace format's drift guard
   board-op.mjs                the fenced build agent's ONLY build tool — one op per call, prints the board
   fieldwork-kpis.mjs          ground-truth KPIs — a post-hoc JUDGE, NEVER fed to an agent prompt
+  jev-guard-eval.mjs          the guard's labelled eval — operator-run, needs TYPESAFE_API_KEY (→ jev-guard/)
   regen-import-records.mjs    GENERATES import/fixtures/records/ — here, not in import/, because it reads system/wcag.mjs
   inp-observer.mjs            the driver-injected PerformanceObserver helper; nothing ships
   figma/figma-read.mjs        the shared read — auth, the Enterprise gate, the cache, --from
@@ -210,7 +213,7 @@ The kb (`_factory/kb/` in the jobs folder) is the database — record shapes + p
 ## On-demand context
 Route on-demand detail to `.claude/references/` — never back into this file.
 
-- **`gates.md`** — the gate stack: build-checks' 43 groups, the six journey drivers, the pixel gate, the morph gates, and what each one states it CANNOT reach. Read before adding or changing a gate, or before trusting a green run.
+- **`gates.md`** — the gate stack: build-checks' 44 groups, the six journey drivers, the pixel gate, the morph gates, and what each one states it CANNOT reach. Read before adding or changing a gate, or before trusting a green run.
 - **`token-system.md`** — the three-layer mechanic and how to add a token.
 - **`kb-format.md`** — kb record shapes + the ComponentSpec / DataContract format.
 - **`backend-api-best-practices.md`** — API route work · **`frontend-component-best-practices.md`** — UI work.

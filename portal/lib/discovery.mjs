@@ -1091,6 +1091,15 @@ function stateFromTranscript(transcript, answers) {
 // counter increments; blocking is never available.
 //
 // Both still take withDiscoveryRunLock: two concurrent turns would append to the same append-only files.
+//
+// THE PROMPT'S QUESTION is the one on the table for BOTH shapes (#454, fixing #289). An off-script
+// turn carries no questionId — its answer line records question_id null, and that stays — but its
+// prompt still names the question it sits beside. Until #454 it was built from questionById(undefined),
+// so every drawer look-up and aside threw in the prompt builder AFTER the answer line was appended, and
+// no committed package holds an off-script turn. The full bank entry is looked up by id, because the
+// builders require weakAnswer and the cursor's copy is not promised to carry it.
+export const questionForTurn = ({ offScript, cursor, questionId }) => questionById(offScript ? cursor?.question?.id : questionId);
+
 export async function runTurn({ slug, provenance, questionId, kind = 'banked', intent = null, park = false, text, onLine }) {
   return withDiscoveryRunLock(async () => {
     const root = resolveRunRoot({ provenance, slug });
@@ -1127,7 +1136,7 @@ export async function runTurn({ slug, provenance, questionId, kind = 'banked', i
     const { sessionId, stats } = await runDiscoveryTurn({
       root,
       head,
-      question: questionById(questionId),
+      question: questionForTurn({ offScript, cursor, questionId }),
       answer,
       turn,
       posture: resolvePosture({ posture: head.posture, model: head.model }),

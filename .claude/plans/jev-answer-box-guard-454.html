@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Answer-box guard brief</title>
+<style>
+  :root { --bg:#fbfaf7; --fg:#1f1f1c; --muted:#6b6a64; --line:#dedbd2; --box:#f1efe8; --accent:#3d6b5a; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#171716; --fg:#ecebe6; --muted:#a09e96; --line:#34332f; --box:#22221f; --accent:#8cc2ab; } }
+  * { box-sizing:border-box }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, -apple-system, sans-serif; }
+  main { max-width:760px; margin:0 auto; padding:32px 16px 64px; }
+  h1 { font-size:1.5rem; margin:0 0 4px } h2 { font-size:1.1rem; margin:36px 0 10px; }
+  .muted { color:var(--muted) } a { color:var(--accent) }
+  .concepts { display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); }
+  .card { border:1px solid var(--line); border-radius:8px; padding:14px; background:var(--box); min-width:0 }
+  .card h3 { margin:0 0 6px; font-size:1rem } .card p { margin:0 0 8px }
+  pre { background:var(--box); border:1px solid var(--line); border-radius:6px; padding:10px; overflow-x:auto; font-size:13px; margin:0 }
+  .flow { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+  .flow span.b { border:1px solid var(--line); background:var(--box); border-radius:6px; padding:8px 10px; font-size:14px }
+  .flow span.a { color:var(--muted) }
+  ul.plain { padding-left:18px } ul.plain li { margin:4px 0 }
+  ul.learn { list-style:none; padding:0 } ul.learn li { display:flex; justify-content:space-between; gap:12px; align-items:center; border-bottom:1px solid var(--line); padding:8px 0 }
+  .copy { opacity:.35; border:0; background:none; color:inherit; cursor:pointer; font-size:15px; line-height:1 }
+  .copy:hover, .copy:focus-visible { opacity:1 }
+  .copy::before { content:'⧉' } .copy.copied::before { content:'✓' }
+</style>
+</head>
+<body>
+<main>
+  <h1>Catching a look-up typed in the wrong box</h1>
+  <p class="muted">Build brief for ticket #454. The full plan: <a href="jev-answer-box-guard-454.md">jev-answer-box-guard-454.md</a></p>
+
+  <h2>What we're building and why</h2>
+  <p>Today, if you type "look this up" into the answer box, it is saved as your answer and no search happens. After this build, a fast checker notices, and the drawer asks you which you meant.</p>
+
+  <h2>The concepts this rests on</h2>
+  <div class="concepts">
+    <div class="card">
+      <h3>A yes/no classifier</h3>
+      <p>A small model that reads text and gives a probability instead of writing prose. Here it is Jev, and each yes/no question is a "Noul".</p>
+      <p>We need one question answered fast: is this a request to look something up?</p>
+      <pre>"Look up WCAG 2.2…" → look_up: 0.93
+"We test with VoiceOver" → look_up: 0.04</pre>
+      <p class="muted">(illustrative numbers, not real Jev output)</p>
+    </div>
+    <div class="card">
+      <h3>A threshold</h3>
+      <p>The cut-off where a probability becomes "yes". Set it too low and honest answers get flagged. Set it too high and real look-ups slip through.</p>
+      <p>We pick it by a rule written down before we see the results, so nobody tunes it until it looks good.</p>
+    </div>
+    <div class="card">
+      <h3>Fail-open</h3>
+      <p>If the checker breaks, the door stays open: your answer goes through as it does today.</p>
+      <p>The check is a helpful question, never a gate. A missing key or a slow reply can't block you.</p>
+    </div>
+    <div class="card">
+      <h3>A labelled test set</h3>
+      <p>Examples where we already know the right answer. Here that is 4 real mistakes from run 1 and 160 real answers.</p>
+      <p>Running them once and saving the raw replies means the numbers can be re-checked for free, forever.</p>
+    </div>
+  </div>
+
+  <h2>How the pieces fit</h2>
+  <div class="flow">
+    <span class="b">You press Submit</span><span class="a">→</span>
+    <span class="b">Portal asks Jev (≤1.5 s)</span><span class="a">→</span>
+    <span class="b">Threshold decides</span><span class="a">→</span>
+    <span class="b">"Send as a look-up / as my answer?"</span><span class="a">→</span>
+    <span class="b">Existing look-up or answer path</span>
+  </div>
+  <p class="muted">Beside it, a separate test run checks the threshold against the labelled set.</p>
+
+  <h2>The plan at a glance</h2>
+  <ul class="plain">
+    <li><b>0</b>: the owner adds the TypeSafe key (every later phase needs it).</li>
+    <li><b>1</b>: the Jev client and the guard module.</li>
+    <li><b>2</b>: the route and the drawer choice (needs 1).</li>
+    <li><b>3–4</b>: the eval script, then a real run that sets the threshold (needs 0 and 1).</li>
+    <li><b>5</b>: the CI check that re-computes the numbers (needs 4).</li>
+    <li><b>6</b>: a live try in the drawer, with and without the key.</li>
+  </ul>
+<pre>portal/lib/jev.mjs                 # talks to TypeSafe, nothing else
+portal/lib/discovery-guard.mjs     # the two questions, the threshold, fail-open
+portal/server.mjs                  # one new route
+portal/public/index.html · portal.js · portal.css   # the inline choice
+tooling/jev-guard-eval.mjs         # runs the labelled set for real
+tooling/jev-guard/labels.json · eval-run.json       # the labels, the saved replies
+tooling/build-checks.mjs           # group 44 re-checks the numbers offline</pre>
+  <ul class="plain">
+    <li>Recall (how many real look-ups get caught) and false-prompt rate (how often an honest answer gets flagged) measured and written next to the threshold.</li>
+    <li>The eval script reproduces those numbers.</li>
+    <li>A run-1 look-up typed into the answer box triggers the choice, and the search really runs.</li>
+    <li>With no key, submitting works exactly as before.</li>
+    <li>CI is green and the portal boots.</li>
+  </ul>
+
+  <h2>Go deeper</h2>
+  <ul class="learn">
+    <li data-prompt="/learn probabilistic classifiers and calibration"><span><b>/learn probabilistic classifiers and calibration</b>: what a 0.93 actually means.</span><button class="copy" aria-label="Copy prompt"></button></li>
+    <li data-prompt="/learn choosing a decision threshold with precision and recall"><span><b>/learn choosing a decision threshold with precision and recall</b>: the trade-off behind T.</span><button class="copy" aria-label="Copy prompt"></button></li>
+    <li data-prompt="/learn fail-open versus fail-closed design"><span><b>/learn fail-open versus fail-closed design</b>: when a check should step aside.</span><button class="copy" aria-label="Copy prompt"></button></li>
+    <li data-prompt="/learn building a labelled evaluation set"><span><b>/learn building a labelled evaluation set</b>: why real mistakes beat invented ones.</span><button class="copy" aria-label="Copy prompt"></button></li>
+  </ul>
+</main>
+<script>
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.copy')
+  if (!btn) return
+  const text = btn.closest('[data-prompt]').dataset.prompt
+  try {
+    await navigator.clipboard.writeText(text)
+  } catch {
+    const ta = Object.assign(document.createElement('textarea'), { value: text })
+    ta.style.cssText = 'position:fixed;opacity:0'
+    document.body.append(ta)
+    ta.select()
+    document.execCommand('copy')
+    ta.remove()
+  }
+  btn.classList.add('copied')
+  setTimeout(() => btn.classList.remove('copied'), 1200)
+})
+</script>
+</body>
+</html>
