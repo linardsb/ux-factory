@@ -195,6 +195,7 @@ was then done with the key unset as well (`env -u TYPESAFE_API_KEY`): it refused
 | c029 ↔ c030 | — | control | 0.89 (contradicts) | 0.88 | yes |
 | c035 ↔ c066 | — | control | 0.66 (contradicts) | 0.78 | yes |
 
-**Contradiction-class findings recognised: 0 / 3. Jev FAILS.** Tension-shaped: 0 / 3. The three controls, which
-labels.json judges not real, were recognised again. The next ticket is the one-call Claude screen. Numbers are
+**Contradiction-class findings recognised: 0 / 3. Jev FAILS.** Tension-shaped: 0 / 3. The three controls (not real
+per labels.json's session-written labels, awaiting the owner's adoption) were recognised again, within 0.05 of
+the CLI screen's numbers on each (0.98/0.85, 0.88/0.88, 0.71/0.78 there; derived). The next ticket is the one-call Claude screen. Numbers are
 computed from `tooling/jev-screen/diagnostic-run.json`; build-checks 45.12 recomputes them.
