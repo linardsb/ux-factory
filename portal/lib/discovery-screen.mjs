@@ -68,7 +68,13 @@ export const T1 = 0, T_SAME = 0.5, T2 = 0.5, K = 10, STAGE2_MAX_REQUESTS = 3;
 // observed usage beside it.
 export const REQUEST_TOKEN_BUDGET = 56000;
 export const STATE_PLUS_QUESTION_BUDGET = 30000;
-export const CHARS_PER_TOKEN = 3;
+// SET ONCE from the smoke (invariant 4), 2026-09-27, `node tooling/jev-screen.mjs <fixture> --smoke`:
+//   calibration: 3 questions 12688 tok (est 12095) · 30 questions 38875 tok (est 26715) · per question
+//   970 tok for 1653 chars (1.70 chars/token) · state 9778 tok for 30540 chars (3.12 chars/token)
+//   latency rule: 490 ms × (55580 ÷ 12095) = 2252 ms projected vs 30000 ms → fits (budget unchanged)
+// The worse ratio (1.70, the option-heavy question JSON) with ~12% margin: 1.5. It overestimates the
+// prose state by 2×, which only costs requests. Not moved after the first full run.
+export const CHARS_PER_TOKEN = 1.5;
 export const estTokens = (x) => Math.ceil(JSON.stringify(x).length / CHARS_PER_TOKEN);
 
 export const PICK_NONE = 'none';
