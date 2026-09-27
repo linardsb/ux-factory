@@ -1,0 +1,42 @@
+{
+  "tool": "export",
+  "input": {
+    "canvasId": "playground",
+    "ids": [
+      "630fe03901352c90"
+    ],
+    "format": "png",
+    "width": 160
+  },
+  "ms": 77,
+  "reply": {
+    "jsonrpc": "2.0",
+    "id": 7,
+    "result": {
+      "content": [
+        {
+          "type": "image",
+          "data": "iVBORw0KGgoAAAANSUhEUgAAAKAAAABRCAYAAABVAa2RAAABAklEQVR4Ae3SsQ2D…[420 base64 chars]",
+          "mimeType": "image/png"
+        },
+        {
+          "type": "text",
+          "text": "element(s): 630fe03901352c90 | 160x81 | 315 bytes | sha256:14cd4b42d67758c53762e83f788c23a215a5946f53ac9eb449b249a27c07a1b1"
+        }
+      ],
+      "_meta": {
+        "brilliant": {
+          "project": {
+            "handle": "",
+            "name": "",
+            "title": ""
+          },
+          "tabId": "tab-222a9bd0-eade-49a3-a33b-de0c8e409d4b",
+          "viewOnly": false,
+          "surface": "web",
+          "otherTabs": []
+        }
+      }
+    }
+  }
+}

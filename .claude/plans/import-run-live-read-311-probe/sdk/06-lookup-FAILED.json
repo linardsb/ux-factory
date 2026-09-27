@@ -1,0 +1,24 @@
+{
+  "tool": "mcp__brilliant__lookup",
+  "input": {
+    "scope": "[\"no-such-canvas-xyz\"]",
+    "format": "summary"
+  },
+  "ms": 11615,
+  "error": "Error in lookup: Invalid argument(s): Canvas \"no-such-canvas-xyz\" does not exist in this project, so nothing was read or changed. Use lookup to list this project's canvases, or create_modify_elements to create \"no-such-canvas-xyz\".",
+  "raw": {
+    "session_id": "ab5351ec-2b2e-4571-81e6-22698fd0a9d4",
+    "transcript_path": "/Users/Berzins/.claude/projects/-Users-Berzins-Desktop-Linards-current-ux-factory/ab5351ec-2b2e-4571-81e6-22698fd0a9d4.jsonl",
+    "cwd": "/Users/Berzins/Desktop/Linards_current/ux-factory",
+    "permission_mode": "default",
+    "hook_event_name": "PostToolUseFailure",
+    "tool_name": "mcp__brilliant__lookup",
+    "tool_input": {
+      "scope": "[\"no-such-canvas-xyz\"]",
+      "format": "summary"
+    },
+    "tool_use_id": "toolu_01GPSfESUU9Px4wLXT1hRGEJ",
+    "error": "Error in lookup: Invalid argument(s): Canvas \"no-such-canvas-xyz\" does not exist in this project, so nothing was read or changed. Use lookup to list this project's canvases, or create_modify_elements to create \"no-such-canvas-xyz\".",
+    "is_interrupt": false
+  }
+}

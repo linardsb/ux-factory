@@ -1,0 +1,12 @@
+{
+  "mcp_servers": [
+    {
+      "name": "brilliant",
+      "status": "connected"
+    }
+  ],
+  "brilliantTools": [],
+  "model": "claude-sonnet-5",
+  "toolCount": 0,
+  "ms": 62193
+}

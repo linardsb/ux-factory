@@ -1,0 +1,18 @@
+{
+  "tool": "mcp__brilliant__get_selection",
+  "input": {},
+  "ms": 11600,
+  "error": "MCP error -32602: Invalid arguments for tool 'get_selection': JsonSchemaValidationException: Missing required property: canvasId (at )",
+  "raw": {
+    "session_id": "ab5351ec-2b2e-4571-81e6-22698fd0a9d4",
+    "transcript_path": "/Users/Berzins/.claude/projects/-Users-Berzins-Desktop-Linards-current-ux-factory/ab5351ec-2b2e-4571-81e6-22698fd0a9d4.jsonl",
+    "cwd": "/Users/Berzins/Desktop/Linards_current/ux-factory",
+    "permission_mode": "default",
+    "hook_event_name": "PostToolUseFailure",
+    "tool_name": "mcp__brilliant__get_selection",
+    "tool_input": {},
+    "tool_use_id": "toolu_01TVnnhY4sHa5QujDrjS1Xo9",
+    "error": "MCP error -32602: Invalid arguments for tool 'get_selection': JsonSchemaValidationException: Missing required property: canvasId (at )",
+    "is_interrupt": false
+  }
+}

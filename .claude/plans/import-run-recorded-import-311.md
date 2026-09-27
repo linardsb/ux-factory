@@ -1033,3 +1033,5 @@ shared worktree — verify the branch before every commit and stage by explicit 
   page-wide `[hidden] { display: none !important; }` (:61), so no scoped rule was added. Task 7.2's `costUsd === null`
   cannot fail on the reach path (the reader aborts on init, so no `result` message arrives); zero spend stays
   EXPECTED under A1 and the journey's label says so.
+- 2026-09-27 — PR B planned in `import-run-live-read-311-pr-b.md`; Tasks 4.1/4.2/7.3/7.4 superseded (direct stdio
+  client, owner's call); R1's `parseBrilliantCalls` became `portal/lib/brilliant-mcp.mjs`'s parsers.

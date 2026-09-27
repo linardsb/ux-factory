@@ -12482,7 +12482,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const chevAt = figLines.findIndex((l) => l.includes('"Chevron"'));
   ok(chevAt > 0, `the committed read no longer carries a "Chevron" line — the drawn-figure subject below is spliced in beside it and would otherwise be built on nothing`);
   const figIndent = figLines[chevAt].match(/^\s*/)[0];
-  figLines.splice(chevAt + 1, 0, `${figIndent}aaaa2222 t("85",Manrope:$font.family,16:$font.size.md,r,align(l)) s(hug,hug) "Figure"`);
+  figLines.splice(chevAt + 1, 0, `${figIndent}aaaa2222aaaa2222 t("85",Manrope:$font.family,16:$font.size.md,r,align(l)) s(hug,hug) "Figure"`);
   const figIr = fold("convert the committed read + a drawn figure", () => B1.convert(figLines.join("\n")), { children: [] });
   const figV = fold("recognise the committed read + a drawn figure", () => R1.recognise(figIr, VOCAB), { children: [{}] });
   const figRow = fold("build the person row that CAN be emitted", () => R1.build(at(figIr, [0]), at(figV, [0]), VOCAB, []), null);
@@ -12498,7 +12498,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const surLines = INSTANCE.split("\n");
   const t2At = surLines.findIndex((l) => l.includes('"Text 2"'));
   ok(t2At > 0, `the committed read no longer carries a "Text 2" line — the surplus-text subject below is spliced in beside it and would otherwise be built on nothing`);
-  surLines.splice(t2At + 1, 0, surLines[t2At].replace("Last seen 2 min ago", "SURPLUS_FOOTNOTE").replace('"Text 2"', '"Text 2b"').replace(/^(\s*)\S+/, "$1aaaa3333"));
+  surLines.splice(t2At + 1, 0, surLines[t2At].replace("Last seen 2 min ago", "SURPLUS_FOOTNOTE").replace('"Text 2"', '"Text 2b"').replace(/^(\s*)\S+/, "$1aaaa3333aaaa3333"));
   const surIr = fold("convert the committed read + a surplus text", () => B1.convert(surLines.join("\n")), { children: [] });
   const surV = fold("recognise the committed read + a surplus text", () => R1.recognise(surIr, VOCAB), { children: [{}] });
   const surDrops = [];
@@ -13005,7 +13005,30 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       `40.27: UNBOUND — Figma's gap ${JSON.stringify(fu.gap)} and a blueprint's g(13) ${JSON.stringify(bu.gap)} must both be {13, null}, carried for the snap step`);
   }
 
-  group("import-chain", `the design-import core (#304): a Brilliant blueprint read → import/ir.mjs → import/recognise.mjs, with no portal, no agent, no network and no design tool in the loop · DETERMINISM as the anchor — convert+recognise run TWICE from two independently cache-busted module instances over the committed read and compared against import/fixtures/spike-c-instance.expected.json, with the three answers the ticket names asserted BY PATH: the person row → list-row scored, the container → stack via the STRUCTURAL FALLBACK (D2's rule, not a won contest), the label → text BY ROLE — and the person row's name-match hit pinned to the FIELD it read (component.name), because S2's end-anchored nodeName() returns "Frame 1" for that line and node.name alone makes the ticket's first answer unreachable · THE LIFT proven faithful against a FROZEN copy of #299's parked layout branch (import/fixtures/s2-layout-branch.baseline.txt, so a prune under .claude/plans/ cannot red CI), both toStacks driven over all 8 al() lines of both fixtures and compared on the \`layout\` object — scoped there because the lift re-points every drop row through ir.drop(), which adds a class field S2's rows cannot carry, so whole-return equality is impossible by construction · THE FLOOR held apart from the fallback by \`via\`, the two being one \`if\` apart: the avatar disc — a shape named "Avatar" with no layout, name-match alone — reads NOT COVERED with a real top candidate below ${R1.THRESHOLD} and a no-vocabulary-slot row beside it, while the Chevron, the floor's subject until #456, reads \`icon\` SCORED: R4 reads the glyph NAME out of \`icon.name\` (#449) and the glyph BOX from the measured long axis as the smallest md|lg|xl step that contains it (8.73 × 16 → md, #456), so kind-fit plus prop-fit on both required props covers it with no weight moved · THE SIZE-AXIS REFUSAL, S2's consumer contract: fixture 2's "Frame 1" carries the literal 360 THROUGH the converter and build() refuses it with a row naming size.w, with every built composition in both fixtures swept for a numeric size · ALL THREE E1 CLASSES present in the fixture-2 run and DROP_CLASS_OF iterated against them, so a converter kind with no class fails BY NAME and drop() refuses an unclassified one · THE BUILT COMPOSITIONS validated through the real validateComposition — and SCOPED, because only \`stack\`, \`text\` and \`icon\` survive build() on these two reads: list-row.value is a computed figure nobody drew and status-chip.value's enum is ok|due|overdue while the reads say "On call", so the emitted set and the recognised-but-refused set are each asserted BY NAME rather than left to be over-read off a green sweep · D5's absorption rule asserted PER TEXT and in all three halves — the person row's label, meta, status and value against the fixture's OWN WORDS (on the committed read plus the one line that makes the row emittable, since neither committed row survives build(); moving PROP_SOURCES.meta to "chip-text" makes the secondary line read the chip's words and passed all 40 groups before this), its avatar disc and chevron RECORDED as read-but-never-emitted rather than discarded, and a SURPLUS text under an otherwise-absorbed child dropped ON ITS OWN, because a per-child skip carried a row's footnote away in silence · THE IMPORT GRAPH read out of the three sources and required to be node built-ins plus ./-relative paths inside import/ · AC #3 proven by CALLING genLocSummary({check:true}) rather than by re-stating its regexes · The Figma chain (#310): the house plugin's export (\`tooling/figma/plugin/\`) → \`import/figma.mjs\` → the same IR and matcher. 40.19 runs S5's verbatim export (\`import/fixtures/figma/\`) twice from busted instances against its committed verdict, pins provenance to branch 1 (0 unresolved aliases, \`bound\` false for Text 2's unbound line height), and asserts the answers by path — the root reads \`list\` where Brilliant's reads \`list-row\`, because the Figma root carries auto-layout and earns \`kind-fit\` on it; that difference is recorded in S5's README, not tuned; 40.20 refuses nine non-exports by name (both committed token files as \`token export\`, the Brilliant blueprint as \`not JSON\`, a REST read, a foreign format, version 2, an empty selection, a non-string, and an instance whose \`main\` the plugin marked \`unreadable\`, refused by path); 40.21 runs \`code.js\` in \`node:vm\` against a fake \`figma\` with no write methods, ties the plugin's \`FORMAT\` to the converter's, proves \`figma.mixed\` arrives as \`"mixed"\`, proves a throwing \`getMainComponentAsync\` marks \`main\` \`{unreadable}\` and still posts the export (#461 F1), and uses the builder's \`Build failed at variables\` as the positive control that the fake really cannot write; 40.22 pins the component name to the SET's, not the variant's; 40.23 drives F3 both ways (an unbound zero is absent, a bound \`spacing/none\` is a \`no-token\` read, \`MIN\`/\`CENTER\`/\`SPACE_BETWEEN\` on the main axis); 40.24 drives O4 layout inference (row, column, scatter, single child, a declared layout kept, and the inferred row reaching the \`stack\` fallback). · THE REPOSITORY'S SHAPE (#310): 40.25 walks git ls-files import/fixtures and refuses any fixture that is not .txt/.json/.png/.md/.css (the CLAUDE.md fixture rule, ungated until #457 F4) behind a two-levels-down positive control, and 40.26 reads the exported GROUPS and asserts no tracked path under import/ or tooling/figma/plugin/ falls in a loc-summary group, with system/site.js → runtime as the positive control and the plugin's code.js required in the list so an empty index cannot pass · 40.27 (#461 F2): both converters give one spacing tok for one drawing — bound 16 → {16, --spacing-md} for gap and pad[0] from the S5 export and a SYNTHETIC blueprint line, unbound 13 → {13, null} from both · ten tables frozen BY MUTATION at both levels, GLYPH_BOX_PX pinned to the contract's --spacing-md/lg/xl · mode and grain refused by name on a third value, with the screen grain and mode 2 asserted SYNTHETICALLY and labelled so, because neither committed read is a screen · and SEVEN MORE SYNTHETIC cases — EIGHT in all, each saying so in its own failure messages: args()' boundary test on a line carrying both svg( and al( (no committed line reaches it — one svg( per fixture and it carries no al(), the list builder on a hand-built IR (neither fixture contains a list) emitting ONE list around three list-rows, then REFUSED by name on \`empty\`, the copy for a state nobody drew — and refused AGAIN through build(), the only entry point a source has, which discards the container and its rows TOGETHER (calling BUILDERS.list directly cannot see that, and a build() broken on every list verdict left every other group passing), THE TIE-BREAK's three rungs on the two ties a real source produces — a row named "List row" tying \`list\` and \`list-row\` on word containment, where the MORE SPECIFIC slug must win, and an unnamed text tying \`text\` and \`demo-notice\`, where an importer reading a stranger's drawing must reach for the PRIMITIVE rather than for one fictional demo's honesty chrome, THE ATOM ORDER, where a size lands by whether the line HAS an al() and not by which atom came first, so one source atom is one drop row in either order (latent on both fixtures, live at #310), THE PARSE BOUNDARY, where the provenance header is skipped by being first CONTENT rather than by split index — a leading blank line put the literal "lookup" into source.ids, the field the honesty contract turns on — and an indented first line is refused naming depth 0 rather than depth -1, THE GLYPH SLOT AND BOX, where a hand-built icon node earns kind-fit from EXACTLY ONE entry — the one DECLARING A GLYPH BOX, never the one spelled "icon" — fills \`name\` from \`icon.name\` and loses only that fill when the glyph slot is removed, reads the box at ten boundaries (the long axis in either orientation, 16.01 → lg with no tolerance, 19 → lg as the smallest CONTAINING step, 32 → xl, and over xl, one unmeasured axis, a zero or negative axis, or no size at all → not covered), and builds to {name, size} through BUILDERS.icon with no second literal-size pair, with \`avatar.name\` proven still first-text beside it (both committed reads draw the same one chevron, so one answer would prove it for one drawing), and R3 over EVERY vocabulary entry read at run time — a node named exactly after a slug and carrying nothing else scores below ${R1.THRESHOLD}, which is what lets the weights move without re-arguing "Text block" · with R2 beside it: ${R1.STRUCTURAL_FALLBACK} appears in NO candidates list anywhere, and the floor and the fallback are each exercised so neither is prose. What it cannot reach: whether the house plugin runs in a Figma newer than S5's (126.9.10) — 40.21 drives code.js against a fake figma only as current as the plugin API docs of 2026-09-24; whether a designer's real file binds like S5's recipe — the fixture was built for the test (#316's real run); whether a recognised name is the RIGHT name for a human — that is #311's side-by-side view and #316's real run; whether an UNBOUND source snaps correctly — group 42, every layout slot all three fixtures carry being bound (the Figma export's one unbound value is Text 2's line height) — whether a MEASURED glyph box is the box the designer meant — R4 reads the drawing's bounds, so a small glyph drawn in a larger box reads the smaller one (#311's mapping editor, #456); and whether a built composition RENDERS — group 3 owns renderComposition`);
+  // --- 40.28 AN INDENTED NON-ELEMENT LINE IS AN ANNOTATION, NOT A NODE (#311 PR B) ----------------
+  // The live read's two-selected blueprint carries `  spans[(0,3,#CFD5E1)]` under the "Pay" text
+  // (import/fixtures/brilliant-live/lookup-blueprint-two.json, verbatim). Read as an element it put the
+  // literal into source.ids and a phantom child frame into the IR — and the selection path never runs
+  // sniffDrop's 16-hex check, so it reached a record.
+  {
+    const LIVE = fold("read the live two-selected lookup capture (40.28)", () =>
+      JSON.parse(JSON.parse(readFileSync(join(ROOT, "import/fixtures/brilliant-live/lookup-blueprint-two.json"), "utf8")).result.content[0].text).results[0].blueprint, "");
+    const IDS = ["630fe03901352c90", "36cc06ddb7e3a767"];
+    const spansRows = (ir) => (ir?.children?.[1]?.drops ?? []).filter((d) => d.slot === "spans");
+    // Positive control first: with the annotation line removed, the same two ids and no spans row —
+    // so the assertions below are reading the right node.
+    const bare = fold("convert the live read without its annotation (40.28)", () => B1.convert(LIVE.split("\n").filter((l) => !l.includes("spans[")).join("\n")), null);
+    ok(LIVE.includes("spans[(0,3,#CFD5E1)]") && deep(bare?.source?.ids) === deep(IDS) && spansRows(bare).length === 0,
+      `40.28: the positive control — the live read without its spans line converted to ids ${JSON.stringify(bare?.source?.ids)} with ${spansRows(bare).length} spans rows (the capture ${LIVE.includes("spans[") ? "carries" : "LACKS"} the annotation) — expected ${JSON.stringify(IDS)} and none`);
+    const live = fold("convert the live two-selected read (40.28)", () => B1.convert(LIVE), null);
+    ok(deep(live?.source?.ids) === deep(IDS),
+      `40.28: source.ids read ${JSON.stringify(live?.source?.ids)} — an indented non-id line (spans[(0,3,#CFD5E1)]) is an annotation of the node above it, never an element; expected ${JSON.stringify(IDS)}`);
+    const rows = spansRows(live);
+    ok(live?.children?.[1]?.children?.length === 0 && rows.length === 1 && rows[0].class === "never-read" && rows[0].value.includes("spans[(0,3,#CFD5E1)]"),
+      `40.28: the "Pay" text has ${live?.children?.[1]?.children?.length} children and spans rows ${JSON.stringify(rows)} — expected no child and exactly one never-read row, slot "spans", carrying the line verbatim`);
+  }
+
+  group("import-chain",`the design-import core (#304): a Brilliant blueprint read → import/ir.mjs → import/recognise.mjs, with no portal, no agent, no network and no design tool in the loop · DETERMINISM as the anchor — convert+recognise run TWICE from two independently cache-busted module instances over the committed read and compared against import/fixtures/spike-c-instance.expected.json, with the three answers the ticket names asserted BY PATH: the person row → list-row scored, the container → stack via the STRUCTURAL FALLBACK (D2's rule, not a won contest), the label → text BY ROLE — and the person row's name-match hit pinned to the FIELD it read (component.name), because S2's end-anchored nodeName() returns "Frame 1" for that line and node.name alone makes the ticket's first answer unreachable · THE LIFT proven faithful against a FROZEN copy of #299's parked layout branch (import/fixtures/s2-layout-branch.baseline.txt, so a prune under .claude/plans/ cannot red CI), both toStacks driven over all 8 al() lines of both fixtures and compared on the \`layout\` object — scoped there because the lift re-points every drop row through ir.drop(), which adds a class field S2's rows cannot carry, so whole-return equality is impossible by construction · THE FLOOR held apart from the fallback by \`via\`, the two being one \`if\` apart: the avatar disc — a shape named "Avatar" with no layout, name-match alone — reads NOT COVERED with a real top candidate below ${R1.THRESHOLD} and a no-vocabulary-slot row beside it, while the Chevron, the floor's subject until #456, reads \`icon\` SCORED: R4 reads the glyph NAME out of \`icon.name\` (#449) and the glyph BOX from the measured long axis as the smallest md|lg|xl step that contains it (8.73 × 16 → md, #456), so kind-fit plus prop-fit on both required props covers it with no weight moved · THE SIZE-AXIS REFUSAL, S2's consumer contract: fixture 2's "Frame 1" carries the literal 360 THROUGH the converter and build() refuses it with a row naming size.w, with every built composition in both fixtures swept for a numeric size · ALL THREE E1 CLASSES present in the fixture-2 run and DROP_CLASS_OF iterated against them, so a converter kind with no class fails BY NAME and drop() refuses an unclassified one · THE BUILT COMPOSITIONS validated through the real validateComposition — and SCOPED, because only \`stack\`, \`text\` and \`icon\` survive build() on these two reads: list-row.value is a computed figure nobody drew and status-chip.value's enum is ok|due|overdue while the reads say "On call", so the emitted set and the recognised-but-refused set are each asserted BY NAME rather than left to be over-read off a green sweep · D5's absorption rule asserted PER TEXT and in all three halves — the person row's label, meta, status and value against the fixture's OWN WORDS (on the committed read plus the one line that makes the row emittable, since neither committed row survives build(); moving PROP_SOURCES.meta to "chip-text" makes the secondary line read the chip's words and passed all 40 groups before this), its avatar disc and chevron RECORDED as read-but-never-emitted rather than discarded, and a SURPLUS text under an otherwise-absorbed child dropped ON ITS OWN, because a per-child skip carried a row's footnote away in silence · THE IMPORT GRAPH read out of the three sources and required to be node built-ins plus ./-relative paths inside import/ · AC #3 proven by CALLING genLocSummary({check:true}) rather than by re-stating its regexes · The Figma chain (#310): the house plugin's export (\`tooling/figma/plugin/\`) → \`import/figma.mjs\` → the same IR and matcher. 40.19 runs S5's verbatim export (\`import/fixtures/figma/\`) twice from busted instances against its committed verdict, pins provenance to branch 1 (0 unresolved aliases, \`bound\` false for Text 2's unbound line height), and asserts the answers by path — the root reads \`list\` where Brilliant's reads \`list-row\`, because the Figma root carries auto-layout and earns \`kind-fit\` on it; that difference is recorded in S5's README, not tuned; 40.20 refuses nine non-exports by name (both committed token files as \`token export\`, the Brilliant blueprint as \`not JSON\`, a REST read, a foreign format, version 2, an empty selection, a non-string, and an instance whose \`main\` the plugin marked \`unreadable\`, refused by path); 40.21 runs \`code.js\` in \`node:vm\` against a fake \`figma\` with no write methods, ties the plugin's \`FORMAT\` to the converter's, proves \`figma.mixed\` arrives as \`"mixed"\`, proves a throwing \`getMainComponentAsync\` marks \`main\` \`{unreadable}\` and still posts the export (#461 F1), and uses the builder's \`Build failed at variables\` as the positive control that the fake really cannot write; 40.22 pins the component name to the SET's, not the variant's; 40.23 drives F3 both ways (an unbound zero is absent, a bound \`spacing/none\` is a \`no-token\` read, \`MIN\`/\`CENTER\`/\`SPACE_BETWEEN\` on the main axis); 40.24 drives O4 layout inference (row, column, scatter, single child, a declared layout kept, and the inferred row reaching the \`stack\` fallback). · THE REPOSITORY'S SHAPE (#310): 40.25 walks git ls-files import/fixtures and refuses any fixture that is not .txt/.json/.png/.md/.css (the CLAUDE.md fixture rule, ungated until #457 F4) behind a two-levels-down positive control, and 40.26 reads the exported GROUPS and asserts no tracked path under import/ or tooling/figma/plugin/ falls in a loc-summary group, with system/site.js → runtime as the positive control and the plugin's code.js required in the list so an empty index cannot pass · 40.27 (#461 F2): both converters give one spacing tok for one drawing — bound 16 → {16, --spacing-md} for gap and pad[0] from the S5 export and a SYNTHETIC blueprint line, unbound 13 → {13, null} from both · 40.28 (#311 PR B): the live read's indented \`spans[(0,3,#CFD5E1)]\` line (import/fixtures/brilliant-live/lookup-blueprint-two.json, verbatim) is an ANNOTATION of the text above it — source.ids exactly the two element ids, no phantom child, one never-read row slot \`spans\` carrying the line — behind the same read with the line removed as the positive control · ten tables frozen BY MUTATION at both levels, GLYPH_BOX_PX pinned to the contract's --spacing-md/lg/xl · mode and grain refused by name on a third value, with the screen grain and mode 2 asserted SYNTHETICALLY and labelled so, because neither committed read is a screen · and SEVEN MORE SYNTHETIC cases — EIGHT in all, each saying so in its own failure messages: args()' boundary test on a line carrying both svg( and al( (no committed line reaches it — one svg( per fixture and it carries no al(), the list builder on a hand-built IR (neither fixture contains a list) emitting ONE list around three list-rows, then REFUSED by name on \`empty\`, the copy for a state nobody drew — and refused AGAIN through build(), the only entry point a source has, which discards the container and its rows TOGETHER (calling BUILDERS.list directly cannot see that, and a build() broken on every list verdict left every other group passing), THE TIE-BREAK's three rungs on the two ties a real source produces — a row named "List row" tying \`list\` and \`list-row\` on word containment, where the MORE SPECIFIC slug must win, and an unnamed text tying \`text\` and \`demo-notice\`, where an importer reading a stranger's drawing must reach for the PRIMITIVE rather than for one fictional demo's honesty chrome, THE ATOM ORDER, where a size lands by whether the line HAS an al() and not by which atom came first, so one source atom is one drop row in either order (latent on both fixtures, live at #310), THE PARSE BOUNDARY, where the provenance header is skipped by being first CONTENT rather than by split index — a leading blank line put the literal "lookup" into source.ids, the field the honesty contract turns on — and an indented first line is refused naming depth 0 rather than depth -1, THE GLYPH SLOT AND BOX, where a hand-built icon node earns kind-fit from EXACTLY ONE entry — the one DECLARING A GLYPH BOX, never the one spelled "icon" — fills \`name\` from \`icon.name\` and loses only that fill when the glyph slot is removed, reads the box at ten boundaries (the long axis in either orientation, 16.01 → lg with no tolerance, 19 → lg as the smallest CONTAINING step, 32 → xl, and over xl, one unmeasured axis, a zero or negative axis, or no size at all → not covered), and builds to {name, size} through BUILDERS.icon with no second literal-size pair, with \`avatar.name\` proven still first-text beside it (both committed reads draw the same one chevron, so one answer would prove it for one drawing), and R3 over EVERY vocabulary entry read at run time — a node named exactly after a slug and carrying nothing else scores below ${R1.THRESHOLD}, which is what lets the weights move without re-arguing "Text block" · with R2 beside it: ${R1.STRUCTURAL_FALLBACK} appears in NO candidates list anywhere, and the floor and the fallback are each exercised so neither is prose. What it cannot reach: whether the house plugin runs in a Figma newer than S5's (126.9.10) — 40.21 drives code.js against a fake figma only as current as the plugin API docs of 2026-09-24; whether a designer's real file binds like S5's recipe — the fixture was built for the test (#316's real run); whether a recognised name is the RIGHT name for a human — that is #311's side-by-side view and #316's real run; whether an UNBOUND source snaps correctly — group 42, every layout slot all three fixtures carry being bound (the Figma export's one unbound value is Text 2's line height) — whether a MEASURED glyph box is the box the designer meant — R4 reads the drawing's bounds, so a small glyph drawn in a larger box reads the smaller one (#311's mapping editor, #456); and whether a built composition RENDERS — group 3 owns renderComposition`);
 }
 
 // --- 41 · the committed icon subset (#305) ---------------------------------------------------------
@@ -13695,14 +13718,16 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
 //
 // portal/lib/import-run.mjs, the caller the import chain (#304, #307, #310) never had: a Brilliant read
 // or a dropped file → the chain → an import record, its markdown, a transcript and a proposal in the
-// build package, plus one component.propose op. Written in group 40's voice — controls first, every
-// constructive call through fold(), every scratch write under a fresh temp directory.
+// build package, plus one component.propose op. Since #311 PR B the Brilliant read is
+// portal/lib/brilliant-mcp.mjs's stdio client (no SDK, no model), driven here end to end over
+// tooling/fake-brilliant-bridge.mjs through in-process PassThroughs — no spawn. Written in group 40's
+// voice — controls first, every constructive call through fold(), every scratch write under a fresh
+// temp directory.
 //
-// WHAT THIS GROUP CANNOT REACH: whether the SDK half BEHAVES (CI has no portal/node_modules — the
-// canvas journey's importPass and the owner-run probe are the observation); whether Brilliant's live
-// response shapes are what Phase 0 will capture (the live read is not built — readBrilliant refuses by
-// name once reach succeeds); whether a draft is any GOOD (a human read at #313); and pixels (the
-// portal has no baseline).
+// WHAT THIS GROUP CANNOT REACH: a REAL bridge and pairing — the fake answers the committed captures
+// (import/fixtures/brilliant-live/) at once, where the real unpaired tools/list waits ~46 s and opens a
+// tab; only canvas-journey's owner-run --live-brilliant leg meets it; whether a draft is any GOOD (a
+// human read at #313); and pixels (the portal has no baseline).
 
 {
   const { cpSync } = await import("node:fs");
@@ -13728,25 +13753,46 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const GIT_BEFORE = gitSnap();
   const VOCAB_BYTES = readFileSync(join(ROOT, "handoff/verdant/vocabulary.json"));
 
-  // --- 43.1 SDK-FREE: the import succeeding IS the proof in CI (no portal/node_modules) ---------------
+  // --- 43.1 NO SDK, NO MODEL: the import succeeding IS the proof in CI (no portal/node_modules) -------
+  // #311 PR B took the Agent SDK off the import path entirely (the owner's 2026-09-27 call): the live
+  // read is brilliant-mcp.mjs's stdio client, so neither module may name the SDK, zod or the MCP SDK —
+  // statically or through a lazy import.
   let IR_ = null;
   try { IR_ = await import("../portal/lib/import-run.mjs"); }
   catch (e) { ok(false, `43.1: portal/lib/import-run.mjs did not import (${e.message}) — a static SDK or zod import slipped in, and CI has no portal/node_modules`); }
   const src = readFileSync(join(ROOT, "portal/lib/import-run.mjs"), "utf8");
   const code = src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
-  ok(!/^\s*import\s[^;]*["']@anthropic-ai\/claude-agent-sdk["']/m.test(code) && !/^\s*import\s[^;]*["']zod["']/m.test(code) && !/\bzod\b/.test(code),
-    "43.1: portal/lib/import-run.mjs imports the Agent SDK or zod statically — the SDK is reached by one `await import` inside readBrilliant, so CI can import the rest");
-  const lazy = [...code.matchAll(/await import\(\s*["']@anthropic-ai\/claude-agent-sdk["']\s*\)/g)].map((m) => m.index);
-  const rbAt = code.indexOf("export async function readBrilliant");
-  const rbEnd = code.indexOf("\nexport ", rbAt + 1) === -1 ? code.length : code.indexOf("\nexport ", rbAt + 1);
-  ok(lazy.length === 1 && rbAt >= 0 && lazy[0] > rbAt && lazy[0] < rbEnd,
-    `43.1: expected exactly ONE await import of the SDK, inside readBrilliant — found ${lazy.length}${lazy.length ? ` (first at ${lazy[0]}, readBrilliant spans ${rbAt}–${rbEnd})` : ""}`);
-  const opts = code.slice(rbAt, rbEnd);
-  for (const pin of ["strictMcpConfig: true", "tools: []", "allowedTools: []", "canUseTool: importCanUseTool({ allowed", "hooks: importFenceHooks({ allowed"]) {
-    ok(opts.includes(pin), `43.1: readBrilliant's query options lack \`${pin}\` — the run's MCP surface is Brilliant alone and both fence sites are built from the same allow-list`);
-  }
+  ok(!/claude-agent-sdk/.test(code) && !/\bzod\b/.test(code) && !/@modelcontextprotocol/.test(code),
+    "43.1: portal/lib/import-run.mjs names the Agent SDK, zod or @modelcontextprotocol (static or dynamic) — the import path has no model: the live read is brilliant-mcp.mjs's stdio client");
+  ok(code.includes('from "./brilliant-mcp.mjs"') && /decide: importFenceDecision/.test(code),
+    "43.1: portal/lib/import-run.mjs no longer reads Brilliant through brilliant-mcp.mjs with importFenceDecision as the client's one fence predicate");
+  // brilliant-mcp.mjs (#311 PR B): the stdio client imports node built-ins and NOTHING else — parsed
+  // specifiers (group 36.6's way), plus no dynamic import at all, so no SDK can be reached lazily either.
+  let BM = null;
+  try { BM = await import("../portal/lib/brilliant-mcp.mjs"); }
+  catch (e) { ok(false, `43.1: portal/lib/brilliant-mcp.mjs did not import (${e.message}) — it must stay node-built-ins-only, and CI has no portal/node_modules`); }
+  const bmCode = readFileSync(join(ROOT, "portal/lib/brilliant-mcp.mjs"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  const bmFrom = [...bmCode.matchAll(/^\s*import\s+(?:[^'"]*?from\s+)?["']([^"']+)["']/gm)].map((m) => m[1]);
+  ok(bmFrom.includes("node:child_process") && bmFrom.every((s) => s.startsWith("node:")),
+    `43.1: portal/lib/brilliant-mcp.mjs imports ${JSON.stringify(bmFrom)} — node: built-ins only (and node:child_process at least, or the parse read nothing)`);
+  ok(!/claude-agent-sdk|@modelcontextprotocol|\bzod\b/.test(bmCode) && !/\bimport\s*\(/.test(bmCode),
+    "43.1: portal/lib/brilliant-mcp.mjs names the Agent SDK, @modelcontextprotocol or zod, or imports dynamically — the client is JSON-RPC over stdio with built-ins");
+  // Every brilliant-live capture a case reads is collected here; 43.11 asserts the set is the directory.
+  const LIVE_DIR = join(ROOT, "import/fixtures/brilliant-live");
+  const liveRead = new Set();
+  const live = (name) => { liveRead.add(name); return JSON.parse(readFileSync(join(LIVE_DIR, name), "utf8")); };
+  // The fake bridge (tooling/fake-brilliant-bridge.mjs) wired to the client over two in-process
+  // PassThroughs — no spawn anywhere in this group. `log` sees every message the fake received.
+  const { PassThrough } = await import("node:stream");
+  const { serve } = await import("./fake-brilliant-bridge.mjs");
+  const pair = (mode, opts = {}) => {
+    const toFake = new PassThrough(), toClient = new PassThrough(), log = [];
+    serve({ input: toFake, output: toClient, mode, log: (m) => log.push(m), ...opts });
+    return { streams: { input: toFake, output: toClient }, log };
+  };
+  const toolCalls = (log, name) => log.filter((m) => m.method === "tools/call" && (name === undefined || m.params?.name === name));
 
-  if (IR_) {
+  if (IR_ && BM) {
     const M = IR_;
     const { validateComposition: vc } = await import("../system/agentic-renderer.mjs");
     const { checkRecord, projectRecord: proj } = await import("../import/report.mjs");
@@ -13754,49 +13800,78 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     const { foldLedger } = await import("../portal/lib/canvas-store.mjs");
     const INPUTS = fold("loadInputs()", () => M.loadInputs(), null);
 
-    // --- 43.2 THE FENCE: one predicate, two sites, the record gate both ways ------------------------
-    for (const t of M.READ_TOOLS) ok(M.importFenceDecision(t, M.READ_TOOLS).allow === true, `43.2: the positive control ${t} was DENIED — a fence that denies everything also "denies Write"`);
-    for (const t of ["Write", "Edit", "Bash", "WebSearch", "WebFetch", "Read", "mcp__brilliant__create_modify_elements", "mcp__brilliant__execute_commands", undefined]) {
-      const d = M.importFenceDecision(t, M.READ_TOOLS);
-      ok(d.allow === false && d.reason.includes(String(t)), `43.2: ${String(t)} was ${d.allow ? "ALLOWED" : "denied without naming itself"} on an import run`);
+    // --- 43.2 THE FENCE: one predicate, one site — the client's call() (#311 PR B) -------------------
+    // Driven over the fake bridge through two in-process PassThroughs (no spawn). The fake's inbound log
+    // is the witness: a denied tool must never reach it. PassThrough delivers asynchronously, so after
+    // the denied calls ONE allowed call is awaited — the fake handles lines in order, so by the time it
+    // answers, anything written before it has been logged.
+    ok(M.READ_TOOLS === BM.TOOLS && deep(M.READ_TOOLS) === deep(["init", "get_selection", "lookup", "export"]) && deep(M.FENCE_SITES) === deep(["client"]),
+      `43.2: READ_TOOLS ${deep(M.READ_TOOLS)} / FENCE_SITES ${deep(M.FENCE_SITES)} — one allow-list (brilliant-mcp.mjs's, bare names) and one site`);
+    ok(threw(() => BM.openBridge({ streams: pair("paired").streams })) === "brilliant-mcp: openBridge needs decide", "43.2: openBridge without decide did not throw at construction");
+    {
+      const { streams, log } = pair("paired");
+      const lines = [];
+      const b = BM.openBridge({ streams, decide: M.importFenceDecision, onDeny: ({ tool, input, reason }) => lines.push(M.deniedLine({ tool, input, error: reason, via: "client" })) });
+      const denied = [];
+      for (const t of ["create_modify_elements", "Write", "execute_commands", undefined]) denied.push([t, await afold(`call(${String(t)})`, () => b.call(t, { x: 1 }), {})]);
+      // The positive control, and the flush: a read tool reaches the fake.
+      const got = await afold("call(get_selection) over the fake", () => b.call("get_selection", { canvasId: "playground" }), {});
+      ok(toolCalls(log, "get_selection").length === 1 && got?.result?.content?.length === 1,
+        `43.2: the positive control — get_selection reached the fake ${toolCalls(log, "get_selection").length} times and answered ${deep(got).slice(0, 120)}; a fence that denies everything also "denies Write"`);
+      for (const [t, d] of denied) {
+        ok(typeof d?.denied === "string" && d.denied.includes(String(t)), `43.2: ${String(t)} answered ${deep(d)} — it must resolve { denied } naming itself`);
+        ok(toolCalls(log).every((m) => m.params?.name !== t), `43.2: ${String(t)} reached the fake bridge as a tools/call — the request left the portal before the fence decided`);
+      }
+      ok(lines.length === 4 && lines.every((l) => l.type === "denied" && l.via === "client") && deep(lines.map((l) => l.tool)) === deep(["create_modify_elements", "Write", "execute_commands", undefined]),
+        `43.2: the four denials wrote ${deep(lines.map((l) => [l.tool, l.via]))} — exactly one denied line each, via client`);
+      b.close();
     }
-    const lines = [];
-    const write = (l) => lines.push(l);
-    const hooks = M.importFenceHooks({ allowed: M.READ_TOOLS, mainTools: ["Write"], write });
-    const pre = await afold("the PreToolUse hook on Write", () => hooks.PreToolUse[0].hooks[0]({ tool_name: "Write", tool_input: { file_path: "system/x.css", content: "x" } }), {});
-    ok(pre?.hookSpecificOutput?.permissionDecision === "deny" && lines.length === 1 && lines[0].type === "denied" && lines[0].via === "PreToolUse" && lines[0].tool === "Write",
-      `43.2: PreToolUse on an advertised Write answered ${deep(pre)} and wrote ${deep(lines)} — one denied line via PreToolUse`);
-    const can = await afold("canUseTool on Write", () => M.importCanUseTool({ allowed: M.READ_TOOLS, mainTools: ["Write"], write })("Write", {}), {});
-    ok(can?.behavior === "deny" && lines.length === 2 && lines[1].via === "canUseTool", `43.2: canUseTool on Write answered ${deep(can)} with lines ${deep(lines.slice(1))}`);
-    const okRead = await afold("canUseTool on lookup", () => M.importCanUseTool({ allowed: M.READ_TOOLS, write })("mcp__brilliant__lookup", { a: 1 }), {});
-    ok(okRead?.behavior === "allow" && deep(okRead.updatedInput) === deep({ a: 1 }), `43.2: canUseTool on the read tool answered ${deep(okRead)} — the input is handed back unchanged`);
-    const warm = [];
-    const warmPre = await afold("PreToolUse on an unadvertised Write", () => M.importFenceHooks({ allowed: M.READ_TOOLS, write: (l) => warm.push(l) }).PreToolUse[0].hooks[0]({ tool_name: "Write", tool_input: {} }), {});
-    ok(warmPre?.hookSpecificOutput?.permissionDecision === "deny" && warm.length === 0,
-      `43.2: an unadvertised Write (a CLI warmup call) was ${warmPre?.hookSpecificOutput?.permissionDecision ?? "not denied"} and wrote ${warm.length} lines — denied, and recorded NOWHERE (the record gate)`);
-    const mcpDeny = [];
-    await afold("PreToolUse on a Brilliant write tool", () => M.importFenceHooks({ allowed: M.READ_TOOLS, write: (l) => mcpDeny.push(l) }).PreToolUse[0].hooks[0]({ tool_name: "mcp__brilliant__create_modify_elements", tool_input: {} }));
-    ok(mcpDeny.length === 1 && mcpDeny[0].tool === "mcp__brilliant__create_modify_elements", `43.2: a denied mcp__ write tool wrote ${deep(mcpDeny)} — an mcp__ denial is always the import agent's, so it is recorded`);
-    const hostile = new Proxy([], { get(t, k) { if (k === "includes") throw new Error("hostile allow-list"); return Reflect.get(t, k); } });
-    const hPre = await afold("PreToolUse with a throwing allow-list", () => M.importFenceHooks({ allowed: hostile, write: () => {} }).PreToolUse[0].hooks[0]({ tool_name: "mcp__brilliant__lookup", tool_input: {} }), {});
-    ok(hPre?.hookSpecificOutput?.permissionDecision === "deny", `43.2: a predicate that THROWS answered ${deep(hPre)} — it must DENY (fail closed)`);
-    const bWrite = await afold("canUseTool with a throwing writer", () => M.importCanUseTool({ allowed: M.READ_TOOLS, mainTools: ["Write"], write: () => { throw new Error("disk full"); } })("Write", {}), {});
-    ok(bWrite?.behavior === "deny", `43.2: a writer that throws changed the decision to ${deep(bWrite)} — a recording bug must not alter the run`);
-    ok(threw(() => M.deniedLine({ tool: "Write", via: "PostToolUse" })) !== null, "43.2: deniedLine accepted a via outside FENCE_SITES");
+    {
+      // A THROWING predicate denies (fail closed); a THROWING recorder leaves the denial intact.
+      const { streams, log } = pair("paired");
+      const b = BM.openBridge({ streams, decide: () => { throw new Error("hostile predicate"); }, onDeny: () => { throw new Error("disk full"); } });
+      const d = await afold("call with a throwing decide and onDeny", () => b.call("lookup", {}), {});
+      await afold("the flush request", () => b.request("initialize", {}));
+      ok(typeof d?.denied === "string" && d.denied.includes("fail closed") && toolCalls(log).length === 0,
+        `43.2: a predicate that THROWS answered ${deep(d)} with ${toolCalls(log).length} tools/call at the fake — it must DENY, and a recorder that throws must not change that`);
+      b.close();
+    }
+    ok(threw(() => M.deniedLine({ tool: "Write", via: "PreToolUse" })) !== null && threw(() => M.deniedLine({ tool: "Write", via: "client" })) === null,
+      "43.2: deniedLine accepted a via outside [\"client\"] or refused the client's own");
 
-    // --- 43.3 REACH: three init branches + junk, the read's two refusals, one action each ------------
-    const init = (status, tools) => ({ mcp_servers: status ? [{ name: "brilliant", status }] : [], tools });
-    const rNot = M.classifyReach(init("failed", []));
-    const rAbsent = M.classifyReach(init(null, []));
-    const rUnreach = M.classifyReach(init("connected", ["mcp__brilliant__init"]));
-    const rOk = M.classifyReach(init("connected", ["mcp__brilliant__get_selection"]));
-    ok(rNot?.kind === "not-running" && rNot.message.includes("failed") && rAbsent?.kind === "not-running" && rUnreach?.kind === "not-reachable" && rOk === null,
-      `43.3: classifyReach answered failed → ${rNot?.kind}, absent → ${rAbsent?.kind}, no get_selection → ${rUnreach?.kind}, reachable → ${deep(rOk)}`);
-    for (const junk of [null, undefined, 42, "x", { mcp_servers: "no" }]) ok(M.classifyReach(junk)?.kind === "not-running", `43.3: classifyReach(${JSON.stringify(junk)}) is not a not-running refusal`);
-    const reads = [M.classifyRead({ timedOut: true }), M.classifyRead({ failures: [{ error: "Request timed out" }], selection: ["a"] }), M.classifyRead({ selection: [] })];
-    ok(reads[0]?.kind === "stale-binding" && reads[1]?.kind === "stale-binding" && reads[2]?.kind === "nothing-selected" && M.classifyRead({ selection: ["a"] }) === null,
-      `43.3: classifyRead answered ${deep(reads.map((r) => r?.kind))} and a clean read ${deep(M.classifyRead({ selection: ["a"] }))}`);
-    for (const r of [rNot, rUnreach, ...reads]) ok(r?.action && typeof r.action === "object" && typeof r.action.label === "string", `43.3: the ${r?.kind} refusal does not carry exactly one action: ${deep(r)}`);
+    // --- 43.3 THE CLASSIFIER: every bridge outcome → at most one refusal, one action each (#311 PR B) --
+    // classifyBridge replaced PR A's SDK-shaped classifyReach/classifyRead. The not-paired row is driven
+    // from the COMMITTED unpaired tools/list error and the nothing-selected row from the committed empty
+    // selection — never a typed string, so a Brilliant rewording reds here rather than in the owner's hands.
+    if (BM) {
+      const C = BM.classifyBridge;
+      const unpaired = live("tools-list-unpaired.json");
+      const listed = live("tools-list.json").names;
+      const rows = [
+        ["exited before initialize", C({ phase: "initialize", exited: 1 }), "not-running", (r) => r.message.includes("did not start") && r.message.includes("exit 1")],
+        ["a stream end before initialize", C({ phase: "initialize", exited: null }), "not-running", (r) => r.message.includes("did not start")],
+        ["a timeout before initialize answered", C({ phase: "initialize", timedOut: true }), "not-answering", (r) => r.message === "The Brilliant bridge did not answer."],
+        ["a timeout before tools/list answered", C({ phase: "tools/list", timedOut: true }), "not-answering", (r) => r.action.hint === "npx -y @brilliant-hq/mcp"],
+        ["the committed unpaired tools/list error", C({ phase: "tools/list", error: unpaired.error }), "not-paired",
+          (r) => r.detail === unpaired.error.message && r.action.retry === true && r.action.label === "Import again" && r.message.includes("apps on device")],
+        ["tools/list without get_selection", C({ phase: "tools/list", tools: listed.filter((n) => n !== "get_selection") }), "not-reachable", (r) => r.message === "Brilliant is not reachable — no workspace is open."],
+        ["a timeout after tools/list, project unknown", C({ phase: "call", timedOut: true }), "stale-binding", (r) => r.message === "The binding did not answer." && r.action.route === "binding"],
+        ["a timeout after tools/list, project named", C({ phase: "call", timedOut: true, project: "Faster Payment" }), "stale-binding", (r) => r.message === "Bound to project Faster Payment — it did not answer."],
+        ["the committed empty selection", C({ phase: "selection", selection: BM.parseSelection(live("get-selection-none.json")) }), "nothing-selected", (r) => r.message === "Nothing is selected in Brilliant."],
+        ["a tool's isError", C({ phase: "call", error: BM.textOf(live("lookup-unresolved.json")) }), "read-failed", (r) => r.message.startsWith("Brilliant refused the read: Error in lookup")],
+        ["an exit mid-read", C({ phase: "call", exited: 0 }), "read-failed", (r) => r.message.includes("mid-read")],
+      ];
+      for (const [label, r, kind, words] of rows) {
+        ok(r?.kind === kind && fold(`43.3 wording (${label})`, () => words(r), false),
+          `43.3: ${label} classified ${deep(r)} — expected ${kind} with its own words`);
+        ok(r?.action && typeof r.action === "object" && !Array.isArray(r.action) && typeof r.action.label === "string" && !Object.hasOwn(r, "actions"),
+          `43.3: the ${r?.kind} refusal (${label}) does not carry exactly one action with a label: ${deep(r)}`);
+      }
+      // The two explicit successes answer null — and they are the ONLY nulls (junk fails closed).
+      ok(C({ phase: "tools/list", tools: listed }) === null && C({ phase: "selection", selection: BM.parseSelection(live("get-selection-one.json")) }) === null,
+        `43.3: a paired tools/list (${deep(C({ phase: "tools/list", tools: listed }))}) or a one-element selection was refused — the positive controls`);
+      for (const junk of [null, {}, 42, "x", [], { phase: "call" }]) ok(C(junk)?.kind === "not-running", `43.3: classifyBridge(${JSON.stringify(junk)}) answered ${deep(C(junk))} — junk fails closed as not-running`);
+    }
 
     // --- 43.4 THE DROP SNIFF -----------------------------------------------------------------------
     ok(fold("sniffDrop(the Figma export)", () => M.sniffDrop(FIGMA, "x.json").tool) === "figma", "43.4: the committed Figma export did not sniff as figma");
@@ -13954,11 +14029,170 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       `43.10: unboundCount over three records answered ${deep(M.unboundCount([{ source: { bound: false } }, { source: { bound: true } }, { source: { bound: false } }, null]))}`);
   }
 
+  // --- 43.11 THE PARSERS over every committed capture (#311 PR B) --------------------------------
+  // Each parser reads the bridge's reply exactly as captured (import/fixtures/brilliant-live/). The
+  // lookup blueprints are also CONVERTED, so a parser that joined results wrongly reds on ids, not prose.
+  if (BM) {
+    const { convert: bConvert } = await import("../import/brilliant.mjs");
+    const ONE = "630fe03901352c90", TWO = "36cc06ddb7e3a767";
+    ok(fold("parseInit(init.json)", () => BM.parseInit(live("init.json")).canvasId) === "playground", "43.11: parseInit did not read sessionCanvasId `playground` out of the committed init");
+    const sel = ["one", "none", "two"].map((n) => fold(`parseSelection(get-selection-${n}.json)`, () => BM.parseSelection(live(`get-selection-${n}.json`)), null));
+    ok(deep(sel.map((s) => s?.selectedIds)) === deep([[ONE], [], [ONE, TWO]]) && sel[2]?.blueprint.includes("spans["),
+      `43.11: parseSelection one/none/two read ids ${deep(sel.map((s) => s?.selectedIds))} — expected [${ONE}], [], [${ONE}, ${TWO}] from selectedIds (never a scrape of the text, which also holds the fill id 9df0cbadf986e307), the two-selected blueprint carrying spans[`);
+    ok((threw(() => BM.parseSelection(live("get-selection-no-canvas.json"))) ?? "").includes("Missing required property: canvasId"),
+      "43.11: parseSelection accepted the committed -32602 (get_selection with no canvasId) — a JSON-RPC error must throw with the bridge's words");
+    for (const [n, want] of [["one", [ONE]], ["two", [ONE, TWO]]]) {
+      const lk = fold(`parseLookup(lookup-blueprint-${n}.json)`, () => BM.parseLookup(live(`lookup-blueprint-${n}.json`)), null);
+      const ids = fold(`convert the ${n} lookup's blueprint`, () => bConvert(lk?.text ?? "").source.ids, null);
+      ok(deep(ids) === deep(want) && deep(lk?.elementIds) === deep(want), `43.11: the ${n}-element lookup converted to ids ${deep(ids)} (elementIds ${deep(lk?.elementIds)}) — expected ${deep(want)}`);
+    }
+    ok((threw(() => BM.parseLookup(live("lookup-unresolved.json"))) ?? "").includes("Could not resolve"), "43.11: parseLookup accepted the committed isError reply — it must throw naming \"Could not resolve\"");
+    for (const [f, w, h, n] of [["export-png.json", 790, 402, 2155], ["export-thumb.json", 160, 81, 315]]) {
+      const x = fold(`parseExport(${f})`, () => BM.parseExport(live(f)), null);
+      ok(x && x.width === w && x.height === h && x.bytes.length === n && x.sha256 === createHash("sha256").update(x.bytes).digest("hex") && x.bytes.subarray(1, 4).toString() === "PNG",
+        `43.11: parseExport(${f}) read ${x ? `${x.width}x${x.height}, ${x.bytes.length} bytes, sha ${x.sha256.slice(0, 12)}` : "nothing"} — expected ${w}x${h}, ${n} bytes, a PNG whose sha256 is its own line's`);
+    }
+    // A corrupted copy: one byte flipped in the PNG, the text line untouched — the sha check must refuse it.
+    const bad = live("export-png.json");
+    const raw = Buffer.from(bad.result.content[0].data, "base64");
+    raw[100] ^= 0xff;
+    bad.result.content[0].data = raw.toString("base64");
+    ok((threw(() => BM.parseExport(bad)) ?? "").includes("does not match its own sha256"), "43.11: parseExport accepted a PNG with one byte flipped — the bridge's own sha256 line is the integrity check");
+    const page = fold("parsePage(lookup-page.json)", () => BM.parsePage(live("lookup-page.json")), []);
+    ok(deep(page) === deep([{ id: ONE, name: "Rectangle 1", type: "rectangle" }, { id: TWO, name: "Pay", type: "text" }]), `43.11: parsePage read ${deep(page)} — the canvas's two top-level elements`);
+    const bOne = BM.bindingOf(live("get-selection-one.json"));
+    ok(bOne?.project === null && bOne.surface === "web" && bOne.otherTabs === 0 && bOne.viewOnly === false && typeof bOne.tabId === "string",
+      `43.11: bindingOf(get-selection-one.json) read ${deep(bOne)} — the scratch tab's project is empty strings, so project null, surface web, no other tabs`);
+    ok(BM.bindingOf(live("initialize-unpaired.json")) === null, "43.11: bindingOf the UNPAIRED initialize answered a binding — it carries no _meta (PROTOCOL.md §2)");
+    const paired = live("initialize.json");
+    ok(paired.result?.serverInfo?.version === "1.0.0" && deep(BM.bindingOf(paired)) === deep(bOne),
+      `43.11: the paired initialize reads serverInfo ${deep(paired.result?.serverInfo)} and binding ${deep(BM.bindingOf(paired))} — relayed once paired, the same tab as the selection`);
+    const names = live("tools-list.json").names;
+    ok(BM.TOOLS.every((t) => names.includes(t)) && names.includes("create_modify_elements") && names.length === 18,
+      `43.11: the captured tool list (${names.length} names) does not hold every read tool ${deep(BM.TOOLS)} — the allow-list names tools the bridge does not have`);
+    ok(BM.textOf(live("list-projects.json")) === "{\"projects\":[]}", `43.11: list_projects read ${JSON.stringify(BM.textOf(live("list-projects.json")))} — the web editor's empty list`);
+    // Positive control, run last so every case above has registered its reads: a capture nobody reads
+    // is a capture nothing gates.
+    const onDisk = readdirSync(LIVE_DIR).filter((f) => f.endsWith(".json")).sort();
+    ok(onDisk.length >= 15 && deep([...liveRead].sort()) === deep(onDisk),
+      `43.11: ${onDisk.length} captures on disk, ${liveRead.size} read — unread: ${deep(onDisk.filter((f) => !liveRead.has(f)))}`);
+  }
+
+  // --- 43.12 THE READER END TO END: runImport → readBrilliant → the client → the fake (#311 PR B) ----
+  // The real reader, not an injected text: `reader` only hands readBrilliant the fake's streams.
+  if (IR_ && BM) {
+    const { checkRecord: check12 } = await import("../import/report.mjs");
+    const ONE = "630fe03901352c90", TWO = "36cc06ddb7e3a767";
+    const viaFake = async (mode, { timeoutMs = 5000, overrides = null, entrance = "selection", ids = null } = {}) => {
+      const p = pkgCopy(`r12-${mode}`);
+      const { streams, log } = pair(mode, { overrides });
+      const base = ledger(p).length;
+      let threwMsg = null, r = null;
+      try {
+        r = await IR_.runImport({ pkgRoot: p, provenance: "real", base, entrance, ids, overridesDir: scratch("ov12"),
+          reader: (a) => IR_.readBrilliant({ ids: a.ids, streams, timeoutMs }) });
+      } catch (e) { threwMsg = e.message; }
+      return { p, r, log, base, threwMsg, imports: join(p, "build/imports") };
+    };
+    const tl = (p) => readFileSync(join(p, "build/imports/i1.transcript.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
+    const rec = (p) => JSON.parse(readFileSync(join(p, "build/imports/i1.json"), "utf8"));
+
+    const a = await viaFake("paired");
+    if (a.r?.recordId === "i1") {
+      const R = rec(a.p), T = tl(a.p), png = join(a.imports, "i1.reference.png");
+      const led = ledger(a.p);
+      ok(existsSync(png) && readFileSync(png).length === 2155 && threw(() => check12(R)) === null && R.source.project === null && deep(R.source.ids) === deep([ONE]),
+        `43.12: the paired read wrote reference.png ${existsSync(png) ? readFileSync(png).length : "MISSING"} bytes, source ${deep({ project: R.source.project, ids: R.source.ids })}, checkRecord ${threw(() => check12(R)) ?? "ok"} — expected 2155 bytes, project null, ids [${ONE}]`);
+      ok(T.filter((l) => l.type === "tool").map((l) => l.tool).join(",") === "init,get_selection,lookup,export" && T.filter((l) => l.type === "binding").length === 1
+        && T.every((l) => l.type !== "tool" || (l.ok === true && typeof l.sha256 === "string")) && T[0].type === "meta" && T[0].transport === "stdio" && T[0].server === "in-process streams" && !T.some((l) => "costUsd" in l),
+        `43.12: the transcript's lines read ${deep(T.map((l) => l.tool ?? l.type))} — meta (stdio, in-process streams), four ok tool lines init · get_selection · lookup · export, one binding line, no cost`);
+      ok(led.length === a.base + 1 && led[led.length - 1].op === "component.propose" && a.r.binding?.surface === "web" && a.r.binding?.project === null,
+        `43.12: the paired read appended ${led.length - a.base} ledger lines and returned binding ${deep(a.r.binding)} — one component.propose, and the binding beside the view`);
+    } else ok(false, `43.12: the paired read over the fake answered ${deep(a.r ?? a.threwMsg)} — expected a record`);
+
+    const b = await viaFake("two-selected");
+    ok(b.r?.recordId === "i1" && deep(rec(b.p).source.ids) === deep([ONE, TWO]),
+      `43.12: two selected wrote source.ids ${b.r?.recordId ? deep(rec(b.p).source.ids) : deep(b.r ?? b.threwMsg)} — exactly the two element ids (40.28's annotation rule, end to end)`);
+    const c = await viaFake("paired", { entrance: "ids", ids: [ONE, TWO] });
+    ok(c.r?.recordId === "i1" && deep(rec(c.p).source.ids) === deep([ONE, TWO]) && toolCalls(c.log, "get_selection").length === 0 && c.r.binding?.surface === "web",
+      `43.12: an ids read (Browse → import) answered ${deep(c.r?.recordId ?? c.r ?? c.threwMsg)} with ${toolCalls(c.log, "get_selection").length} get_selection calls — the ids skip it, the binding comes from the lookup reply`);
+
+    // SYNTHETIC — a committed capture with ONE field changed: _meta.brilliant.project.name. The scratch
+    // tab's project was empty strings (observed), so without this case source.project is null either way.
+    const named = live("get-selection-one.json");
+    named.result._meta.brilliant.project.name = "Faster Payment";
+    const d = await viaFake("paired", { overrides: { "get-selection-one.json": named } });
+    ok(d.r?.recordId === "i1" && rec(d.p).source.project === "Faster Payment" && d.r.binding?.project === "Faster Payment",
+      `43.12: SYNTHETIC — a capture whose _meta names project "Faster Payment" wrote source.project ${d.r?.recordId ? deep(rec(d.p).source.project) : deep(d.r ?? d.threwMsg)} — the binding's project reaches the record`);
+
+    for (const [mode, kind, opts, more] of [
+      ["unpaired", "not-paired", {}, (r) => r.detail?.includes("click Connect") && r.action.retry === true],
+      ["exit", "not-running", {}, (r) => r.message.includes("did not start")],
+      ["none-selected", "nothing-selected", {}, () => true],
+      ["hang-call", "stale-binding", { timeoutMs: 300 }, (r) => r.action.route === "binding"],
+      ["hang-init", "not-answering", { timeoutMs: 300 }, () => true],
+    ]) {
+      const x = await viaFake(mode, opts);
+      ok(x.r?.refused?.kind === kind && fold(`43.12 ${mode} wording`, () => more(x.r.refused), false) && !existsSync(x.imports) && ledger(x.p).length === x.base,
+        `43.12: mode ${mode} answered ${deep(x.r ?? x.threwMsg)} and ${existsSync(x.imports) ? "WROTE build/imports/" : "wrote nothing"} — expected the ${kind} refusal and nothing on disk`);
+    }
+    const g = await viaFake("garbage");
+    ok((g.threwMsg ?? "").includes("non-JSON line") && !existsSync(g.imports),
+      `43.12: a bridge writing "hello" on stdout answered ${deep(g.r ?? g.threwMsg)} — a protocol error must throw naming the non-JSON line, and nothing is written`);
+  }
+
+  // --- 43.13 BROWSE AND THE BINDING CHECK over the fake (#311 PR B) ------------------------------
+  if (IR_ && BM) {
+    const exportsIn = (log) => toolCalls(log, "export").length;
+    const f1 = pair("paired");
+    const b1 = await afold("browse() over the fake", () => IR_.browse({ streams: f1.streams, timeoutMs: 5000 }), {});
+    ok(b1?.cached === false && b1.elements?.length === 2 && b1.elements.every((e) => /^data:image\/png;base64,iVBOR/.test(e.thumb)) && b1.truncated === false && b1.canvasId === "playground" && b1.binding?.surface === "web"
+      && exportsIn(f1.log) === 2 && toolCalls(f1.log, "export").every((m) => m.params.arguments.width === 160),
+      `43.13: the first browse answered ${deep({ cached: b1?.cached, n: b1?.elements?.length, truncated: b1?.truncated, refused: b1?.refused })} with ${exportsIn(f1.log)} exports — the two top-level elements, each a 160-px PNG data URL`);
+    const f2 = pair("paired");
+    const b2 = await afold("a second browse()", () => IR_.browse({ streams: f2.streams, timeoutMs: 5000 }), {});
+    ok(b2?.cached === true && b2.elements?.length === 2 && exportsIn(f2.log) === 0 && toolCalls(f2.log, "init").length === 1,
+      `43.13: a second browse answered cached ${b2?.cached} after ${exportsIn(f2.log)} new exports — the cache holds the thumbnails (the key still needs init's tab and canvas)`);
+    const f3 = pair("paired");
+    const b3 = await afold("browse({ refresh: true })", () => IR_.browse({ refresh: true, streams: f3.streams, timeoutMs: 5000 }), {});
+    ok(b3?.cached === false && exportsIn(f3.log) === 2, `43.13: refresh answered cached ${b3?.cached} after ${exportsIn(f3.log)} exports — refresh re-exports`);
+    // SYNTHETIC — the committed page listing padded to 14 top-level elements (the scratch canvas had 2).
+    const page = live("lookup-page.json");
+    const body = JSON.parse(page.result.content[0].text);
+    const els = body.results[0].elements;
+    for (let i = 0; els.length < 14; i++) els.push({ id: `${String(i).padStart(4, "0")}aaaabbbbcccc`, name: `Synthetic ${i}`, type: "rectangle" });
+    page.result.content[0].text = JSON.stringify(body);
+    const f4 = pair("paired", { overrides: { "lookup-page.json": page } });
+    const b4 = await afold("browse over a SYNTHETIC 14-element page", () => IR_.browse({ refresh: true, streams: f4.streams, timeoutMs: 5000 }), {});
+    ok(b4?.elements?.length === IR_.BROWSE_MAX && IR_.BROWSE_MAX === 12 && b4.truncated === true && b4.total === 14 && exportsIn(f4.log) === 12,
+      `43.13: SYNTHETIC — a 14-element page browsed to ${b4?.elements?.length} tiles (truncated ${b4?.truncated}, total ${b4?.total}) with ${exportsIn(f4.log)} exports — 12, truncated, of 14`);
+
+    const s1 = await afold("bindingStatus() over the fake", () => IR_.bindingStatus({ streams: pair("paired").streams, timeoutMs: 5000 }), {});
+    ok(s1?.binding?.project === null && s1.binding.surface === "web" && s1.canvasId === "playground" && s1.selected === 1 && !s1.refused,
+      `43.13: bindingStatus answered ${deep(s1)} — { binding: { project: null, surface: web }, canvasId: playground, selected: 1 }`);
+    const s0 = await afold("bindingStatus() with nothing selected", () => IR_.bindingStatus({ streams: pair("none-selected").streams, timeoutMs: 5000 }), {});
+    ok(s0?.selected === 0 && !s0.refused && s0.binding?.surface === "web", `43.13: bindingStatus with nothing selected answered ${deep(s0)} — selected 0 is a state, not a refusal`);
+    const sU = await afold("bindingStatus() unpaired", () => IR_.bindingStatus({ streams: pair("unpaired").streams, timeoutMs: 5000 }), {});
+    ok(sU?.refused?.kind === "not-paired", `43.13: bindingStatus on an unpaired bridge answered ${deep(sU)} — the same not-paired refusal as the read`);
+
+    // BUSY: a held lock is a refusal with one action, naming the holder — and the held run is AWAITED
+    // before leaving, because a still-held lock would red group 46's runImport calls.
+    const pb = pkgCopy("busy");
+    const held = IR_.runImport({ pkgRoot: pb, provenance: "real", base: ledger(pb).length, entrance: "selection", overridesDir: scratch("ovb"),
+      reader: (a) => IR_.readBrilliant({ ids: a.ids, streams: pair("hang-call").streams, timeoutMs: 300 }) });
+    const busyB = await afold("browse() during an import", () => IR_.browse({ streams: pair("paired").streams, timeoutMs: 5000 }), {});
+    const busyS = await afold("bindingStatus() during an import", () => IR_.bindingStatus({ streams: pair("paired").streams, timeoutMs: 5000 }), {});
+    const heldR = await afold("the held import", () => held, {});
+    ok(busyB?.refused?.kind === "busy" && busyB.refused.message.includes("an import") && typeof busyB.refused.action?.label === "string" && busyS?.refused?.kind === "busy",
+      `43.13: browse / bindingStatus during an import answered ${deep(busyB)} / ${deep(busyS?.refused?.kind)} — a busy refusal naming "an import", one action`);
+    ok(heldR?.refused?.kind === "stale-binding", `43.13: the held import answered ${deep(heldR)} — the hung read times out as stale-binding and releases the lock`);
+  }
+
   // AC #4: nothing under system/, handoff/, discovery/ or import/overrides/ moved.
   ok(gitSnap() === GIT_BEFORE && readFileSync(join(ROOT, "handoff/verdant/vocabulary.json")).equals(VOCAB_BYTES),
     `43: the group moved a tracked path — git status for system handoff discovery import/overrides went from ${JSON.stringify(GIT_BEFORE)} to ${JSON.stringify(gitSnap())}`);
 
-  group("import run", `portal/lib/import-run.mjs (#311): IMPORTED in CI with no portal/node_modules, the decommented source holding no static SDK or zod import and exactly ONE await import of the SDK, inside readBrilliant, whose options pin strictMcpConfig, tools: [], allowedTools: [] and both fence sites from one allow-list · THE FENCE: the three read tools allowed (the positive control), Write, Edit, Bash, WebSearch, WebFetch, Read, two Brilliant write tools and undefined denied by name, an advertised Write denied at PreToolUse and at canUseTool with ONE denied line each, an unadvertised Write (a CLI warmup call) denied and recorded NOWHERE, an mcp__ denial recorded, a throwing predicate DENYING and a throwing writer leaving the denial intact · REACH: classifyReach's three branches and junk, classifyRead's timeout two ways and the empty selection, every refusal carrying one action · THE DROP SNIFF: both committed fixtures sniffed to their tool, a REST read, a token export, an empty file, a PNG and prose refused naming why · BOTH SOURCES through runPipeline + recordFor passing checkRecord with EQUAL key sets, fidelity missing with WCAG computed and "missing" in the markdown — and AC #1b's pair: the same blueprint through an injected reader and through a drop giving deep-equal ir, recognition, drops, snaps and unbound · THE WRITER: a traversal name and id refused before any byte, exactly the eight-file set written, the drafts literal-free and saying they are the importer's · THE MAPPING EDITOR on a SYNTHETIC unbound Figma export: a remap to stack emitting what list could not, a rename reaching template.txt's part id, a snap edit moving the role caption → body and writing one override row named by the source hash, a drop adding exactly one read-then-dropped row, elapsed.recognition unchanged, and an unknown path and a cross-family ref refused with mapping.json untouched · runImport: ONE owner component.propose line folding to pr1, the record, md and transcript on disk when the op append fails (so they are written first), a second run during the first refused "already in flight", naming the import as the holder, and the first still returning, dropTooLarge refusing only a declared size over the cap, isProposalName refusing a traversal, a stale base refused with ZERO reader calls, a refused read and a PNG drop writing nothing · proposalName and unboundCount · and git status over system, handoff, discovery and import/overrides unchanged across the group. What it cannot reach: whether the SDK half BEHAVES (CI has no SDK — the canvas journey's importPass and the owner-run probe are the observation), whether Brilliant's live response shapes are what the Phase 0 probe will capture (the live read is not built: readBrilliant refuses by name once reach succeeds), whether a draft is any good (a human read at #313), and pixels (the portal has no baseline)`);
+  group("import run", `portal/lib/import-run.mjs + portal/lib/brilliant-mcp.mjs (#311): BOTH IMPORTED in CI with no portal/node_modules, neither naming the Agent SDK, zod or @modelcontextprotocol statically or lazily (the import path has no model since PR B), brilliant-mcp.mjs's parsed specifiers node: built-ins only, and import-run reading Brilliant through it with importFenceDecision as the one predicate · THE FENCE, one site — the client's call() — over the fake bridge (tooling/fake-brilliant-bridge.mjs) on in-process PassThroughs: get_selection reaching the fake (the positive control, and the flush), create_modify_elements, Write, execute_commands and undefined each resolving { denied } with ONE denied line via client and NO tools/call at the fake, a throwing predicate DENYING with a throwing recorder, openBridge refusing to build without decide, deniedLine refusing any via but client · THE CLASSIFIER: classifyBridge over eleven outcomes — not-running on an exit or stream end before initialize (\"did not start\"), not-answering on a timeout before tools/list, not-paired from the COMMITTED unpaired tools/list error with its words verbatim as detail and an Import again retry, not-reachable without get_selection, stale-binding routed to the binding check with and without a project, nothing-selected from the committed empty selection, read-failed on an isError and a mid-read exit — each with exactly one action, the two explicit successes answering null and six junk inputs failing closed as not-running · THE PARSERS over every committed capture (43.11): init's canvas id, one/none/two selections by selectedIds (never a scrape — the fill id is in the text), the -32602 and the isError thrown in the bridge's words, both lookups converted to their ids, both PNGs by size, byte count and their own sha256 line with a one-byte-flipped copy refused, the page's two top-level elements, the binding read and absent on the unpaired initialize, the tool list holding every read tool — and every .json in the directory read by some case · THE READER END TO END (43.12): runImport → readBrilliant → the client → the fake writing a 2155-byte reference.png, a record passing checkRecord with source.ids exactly the selection, a transcript of meta · four ok tool lines · one binding line and no cost, and one component.propose; two selected giving both ids (the annotation rule end to end), an ids read skipping get_selection, a SYNTHETIC _meta project reaching source.project, unpaired · exit · none-selected · hang-call · hang-init refused as not-paired · not-running · nothing-selected · stale-binding · not-answering with nothing written, and a non-JSON stdout line throwing · BROWSE AND THE BINDING CHECK (43.13): two 160-px thumbnails, a second browse cached with ZERO exports, refresh re-exporting, a SYNTHETIC 14-element page giving 12 tiles truncated of 14, bindingStatus's binding, canvas and selected count (0 is a state, not a refusal) and its not-paired, and a held import making both answer a busy refusal naming \"an import\" · THE DROP SNIFF: both committed fixtures sniffed to their tool, a REST read, a token export, an empty file, a PNG and prose refused naming why · BOTH SOURCES through runPipeline + recordFor passing checkRecord with EQUAL key sets, fidelity missing with WCAG computed and "missing" in the markdown — and AC #1b's pair: the same blueprint through an injected reader and through a drop giving deep-equal ir, recognition, drops, snaps and unbound · THE WRITER: a traversal name and id refused before any byte, exactly the eight-file set written, the drafts literal-free and saying they are the importer's · THE MAPPING EDITOR on a SYNTHETIC unbound Figma export: a remap to stack emitting what list could not, a rename reaching template.txt's part id, a snap edit moving the role caption → body and writing one override row named by the source hash, a drop adding exactly one read-then-dropped row, elapsed.recognition unchanged, and an unknown path and a cross-family ref refused with mapping.json untouched · runImport: ONE owner component.propose line folding to pr1, the record, md and transcript on disk when the op append fails (so they are written first), a second run during the first refused "already in flight", naming the import as the holder, and the first still returning, dropTooLarge refusing only a declared size over the cap, isProposalName refusing a traversal, a stale base refused with ZERO reader calls, a refused read and a PNG drop writing nothing · proposalName and unboundCount · and git status over system, handoff, discovery and import/overrides unchanged across the group. What it cannot reach: a REAL bridge and pairing — the fake answers the committed captures at once, where the real unpaired tools/list waits ~46 s and opens a tab (only canvas-journey's owner-run --live-brilliant leg meets it), whether a draft is any good (a human read at #313), and pixels (the portal has no baseline)`);
 }
 
 // --- 44 · the jev guard (#454) -----------------------------------------------------------------------

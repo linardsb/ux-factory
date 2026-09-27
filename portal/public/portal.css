@@ -397,3 +397,15 @@
 .cv-import-editor li { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-xs); }
 .cv-import-path { flex: 1 1 100%; color: var(--color-fg-muted); }
 .cv-import-editor input, .cv-import-editor select { min-height: 44px; min-width: 0; font: inherit; }
+/* #311 PR B: the binding line + Check binding, and Browse's tile grid. Buttons reuse .cv-btn (44×44). */
+.cv-import-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-xs); }
+.cv-import-actions .cv-import-binding { flex: 1 1 12rem; }
+.cv-import-browse { display: flex; flex-direction: column; gap: var(--spacing-xs); }
+.cv-import-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 8rem), 1fr)); gap: var(--spacing-xs); }
+.cv-import-tile {
+  display: flex; flex-direction: column; gap: var(--spacing-xs); min-width: 0; min-height: 44px; padding: var(--spacing-xs);
+  background: var(--color-bg); color: var(--color-fg); font: inherit; font-size: var(--type-caption); text-align: left;
+  border: 1px solid var(--color-border); border-radius: var(--radius-sm); cursor: pointer; overflow-wrap: anywhere;
+}
+.cv-import-tile[aria-pressed="true"] { border-color: var(--color-accent); box-shadow: inset 0 0 0 1px var(--color-accent); }
+.cv-import-tile img { display: block; max-width: 100%; height: auto; }

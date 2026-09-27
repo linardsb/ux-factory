@@ -4,14 +4,21 @@
 // ticket #311; .claude/plans/import-run-recorded-import-311.md Task 6.1). Loaded by canvas.html beside
 // canvas.mjs; the server half is portal/lib/import-run.mjs.
 //
-// THREE CALLS:
+// FOUR CALLS:
 //   1. AFTER AN IMPORT THE PAGE RELOADS, with ?import=<name>. The server appended a component.propose
 //      line, and the canvas's undo history is per mount: a reload starts it after the import, so the
 //      page's next undo can never target the server's line (foldLedger is last-in-first-out and would
 //      refuse it), and the page's base is fresh.
-//   2. A REFUSAL IS SHOWN WITH ONE ACTION and nothing else. No retry: the owner decides.
+//   2. A REFUSAL IS SHOWN WITH ONE ACTION and nothing else. No retry: the owner decides. "Import again"
+//      (not-paired) and "Re-bind" (stale-binding → the binding check) are that one action, run only on
+//      the owner's click — never a loop (#311 PR B, .claude/plans/import-run-live-read-311-pr-b.md
+//      Task 6.1). A refusal's `detail` is the bridge's own words, shown verbatim as a second line.
 //   3. EVERY STRING FROM A PACKAGE OR A READ IS textContent — names, drop reasons and the drawing's
 //      own words are someone else's, and nothing here builds markup from a string.
+//   4. NOTHING TALKS TO BRILLIANT ON LOAD. The binding check and Browse spawn the bridge, which may
+//      open a pairing tab in the owner's browser, so each runs only on a click. The binding line a
+//      live import reported is kept in sessionStorage across the reload (a convenience: absent, the
+//      line says "not checked yet", which stays true).
 
 import { renderComposition } from "/system/agentic-renderer.mjs";
 import { getCanvasPage } from "/canvas.mjs";
@@ -35,6 +42,7 @@ const DROP_CLASSES = ["never-read", "read-then-dropped", "read-but-never-emitted
 
 let vocab = null;
 let busy = false;
+let checking = false;
 const panel = $("[data-import-panel]");
 const viewBox = $("[data-import-view]");
 
@@ -49,24 +57,48 @@ const api = async (url, init) => {
 const refusalBox = el("div", { class: "cv-import-refusal", role: "alert", "data-import-refusal": true });
 const statusLine = el("p", { class: "cv-import-status", role: "status", "data-import-status": true });
 const modeValue = () => Number(panel.querySelector("input[name=cv-import-mode]:checked")?.value ?? 1);
+const bindingLine = el("p", { class: "cv-import-binding", "data-import-binding": true, text: "Reads: not checked yet" });
+const browseBox = el("div", { class: "cv-import-browse", "data-import-browse-box": true, hidden: true });
+const BINDING_KEY = `uxf-import-binding:${provenance}/${slug}`;
+
+// `binding` is bindingOf()'s shape ({ project, surface, otherTabs, … }) or null (no _meta on the reply).
+function showBinding(binding, { selected = null, suffix = "" } = {}) {
+  const parts = [`Reads: ${binding?.project || "this tab's project (name not exposed)"}`];
+  if (binding?.surface) parts.push(binding.surface);
+  if (binding?.otherTabs > 0) parts.push(`${binding.otherTabs} other tab${binding.otherTabs === 1 ? "" : "s"}`);
+  if (selected != null) parts.push(`${selected} selected`);
+  if (suffix) parts.push(suffix);
+  bindingLine.textContent = parts.join(" · ");
+}
 
 function showRefusal(refused) {
   refusalBox.replaceChildren();
   if (!refused) return;
   refusalBox.appendChild(el("p", { text: refused.message }));
+  if (refused.detail) refusalBox.appendChild(el("p", { class: "cv-import-hint", "data-import-detail": true, text: refused.detail }));
   const a = refused.action ?? {};
   const act = a.href
     ? el("a", { class: "btn btn-secondary cv-btn", href: a.href, target: "_blank", rel: "noopener", "data-import-action": true, text: a.label })
     : el("button", { type: "button", class: "btn btn-secondary cv-btn", "data-import-action": true, text: a.label });
-  if (!a.href) act.addEventListener("click", () => (a.reload ? location.reload() : a.hint ? statusLine.textContent = `Run: ${a.hint}` : dropInput.focus()));
+  if (!a.href) act.addEventListener("click", () => {
+    if (a.reload) location.reload();
+    else if (a.route === "binding") checkBinding();
+    else if (a.retry) importSelection();
+    else if (a.hint) statusLine.textContent = `Run: ${a.hint}`;
+    else dropInput.focus();
+  });
   refusalBox.appendChild(act);
   if (a.hint) refusalBox.appendChild(el("p", { class: "cv-import-hint", text: a.hint }));
 }
 
-async function done({ status, body }) {
+const httpRefusal = (status, body) => ({ message: body.error ?? `HTTP ${status}`, action: { label: "Reload the page", reload: true } });
+
+// `live`: the import read Brilliant, so its response's binding is what the read reached.
+async function done({ status, body }, { live = false } = {}) {
   busy = false;
-  if (status !== 200) { statusLine.textContent = ""; showRefusal({ message: body.error ?? `HTTP ${status}`, action: { label: "Reload the page", reload: true } }); return; }
+  if (status !== 200) { statusLine.textContent = ""; showRefusal(httpRefusal(status, body)); return; }
   if (body.refused) { statusLine.textContent = ""; showRefusal(body.refused); return; }
+  if (live) try { sessionStorage.setItem(BINDING_KEY, JSON.stringify(body.binding ?? null)); } catch { /* storage off: the line resets */ }
   const next = new URLSearchParams({ provenance, slug, import: body.name });
   history.replaceState(null, "", `?${next}`);
   location.reload();
@@ -80,7 +112,77 @@ async function importSelection() {
   done(await api("/api/canvas/import", {
     method: "POST", headers: { "content-type": "application/json" },
     body: JSON.stringify({ provenance, slug, base: getCanvasPage().count, entrance: "selection", mode: modeValue() }),
-  }));
+  }), { live: true });
+}
+
+// Which project a read reaches. Spawns the bridge, so only on a click (header call 4).
+async function checkBinding() {
+  if (checking || busy) return;
+  checking = true;
+  showRefusal(null);
+  bindingLine.textContent = "Reads: checking…";
+  const { status, body } = await api("/api/canvas/import/binding", { method: "POST" });
+  checking = false;
+  if (status !== 200 || body.refused) {
+    bindingLine.textContent = "Reads: unknown — the check was refused";
+    showRefusal(status !== 200 ? httpRefusal(status, body) : body.refused);
+    return;
+  }
+  showBinding(body.binding, { selected: body.selected });
+}
+
+// Browse the page: the top-level elements as toggle tiles; the owner picks, then imports by id.
+async function browsePage(refresh = false) {
+  if (busy || checking) return;
+  busy = true;
+  showRefusal(null);
+  statusLine.textContent = refresh ? "Re-reading the page in Brilliant…" : "Reading the page in Brilliant…";
+  const { status, body } = await api(`/api/canvas/import/browse${refresh ? "?refresh=1" : ""}`);
+  busy = false;
+  statusLine.textContent = "";
+  if (status !== 200) { showRefusal(httpRefusal(status, body)); return; }
+  if (body.refused) { showRefusal(body.refused); return; }
+  showBinding(body.binding);
+  renderTiles(body);
+}
+
+function renderTiles(body) {
+  const picked = new Set();
+  const importBtn = el("button", { type: "button", class: "btn btn-primary cv-btn", "data-import-browse-import": true, text: "Import 0 selected" });
+  importBtn.disabled = true;
+  const sync = () => { importBtn.textContent = `Import ${picked.size} selected`; importBtn.disabled = picked.size === 0; };
+  const tiles = body.elements.map((e) => {
+    const img = el("img", { alt: e.name || e.type });
+    // Only the server's own thumbnail shape reaches src.
+    if (typeof e.thumb === "string" && e.thumb.startsWith("data:image/png;base64,")) img.src = e.thumb;
+    const tile = el("button", { type: "button", class: "cv-import-tile", "aria-pressed": "false", "data-import-tile": e.id }, img, el("span", { text: e.name || e.type }));
+    tile.addEventListener("click", () => {
+      if (picked.has(e.id)) picked.delete(e.id); else picked.add(e.id);
+      tile.setAttribute("aria-pressed", String(picked.has(e.id)));
+      sync();
+    });
+    return tile;
+  });
+  importBtn.addEventListener("click", async () => {
+    if (busy || !picked.size) return;
+    busy = true;
+    showRefusal(null);
+    statusLine.textContent = `Reading ${picked.size} element(s) in Brilliant…`;
+    done(await api("/api/canvas/import", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ provenance, slug, base: getCanvasPage().count, entrance: "ids", ids: [...picked], mode: modeValue() }),
+    }), { live: true });
+  });
+  const refresh = el("button", { type: "button", class: "btn btn-secondary cv-btn", "data-import-browse-refresh": true, text: "Refresh" });
+  refresh.addEventListener("click", () => browsePage(true));
+  const n = body.elements.length;
+  const count = body.truncated ? `Showing ${n} of ${body.total}` : `${n} top-level element${n === 1 ? "" : "s"}`;
+  browseBox.replaceChildren(
+    el("p", { class: "cv-import-hint", "data-import-browse-count": true, text: body.cached ? `${count} · from this session's cache — Refresh to re-read` : count }),
+    el("div", { class: "cv-import-tiles", "data-import-tiles": true }, ...tiles),
+    el("div", { class: "cv-import-actions" }, importBtn, refresh),
+  );
+  browseBox.hidden = false;
 }
 
 async function importFile(file) {
@@ -98,6 +200,10 @@ dropInput.addEventListener("change", () => importFile(dropInput.files?.[0]));
 function buildPanel() {
   const primary = el("button", { type: "button", class: "btn btn-primary cv-btn", "data-import-selection": true, text: "Import selection" });
   primary.addEventListener("click", importSelection);
+  const browseBtn = el("button", { type: "button", class: "btn btn-secondary cv-btn", "data-import-browse": true, text: "Browse the page" });
+  browseBtn.addEventListener("click", () => browsePage(false));
+  const check = el("button", { type: "button", class: "btn btn-secondary cv-btn", "data-import-binding-check": true, text: "Check binding" });
+  check.addEventListener("click", checkBinding);
   const mode = el("fieldset", { class: "cv-import-mode" },
     el("legend", { text: "Mode" }),
     el("label", {}, el("input", { type: "radio", name: "cv-import-mode", value: "1", checked: true }), " 1 — joins the system"),
@@ -109,9 +215,14 @@ function buildPanel() {
   zone.addEventListener("drop", (e) => { e.preventDefault(); zone.classList.remove("is-over"); importFile(e.dataTransfer?.files?.[0]); });
   panel.replaceChildren(
     el("h2", { class: "cv-import-title", text: "Import" }),
-    el("p", { class: "cv-import-binding", "data-import-binding": true, text: "Reads: project not exposed by this binding" }),
-    primary, mode, refusalBox, statusLine, zone,
+    el("div", { class: "cv-import-actions" }, bindingLine, check),
+    el("div", { class: "cv-import-actions" }, primary, browseBtn),
+    browseBox, mode, refusalBox, statusLine, zone,
   );
+  try {
+    const kept = sessionStorage.getItem(BINDING_KEY);
+    if (kept !== null) showBinding(JSON.parse(kept), { suffix: "at the last Brilliant read" });
+  } catch { /* storage off or unreadable: the line stays "not checked yet" */ }
   return primary;
 }
 

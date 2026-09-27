@@ -1,0 +1,9 @@
+import { spawn } from "node:child_process";
+const p = spawn("npx", ["-y", "@brilliant-hq/mcp"], { stdio: ["pipe", "pipe", "pipe"] });
+const t0 = Date.now(), log = (s) => console.log(`[${((Date.now()-t0)/1000).toFixed(1)}s] ${s}`);
+p.stderr.on("data", (d) => log("ERR " + String(d).trim().slice(0, 400)));
+let buf = ""; p.stdout.on("data", (d) => { buf += d; let i; while ((i = buf.indexOf("\n")) >= 0) { log("OUT " + buf.slice(0, i).slice(0, 1500)); buf = buf.slice(i + 1); } });
+const send = (m) => p.stdin.write(JSON.stringify(m) + "\n");
+send({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "uxf-probe-311", version: "0" } } });
+setTimeout(() => { send({ jsonrpc: "2.0", method: "notifications/initialized" }); send({ jsonrpc: "2.0", id: 2, method: "tools/list" }); }, 1500);
+setTimeout(() => { log("END"); p.kill(); process.exit(0); }, 150000);

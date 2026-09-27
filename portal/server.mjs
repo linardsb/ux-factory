@@ -32,9 +32,9 @@ import { foldLedger, listBuilds, loadBuild, loadDecisions, provenanceLabel, save
 import { questionById } from '../discovery/bank.mjs';
 // The answer-box guard (#454): Jev's pre-submit check. Writes nothing; fails open inside the module.
 import { checkAnswer } from './lib/discovery-guard.mjs';
-// The recorded import (#311). Statically SDK-free (build-checks 43.1); the SDK is reached only inside
-// readBrilliant, which runImport calls for a selection read.
-import { dropTooLarge, editMapping, importView, isProposalName, readUpload, runImport } from './lib/import-run.mjs';
+// The recorded import (#311). SDK-free and model-free (build-checks 43.1): the live read is a direct stdio
+// client, portal/lib/brilliant-mcp.mjs, and bindingStatus/browse open the same client.
+import { BROWSE_MAX, bindingStatus, browse, dropTooLarge, editMapping, importView, isProposalName, readUpload, runImport } from './lib/import-run.mjs';
 import { suggest as suggestImport, SUGGEST_PROVENANCES } from './lib/import-suggest.mjs';
 
 const PUBLIC_DIR = path.join(PORTAL_DIR, 'public');
@@ -469,7 +469,23 @@ const server = createServer(async (req, res) => {
       assertProvenanceRoot(b.provenance, root);
       const conflict = saveConflict(path.join(root, 'build'), b.base);
       if (conflict) return json(res, 409, { error: conflict });
+      // Browse → import names its elements; the client never sends an id the owner did not pick from the page.
+      if (b.entrance === 'ids') {
+        const ids = b.ids;
+        if (!Array.isArray(ids) || ids.length < 1 || ids.length > BROWSE_MAX) return json(res, 400, { error: `ids must be an array of 1 to ${BROWSE_MAX} element ids` });
+        const bad = ids.find((id) => typeof id !== 'string' || !/^[0-9a-f]{16}$/.test(id));
+        if (bad !== undefined) return json(res, 400, { error: `ids: ${JSON.stringify(bad)} is not a Brilliant element id` });
+      }
       return json(res, 200, await runImport({ pkgRoot: root, provenance: b.provenance, base: b.base, entrance: b.entrance, ids: b.ids ?? null, mode: b.mode, suggester: suggesterFor(b.provenance) }));
+    }
+    // Which project a read reaches, and the page's top-level elements. Neither writes a file; both spawn the
+    // bridge (which may open a pairing tab), so neither runs until the owner clicks. Lock contention is a
+    // { refused: busy } from inside, never a 500.
+    if (p === '/api/canvas/import/binding' && req.method === 'POST') {
+      return json(res, 200, await bindingStatus());
+    }
+    if (p === '/api/canvas/import/browse' && req.method === 'GET') {
+      return json(res, 200, await browse({ refresh: url.searchParams.get('refresh') === '1' }));
     }
     if (p === '/api/canvas/import/drop' && req.method === 'POST') {
       const provenance = url.searchParams.get('provenance');

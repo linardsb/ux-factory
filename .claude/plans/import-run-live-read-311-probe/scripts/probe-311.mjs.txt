@@ -1,0 +1,82 @@
+// probe-311.mjs — THROWAWAY (never committed). #311 PR B Phase 0: capture Brilliant's live read shapes
+// verbatim through the same SDK query shape portal/lib/import-run.mjs readBrilliant uses.
+// Run: node probe-311.mjs <outDir> [up|down]
+//   up   — the owner has a Brilliant tab open with ONE token-bound component selected.
+//   down — no Brilliant tab open; aborts right after init (expected zero spend).
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { pathToFileURL } from "node:url";
+
+const REPO = "/Users/Berzins/Desktop/Linards_current/ux-factory";
+const pkgDir = join(REPO, "portal/node_modules/@anthropic-ai/claude-agent-sdk");
+const pkg = JSON.parse(readFileSync(join(pkgDir, "package.json"), "utf8"));
+const entry = pkg.exports?.["."]?.import ?? pkg.exports?.["."]?.default ?? pkg.module ?? pkg.main;
+const { query } = await import(pathToFileURL(join(pkgDir, typeof entry === "string" ? entry : entry.default)).href);
+
+const OUT = process.argv[2];
+const MODE = process.argv[3] || "up";
+mkdirSync(OUT, { recursive: true });
+const ALLOWED = ["mcp__brilliant__get_selection", "mcp__brilliant__init", "mcp__brilliant__list_projects", "mcp__brilliant__lookup", "mcp__brilliant__export"];
+const brilliant = { type: "stdio", command: "npx", args: ["-y", "@brilliant-hq/mcp"], env: {} };
+const t0 = Date.now();
+const log = (s) => process.stdout.write(`[${((Date.now() - t0) / 1000).toFixed(1)}s] ${s}\n`);
+const ac = new AbortController();
+const killer = setTimeout(() => { log("TIMEOUT 300s — aborting"); ac.abort(); }, 300_000);
+
+// PNG base64 → first 64 chars + length (a fixture is data, not a picture); the full image goes beside it.
+let n = 0;
+const strip = (resp, tag) => JSON.parse(JSON.stringify(resp), (k, v) => {
+  if (k === "data" && typeof v === "string" && v.length > 200) {
+    writeFileSync(join(OUT, `${tag}.full.b64`), v);
+    return `${v.slice(0, 64)}…[${v.length} base64 chars]`;
+  }
+  return v;
+});
+const save = (name, obj) => writeFileSync(join(OUT, name), `${JSON.stringify(obj, null, 2)}\n`);
+
+const PROMPT = [
+  "Call these Brilliant tools in this exact order, one at a time, passing real values from earlier results:",
+  "1. init with agentName \"uxf probe 311\". Its text names the sessionCanvasId.",
+  "2. get_selection with canvasId = that sessionCanvasId.",
+  "3. lookup with scope = the selectedIds array from step 2, format \"blueprint\", expandInstances true.",
+  "4. export with canvasId = the sessionCanvasId, ids = the selectedIds, format \"png\", width 160.",
+  "5. get_selection with NO arguments (this is expected to fail; call it anyway).",
+  "6. lookup with scope [\"no-such-canvas-xyz\"] and format \"summary\" (expected to fail; call it anyway).",
+  "Then reply \"done\" and nothing else.",
+].join("\n");
+
+let init = null, result = null;
+const failures = [];
+const q = query({
+  prompt: PROMPT,
+  options: {
+    cwd: REPO, model: "claude-sonnet-5", maxTurns: 16,
+    systemPrompt: "You relay a read from the Brilliant design tool. Call only the Brilliant tools you are given, in the order the user names.",
+    tools: [], allowedTools: [], mcpServers: { brilliant }, strictMcpConfig: true, abortController: ac,
+    canUseTool: async (tool, input) => (ALLOWED.includes(tool) ? { behavior: "allow", updatedInput: input } : { behavior: "deny", message: `probe fence: ${tool}` }),
+    hooks: {
+      PostToolUse: [{ hooks: [async (i) => { n += 1; const tag = `${String(n).padStart(2, "0")}-${i.tool_name.replace("mcp__brilliant__", "")}`;
+        save(`${tag}.json`, { tool: i.tool_name, input: i.tool_input, ms: Date.now() - t0, hookKeys: Object.keys(i), responseType: Array.isArray(i.tool_response) ? "array" : typeof i.tool_response, response: strip(i.tool_response, tag) }); log(`PostToolUse ${tag}`); return {}; }] }],
+      PostToolUseFailure: [{ hooks: [async (i) => { n += 1; const tag = `${String(n).padStart(2, "0")}-${i.tool_name.replace("mcp__brilliant__", "")}-FAILED`;
+        failures.push(tag); save(`${tag}.json`, { tool: i.tool_name, input: i.tool_input, ms: Date.now() - t0, error: i.error ?? null, raw: i }); log(`PostToolUseFailure ${tag}`); return {}; }] }],
+    },
+  },
+});
+try {
+  for await (const msg of q) {
+    if (msg.type === "system" && msg.subtype === "init") {
+      init = { mcp_servers: msg.mcp_servers, brilliantTools: (msg.tools || []).filter((t) => t.startsWith("mcp__brilliant__")), model: msg.model, toolCount: (msg.tools || []).length, ms: Date.now() - t0 };
+      save(`init-${MODE === "down" ? "unreachable" : "reachable"}.json`, init);
+      log(`init ${JSON.stringify(init)}`);
+      if (MODE === "down") { ac.abort(); break; }
+    } else if (msg.type === "assistant") {
+      for (const b of msg.message?.content || []) if (b.type === "tool_use") log(`tool_use ${b.name} ${JSON.stringify(b.input).slice(0, 200)}`); else if (b.type === "text") log(`assistant: ${b.text.slice(0, 200)}`);
+    } else if (msg.type === "result") {
+      result = { subtype: msg.subtype, is_error: msg.is_error, num_turns: msg.num_turns, total_cost_usd: msg.total_cost_usd, duration_ms: msg.duration_ms, result: msg.result };
+      save("result.json", result); log(`result ${JSON.stringify(result)}`);
+    }
+  }
+} catch (e) { log(`ERROR ${e.message}`); }
+clearTimeout(killer);
+log(`DONE mode=${MODE} calls=${n} failures=${failures.join(",") || "none"} cost=${result?.total_cost_usd ?? "none"}`);
+process.exit(0);

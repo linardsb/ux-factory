@@ -1,0 +1,36 @@
+{
+  "tool": "mcp__brilliant__export",
+  "input": {
+    "canvasId": "playground",
+    "ids": "[\"630fe03901352c90\"]",
+    "format": "png",
+    "width": "160"
+  },
+  "ms": 9463,
+  "hookKeys": [
+    "session_id",
+    "transcript_path",
+    "cwd",
+    "permission_mode",
+    "hook_event_name",
+    "tool_name",
+    "tool_input",
+    "tool_response",
+    "tool_use_id"
+  ],
+  "responseType": "array",
+  "response": [
+    {
+      "type": "image",
+      "source": {
+        "data": "iVBORw0KGgoAAAANSUhEUgAAAKAAAABRCAYAAABVAa2RAAABAklEQVR4Ae3SsQ2D…[420 base64 chars]",
+        "media_type": "image/png",
+        "type": "base64"
+      }
+    },
+    {
+      "type": "text",
+      "text": "element(s): 630fe03901352c90 | 160x81 | 315 bytes | sha256:14cd4b42d67758c53762e83f788c23a215a5946f53ac9eb449b249a27c07a1b1"
+    }
+  ]
+}

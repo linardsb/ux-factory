@@ -1,0 +1,35 @@
+// Throwaway: raw stdio capture of Brilliant's read shapes (#311 PR B Phase 0). No model, no spend.
+import { spawn } from "node:child_process";
+import { mkdirSync, writeFileSync } from "node:fs";
+const OUT = process.argv[2]; mkdirSync(OUT, { recursive: true });
+const p = spawn("npx", ["-y", "@brilliant-hq/mcp"], { stdio: ["pipe", "pipe", "pipe"] });
+const t0 = Date.now(), log = (s) => console.log(`[${((Date.now()-t0)/1000).toFixed(1)}s] ${s}`);
+p.stderr.on("data", (d) => log("ERR " + String(d).trim().slice(0, 300)));
+const pending = new Map(); let buf = "", nid = 1;
+p.stdout.on("data", (d) => { buf += d; let i; while ((i = buf.indexOf("\n")) >= 0) { const m = JSON.parse(buf.slice(0, i)); buf = buf.slice(i + 1); pending.get(m.id)?.(m); } });
+const rpc = (method, params) => new Promise((r) => { const id = nid++; pending.set(id, r); p.stdin.write(JSON.stringify({ jsonrpc: "2.0", id, method, params }) + "\n"); });
+const strip = (v, tag) => JSON.parse(JSON.stringify(v), (k, x) => (k === "data" && typeof x === "string" && x.length > 200 ? (writeFileSync(`${OUT}/${tag}.full.b64`, x), `${x.slice(0, 64)}…[${x.length} base64 chars]`) : x));
+let n = 0;
+const call = async (name, args) => { n++; const tag = `${String(n).padStart(2, "0")}-${name}`; const s = Date.now(); const m = await rpc("tools/call", { name, arguments: args });
+  writeFileSync(`${OUT}/${tag}.json`, JSON.stringify({ tool: name, input: args, ms: Date.now() - s, reply: strip(m, tag) }, null, 2) + "\n"); log(`${tag} ${m.error ? "ERROR " + m.error.message : "ok"} ${Date.now() - s}ms`); return m; };
+const init = await rpc("initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "uxf-probe-311", version: "0" } });
+writeFileSync(`${OUT}/00-initialize-unconnected.json`, JSON.stringify(init, null, 2) + "\n");
+p.stdin.write(JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }) + "\n");
+let tools = null;
+for (let k = 0; k < 8 && !tools; k++) { const m = await rpc("tools/list", {}); if (m.result?.tools?.length) tools = m; else log(`tools/list attempt ${k + 1}: ${m.error?.message?.slice(0, 80) ?? "empty"}`); }
+if (!tools) { log("NEVER CONNECTED"); p.kill(); process.exit(1); }
+writeFileSync(`${OUT}/00-tools-list.json`, JSON.stringify({ names: tools.result.tools.map((t) => t.name), _meta: tools.result._meta ?? null, schemas: Object.fromEntries(tools.result.tools.filter((t) => ["get_selection","init","list_projects","lookup","export"].includes(t.name)).map((t) => [t.name, t.inputSchema])) }, null, 2) + "\n");
+log(`connected: ${tools.result.tools.length} tools`);
+await call("get_selection", {});
+await call("init", {});
+const sel = await call("get_selection", {});
+await call("list_projects", {});
+const text = sel.result?.content?.map((c) => c.text ?? "").join("") ?? "";
+const ids = [...new Set(text.match(/\b[0-9a-f]{16}\b/g) ?? [])];
+log(`ids parsed (probe-only regex): ${JSON.stringify(ids)}`);
+if (ids.length) {
+  await call("lookup", { scope: JSON.stringify(ids), format: "blueprint", expandInstances: true });
+  await call("export", { scope: JSON.stringify([ids[0]]), format: "png" });
+}
+await call("lookup", { format: "summary" });
+log("DONE"); p.kill(); process.exit(0);

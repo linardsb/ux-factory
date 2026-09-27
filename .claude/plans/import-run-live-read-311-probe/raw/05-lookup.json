@@ -1,0 +1,33 @@
+{
+  "tool": "lookup",
+  "input": {
+    "format": "summary"
+  },
+  "ms": 9,
+  "reply": {
+    "jsonrpc": "2.0",
+    "id": 8,
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "Error in lookup: Invalid argument(s): lookup requires at least one of: scope, ids, query, textContent, type, fillColor, componentName."
+        }
+      ],
+      "isError": true,
+      "_meta": {
+        "brilliant": {
+          "project": {
+            "handle": "",
+            "name": "",
+            "title": ""
+          },
+          "tabId": "tab-222a9bd0-eade-49a3-a33b-de0c8e409d4b",
+          "viewOnly": false,
+          "surface": "web",
+          "otherTabs": []
+        }
+      }
+    }
+  }
+}

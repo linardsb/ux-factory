@@ -1,0 +1,33 @@
+{
+  "tool": "lookup",
+  "input": {
+    "query": "playground",
+    "format": "summary"
+  },
+  "ms": 4,
+  "reply": {
+    "jsonrpc": "2.0",
+    "id": 9,
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"totalMatches\":0,\"returnedCount\":0,\"searchedCanvases\":1,\"results\":[],\"canvases\":[{\"path\":\"playground\",\"topLevelCount\":2}]}"
+        }
+      ],
+      "_meta": {
+        "brilliant": {
+          "project": {
+            "handle": "",
+            "name": "",
+            "title": ""
+          },
+          "tabId": "tab-222a9bd0-eade-49a3-a33b-de0c8e409d4b",
+          "viewOnly": false,
+          "surface": "web",
+          "otherTabs": []
+        }
+      }
+    }
+  }
+}

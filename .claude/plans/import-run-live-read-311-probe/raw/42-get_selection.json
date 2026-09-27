@@ -1,0 +1,32 @@
+{
+  "tool": "get_selection",
+  "input": {
+    "canvasId": "playground"
+  },
+  "ms": 2,
+  "reply": {
+    "jsonrpc": "2.0",
+    "id": 4,
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"canvasId\":\"playground\",\"count\":2,\"selectedIds\":[\"630fe03901352c90\",\"36cc06ddb7e3a767\"],\"blueprint\":\"630fe03901352c90 r p(910,351) s(395,201) f[(9df0cbadf986e307,#000000)] \\\"Rectangle 1\\\"\\n36cc06ddb7e3a767 t(\\\"Pay\\\",Inter,24,r,align(l)) p(1195.06,473.99) s(hug:41.95,hug:29) f[(9df0cbadf986e307,#000000)] \\\"Pay\\\"\\n  spans[(0,3,#CFD5E1)]\"}"
+        }
+      ],
+      "_meta": {
+        "brilliant": {
+          "project": {
+            "handle": "",
+            "name": "",
+            "title": ""
+          },
+          "tabId": "tab-222a9bd0-eade-49a3-a33b-de0c8e409d4b",
+          "viewOnly": false,
+          "surface": "web",
+          "otherTabs": []
+        }
+      }
+    }
+  }
+}

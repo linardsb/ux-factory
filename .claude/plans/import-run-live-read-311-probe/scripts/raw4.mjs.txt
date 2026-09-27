@@ -1,0 +1,27 @@
+// Throwaway: second pass on a PAIRED tab (#311 PR B Phase 0). canvasId from init; no model, no spend.
+import { spawn } from "node:child_process";
+import { mkdirSync, writeFileSync } from "node:fs";
+const OUT = process.argv[2]; mkdirSync(OUT, { recursive: true });
+const p = spawn("npx", ["-y", "@brilliant-hq/mcp"], { stdio: ["pipe", "pipe", "pipe"] });
+const t0 = Date.now(), log = (s) => console.log(`[${((Date.now()-t0)/1000).toFixed(1)}s] ${s}`);
+p.stderr.on("data", (d) => log("ERR " + String(d).trim().slice(0, 300)));
+const pending = new Map(); let buf = "", nid = 1;
+p.stdout.on("data", (d) => { buf += d; let i; while ((i = buf.indexOf("\n")) >= 0) { const m = JSON.parse(buf.slice(0, i)); buf = buf.slice(i + 1); pending.get(m.id)?.(m); } });
+const rpc = (method, params) => new Promise((r) => { const id = nid++; pending.set(id, r); p.stdin.write(JSON.stringify({ jsonrpc: "2.0", id, method, params }) + "\n"); });
+const strip = (v, tag) => JSON.parse(JSON.stringify(v), (k, x) => (k === "data" && typeof x === "string" && x.length > 200 ? (writeFileSync(`${OUT}/${tag}.full.b64`, x), `${x.slice(0, 64)}…[${x.length} base64 chars]`) : x));
+let n = 17;
+const call = async (name, args) => { n++; const tag = `${n}-${name}`; const s = Date.now(); const m = await rpc("tools/call", { name, arguments: args });
+  writeFileSync(`${OUT}/${tag}.json`, JSON.stringify({ tool: name, input: args, ms: Date.now() - s, reply: strip(m, tag) }, null, 2) + "\n");
+  log(`${tag} ${m.error ? "ERROR " + m.error.message : m.result?.isError ? "isError " + JSON.stringify(m.result.content).slice(0, 200) : "ok"} ${Date.now() - s}ms`); return m; };
+const textOf = (m) => (m.result?.content ?? []).map((c) => c.text ?? "").join("");
+const initR = await rpc("initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "uxf-probe-311", version: "0" } });
+writeFileSync(`${OUT}/10-initialize-connected.json`, JSON.stringify(initR, null, 2) + "\n");
+p.stdin.write(JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }) + "\n");
+const tl = await rpc("tools/list", {}); log(`tools: ${tl.result?.tools?.length ?? tl.error?.message}`);
+if (!tl.result?.tools?.length) { p.kill(); process.exit(1); }
+const init = await call("init", { agentName: "uxf probe 311" });
+const canvasId = textOf(init).match(/\*\*sessionCanvasId:\*\*\s*`([^`]+)`/)?.[1];
+log(`canvasId=${canvasId}`);
+await call("lookup", { scope: ["630fe03901352c90"], format: "blueprint", expandInstances: true });
+await call("lookup", { scope: [canvasId], format: "blueprint", expandInstances: true });
+log("DONE"); p.kill(); process.exit(0);

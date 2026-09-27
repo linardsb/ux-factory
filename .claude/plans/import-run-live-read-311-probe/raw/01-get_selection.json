@@ -1,0 +1,13 @@
+{
+  "tool": "get_selection",
+  "input": {},
+  "ms": 59,
+  "reply": {
+    "jsonrpc": "2.0",
+    "id": 4,
+    "error": {
+      "code": -32602,
+      "message": "Invalid arguments for tool 'get_selection': JsonSchemaValidationException: Missing required property: canvasId (at )"
+    }
+  }
+}
