@@ -287,12 +287,13 @@ import {
   AUDIT_FINGERPRINT_INPUTS, AUDIT_VERDICT_RULE, AUDIT_WRONG_IF_RULE, buildCreatePrdTurn, buildGrillTurn, buildThinkTurn, CREATE_PRD_STANCE, EVIDENCE_RULE, FINGERPRINT_INPUTS, FINGERPRINT_INPUTS_FOR, fingerprintOf,
   GRILL_STANCE, JUDGEMENT_RULE, LADDER_BRIEF, ledgerBrief, MODEL_SETTABLE, MODELS, MVP6_LINE, PARENT_RULE, POSTURES, PROVENANCE_RULE, reaskBrief, resolvePosture, sectionBrief, TOOL_DESCRIPTIONS, YIELD_CONTRACT,
   AFFORDANCE_FINGERPRINT, AFFORDANCE_FINGERPRINT_INPUTS, AFFORDANCE_INPUT_SETS, affordanceFingerprintOf, AFFORDANCES, DOMAIN_RULE, ESCAPE_HATCH_RULE, LOOK_IT_UP_RULE, LOOKUP_FINGERPRINT_INPUTS, PARK_FINGERPRINT_INPUTS, PARK_RULE, pendingBrief,
+  SCREEN_FINGERPRINT_INPUTS, screenFingerprintOf, TENSION_RULE, tensionsBlock,
 } from "../portal/lib/discovery-postures.mjs";
 // #290's PRD projection — a zero-portal-dependency module in discovery/ (it imports only ops.mjs,
 // bank.mjs and node:fs/path/url), so this group loads in an environment with no portal/node_modules.
 // writePrd is deliberately NOT imported: group 31 stays in memory (see its closing line). readPackage
 // is imported for group 32 alone, because its subject IS the on-disk package (#341).
-import { checkOpLines, LATER_QUESTIONS, METRIC_STAGE, NON_GOAL_QUESTIONS, projectPrd, readPackage, SECTIONS } from "../discovery/prd-projection.mjs";
+import { checkOpLines, LATER_QUESTIONS, METRIC_STAGE, NON_GOAL_QUESTIONS, projectPrd, raisedBy, readPackage, SECTIONS } from "../discovery/prd-projection.mjs";
 // #359's proposal half — the same zero-portal-dependency shape (it imports ops.mjs, bank.mjs,
 // prd-projection.mjs and node built-ins, nothing else), so group 34 loads with no
 // portal/node_modules. PROPOSAL_SECTIONS is named that way rather than SECTIONS precisely to avoid a
@@ -10004,15 +10005,26 @@ console.log(JSON.stringify([row(openSession(audit)), row(openSession(audit)), ro
     // diff, so a prompt edit fails naming WHICH recording goes stale and what it costs to re-record.
     // A row's model is null where the posture pins its own; Grill's is per-run (#286), so partner-audit-2
     // names claude-opus-5 and the expected stamp is resolvePosture's (identity on null, per 30.30).
-    for (const [slug, posture, model] of [["instrument-loans-1", "think", null], ["graded-opus-a", "think-opus", null], ["partner-audit-1", "grill", null], ["partner-audit-2", "grill", "claude-opus-5"]]) {
+    // #453 adds partner-audit-3, the screened audit: its turns ALSO carry a screenFingerprint, which
+    // must equal the Opus-RESOLVED screened surface; no other package carries one.
+    for (const [slug, posture, model] of [["instrument-loans-1", "think", null], ["graded-opus-a", "think-opus", null], ["partner-audit-1", "grill", null], ["partner-audit-2", "grill", "claude-opus-5"], ["partner-audit-3", "grill", "claude-opus-5"]]) {
       const rj = join(ROOT, "discovery", slug, "run.json");
       if (!existsSync(rj)) continue;
       const stamps = [...new Set((JSON.parse(readFileSync(rj, "utf8")).turnStats ?? []).map((t) => t.postureFingerprint))];
       const current = resolvePosture({ posture, model }).fingerprint;
-      ok(same(stamps, [current]), `32.7: discovery/${slug} carries ${JSON.stringify(stamps.map((x) => String(x).slice(0, 8)))} but the current ${posture}${model ? ` (${model})` : ""} surface is ${current.slice(0, 8)} — the prompt moved under a committed recording. partner-audit-1 and partner-audit-2 are the ones that make Grill's stamps cost something, and it is why #289's DOMAIN_RULE went into Create-PRD's system prompt alone`);
+      ok(same(stamps, [current]), `32.7: discovery/${slug} carries ${JSON.stringify(stamps.map((x) => String(x).slice(0, 8)))} but the current ${posture}${model ? ` (${model})` : ""} surface is ${current.slice(0, 8)} — the prompt moved under a committed recording. partner-audit-1, partner-audit-2 and partner-audit-3 are the ones that make Grill's stamps cost something, and it is why #289's DOMAIN_RULE went into Create-PRD's system prompt alone`);
       // No committed package carries an affordanceFingerprint: the surface is new and nothing has run
       // under it. Stated rather than assumed, so the day one does the reader knows it is new.
       ok((JSON.parse(readFileSync(rj, "utf8")).turnStats ?? []).every((t) => t.affordanceFingerprint === undefined), `32.7: discovery/${slug} carries an affordanceFingerprint — no committed package was recorded through a park or off-script turn`);
+      // #453: a turn carries a screenFingerprint IFF its prompt carried the tensions block, which is IFF
+      // the package's screen.jsonl kept a pair — so the invariant holds whatever a screen kept.
+      const screenStamps = [...new Set((JSON.parse(readFileSync(rj, "utf8")).turnStats ?? []).map((t) => t.screenFingerprint))];
+      const screenLines = existsSync(join(ROOT, "discovery", slug, "screen.jsonl"))
+        ? readFileSync(join(ROOT, "discovery", slug, "screen.jsonl"), "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l)) : [];
+      if (screenLines.some((l) => l.type === "pair" && l.kept)) {
+        const want = screenFingerprintOf(resolvePosture({ posture, model }));
+        ok(same(screenStamps, [want]), `32.7: discovery/${slug} carries screenFingerprint ${JSON.stringify(screenStamps.map((x) => String(x).slice(0, 8)))} but the current screened ${posture}${model ? ` (${model})` : ""} surface is ${want.slice(0, 8)} — every turn of a screened audit that kept a pair must carry it, taken off the RESOLVED posture`);
+      } else ok(same(screenStamps, [undefined]), `32.7: discovery/${slug} carries a screenFingerprint but its screen kept no pair — the block never rendered, so no turn ran under the screened surface`);
     }
     // The denied lines are the receipt of any in-turn correction; counted for the ✓ line, never
     // asserted — zero corrections and one correction are both honest recordings.
@@ -10736,7 +10748,7 @@ console.log(JSON.stringify([row(openSession(audit)), row(openSession(audit)), ro
     ok(!/proposals/i.test(prdSrc), `34.5b: discovery/prd-projection.mjs's code names "proposals" — it must not import, read or render the proposal half in either direction`);
     ok(/readPackage/.test(prdSrc), "34.5b: the pin above is vacuous — prd-projection.mjs's decommented source must still hold its code");
     const filenames = [...prdSrc.matchAll(/join\(root, "([^"]+)"\)/g)].map((m) => m[1]);
-    ok(same([...new Set(filenames)].sort(), ["answers.jsonl", "prd.md", "run.json", "transcript.jsonl"]), `34.5b: prd-projection.mjs reaches ${JSON.stringify([...new Set(filenames)].sort())} under the run root — it reads three files and writes one, and proposals.jsonl is not among them`);
+    ok(same([...new Set(filenames)].sort(), ["answers.jsonl", "prd.md", "run.json", "screen.jsonl", "transcript.jsonl"]), `34.5b: prd-projection.mjs reaches ${JSON.stringify([...new Set(filenames)].sort())} under the run root — it reads four files and writes one, and proposals.jsonl is not among them`);
     // (c) the MUTATION that turns the compare red, so 34.5a cannot be testing nothing — the exact
     // failure mode every #137 defect shared.
     ok(before !== `${before}${P_LINES[0].title}`, "34.5c: the byte compare cannot distinguish a page with a proposal's title concatenated onto it — 34.5a is proving nothing");
@@ -14138,9 +14150,320 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   group("jev guard", `portal/lib/jev.mjs + portal/lib/discovery-guard.mjs (#454): IMPORTED in CI with no portal/node_modules, jev.mjs importing only ./env.mjs and the guard only its four named modules, neither holding the SDK or zod, the model pinned to jev-1.13.0 at the documented endpoint · THE COMMITTED EVAL bound to the tree: its model, the QUESTIONS sha, its positives equal to labels.json, every item's text present and unchanged at its package/ref, every noul finite · THE STATED NUMBERS recomputed by running decide at the module's own thresholds over the committed responses and matched to the summary and to the header's recall and false-prompt literals · decide's branches found among the REAL responses, the aside-disabled case run over every committed item against a positive control that decides "aside" when enabled, and a null threshold and a missing noul refused by name · FAIL-OPEN through the real askJev with injected FAILURES only — a missing key before any fetch, a 429, a timeout and a model mismatch each throwing after one call, and checkAnswer turning each of them and a response with no answers into verdict "answer" naming why · THE SUCCESS PATH by verbatim REPLAY of a committed response per verdict, checkAnswer returning that verdict, both nouls and failOpen null · SIX REFUSALS (an audit, an unknown question, empty text, a non-string text, a bad slug, a real run with no package) each thrown by name with zero calls, and a valid call reaching ask exactly once · and git status over discovery, portal/lib and tooling/jev-guard unchanged across the group. What it cannot reach: the live API's behaviour today (the committed responses are what was measured), whether T generalises beyond the 164 texts it was chosen on, the drawer (portal.js has no CI runner — the owner-run walk is the observation), and the route wiring (server.mjs imports chat.mjs, which reaches the SDK, and CI has no portal/node_modules)`);
 }
 
+// --- 45 · the jev screen (#453) ----------------------------------------------------------------------
+// discovery/claims.mjs (the document → claims splitter) and portal/lib/discovery-screen.mjs (the
+// contradiction screen: stage-1 picks, stage-2 pair confirms, selection, screen.jsonl), the audit
+// prompt's tensions block and its own stamp, and the projection's Tensions section — bound to the
+// committed real responses in tooling/jev-screen/screen-run.json.
+//
+// THE HONESTY RULE FOR THIS GROUP is group 44's: an injected `ask` or `fetchImpl` may only FAIL, or
+// REPLAY a committed screen-run.json response verbatim. The one place synthetic numbers appear is
+// 45.5, which drives the PURE selection functions directly and is labelled synthetic — no number there
+// passes through `ask`. Every call that reaches screenDocument or screenSession injects `ask`: the
+// operator's real key is in process.env when this runs locally.
+//
+// WHAT THIS GROUP CANNOT REACH: the live API today (the committed responses are what was measured);
+// whether Jev's picks generalise beyond the one fixture; whether a kept pair is real (the owner's
+// labels, tooling/jev-screen/labels.json); and the route and the drawer (server.mjs imports chat.mjs,
+// which reaches the SDK, and portal.js has no CI runner — the drawer walk of partner-audit-3 is the
+// observation).
+
+{
+  const athrew = async (fn) => { try { await fn(); return null; } catch (e) { return e.message; } };
+  const threw = (fn) => { try { fn(); return null; } catch (e) { return e.message; } };
+  const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  const md5 = (s) => createHash("md5").update(s).digest("hex");
+  const sha = (s) => createHash("sha256").update(s).digest("hex");
+  const gitSnap = () => execFileSync("git", ["status", "--porcelain", "--", "discovery", "portal/lib", "tooling/jev-screen", "docs/epics/fixtures"], { cwd: ROOT, encoding: "utf8" });
+  const GIT_BEFORE = gitSnap();
+  const FIXTURE_PATH = "docs/epics/fixtures/discovery-partner.prd.pre-grill-2026-08-27.md";
+  const FIXTURE = readFileSync(join(ROOT, FIXTURE_PATH), "utf8");
+  const temps = [];
+  const tempRoot = () => { const d = mkdtempSync(join(tmpdir(), "g45-screen-")); temps.push(d); return d; };
+  const counting = (impl) => { const f = async (...a) => { f.calls += 1; return impl(...a); }; f.calls = 0; return f; };
+  const noTs = (lines) => lines.map(({ ts, ...rest }) => rest);
+  const notes = [];
+
+  // --- 45.1 the import graph ------------------------------------------------------------------------
+  let C = null;
+  let S = null;
+  let J = null;
+  try { C = await import("../discovery/claims.mjs"); S = await import("../portal/lib/discovery-screen.mjs"); J = await import("../portal/lib/jev.mjs"); }
+  catch (e) { ok(false, `45.1: discovery/claims.mjs or portal/lib/discovery-screen.mjs did not import (${e.message}) — CI has no portal/node_modules, so the screen must stay SDK- and zod-free`); }
+  const specs = (file) => {
+    const code = readFileSync(join(ROOT, file), "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+    return { code, from: [...code.matchAll(/^\s*import\s+(?:[^'"]*?from\s+)?["']([^"']+)["']/gm)].map((m) => m[1]) };
+  };
+  const claimsSrc = specs("discovery/claims.mjs");
+  const screenSrc = specs("portal/lib/discovery-screen.mjs");
+  ok(same(claimsSrc.from, []), `45.1: discovery/claims.mjs imports ${JSON.stringify(claimsSrc.from)} — the splitter is pure and imports nothing`);
+  const SCREEN_ALLOWED = ["node:crypto", "node:fs", "node:path", "./jev.mjs", "../../discovery/claims.mjs"];
+  ok(screenSrc.from.every((s) => SCREEN_ALLOWED.includes(s)), `45.1: discovery-screen.mjs imports ${JSON.stringify(screenSrc.from.filter((s) => !SCREEN_ALLOWED.includes(s)))} beyond ${JSON.stringify(SCREEN_ALLOWED)}`);
+  ok(SCREEN_ALLOWED.every((s) => screenSrc.from.includes(s)), `45.1: discovery-screen.mjs no longer imports all of ${JSON.stringify(SCREEN_ALLOWED)} — the pin above is vacuous if the list is stale`);
+  for (const [name, s] of [["claims.mjs", claimsSrc], ["discovery-screen.mjs", screenSrc]])
+    ok(!/claude-agent-sdk|\bzod\b/.test(s.code), `45.1: ${name} names zod or the Agent SDK`);
+
+  if (C && S && J) {
+    // --- 45.2 the splitter is deterministic on the fixture -----------------------------------------
+    const FC = JSON.parse(readFileSync(join(ROOT, "tooling/jev-screen/fixture-claims.json"), "utf8"));
+    const claims = C.splitClaims(FIXTURE);
+    const firstDiff = claims.findIndex((c, i) => !same(c, FC.claims[i]));
+    ok(claims.length === FC.claims.length && firstDiff === -1,
+      `45.2: splitClaims(fixture) differs from fixture-claims.json at ${firstDiff === -1 ? `the count (${claims.length} vs ${FC.claims.length})` : claims[firstDiff].id} — a rule change re-runs node tooling/jev-screen.mjs ${FIXTURE_PATH} --claims AND bumps CLAIMS_VERSION`);
+    ok(FC.md5 === md5(FIXTURE) && md5(FIXTURE) === "ab6eb0ee6cdd3b7802ecfcbe90db2377", `45.2: the fixture's md5 is ${md5(FIXTURE)}, fixture-claims.json records ${FC.md5} — the frozen fixture moved`);
+    ok(FC.claimsVersion === C.CLAIMS_VERSION, `45.2: fixture-claims.json records claims version ${FC.claimsVersion}, the splitter is ${C.CLAIMS_VERSION}`);
+    ok(claims.every((c, i) => c.id === `c${String(i + 1).padStart(3, "0")}`), "45.2: the claim ids are not gapless c001…");
+    // THE SPAN IS REAL: every claim's first data token is on its own [line, endLine] span — the first
+    // 20 characters of a paragraph or list item, the first non-empty data cell of a table row.
+    const src = FIXTURE.split(/\r\n|\r|\n/);
+    const badSpan = claims.filter((c) => {
+      const span = src.slice(c.line - 1, c.endLine).map((l) => l.trim()).join(" ");
+      const token = src[c.line - 1].trim().startsWith("|") ? c.text.split(" · ")[0].replace(/^[^:]*: /, "").slice(0, 20) : c.text.slice(0, 20);
+      return !span.includes(token);
+    });
+    ok(badSpan.length === 0 && claims.length > 0, `45.2: ${badSpan.map((c) => c.id).join(", ") || "no claims"} — the claim's text does not start on its own [line, endLine] span`);
+
+    // --- 45.3 the splitter's rules, SYNTHETIC inputs (labelled) ------------------------------------
+    const texts = (md) => C.splitClaims(md).map((c) => c.text);
+    const fenced = C.splitClaims("para\n\n```\ncode # not a heading\n| x |\n```\n\nafter");
+    ok(same(fenced.map((c) => c.text), ["para", "code # not a heading\n| x |", "after"]) && fenced[1].line === 3 && fenced[1].endLine === 6,
+      `45.3: a fenced block is not one verbatim claim — got ${JSON.stringify(fenced)}`);
+    const table = texts("# H\n\n| A | B |\n|---|---|\n| 1 |  |\n| a\\|b | 2 |");
+    ok(!table.some((t) => /^A\b.*\bB$/.test(t) || t === "A · B"), "45.3: the table header became a claim");
+    ok(same(table, ["A: 1", "A: a|b · B: 2"]), `45.3: table data rows read ${JSON.stringify(table)} — each must be "Header: cell · …", empty cells skipped, \\| a literal pipe`);
+    ok(same(texts("- top\n  - nested\n  continued"), ["top", "nested continued"]), `45.3: a nested item is not its own claim — got ${JSON.stringify(texts("- top\n  - nested\n  continued"))}`);
+    ok(same(texts("para one\n> quoted"), ["para one quoted"]), `45.3: a blockquote line did not join its paragraph — got ${JSON.stringify(texts("para one\n> quoted"))}`);
+    const md = "# A\n\n- one\n- two\n\npara\n| X |\n|---|\n| y |\n";
+    ok(same(C.splitClaims(md), C.splitClaims(md.replace(/\n/g, "\r\n"))), "45.3: CRLF and LF split to different claims");
+    const secs = C.splitClaims("pre\n# A\n## B\n### C\ntext\n## D\ntext2").map((c) => c.section);
+    ok(same(secs, ["(preamble)", "A › B › C", "A › D"]), `45.3: the heading path reads ${JSON.stringify(secs)} — a heading must reset deeper levels`);
+    ok(/string/.test(threw(() => C.splitClaims(42)) ?? ""), "45.3: a non-string input was not refused by name");
+    ok(/999/.test(threw(() => C.splitClaims(Array(1000).fill("x").join("\n\n"))) ?? ""), "45.3: 1000 claims were not refused — ids stop at c999");
+    ok(C.splitClaims(Array(999).fill("x").join("\n\n")).at(-1).id === "c999", "45.3: 999 claims did not end at c999 (the positive control for the refusal above)");
+
+    // --- 45.4 the questions and the batching -------------------------------------------------------
+    const q1 = S.stage1Question(claims[0], claims);
+    const optIds = Object.keys(q1.criteria);
+    ok(!optIds.includes(claims[0].id), `45.4: pick_${claims[0].id} offers ${claims[0].id} itself`);
+    ok(same(optIds, [...claims.slice(1).map((c) => c.id), S.PICK_NONE]), "45.4: a stage-1 question does not offer exactly every other claim plus none");
+    ok(q1.type === "choice" && q1.instructions.target.id === claims[0].id && !("line" in q1.instructions.target), "45.4: a stage-1 question is not a Choice naming its target by id, section and text only");
+    const many = Array.from({ length: 256 }, (_, i) => ({ id: `c${i}`, section: "s", text: "t" }));
+    ok(/255/.test(threw(() => S.stage1Question(many[0], many)) ?? ""), "45.4: a stage-1 question over 255 options was not refused by name");
+    const qs1 = {};
+    for (const c of claims) qs1[`pick_${c.id}`] = S.stage1Question(c, claims);
+    const state1 = S.stage1State(claims);
+    const bs = S.batches(qs1, state1);
+    ok(bs.every((b) => S.estTokens(state1) + Object.values(b).reduce((s, q) => s + S.estTokens(q), 0) <= S.REQUEST_TOKEN_BUDGET), "45.4: a stage-1 request is estimated over REQUEST_TOKEN_BUDGET");
+    ok(same(bs.flatMap((b) => Object.keys(b)), Object.keys(qs1)), "45.4: batching dropped, duplicated or reordered a question");
+    ok(bs.length >= 1, "45.4: the fixture's stage 1 packed into no request");
+    ok(/big/.test(threw(() => S.batches({ big: { x: "y".repeat(100000) } }, {})) ?? ""), "45.4: an oversized question was not refused by name");
+    const s2 = S.stage2Questions(claims[0], claims[1]);
+    ok(same(Object.keys(s2), [`relation_${claims[0].id}_${claims[1].id}`, `same_${claims[0].id}_${claims[1].id}`]) && s2[`relation_${claims[0].id}_${claims[1].id}`].type === "choice"
+      && same(Object.keys(s2[`relation_${claims[0].id}_${claims[1].id}`].criteria), ["supports", "contradicts", "not_established"]) && s2[`same_${claims[0].id}_${claims[1].id}`].type === "noul",
+      "45.4: stage 2 is not relation (supports · contradicts · not_established) + same_subject (a noul)");
+
+    // --- 45.5 selection, SYNTHETIC numbers (labelled; the pure functions only, never through ask) ---
+    ok(same(S.candidatePairs([{ claim: "c002", picked: "c001", p: 0.4 }, { claim: "c001", picked: "c002", p: 0.7 }, { claim: "c003", picked: "none", p: 0.9 }], 0), [{ a: "c001", b: "c002", stage1P: 0.7 }]),
+      "45.5: a mutual pick is not one pair with the max p, or `none` paired");
+    ok(same(S.candidatePairs([{ claim: "c001", picked: "c002", p: 0.3 }], 0.35), []), "45.5: a pick under t1 became a candidate");
+    const cl = (i) => ({ id: `c${String(i).padStart(3, "0")}`, section: "S", text: `claim ${i}` });
+    const pair = (i) => ({ a: cl(i), b: cl(i + 100), stage1P: 1 });
+    const answersFor = (rows) => Object.assign({}, ...rows.map(([p, contra, same_]) => ({
+      [`relation_${p.a.id}_${p.b.id}`]: { choice: contra >= 0.5 ? "contradicts" : "supports", probabilities: { supports: 1 - contra, contradicts: contra, not_established: 0 } },
+      [`same_${p.a.id}_${p.b.id}`]: { noul: same_ },
+    })));
+    const edge = [[pair(1), 0.5, 0.5], [pair(2), 0.49, 0.9], [pair(3), 0.9, 0.49]];
+    const judgedEdge = S.judgePairs(edge.map((r) => r[0]), answersFor(edge));
+    ok(judgedEdge[0].kept === true, "45.5: a pair at contradicts 0.5 exactly was dropped");
+    ok(judgedEdge[1].kept === false && judgedEdge[2].kept === false, "45.5: a pair under T2 or under T_SAME was kept");
+    const rows = Array.from({ length: S.K + 2 }, (_, i) => [pair(i + 10), 0.6 + i * 0.01, 0.9]);
+    const judged = S.judgePairs(rows.map((r) => r[0]), answersFor(rows));
+    ok(judged.filter((p) => p.kept).length === S.K && judged[0].kept === false && judged[1].kept === false && judged.at(-1).kept === true,
+      `45.5: ${S.K + 2} passing pairs did not keep exactly the top ${S.K} and drop the two lowest with kept: false`);
+    ok(/relation_/.test(threw(() => S.judgePairs([pair(1)], {})) ?? ""), "45.5: judgePairs accepted a pair with no relation answer");
+    ok(/probability/.test(threw(() => S.picksFrom({ pick_c001: { choice: "c002", probabilities: {} } })) ?? ""), "45.5: picksFrom accepted a choice with no probability");
+    // chooseT1: T1 under budget, the lowest fitting grid value over it.
+    const small = [cl(1), cl(2)];
+    ok(S.chooseT1([{ claim: "c001", picked: "c002", p: 0.2 }], small) === S.T1, "45.5: chooseT1 moved T1 with one candidate");
+    const longCl = Array.from({ length: 120 }, (_, i) => ({ id: `c${String(i + 1).padStart(3, "0")}`, section: "S", text: `${i} `.repeat(1500) }));
+    const longPicks = longCl.map((c, i) => ({ claim: c.id, picked: longCl[(i + 1) % longCl.length].id, p: (i % 19 + 1) * 0.05 }));
+    const fits = (t) => S.batches(Object.assign({}, ...S.candidatePairs(longPicks, t).map((p) => S.stage2Questions(longCl.find((c) => c.id === p.a), longCl.find((c) => c.id === p.b)))), S.QUESTION_TEMPLATES.stage2State).length <= S.STAGE2_MAX_REQUESTS;
+    const t1 = threw(() => S.chooseT1(longPicks, longCl)) ?? S.chooseT1(longPicks, longCl);
+    ok(!fits(S.T1) && typeof t1 === "number" && t1 > 0 && fits(t1) && !fits(Math.round((t1 - 0.05) * 100) / 100),
+      `45.5: chooseT1 over ${S.STAGE2_MAX_REQUESTS} stage-2 requests returned ${t1} — it must be the lowest grid value that fits (fits(T1) ${fits(S.T1)})`);
+    ok(same(S.tensionsOf([{ type: "unavailable", reason: "x" }]), []) && same(S.tensionsOf([]), []), "45.5: tensionsOf did not return [] for an unavailable line or no lines");
+
+    // --- 45.6 fail-visible, through the real askJev with injected FAILURES only --------------------
+    const noFetch = counting(async () => { throw new Error("unreachable"); });
+    const FAIL = {
+      "a missing key": [(x, o) => J.askJev(x, { ...o, key: "", fetchImpl: noFetch }), /TYPESAFE_API_KEY/],
+      "a 429": [(x, o) => J.askJev(x, { ...o, key: "k", fetchImpl: async () => ({ ok: false, status: 429, text: async () => "" }) }), /429/],
+      "a timeout": [(x, o) => J.askJev(x, { ...o, key: "k", fetchImpl: async () => { throw new DOMException("The operation was aborted due to timeout", "TimeoutError"); } }), /abort|timeout/i],
+      "a model mismatch": [(x, o) => J.askJev(x, { ...o, key: "k", fetchImpl: async () => ({ ok: true, json: async () => ({ model: "jev-9" }) }) }), /jev-9/],
+    };
+    for (const [what, [ask, re]] of Object.entries(FAIL)) {
+      const root = tempRoot();
+      let r = null;
+      const m = await athrew(async () => { r = await S.screenSession(root, FIXTURE, { ask }); });
+      const lines = existsSync(join(root, "screen.jsonl")) ? S.readScreen(root) : [];
+      ok(m === null && r?.status === "unavailable" && re.test(r.reason ?? "") && lines.length === 1 && lines[0].type === "unavailable" && re.test(lines[0].reason),
+        `45.6: screenSession ${m !== null ? `threw on ${what} instead of writing unavailable (${m})` : `on ${what} returned ${JSON.stringify(r)} and wrote ${JSON.stringify(lines)} — it must write exactly one unavailable line naming the reason`}`);
+    }
+    ok(noFetch.calls === 0, `45.6: a missing key reached fetch ${noFetch.calls} time(s)`);
+    const existing = tempRoot();
+    writeFileSync(join(existing, "screen.jsonl"), "");
+    ok(/already exists/.test(threw(() => S.writeScreen(existing, [{ type: "unavailable", ts: "t", reason: "r" }])) ?? ""), "45.6: writeScreen overwrote an existing screen.jsonl");
+    const junk = tempRoot();
+    writeFileSync(join(junk, "screen.jsonl"), `${JSON.stringify({ type: "pick" })}\n${JSON.stringify({ type: "verdict" })}\n`);
+    ok(/line 2/.test(threw(() => S.readScreen(junk)) ?? ""), "45.6: readScreen accepted an unknown type, or did not name its line");
+    ok(same(S.readScreen(tempRoot()), []), "45.6: readScreen of a package with no screen.jsonl is not []");
+
+    // --- 45.7 the prompt surface and its stamp -----------------------------------------------------
+    const plain = buildGrillTurn(AUDIT_FINGERPRINT_INPUTS);
+    ok(!plain.systemPrompt.includes("Candidate tensions") && !plain.systemPrompt.includes(TENSION_RULE), "45.7: Grill's audit prompt carries the tensions block with no tensions — Grill's prompt surface MOVED");
+    ok(POSTURES.grill.fingerprint === "76b7847d4ebbd9d8f16f9726ff0f4f0f" && resolvePosture({ posture: "grill", model: "claude-opus-5" }).fingerprint === "ba124c3c1edb19905101aceca7c12e22",
+      "45.7: Grill's stamps moved — the tensions block must render only when the screen kept a pair (partner-audit-1 and -2 carry these two)");
+    const screened = buildGrillTurn(SCREEN_FINGERPRINT_INPUTS);
+    const sp = screened.systemPrompt;
+    const at = (s) => sp.indexOf(s);
+    ok(at("DOCUMENT>>>") < at("Candidate tensions") && at("Candidate tensions") < at(GRILL_STANCE) && at("DOCUMENT>>>") > -1, "45.7: the tensions block is not between the document and GRILL_STANCE");
+    ok(sp.split(TENSION_RULE).length === 2 && at(TENSION_RULE) < at(PARENT_RULE), "45.7: TENSION_RULE does not appear exactly once, before PARENT_RULE");
+    ok(sp.includes("fp-c1") && sp.includes("fp-c2") && sp.includes(tensionsBlock(SCREEN_FINGERPRINT_INPUTS.tensions)), "45.7: the block does not name both claim ids");
+    ok(!screened.prompt.includes("Candidate tensions") && !screened.prompt.includes("fp-c1"), "45.7: the turn prompt carries the tensions — they belong in the system prompt, byte-stable across the session");
+    ok(same(buildGrillTurn({ ...SCREEN_FINGERPRINT_INPUTS, tensions: [] }), plain), "45.7: an empty tensions list does not build the unscreened audit byte for byte");
+    const grillOpus = resolvePosture({ posture: "grill", model: "claude-opus-5" });
+    const sf = screenFingerprintOf(POSTURES.grill);
+    ok(/^[0-9a-f]{32}$/.test(sf) && sf !== POSTURES.grill.fingerprint && screenFingerprintOf(grillOpus) !== sf, "45.7: screenFingerprintOf is not a 32-hex stamp distinct from Grill's and per model");
+    const spaced = (i) => { const b = buildGrillTurn(i); return { ...b, systemPrompt: b.systemPrompt.replace(TENSION_RULE, `${TENSION_RULE} `) }; };
+    ok(screenFingerprintOf({ build: spaced, model: POSTURES.grill.model }) !== sf, "45.7: one trailing space on TENSION_RULE's rendering did not move the screen stamp — the hash is not over the block");
+    ok(screenFingerprintOf(grillOpus) === "1dd1b6e4d0aaf43273190239ac74f18a", `45.7: the screened Grill-on-Opus stamp is ${screenFingerprintOf(grillOpus)} — partner-audit-3 carries 1dd1b6e4d0aaf43273190239ac74f18a; a move stales it`);
+    const T = SCREEN_FINGERPRINT_INPUTS.tensions;
+    ok(/interview/.test(threw(() => buildGrillTurn({ ...FINGERPRINT_INPUTS, tensions: T })) ?? ""), "45.7: Grill's interview template accepted tensions");
+    ok(/Think/.test(threw(() => buildThinkTurn({ ...FINGERPRINT_INPUTS, tensions: T })) ?? ""), "45.7: Think accepted tensions");
+    ok(/Create PRD/.test(threw(() => buildCreatePrdTurn({ ...FINGERPRINT_INPUTS, tensions: T })) ?? ""), "45.7: Create PRD accepted tensions");
+    ok(/string id/.test(threw(() => buildGrillTurn({ ...AUDIT_FINGERPRINT_INPUTS, tensions: [{ a: { id: 1 } }] })) ?? ""), "45.7: a malformed tension was not refused by name");
+    // The wiring the runtime cannot reach in CI (the transport imports the SDK): read as source.
+    const transportCode = specs("portal/lib/discovery-transport.mjs").code;
+    ok(/screenFingerprint:\s*screenFingerprintOf\(posture\)/.test(transportCode) && /posture\.build\(\{[^)]*\btensions\b/.test(transportCode),
+      "45.7: the transport does not pass tensions to posture.build and stamp screenFingerprintOf(posture) off the RESOLVED posture");
+    ok(/tensions:\s*audit\s*\?\s*tensionsOf\(readScreen\(root\)\)\s*:\s*\[\]/.test(specs("portal/lib/discovery.mjs").code), "45.7: runTurn does not read the screen's kept pairs on an audit (and [] otherwise)");
+    // THE OFF SWITCH (owner, 2026-09-27): the route screens only on an explicit `screen: true`, and the
+    // drawer sends its SCREEN_AUDIT constant, which is false until a screen is measured to find something.
+    ok(/if\s*\(\s*b\.screen\s*===\s*true\s*&&\s*view\.created/.test(specs("portal/server.mjs").code), "45.7: the session route screens without an explicit screen: true — the screen is off by default");
+    const drawerCode = specs("portal/public/portal.js").code;
+    ok(/const SCREEN_AUDIT = false;/.test(drawerCode) && /screen:\s*SCREEN_AUDIT/.test(drawerCode), "45.7: the drawer does not send screen: SCREEN_AUDIT with SCREEN_AUDIT false — turning the screen on is a measured decision, not a default");
+
+    // --- 45.8 replay the committed real run ---------------------------------------------------------
+    const RUN_FILE = join(ROOT, "tooling/jev-screen/screen-run.json");
+    const RUN = existsSync(RUN_FILE) ? JSON.parse(readFileSync(RUN_FILE, "utf8")) : null;
+    ok(RUN, `45.8: tooling/jev-screen/screen-run.json is missing — run node tooling/jev-screen.mjs ${FIXTURE_PATH} (needs TYPESAFE_API_KEY in portal/.env)`);
+    const replayOf = (requests) => { let i = 0; return counting(async ({ questions }, opts) => {
+      const r = requests[i++];
+      if (!r) throw new Error(`replay: call ${i} has no committed response`);
+      if (!same(Object.keys(questions), r.questionIds)) throw new Error(`replay: call ${i} asked ${Object.keys(questions).length} question(s) that are not the committed request's`);
+      if (opts?.timeoutMs !== S.SCREEN_TIMEOUT_MS) throw new Error(`replay: call ${i} passed timeoutMs ${opts?.timeoutMs}, not SCREEN_TIMEOUT_MS`);
+      return r.response;
+    }); };
+    if (RUN) {
+      ok(RUN.model === J.JEV_MODEL, `45.8: screen-run.json was answered by ${RUN.model}, the client pins ${J.JEV_MODEL}`);
+      ok(RUN.docMd5 === md5(FIXTURE), "45.8: screen-run.json screened a different document");
+      ok(RUN.claimsVersion === C.CLAIMS_VERSION, `45.8: screen-run.json was split at claims version ${RUN.claimsVersion}, the splitter is ${C.CLAIMS_VERSION} — re-run`);
+      ok(RUN.questionsSha === sha(JSON.stringify(S.QUESTION_TEMPLATES)), "45.8: QUESTION_TEMPLATES changed since screen-run.json was recorded — re-run tooling/jev-screen.mjs");
+      let out = null;
+      const replay = replayOf(RUN.requests);
+      const m = await athrew(async () => { out = await S.screenDocument(FIXTURE, { ask: replay, now: () => "T" }); });
+      const got = out ? noTs(out.lines) : [];
+      const want = noTs(RUN.lines);
+      const at8 = got.findIndex((l, i) => !same(l, want[i]));
+      ok(m === null && replay.calls === RUN.requests.length && got.length === want.length && at8 === -1,
+        `45.8: ${m !== null ? `the replay threw (${m})` : `produced lines differ from screen-run.json at ${at8 === -1 ? `the count (${got.length} vs ${want.length})` : `${got[at8].type} ${got[at8].claim ?? `${got[at8].a?.id} ↔ ${got[at8].b?.id}`}`}`}`);
+      const sum = RUN.lines.at(-1);
+      ok(RUN.lines.filter((l) => l.type === "pick").length === sum.claims && sum.claims === claims.length, "45.8: not every claim has a stage-1 pick line");
+      ok(RUN.lines.filter((l) => l.type === "pair").length === sum.candidates && RUN.lines.filter((l) => l.type === "pair").every((l) => typeof l.kept === "boolean"), "45.8: not every candidate pair has a pair line with kept");
+      ok(RUN.lines.filter((l) => l.type === "pair" && l.kept).length === sum.kept, "45.8: the summary's kept count is not the kept pair lines");
+      // POSITIVE CONTROL: flip one committed pair's stage-2 answer across the thresholds IN MEMORY and
+      // watch its kept flag move. A kept pair is pushed below T2; with none kept, a dropped one is
+      // pushed above both thresholds.
+      const target = RUN.lines.find((l) => l.type === "pair" && l.kept) ?? RUN.lines.find((l) => l.type === "pair");
+      if (target) {
+        const flipped = structuredClone(RUN.requests);
+        const rid = `relation_${target.a.id}_${target.b.id}`;
+        const sid = `same_${target.a.id}_${target.b.id}`;
+        for (const r of flipped) {
+          if (r.response.answers[rid]) r.response.answers[rid].probabilities.contradicts = target.kept ? 0.01 : 0.99;
+          if (!target.kept && r.response.answers[sid]) r.response.answers[sid].noul = 0.99;
+        }
+        let fo = null;
+        await athrew(async () => { fo = await S.screenDocument(FIXTURE, { ask: replayOf(flipped), now: () => "T" }); });
+        const moved = fo?.lines.find((l) => l.type === "pair" && l.a.id === target.a.id && l.b.id === target.b.id);
+        ok(moved && moved.kept !== target.kept, `45.8: flipping ${target.a.id} ↔ ${target.b.id}'s stage-2 answer in memory did not change its kept flag — the compare above cannot see selection`);
+      } else notes.push("45.8's positive control had no pair line to flip (the run confirmed no candidate)");
+      // 45.6's positive control: a successful screenSession writes pick / pair / summary only.
+      const okRoot = tempRoot();
+      const r = await S.screenSession(okRoot, FIXTURE, { ask: replayOf(RUN.requests) });
+      const types = [...new Set(S.readScreen(okRoot).map((l) => l.type))];
+      ok(r.status === "ran" && types.every((t) => ["pick", "pair", "summary"].includes(t)) && types.includes("summary"), `45.6: a successful replay wrote types ${JSON.stringify(types)} (${JSON.stringify(r)})`);
+    }
+
+    // --- 45.9 the projection -----------------------------------------------------------------------
+    const base = readPackage(join(ROOT, "discovery/partner-audit-2"));
+    const noScreen = { run: base.run, answers: base.answers, ops: base.ops };
+    ok(projectPrd(noScreen) === projectPrd({ ...noScreen, screen: [] }) && !projectPrd(noScreen).includes("Tensions (machine screen)"), "45.9: a package with no screen does not project byte-identically to one with screen: []");
+    ok(/"screen" must be an array/.test(threw(() => projectPrd({ ...noScreen, screen: "x" })) ?? ""), "45.9: a non-array screen was not refused by name");
+    const offPage = projectPrd({ ...noScreen, screen: [{ type: "unavailable", ts: "t", reason: "jev: 429 from x" }] });
+    ok(offPage.includes("## Tensions (machine screen)") && offPage.includes("**Screen did not run** — jev: 429 from x."), "45.9: an unavailable line does not project \"Screen did not run\"");
+    const A = { id: "c017", section: "S › A", text: "The transition note is required for the regulated branch in every run we record." };
+    const B = { id: "c052", section: "S › B", text: "Faster Payment is regulated and needs no transition note of any kind at all." };
+    const flag = (seq, missing) => ({ seq, op: "flag_weak_answer", params: { missing } });
+    ok(same(raisedBy({ a: A, b: B }, [flag(4, ["c017 and c052 contradict"])]), { seq: 4, rule: "by ids" }), "45.9: a flag naming both ids is not raised by ids");
+    ok(raisedBy({ a: A, b: B }, [flag(4, ["c017 is thin"])]) === null, "45.9: a flag naming only c017 reads raised");
+    ok(raisedBy({ a: A, b: B }, [flag(4, ["c0170 and c052"])]) === null, "45.9: an id matched inside a longer word");
+    ok(same(raisedBy({ a: A, b: B }, [flag(9, [`“required for the regulated branch in every run” vs “Faster Payment is regulated and needs no”`])]), { seq: 9, rule: "by quotes" }), "45.9: a flag quoting both claims (curly quotes, no ids) is not raised by quotes");
+    ok(raisedBy({ a: A, b: B }, [flag(9, ["required for the regulated branch in every run"])]) === null, "45.9: a flag quoting only one claim reads raised");
+    ok(same(raisedBy({ a: A, b: B }, [flag(9, ["c017 c052"]), flag(3, ["c017, c052"])]), { seq: 3, rule: "by ids" }), "45.9: raisedBy did not name the lowest seq");
+    const keptLine = { type: "pair", ts: "t", model: "jev-1.13.0", a: A, b: B, stage1P: 0.9, relation: { choice: "contradicts", probabilities: { supports: 0.1, contradicts: 0.8, not_established: 0.1 } }, sameSubject: 0.9, kept: true };
+    const sumLine = { type: "summary", ts: "t", model: "jev-1.13.0", claims: 90, kept: 1, candidates: 5, thresholds: { T_SAME: 0.5, T2: 0.5, K: 10 } };
+    const synthPage = projectPrd({ ...noScreen, screen: [keptLine, sumLine] });
+    ok(synthPage.includes("#### c017 ↔ c052 · contradicts 0.80 · not raised") && synthPage.includes("tooling/jev-screen/labels.json"), "45.9: a synthetic kept pair does not render its heading, raised state and the owner's-verdict pointer");
+    // The REAL one: partner-audit-3's Tensions section, re-projected, equals the committed prd.md's.
+    const PA3 = join(ROOT, "discovery/partner-audit-3");
+    const cut = (s) => { const i = s.indexOf("## Tensions (machine screen)"); return i === -1 ? "" : s.slice(i, s.indexOf("\nArchitecture:", i)); };
+    ok(existsSync(join(PA3, "prd.md")), "45.9: discovery/partner-audit-3/prd.md is missing — record run 3 through the drawer and project it");
+    if (existsSync(join(PA3, "prd.md"))) {
+      const live = cut(projectPrd(readPackage(PA3)));
+      const committed = cut(readFileSync(join(PA3, "prd.md"), "utf8"));
+      ok(live === committed, "45.9: partner-audit-3's Tensions section no longer matches its committed prd.md byte for byte");
+      const keptN = S.readScreen(PA3).find((l) => l.type === "summary")?.kept ?? 0;
+      ok(keptN > 0 ? live.includes("#### ") && /· (raised by the audit|not raised)/.test(live) : live.includes("The screen ran and kept no pair."),
+        `45.9: partner-audit-3's Tensions section does not render its ${keptN} kept pair(s) — the byte compare above would pass on an empty section`);
+    }
+
+    // --- 45.11 the owner's labels ------------------------------------------------------------------
+    const LABELS_FILE = join(ROOT, "tooling/jev-screen/labels.json");
+    if (existsSync(LABELS_FILE)) {
+      const L = JSON.parse(readFileSync(LABELS_FILE, "utf8"));
+      const key = (p) => `${p.a.id} ↔ ${p.b.id}`;
+      const sources = { "screen-run": RUN ? S.tensionsOf(RUN.lines) : null, "partner-audit-3": existsSync(join(PA3, "screen.jsonl")) ? S.tensionsOf(S.readScreen(PA3)) : null };
+      for (const [name, kept] of Object.entries(sources)) {
+        if (!kept) continue;
+        const have = (L.screens?.[name] ?? []).map(key);
+        for (const k of kept.map(key)) ok(have.includes(k), `45.11: labels.json is missing ${k} from ${name}`);
+        for (const k of have) ok(kept.map(key).includes(k), `45.11: labels.json holds ${k} under ${name}, which that screen did not keep`);
+      }
+      if (L.by === "owner") ok(Object.values(L.screens ?? {}).flat().every((p) => typeof p.real === "boolean"), "45.11: labels.json is signed by the owner but a pair's real is not true or false");
+    } else notes.push("labels.json is absent, so 45.11 did not run");
+  }
+
+  // --- 45.10 nothing moved --------------------------------------------------------------------------
+  for (const d of temps) rmSync(d, { recursive: true, force: true });
+  ok(gitSnap() === GIT_BEFORE, `45.10: the group moved a tracked path — git status for discovery portal/lib tooling/jev-screen docs/epics/fixtures went from ${JSON.stringify(GIT_BEFORE)} to ${JSON.stringify(gitSnap())}`);
+
+  group("jev screen", `discovery/claims.mjs + portal/lib/discovery-screen.mjs (#453): IMPORTED in CI with no portal/node_modules, the splitter importing nothing and the screen only node built-ins, ./jev.mjs and the splitter, neither naming the SDK or zod · THE SPLITTER deterministic on the frozen fixture (its md5 pinned), equal claim by claim to the committed fixture-claims.json at the current CLAIMS_VERSION, ids gapless, every claim's first token on its own source span, and its rules driven on SYNTHETIC inputs (a fence, a table header and data rows, a nested item, a blockquote, CRLF, the heading path, a non-string and a 1000-claim refusal against a 999-claim control) · THE QUESTIONS (every other claim plus none, never the target; relation + same_subject) and a batching that preserves every question in order under the token budget and refuses an oversized one · SELECTION on labelled SYNTHETIC numbers through the pure functions only: a mutual pick deduplicated, T2 and T_SAME inclusive at 0.5, K+2 passing pairs capped at K, chooseT1's proviso returning the lowest fitting grid value · FAIL-VISIBLE through the real askJev with injected FAILURES only — a missing key before any fetch, a 429, a timeout and a model mismatch each leaving exactly one unavailable line and no throw, writeScreen refusing an existing file and readScreen an unknown type by line · THE PROMPT: no block and Grill's two stamps unmoved with no tensions, the block between the document and GRILL_STANCE with TENSION_RULE once before PARENT_RULE, none of it in the turn prompt, its own stamp moved by one trailing space and pinned for Grill on Opus, refused on Think, Create PRD and the interview, and the transport and runTurn wiring read as source · THE REPLAY of the committed real run (model, document, claims version and question wording bound; every request's question ids and timeout asserted; every line but ts reproduced; a flipped stage-2 answer moving kept as the positive control) · THE PROJECTION: no screen byte-identical, "Screen did not run", raisedBy by ids, by quotes, one id, one quote and the lowest seq, and partner-audit-3's Tensions section byte-matched to its committed prd.md · labels.json matching both screens' kept pairs · and git status unchanged across the group${notes.length ? ` · NOTE: ${notes.join("; ")}` : ""}. What it cannot reach: the live API today (the committed responses are what was measured), whether Jev's picks generalise beyond the one fixture, whether a kept pair is real (the owner's labels in tooling/jev-screen/labels.json), and the route and the drawer (server.mjs imports chat.mjs, which reaches the SDK, and portal.js has no CI runner — the drawer walk of partner-audit-3 is the observation)`);
+}
+
   if (failures) {
     console.error(`\nbuild ✗  ${failures} failure(s)`);
     process.exit(1);
   }
-  console.log("\nbuild ✓  all 44 groups pass");
+  console.log("\nbuild ✓  all 45 groups pass");
 }

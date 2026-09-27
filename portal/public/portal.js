@@ -953,6 +953,10 @@ for (const id of ['#discovery-provenance', '#discovery-depth'])
   $(id).addEventListener('change', renderDiscoveryNotes);
 $('#discovery-entry').addEventListener('change', renderDiscoveryEntry);
 
+// #453: the contradiction screen before an audit. OFF (owner, 2026-09-27): both measured screens found
+// none of MVP 13's scored findings and kept only false alarms. The server screens only when this is true.
+const SCREEN_AUDIT = false;
+
 $('#discovery-open').addEventListener('click', async () => {
   const { slug, provenance, entryMode, depth, posture, facets, model, documentText, documentPath } = discoveryEls();
   if (!slug) { $('#discovery-start-status').textContent = 'A run slug is needed — it names the package directory.'; return; }
@@ -966,7 +970,10 @@ $('#discovery-open').addEventListener('click', async () => {
   // legal scope-check session with three facets ticked. selectDepth's throw is the belt.
   const plan = facetPlanNow();
   if (depthComposes() && plan.overflow.length) { $('#discovery-facet-note').scrollIntoView({ block: 'nearest' }); $('#discovery-start-status').textContent = `The vector overflows full discovery's ${plan.budget}: ${$('#discovery-facet-note').textContent}`; return; }
-  $('#discovery-start-status').textContent = 'Opening…';
+  // #453: an audit's create runs the contradiction screen before the route answers, and it can take a minute.
+  $('#discovery-start-status').textContent = entryMode === 'existing-prd' && SCREEN_AUDIT
+    ? 'Screening the document for contradictions (Jev) — this can take up to a minute.'
+    : 'Opening…';
   try {
     discovery.session = await api('/api/discovery/session', {
       method: 'POST', headers: { 'content-type': 'application/json' },
@@ -974,7 +981,7 @@ $('#discovery-open').addEventListener('click', async () => {
       // will not take, by name.
       // #288 sends `facets` — the declared five-key vector, or null for the unfaceted list. A resume
       // that names another depth or another vector comes back 409 and its message renders below.
-      body: JSON.stringify({ slug, provenance, entryMode, depth, facets, frontEnd: 'portal', posture, model, document: documentText, documentPath }),
+      body: JSON.stringify({ slug, provenance, entryMode, depth, facets, frontEnd: 'portal', posture, model, document: documentText, documentPath, screen: SCREEN_AUDIT }),
     });
   } catch (err) {
     $('#discovery-start-status').textContent = `Refused: ${err.message}`;
@@ -987,6 +994,11 @@ $('#discovery-open').addEventListener('click', async () => {
   $('#discovery-start-status').textContent = discovery.session.created
     ? `Opened ${slug}.`
     : `Resumed ${slug} from disk — ${discovery.session.cursor.index} of ${discovery.session.cursor.total} answered.`;
+  // #453: the screen's outcome, on an audit's create only (the route sends `screen` then and never else).
+  const sc = discovery.session.screen;
+  if (sc) $('#discovery-start-status').textContent += sc.status === 'ran'
+    ? ` Contradiction screen: ${sc.kept} pair(s) kept.`
+    : ` Contradiction screen did not run: ${sc.reason}. The audit opens without it.`;
   $('#discovery-start').disabled = true;
   renderDiscoverySession();
   // A resumed package may already carry proposals; read them from disk rather than waiting for a run.

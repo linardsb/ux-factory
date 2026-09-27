@@ -12,17 +12,19 @@
 //   · a PURE core — projectPrd + checkOpLines + the renderers. No filesystem, no clock, no network, no
 //     SDK. Same input, byte-identical output, which is what lets tooling/build-checks.mjs group 31
 //     drive every rule over an in-memory fixture package.
-//   · a THIN filesystem shell — readPackage / writePrd / the CLI guard. It reads three files and writes
+//   · a THIN filesystem shell — readPackage / writePrd / the CLI guard. It reads four files and writes
 //     one, and nothing in it decides what the page says.
 //
-// THE LOAD-BEARING PROPERTY is not the markdown. Everything on the page resolves to one of SIX
+// THE LOAD-BEARING PROPERTY is not the markdown. Everything on the page resolves to one of SEVEN
 // sources and nothing else has a route: an op's own params (wrong_if, reason, missing[], level,
 // provenance, url), an answer resolved by answer_ref (the human's verbatim words), a bank question
 // resolved by question_id, the applier's derived fields (seq, flagged, supersedes), run.json's
 // header — and, since #289, an off-script exchange the document names as UNFILED, which is the one
 // source selected by the ABSENCE of an op rather than by one. It is narrowly keyed (kind "off-script"
 // and intent "aside", both server-written by appendAnswer) precisely so it cannot become "any answer
-// no op names": that would put every answer of an empty run on the page. So a generated PRD cannot
+// no op names": that would put every answer of an empty run on the page. The SEVENTH (#453) is the
+// machine screen's own lines, screen.jsonl, rendered in their own "Tensions (machine screen)" section
+// and never as a decision. So a generated PRD cannot
 // carry a claim the ops do not, and group 31 proves it by DELETING an op and watching its claim vanish
 // from the whole document.
 //
@@ -748,13 +750,66 @@ const RENDERERS = Object.freeze({
 });
 
 // ---------------------------------------------------------------------------------------------------
+// The contradiction screen's section (#453) — the SEVENTH source. screen.jsonl is the machine screen's
+// own lines (portal/lib/discovery-screen.mjs), rendered in their own section and NEVER as a decision:
+// NOT a SECTIONS row, because SECTIONS feeds Create PRD's section brief and a row there would move
+// that posture's stamp. Absent screen.jsonl → no section, and the page is byte-identical to before.
+// ---------------------------------------------------------------------------------------------------
+
+// Plan D4, fixed before run 3: a kept pair is RAISED when a flag_weak_answer's joined missing[] names
+// both claim ids as whole words, or holds a verbatim 30-character window of EACH claim's text (whole
+// text when shorter), compared after collapsing whitespace and straightening quotes. The lowest such
+// seq is named, with the rule that matched. Exported so group 45 drives it directly.
+const norm = (s) => String(s).replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"').replace(/\s+/g, " ").trim();
+const hasWindow = (hay, text) => {
+  const t = norm(text);
+  if (t.length <= 30) return hay.includes(t);
+  for (let i = 0; i + 30 <= t.length; i += 1) if (hay.includes(t.slice(i, i + 30))) return true;
+  return false;
+};
+const wholeWord = (id) => new RegExp(`\\b${id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`);
+export function raisedBy({ a, b }, ops) {
+  const flags = ops.filter((r) => r.op === "flag_weak_answer").sort((x, y) => x.seq - y.seq);
+  for (const r of flags) {
+    const joined = Array.isArray(r.params?.missing) ? r.params.missing.join(" ") : "";
+    if (wholeWord(a.id).test(joined) && wholeWord(b.id).test(joined)) return { seq: r.seq, rule: "by ids" };
+    const hay = norm(joined);
+    if (hasWindow(hay, a.text) && hasWindow(hay, b.text)) return { seq: r.seq, rule: "by quotes" };
+  }
+  return null;
+}
+
+// The kept pairs in kept rank order: contradicts descending, ties by a id then b id — the same order
+// discovery-screen.mjs's tensionsOf gives the prompt (this module imports nothing from portal/).
+const keptRank = (x, y) => (y.relation.probabilities.contradicts - x.relation.probabilities.contradicts)
+  || (x.a.id < y.a.id ? -1 : x.a.id > y.a.id ? 1 : 0) || (x.b.id < y.b.id ? -1 : x.b.id > y.b.id ? 1 : 0);
+
+function renderTensions(screen, ops) {
+  const off = screen.find((l) => l?.type === "unavailable");
+  if (off) return `**Screen did not run** — ${fold(off.reason)}. The audit ran without candidate tensions.`;
+  const sum = screen.find((l) => l?.type === "summary") ?? {};
+  const kept = screen.filter((l) => l?.type === "pair" && l.kept).sort(keptRank);
+  const out = [`Jev \`${fold(sum.model)}\` · ${sum.claims} claims · ${sum.kept} kept of ${sum.candidates} candidates · T_SAME ${sum.thresholds?.T_SAME} / T2 ${sum.thresholds?.T2} / K ${sum.thresholds?.K}. Machine screen, unverified: a pair below is what a classifier flagged, not a finding.`];
+  if (!kept.length) out.push("", "The screen ran and kept no pair.");
+  for (const p of kept) {
+    const r = raisedBy(p, ops);
+    out.push("", `#### ${fold(p.a.id)} ↔ ${fold(p.b.id)} · contradicts ${p.relation.probabilities.contradicts.toFixed(2)} · ${r ? `raised by the audit (seq ${r.seq}, ${r.rule})` : "not raised"}`);
+    for (const c of [p.a, p.b]) out.push("", `*${fold(c.id)}* — ${fold(c.section)}:`, "", blockquote(c.text));
+    out.push("", "*Owner's verdict:* _not recorded here — see tooling/jev-screen/labels.json_");
+  }
+  return out.join("\n");
+}
+
+// ---------------------------------------------------------------------------------------------------
 // projectPrd — the whole page. PURE: no filesystem, no clock, no network, no SDK. Returns a markdown
 // string ending in exactly one "\n".
 // ---------------------------------------------------------------------------------------------------
 export function projectPrd(pkg) {
   if (!pkg || typeof pkg !== "object" || Array.isArray(pkg))
     throw new Error(`prd-projection: projectPrd takes { run, answers, ops } (got ${shown(pkg)})`);
-  const { run, answers, ops } = pkg;
+  const { run, answers, ops, screen = [] } = pkg;
+  if (!Array.isArray(screen))
+    throw new Error(`prd-projection: "screen" must be an array — the parsed screen.jsonl lines (got ${shown(screen)})`);
   if (!run || typeof run !== "object" || Array.isArray(run))
     throw new Error(`prd-projection: "run" must be the parsed run.json object (got ${shown(run)})`);
   if (typeof run.slug !== "string" || run.slug.trim() === "")
@@ -771,7 +826,7 @@ export function projectPrd(pkg) {
   // LABEL is run.json's own `root` (relative in-repo for a fictional run, the jobs-folder path for a
   // real one) and the target is the directory this file sits in, so a package copied elsewhere still
   // names the run it came from.
-  out.push(`> **Projected, not authored.** Every claim below folds one run package — [\`${field(run.root)}\`](./): \`run.json\`, \`answers.jsonl\`, and the \`op\` lines of \`transcript.jsonl\` — and nothing else. Generated by \`discovery/prd-projection.mjs\` (epic #279, #290). A claim the ops do not carry cannot appear here. **Edit freely: nothing regenerates this file, and re-running the projection refuses to overwrite it.**`);
+  out.push(`> **Projected, not authored.** Every claim below folds one run package — [\`${field(run.root)}\`](./): \`run.json\`, \`answers.jsonl\`, and the \`op\` lines of \`transcript.jsonl\`${screen.length ? " — and \`screen.jsonl\` (a machine screen, #453)" : ""} — and nothing else. Generated by \`discovery/prd-projection.mjs\` (epic #279, #290). A claim the ops do not carry cannot appear here. **Edit freely: nothing regenerates this file, and re-running the projection refuses to overwrite it.**`);
   out.push("");
   out.push(`**Run** — \`${field(run.slug)}\` · ${field(run.provenance)} (${field(run.label)}) · entry ${field(run.entryMode)} · depth ${field(run.depth)} · ${facetsLabel(run.facets)} · front end ${field(run.frontEnd)} · model ${field(run.model)} · posture ${field(run.posture)} · started ${field(run.startedAt)} · ended ${run.endedAt === null || run.endedAt === undefined ? "open" : field(run.endedAt)} · ${Array.isArray(run.turnStats) ? run.turnStats.length : 0} turn(s)`);
   out.push("");
@@ -783,6 +838,13 @@ export function projectPrd(pkg) {
     out.push(`## ${row.heading}`);
     out.push("");
     out.push(body === null || body === undefined ? row.empty : body);
+  }
+
+  if (screen.length) {
+    out.push("");
+    out.push("## Tensions (machine screen)");
+    out.push("");
+    out.push(renderTensions(screen, checked));
   }
 
   out.push("");
@@ -835,7 +897,8 @@ export function readPackage(root) {
     delete rec.ts;
     ops.push(rec);
   }
-  return { run, answers, ops };
+  const screen = readJsonl(join(root, "screen.jsonl")).map((l) => l.value);
+  return { run, answers, ops, screen };
 }
 
 // Project and write <root>/prd.md. REFUSES to overwrite an existing one without force, because the
