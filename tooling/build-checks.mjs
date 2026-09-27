@@ -14553,6 +14553,11 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       const ts = S.tensionsOf([...cl].reverse());
       ok(ts.length === 2 && ts[0].a.id === cl[0].a.id && ts.every((t) => t.contradicts === null), "45.13: tensionsOf on Claude lines is not the kept pairs in index order with contradicts null");
       if (RUN) ok(S.tensionsOf(RUN.lines).length === RUN.lines.at(-1).kept && S.tensionsOf(RUN.lines).every((t) => Number.isFinite(t.contradicts)), "45.13: tensionsOf on the committed Jev run no longer takes the Jev path");
+      // The code is what was pre-registered: the rubric's promptSha line and its verbatim system text.
+      const rubric = readFileSync(join(ROOT, "docs/epics/fixtures/discovery-partner.screen-rubric.md"), "utf8");
+      const registered = rubric.match(/promptSha = ([0-9a-f]{64})/)?.[1] ?? null;
+      ok(registered === S.claudePromptSha(), `45.13: claudePromptSha ${S.claudePromptSha()} is not the pre-registered ${registered} (docs/epics/fixtures/discovery-partner.screen-rubric.md §One Claude call) — the prompt, model and K do not move after the pre-registration`);
+      ok(rubric.includes("```text\n" + S.CLAUDE_SCREEN.system + "\n```"), "45.13: the rubric does not carry CLAUDE_SCREEN.system verbatim in a fenced block");
       ok(same(S.claudeRequest("x"), { model: S.CLAUDE_SCREEN.model, system: S.CLAUDE_SCREEN.system, prompt: `${S.CLAUDE_SCREEN.open}\nx\n${S.CLAUDE_SCREEN.close}` }), "45.13: claudeRequest does not wrap the document in the delimiters with the frozen system and model");
     }
   }
