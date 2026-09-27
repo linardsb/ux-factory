@@ -199,3 +199,143 @@ was then done with the key unset as well (`env -u TYPESAFE_API_KEY`): it refused
 per labels.json's session-written labels, awaiting the owner's adoption) were recognised again, within 0.05 of
 the CLI screen's numbers on each (0.98/0.85, 0.88/0.88, 0.71/0.78 there; derived). The next ticket is the one-call Claude screen. Numbers are
 computed from `tooling/jev-screen/diagnostic-run.json`; build-checks 45.12 recomputes them.
+
+## One Claude call over the whole document (#466)
+
+**Why.** The diagnostic above read FAIL: Jev's stage 2 recognised 0 of 3 contradiction-class findings even when
+handed the known joins, so scaling Jev is not the fix. Its pre-registered FAIL branch is this one: replace the
+screen with one Claude call over the whole document that lists contradicting pairs with quotes. Issue:
+https://github.com/linardsb/ux-factory/issues/466.
+
+**Who wrote it, and when.** The implementing session, on 2026-09-27, before any paid call of #466. The commit
+that adds this section is the receipt; it precedes the `ranAt` of all three run files below. Its sha is recorded
+in the implementation report and the PR body, and the branch `feature/claude-contradiction-screen-466` is kept
+after merge, because a squash merge erases the commit from `main`. It is a request, a parse, a mapping and a
+scoring rule, not a verdict.
+
+**What is sent.** Exactly `claudeRequest(document)` from `portal/lib/discovery-screen.mjs`: the model, the system
+text below, and the document between the delimiters `<<<DOCUMENT` and `DOCUMENT>>>`, each on its own line.
+
+- Model: **`claude-opus-5`**. The owner chose it on 2026-09-27 (Q2), over the plan's default `claude-sonnet-5`,
+  so that a 0/3 is not left open to "a stronger model would have found them". This exceeds the issue's
+  ≈ $0.03–0.05 per screen **on purpose**. The expected cost is ≈ $0.10–0.30 per fixture run (derived:
+  ≈ 8k input tokens × $5/M, plus 2–10k output tokens including thinking × $25/M).
+- `K = 10`.
+- **promptSha = 004edd0bb4bfcf17094b9376bf613f18bb24789086504a0cbec28a09f35b7a2a**. This is `claudePromptSha()`, the sha-256 of `JSON.stringify(CLAUDE_SCREEN)` (model, K,
+  system and both delimiters). The CLI refuses a paid call unless this line carries the code's sha, and
+  build-checks 45.13 fails if the two differ.
+- The system text, verbatim:
+
+```text
+You check one product requirements document for internal contradictions. A contradiction is two statements in this document that cannot both be true of the same product at the same time. Only the document against itself counts: not the document against the world, and not a gap, a risk, a vague passage or a missing detail.
+
+Return at most 10 pairs, strongest first. Fewer is a good answer, and an empty list is the right answer when there are none.
+
+Each side is a quote copied character for character from the document: one contiguous span inside a single paragraph, list item or table cell, long enough to occur only once in the document. No ellipsis, no paraphrase, no added words.
+
+Answer with one JSON object and nothing else, in exactly this shape:
+{"pairs":[{"quote_a":"…","quote_b":"…","why":"one sentence on why both cannot hold"}]}
+```
+
+- Harness options (`portal/lib/discovery-screen-call.mjs`): `tools: []`, `allowedTools: []`, `mcpServers: {}`,
+  `strictMcpConfig: true`, `maxTurns: 1`, no `settingSources` (so no CLAUDE.md and no settings file), an empty
+  temp `cwd`, and an abort after `CLAUDE_TIMEOUT_MS` (600 s, kept outside the hashed table). The init message must
+  advertise no tool and no MCP server, or the call is refused before the model answers.
+- Nothing else leaves the machine: not this file, not `labels.json`, not a run-2 file.
+
+**Why plain JSON and not `outputFormat`.** The SDK's `outputFormat: {type: 'json_schema'}` runs as an extra
+structured-output turn with its own failure subtype. Whether that works under `maxTurns: 1` with no tools cannot be
+shown without a paid call before this commit. Plain JSON text with the parse rule below is deterministic.
+
+**Output shape and parse** (`parseClaudeAnswer`). The model is asked for `{"pairs":[{"quote_a","quote_b","why"}]}`.
+
+1. Trim. If the text starts with a code fence, drop its first line, and if it then ends with a fence, drop that
+   line (`parsedBy: "fence"`).
+2. `JSON.parse`. On failure, one fallback: parse the substring from the first `{` to the last `}`
+   (`parsedBy: "braces"`). A second failure is `not JSON`.
+3. The top level must be an object with an array `pairs`. Anything else is a named parse failure.
+4. Each item needs a non-empty string `quote_a`, a non-empty string `quote_b` and a string `why`. A malformed
+   item is counted, never kept, and does not fail the rest. Extra keys are ignored.
+
+An unparseable answer is still the run. It writes no pair line and a summary naming why, and it scores 0.
+
+**Quote → claim mapping** (`mapQuote`). Quotes map through the document's SOURCE LINES and the committed claims
+(`fixture-claims.json` for the fixture; `splitClaims` otherwise), by this file's own mapping rule: a line `N` maps
+to the claim whose `line ≤ N ≤ endLine`. The splitter reformats claim text, so claim text is never matched.
+
+1. **Normalise** each source line and the quote the same way: straighten curly quotes; map em and en dashes to
+   `-`; map a non-breaking space to a space; replace a markdown link `[x](y)` with `x`; delete every `*`, `_` and
+   backtick; replace `\|` with `|`; collapse whitespace; trim; lower-case. For the quote only: a quote containing
+   `…` or `...` is **unmapped (ellipsis)**; then trailing `.`, `,`, `;` and `:` are stripped, and an empty result
+   is **unmapped (empty)**. No fuzzy matching of any kind.
+2. **Index**: the normalised non-empty lines, joined with one space, each with its source line number.
+3. **Find** every occurrence of the quote (overlaps allowed). An occurrence's claim set is every claim holding a
+   line the occurrence touches.
+4. **Decide**:
+   - no occurrence → **unmapped** (no claim);
+   - occurrences with different claim sets → **ambiguous** (repeated in two claims);
+   - an empty claim set (a heading, a table header or a separator row only) → **unmapped**;
+   - a claim set of two or more (the quote crosses a claim boundary) → **ambiguous**;
+   - exactly one claim → **mapped**.
+
+**Kept** (`mapPairs`). In returned order, a pair is kept when both sides are mapped, the two sides are on different
+claims, it does not repeat an earlier kept pair, and it is among the first `K = 10` such pairs. A dropped pair is
+`unmapped`, `ambiguous`, `same-claim`, `duplicate` or `outside-K`. The lower claim id is `a`.
+
+**Who answered.** `result.modelUsage` must carry `claude-opus-5` as a key. Another key (a helper call the harness
+bills) is reported with its cost and never changes the score. If the registered model is absent, the run is
+reported as answered by whatever `modelUsage` names, is scored as registered, and is never re-run.
+
+**Answered vs no answer.** A **no-answer** is a transport error, an abort or timeout, no result message, a
+non-success subtype, or `is_error: true`. It writes nothing and may be repeated, and every attempt and its cost
+are reported. The first **answered** call is the run: it is written whatever it says, scored as registered, and
+never repeated.
+
+**The mechanism smoke, and what "nothing moves" covers.** This commit fixes the prompt wording, the model, the
+output shape (with the parse) and the scoring (with the mapping and the kept rule). **None of them moves after
+this commit, for any reason.** Before the fixture run, one paid call screens `SMOKE_DOC` (below, verbatim from
+`tooling/jev-screen.mjs`), an invented product with one planted contradiction. It is never scored and shares no
+subject with the fixture or this file. It proves the harness only: no tool advertised, the registered model
+answering, and a result that parses. If it exposes a **harness** defect, only the harness options may change
+(`cwd`, `maxTurns`, `CLAUDE_TIMEOUT_MS`, the tools/MCP/settings isolation and the SDK plumbing in
+`discovery-screen-call.mjs`). Such a change is an amendment to this section, committed and pushed before the
+fixture run. A smoke answer that merely misses the planted contradiction changes nothing.
+
+```text
+# Kettle Club — product brief
+
+Kettle Club is a monthly tea subscription for people who brew loose-leaf tea at home.
+
+## What a member gets
+
+- One box a month with three loose-leaf teas and a tasting card.
+- Every box ships on the first Monday of the month.
+- Members can pause deliveries from their account page.
+
+## Operations
+
+Boxes ship on the 15th of each month from our Leeds warehouse.
+Tracking links are emailed the day a box leaves the warehouse.
+```
+
+**Scoring** (`tooling/jev-screen/claude-score.mjs`, `scoreClaudeRun`). The joins are the ones in §Contradiction
+class and §Tension-shaped above, read from `DIAGNOSTIC_JOINS` minus the three controls. A pair joins a finding when
+its two mapped ids equal one of the finding's joins as a set (for #8, two distinct positions).
+
+- **FOUND**: a kept pair joins it. **OUTSIDE K**: only a mapped pair dropped as `outside-K` joins it. **MISSED**:
+  otherwise. Never rounded up; an unmapped or ambiguous side joins nothing.
+- Report contradiction-class `found / 3`, with the tension-shaped findings itemised beside it and never added, and
+  every returned pair with its mapping status.
+- Precision = owner-judged real / kept, from `tooling/jev-screen/claude-labels.json`. It is reported **pending the
+  owner** until that file's `by` is `"owner"`. The session never writes a verdict.
+
+**The live check.** One paid call on `docs/epics/discovery-partner.prd.md` at its md5 when run (today
+`e820f96bf32f0dc3930779abb6fba61a`, 51,471 bytes), with the screened text embedded in its run file. It is reported
+beside the fixture score and never pooled with it. It is not scored against this rubric, because the live PRD is
+the document the findings were fixed in. Its kept pairs are listed for the owner's labels.
+
+**Decision tied to the result.** If at least 1 contradiction-class finding is FOUND, a later ticket *may* turn the
+screen on (issue requirement 5). This ticket turns nothing on: `SCREEN_AUDIT` stays `false`, and the route still
+screens only on `screen: true`.
+
+No wording, model, K, parse, mapping or scoring rule moves after this commit.
