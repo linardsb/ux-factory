@@ -1,0 +1,108 @@
+{
+  "by": null,
+  "at": null,
+  "screens": {
+    "claude-fixture": [
+      {
+        "a": {
+          "id": "c044",
+          "section": "discovery-partner.prd.md › MVP",
+          "text": "**The bank itself.** Seeded from the CXO doc's ten stages and twelve-question opening set, each question keeping its attribution and its weak-answer note. Four product-type branches: **B2B SaaS · internal tool · consumer · regulated** (regulated because the first run is regulated fintech; marketplace deferred). Plus a **non-functional block**, which closes a gap the repo has carried from the start: quality attributes are GATED hard here (WCAG pairs, INP ≤ 200 ms, contrast in build-checks, the 44px target-size call) and ELICITED nowhere, so a run currently produces functional decisions with no quality attributes attached to them. The block asks for performance budget, availability expectation, accessibility target and security boundary, each recorded as a decision with a wrong-if line like any other. And a conditional **AI-interaction module**, fired only when the product has a model. The CXO doc's Stage 8 is entirely GOVERNANCE — who owns the eval, what is the inference bill, which feature would you defend — and asks nothing about how a person instructs, corrects or stops a model, or what the interface does when it is wrong. Six areas, seeded from Amershi's HAX guidelines and Google PAIR's People + AI Guidebook (the house citation for AI-UX material, never a secondary re-cut): **prompt** (how the user instructs, refines, controls) · **conversational** (turn-taking, memory, follow-ups) · **agentic** (delegation, approvals, autonomy levels, task visibility) · **grounding** (citations, source confidence, retrieval) · **response patterns** (streaming, loading, regenerate, feedback) · **safety and trust** (privacy, guardrails, explainability). This module applies to THIS epic's own product — the partner delegates, asks approval, refuses, and streams — so the first run of it is a dogfood rather than a hypothetical."
+        },
+        "b": {
+          "id": "c054",
+          "section": "discovery-partner.prd.md › MVP",
+          "text": "**A transition note is the pack's seventh artefact.** D9 currently lists six, and none of them covers getting an organisation from today's state to the built one: data migration, training materials, support setup, business continuity. **Required for the internal-tool and regulated branches**, and explicitly markable n/a elsewhere — Faster Payment needs none of it, which is what makes n/a an honest answer rather than an escape hatch."
+        },
+        "real": null,
+        "note": ""
+      },
+      {
+        "a": {
+          "id": "c051",
+          "section": "discovery-partner.prd.md › MVP",
+          "text": "**The escape hatch.** An \"ask something else\" input at every step. The agent answers, then **files the exchange** against whichever banked question it touched, or as a new open question if it touches none. The door exists so the session can go where it needs to; the filing is what stops the door becoming an unrecorded side channel."
+        },
+        "b": {
+          "id": "c078",
+          "section": "discovery-partner.prd.md › Open questions",
+          "text": "[ ] **The escape hatch's filing rule.** What happens when an off-script exchange maps to no banked question — a new open question, a new decision, or dropped with a note?"
+        },
+        "real": null,
+        "note": ""
+      },
+      {
+        "a": {
+          "id": "c001",
+          "section": "discovery-partner.prd.md",
+          "text": "**Status:** intent, awaiting architecture · **Epic:** TBD (created by `piv-slice-epic`) · **Created:** 2026-08-26 **Inputs — both external to the repo and uncommitted at time of writing:** `2026-08-26-ux-factory-discovery-build-revamp.md` (the thinking doc; D1–D20, Q1–Q9) lives in the owner's vault at `Desktop/claude-code-second-brain/Fredis/Memory/thinking/`. `__CXO_CPO_VP_Product.md` (the question bank's research seed) sits untracked in the repo root. `docs/BRD/BRD.txt` (business-analysis methodology — the requirements hierarchy, BABOK's nine elicitation methods, transition requirements) is in the same vault as the thinking doc. The thinking doc's handoff step 1 — park all three where the PRD can cite them — is still open; until it is done, this PRD's evidence trail is not reachable by anyone but the owner. **Scope:** wave 1 of the revamp — the discovery half, in the portal, for the operator. The canvas (D6), component import (D7) and the guest instance (D1) are named here as non-goals and belong to later epics."
+        },
+        "b": {
+          "id": "c063",
+          "section": "discovery-partner.prd.md › Success metrics",
+          "text": "Metric: **Disclosure held** · Target: Always-loaded context ≤ **11k tokens** · How measured: Measured: CLAUDE.md words + every skill description · Cobra check → guardrail: Split Tier 0 into references a hook re-injects anyway → the budget is on what a session **loads**, not on file count. Baseline after the 2026-08-27 trim: **9.5k** (2,761-word CLAUDE.md + 73 skill descriptions at ~80 tokens each), leaving ~1.5k for the partner's own always-on body"
+        },
+        "real": null,
+        "note": ""
+      },
+      {
+        "a": {
+          "id": "c029",
+          "section": "discovery-partner.prd.md › Hypothesis",
+          "text": "**We'll know we're RIGHT if** the owner's *next real discovery session* starts in the UI rather than the terminal, and the Faster Payment run reaches a generated PRD in one sitting."
+        },
+        "b": {
+          "id": "c058",
+          "section": "discovery-partner.prd.md › Success metrics",
+          "text": "Metric: **Switch** · Target: The next real discovery session starts in the UI · How measured: Which front end was used, recorded in the run package · Cobra check → guardrail: Could be forced once out of loyalty → the **second** unprompted session must too, or the switch didn't happen"
+        },
+        "real": null,
+        "note": ""
+      }
+    ],
+    "claude-live": [
+      {
+        "a": {
+          "id": "c038",
+          "section": "discovery-partner.prd.md › Target user and JTBD",
+          "text": "**Secondary, named but out of scope: an invited guest** (a hiring manager) running the same workflow on their own product at an unlisted instance. The UI is built so the same screens serve them — no separate path, no operator-only affordances that would need unpicking. What is deferred is the *deployment*: auth, per-guest spend caps, abuse handling and a server-side runtime."
+        },
+        "b": {
+          "id": "c047",
+          "section": "discovery-partner.prd.md › Constraints",
+          "text": "**C3 — no job titles.** No role or seniority title appears in the bank, the UI, the run package, the generated PRD or this document. The questions stand on their own per-question attributions, which name people and publications rather than seniority. The bank's source file is named and cited accordingly."
+        },
+        "real": null,
+        "note": ""
+      },
+      {
+        "a": {
+          "id": "c044",
+          "section": "discovery-partner.prd.md › Constraints",
+          "text": "Two constraints bind everything below, and both were set during the grill rather than derived from the design."
+        },
+        "b": {
+          "id": "c047",
+          "section": "discovery-partner.prd.md › Constraints",
+          "text": "**C3 — no job titles.** No role or seniority title appears in the bank, the UI, the run package, the generated PRD or this document. The questions stand on their own per-question attributions, which name people and publications rather than seniority. The bank's source file is named and cited accordingly."
+        },
+        "real": null,
+        "note": ""
+      },
+      {
+        "a": {
+          "id": "c038",
+          "section": "discovery-partner.prd.md › Target user and JTBD",
+          "text": "**Secondary, named but out of scope: an invited guest** (a hiring manager) running the same workflow on their own product at an unlisted instance. The UI is built so the same screens serve them — no separate path, no operator-only affordances that would need unpicking. What is deferred is the *deployment*: auth, per-guest spend caps, abuse handling and a server-side runtime."
+        },
+        "b": {
+          "id": "c131",
+          "section": "discovery-partner.prd.md › Epic close — 2026-09-14",
+          "text": "**What wave 2 inherits:** the canvas (D6) and component import (D7) with Q2b and Q6 → [canvas-design-import.prd.md](./canvas-design-import.prd.md) (#295) · the guest path (D1), a different build rather than a deployment — per-guest spend caps cannot be metered against a subscription token, so it needs an API key, a budget ledger and a server-side runtime · D11's a11y gating, with #271 closed for shipped pages and the portal gated by review · D19's replace-then-remove · wiring elicited quality attributes into build-checks · a rung between full discovery and the whole bank for a product ticking three or more facets."
+        },
+        "real": null,
+        "note": ""
+      }
+    ]
+  }
+}

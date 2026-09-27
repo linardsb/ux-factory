@@ -15,6 +15,7 @@ import { draftRun, listScenarios, QUESTION_INPUTS, runBuild, stepEvent } from '.
 // import of ./lib/discovery-transport.mjs, after every guard — see portal/lib/discovery.mjs's header.
 import { assertProvenanceRoot, closeSession, discoveryConfig, documentOf, openSession, resolveRunRoot, resumeMismatch, runTurn, sessionView, turnEvent, withDiscoveryRunLock } from './lib/discovery.mjs';
 import { screenSession } from './lib/discovery-screen.mjs';
+import { askScreen } from './lib/discovery-screen-call.mjs';
 import { ACTS, DEFAULT_ANSWERS, QUADRANT_MEANINGS, QUESTIONS, SUMMARY_TERM } from '../system/build-questions.mjs';
 // The PRD fold (#290). Pure — no clock, no network, no SDK — and it WRITES NOTHING here: the route
 // below calls projectPrd over readPackage and streams the bytes, never writePrd. See #338 F1.
@@ -206,17 +207,18 @@ const server = createServer(async (req, res) => {
       // A 409 leaves the package untouched: openSession already returned the disk state, and no write
       // happens on the resume path.
       if (mismatch) return json(res, 409, { error: mismatch });
-      // #453. The contradiction screen, on an audit's CREATE path only (a resume never re-screens). It
-      // writes screen.jsonl once — the run's lines, or one `unavailable` line — and never throws for a
-      // Jev failure. The same resolveRunRoot + assertProvenanceRoot pair the GET route runs.
+      // #453 → #466. The contradiction screen, on an audit's CREATE path only (a resume never
+      // re-screens): one Claude call over the stored document (askScreen, injected). It writes
+      // screen.jsonl once — the run's lines, or one `unavailable` line — and never throws for a call
+      // failure. The same resolveRunRoot + assertProvenanceRoot pair the GET route runs.
       // OFF UNLESS ASKED (owner, 2026-09-27): it runs only when the request sends `screen: true`. Both
-      // measured screens found 0 of MVP 13's scored findings and kept 3 pairs, none real, so on by
-      // default it would put noise into every audit prompt. The drawer's SCREEN_AUDIT sends false.
+      // measured Jev screens found 0 of MVP 13's scored findings; #466 measures the Claude screen in
+      // tooling/jev-screen/ and turns nothing on. The drawer's SCREEN_AUDIT sends false.
       let screen = null;
       if (b.screen === true && view.created && view.head.entryMode === 'existing-prd') {
         const root = resolveRunRoot({ provenance: b.provenance, slug: b.slug });
         assertProvenanceRoot(b.provenance, root);
-        screen = await screenSession(root, documentOf(view.answers).text);
+        screen = await screenSession(root, documentOf(view.answers).text, { ask: askScreen });
       }
       return json(res, 200, screen ? { ...view, screen } : view);
     }

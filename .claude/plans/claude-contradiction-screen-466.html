@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Claude contradiction screen</title>
+<style>
+  :root { --bg:#faf9f7; --fg:#1f1e1c; --muted:#6b675f; --line:#e3dfd8; --card:#fff; --accent:#3d6b5a; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#171615; --fg:#ebe8e2; --muted:#9e998f; --line:#2e2c29; --card:#1f1e1c; --accent:#8fbfa9; } }
+  :root[data-theme="dark"] { --bg:#171615; --fg:#ebe8e2; --muted:#9e998f; --line:#2e2c29; --card:#1f1e1c; --accent:#8fbfa9; }
+  * { box-sizing:border-box }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, sans-serif; }
+  main { max-width:760px; margin:0 auto; padding:32px 16px 64px; }
+  h1 { font-size:26px; margin:0 0 4px } h2 { font-size:18px; margin:36px 0 12px }
+  .src { color:var(--muted); font-size:14px } a { color:var(--accent) }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:16px; margin:12px 0 }
+  .card h3 { margin:0 0 6px; font-size:16px }
+  pre { background:var(--bg); border:1px solid var(--line); border-radius:6px; padding:10px 12px; overflow-x:auto; font-size:13px; margin:10px 0 0 }
+  .flow { display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr)); gap:8px; align-items:stretch }
+  .box { border:1px solid var(--line); background:var(--card); border-radius:6px; padding:10px; font-size:14px; text-align:center }
+  .box b { display:block; color:var(--accent); font-size:12px; text-transform:uppercase; letter-spacing:.04em }
+  ol, ul { padding-left:20px } li { margin:4px 0 }
+  .prompts { list-style:none; padding:0 }
+  .prompts li { display:flex; justify-content:space-between; gap:12px; align-items:center; border-bottom:1px solid var(--line); padding:8px 0 }
+  .copy { opacity:.35; border:0; background:none; color:inherit; cursor:pointer; font-size:15px; line-height:1 }
+  .copy:hover, .copy:focus-visible { opacity:1 }
+  .copy::before { content:'⧉' } .copy.copied::before { content:'✓' }
+</style>
+</head>
+<body>
+<main>
+<h1>Claude contradiction screen</h1>
+<p class="src">Build brief · the full plan: <a href="claude-contradiction-screen-466.md">claude-contradiction-screen-466.md</a></p>
+
+<h2>What we're building and why</h2>
+<p>Today nothing reliably spots two sentences in a product spec (a PRD) that cannot both be true. The cheap classifier we tried found none of three known clashes. After this, one Claude call reads the whole spec and names the clashing pairs, and we measure it once.</p>
+
+<h2>The concepts this plan rests on</h2>
+
+<div class="card">
+<h3>Pre-registration</h3>
+<p>Write down the test and the pass mark before seeing any result. Here the prompt, model and scoring rule are saved in one commit (a dated snapshot in git) before the one paid call. Otherwise a good score could come from tweaking.</p>
+<pre>commit 1: "this is the question, this is how we score it"
+commit 2: the one answer, saved exactly as it came</pre>
+</div>
+
+<div class="card">
+<h3>Quote → claim mapping</h3>
+<p>Claude answers in quotes; the scoring sheet uses claim ids like c044. The mapper finds each quote in the document and names the one claim owning those lines. Two owners, or none, earns no credit.</p>
+<pre>"The bank itself. Seeded from…"  → lines 155–173 → c044
+"ten stages"  (in c044 and c048)  → ambiguous → no credit</pre>
+</div>
+
+<div class="card">
+<h3>Replay (record once, check forever)</h3>
+<p>The paid answer is saved exactly as it came. The free checks then feed it back through the real code and confirm the same pairs and score. Like re-watching a match recording instead of replaying the match.</p>
+</div>
+
+<div class="card">
+<h3>Injection seam</h3>
+<p>The screen never calls Claude itself; whoever runs it hands over an <code>ask</code> function. The server hands over the real call; the checks hand over a recording or a deliberate failure.</p>
+</div>
+
+<h2>How the pieces fit</h2>
+<div class="flow">
+  <div class="box"><b>Phase 0</b>Restore an earlier measurement that never reached main</div>
+  <div class="box"><b>Phases 1–3</b>Prompt, mapper, parser; the one call; the report page</div>
+  <div class="box"><b>Phase 4</b>Pre-register: lock the question</div>
+  <div class="box"><b>Smoke</b>One cheap practice call on a made-up spec, never scored</div>
+  <div class="box"><b>Phase 5a</b>One paid run on the fixed test copy of the spec</div>
+  <div class="box"><b>Phase 5b</b>One paid run on the current spec</div>
+  <div class="box"><b>Gate</b>Replay both, forever, for free</div>
+</div>
+
+<h2>The plan at a glance</h2>
+<ol>
+  <li><b>Restore the earlier measurement</b>: its files never reached main. Blocks everything.</li>
+  <li><b>Pure half</b>: prompt, parser, mapper, lines. Needs 0.</li>
+  <li><b>The call, route, CLI</b>: dry by default. Needs 1.</li>
+  <li><b>Projection</b>: the PRD's Tensions section. Needs 1 only.</li>
+  <li><b>Pre-register</b>: its own commit. Needs 1–3 and your model choice.</li>
+  <li><b>Two paid runs + replays</b>: needs 4.</li>
+</ol>
+<pre>portal/lib/discovery-screen.mjs        # + Claude prompt, mapper, parser; Jev kept as the record
+portal/lib/discovery-screen-call.mjs   # new: the one Claude call
+portal/server.mjs                      # hands the call to the screen (still off)
+discovery/prd-projection.mjs           # renders the new pair lines
+tooling/jev-screen.mjs                 # --claude (dry) / --claude --paid
+tooling/jev-screen/claude-score.mjs    # new: scores against the rubric's joins
+tooling/jev-screen/claude-*-run.json   # new: the two saved answers
+tooling/jev-screen/claude-labels.json  # new: blank for your verdicts
+docs/epics/fixtures/…screen-rubric.md  # + the pre-registration section
+tooling/build-checks.mjs               # new checks for the mapper and both replays</pre>
+<ul>
+  <li>Pre-registration commit precedes both runs.</li>
+  <li>The mapping rule is written down and can reach all 13 known joins.</li>
+  <li>Test-copy score reported as found / 3, softer findings beside it.</li>
+  <li>One run on the current spec, reported separately.</li>
+  <li>The screen stays off whatever the score.</li>
+  <li>Every new check fails once on purpose, then passes.</li>
+  <li>Your precision verdicts recorded (yours, not the session's).</li>
+  <li>Old reports render unchanged; the portal boots.</li>
+</ul>
+
+<h2>Go deeper</h2>
+<ul class="prompts">
+  <li data-prompt="/learn pre-registration in evaluations"><span><b>/learn pre-registration in evaluations</b> — why the test is frozen before the result.</span><button class="copy" aria-label="Copy prompt"></button></li>
+  <li data-prompt="/learn mapping quotes to source spans"><span><b>/learn mapping quotes to source spans</b> — normalising text and resolving ambiguity.</span><button class="copy" aria-label="Copy prompt"></button></li>
+  <li data-prompt="/learn record-and-replay testing"><span><b>/learn record-and-replay testing</b> — checking a paid answer for free, forever.</span><button class="copy" aria-label="Copy prompt"></button></li>
+  <li data-prompt="/learn dependency injection as a test seam"><span><b>/learn dependency injection as a test seam</b> — passing the call in instead of importing it.</span><button class="copy" aria-label="Copy prompt"></button></li>
+</ul>
+</main>
+<script>
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.copy')
+  if (!btn) return
+  const text = btn.closest('[data-prompt]').dataset.prompt
+  try {
+    await navigator.clipboard.writeText(text)
+  } catch {
+    const ta = Object.assign(document.createElement('textarea'), { value: text })
+    ta.style.cssText = 'position:fixed;opacity:0'
+    document.body.append(ta)
+    ta.select()
+    document.execCommand('copy')
+    ta.remove()
+  }
+  btn.classList.add('copied')
+  setTimeout(() => btn.classList.remove('copied'), 1200)
+})
+</script>
+</body>
+</html>

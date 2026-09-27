@@ -750,8 +750,10 @@ const RENDERERS = Object.freeze({
 });
 
 // ---------------------------------------------------------------------------------------------------
-// The contradiction screen's section (#453) — the SEVENTH source. screen.jsonl is the machine screen's
-// own lines (portal/lib/discovery-screen.mjs), rendered in their own section and NEVER as a decision:
+// The contradiction screen's section (#453, #466) — the SEVENTH source. screen.jsonl is the machine
+// screen's own lines (portal/lib/discovery-screen.mjs) — Jev's `pick`/`pair`/`summary` (the #453
+// record) or Claude's `quoted-pair`/`claude-summary` (#466) — rendered in their own section and NEVER
+// as a decision:
 // NOT a SECTIONS row, because SECTIONS feeds Create PRD's section brief and a row there would move
 // that posture's stamp. Absent screen.jsonl → no section, and the page is byte-identical to before.
 // ---------------------------------------------------------------------------------------------------
@@ -787,6 +789,8 @@ const keptRank = (x, y) => (y.relation.probabilities.contradicts - x.relation.pr
 function renderTensions(screen, ops) {
   const off = screen.find((l) => l?.type === "unavailable");
   if (off) return `**Screen did not run** — ${fold(off.reason)}. The audit ran without candidate tensions.`;
+  const claude = screen.find((l) => l?.type === "claude-summary");
+  if (claude) return renderClaudeTensions(claude, screen, ops);
   const sum = screen.find((l) => l?.type === "summary") ?? {};
   const kept = screen.filter((l) => l?.type === "pair" && l.kept).sort(keptRank);
   const out = [`Jev \`${fold(sum.model)}\` · ${sum.claims} claims · ${sum.kept} kept of ${sum.candidates} candidates · T_SAME ${sum.thresholds?.T_SAME} / T2 ${sum.thresholds?.T2} / K ${sum.thresholds?.K}. Machine screen, unverified: a pair below is what a classifier flagged, not a finding.`];
@@ -796,6 +800,21 @@ function renderTensions(screen, ops) {
     out.push("", `#### ${fold(p.a.id)} ↔ ${fold(p.b.id)} · contradicts ${p.relation.probabilities.contradicts.toFixed(2)} · ${r ? `raised by the audit (seq ${r.seq}, ${r.rule})` : "not raised"}`);
     for (const c of [p.a, p.b]) out.push("", `*${fold(c.id)}* — ${fold(c.section)}:`, "", blockquote(c.text));
     out.push("", "*Owner's verdict:* _not recorded here — see tooling/jev-screen/labels.json_");
+  }
+  return out.join("\n");
+}
+
+// The Claude screen (#466): the kept quoted pairs in returned order, each with the model's one-line why.
+function renderClaudeTensions(sum, screen, ops) {
+  const kept = screen.filter((l) => l?.type === "quoted-pair" && l.kept).sort((x, y) => x.index - y.index);
+  const out = [`Claude \`${fold(sum.model)}\` · ${sum.claims} claims · ${sum.returned} pair(s) returned · ${sum.kept} kept (both quotes on one claim each)${sum.parse !== "ok" ? ` · answer unparseable: ${fold(sum.parse)}` : ""}. Machine screen, unverified: a pair below is what a model flagged, not a finding.`];
+  if (!kept.length) out.push("", "The screen ran and kept no pair.");
+  for (const p of kept) {
+    const r = raisedBy(p, ops);
+    out.push("", `#### ${fold(p.a.id)} ↔ ${fold(p.b.id)} · quoted · ${r ? `raised by the audit (seq ${r.seq}, ${r.rule})` : "not raised"}`);
+    for (const c of [p.a, p.b]) out.push("", `*${fold(c.id)}* — ${fold(c.section)}:`, "", blockquote(c.text));
+    out.push("", `*Why (model):* ${fold(p.why)}`);
+    out.push("", "*Owner's verdict:* _not recorded here — see tooling/jev-screen/claude-labels.json_");
   }
   return out.join("\n");
 }

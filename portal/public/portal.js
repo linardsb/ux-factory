@@ -953,8 +953,9 @@ for (const id of ['#discovery-provenance', '#discovery-depth'])
   $(id).addEventListener('change', renderDiscoveryNotes);
 $('#discovery-entry').addEventListener('change', renderDiscoveryEntry);
 
-// #453: the contradiction screen before an audit. OFF (owner, 2026-09-27): both measured screens found
-// none of MVP 13's scored findings and kept only false alarms. The server screens only when this is true.
+// #453 → #466: the contradiction screen before an audit, now one Claude call. OFF (owner, 2026-09-27):
+// both measured Jev screens found none of MVP 13's scored findings; #466 measures Claude's and turns
+// nothing on. The server screens only when this is true.
 const SCREEN_AUDIT = false;
 
 $('#discovery-open').addEventListener('click', async () => {
@@ -972,7 +973,7 @@ $('#discovery-open').addEventListener('click', async () => {
   if (depthComposes() && plan.overflow.length) { $('#discovery-facet-note').scrollIntoView({ block: 'nearest' }); $('#discovery-start-status').textContent = `The vector overflows full discovery's ${plan.budget}: ${$('#discovery-facet-note').textContent}`; return; }
   // #453: an audit's create runs the contradiction screen before the route answers, and it can take a minute.
   $('#discovery-start-status').textContent = entryMode === 'existing-prd' && SCREEN_AUDIT
-    ? 'Screening the document for contradictions (Jev) — this can take up to a minute.'
+    ? 'Screening the document for contradictions (Claude) — this can take a few minutes.'
     : 'Opening…';
   try {
     discovery.session = await api('/api/discovery/session', {
