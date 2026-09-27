@@ -190,6 +190,8 @@
 
 #discovery-answer { font-family: var(--font-body); resize: vertical; }
 #discovery-question { margin: var(--spacing-xs) 0 0; }
+/* #454 — the answer-box guard's choice: advice beside the answer box, never a gate. */
+.portal-guard { border: 1px solid var(--color-border); padding: var(--spacing-md); margin-block: var(--spacing-md); }
 
 /* PRD Q4 — 44×44 minimum targets. The portal is not in the VR page set, so no gate covers this;
    it is honoured here, measured in a real browser, and recorded in the PR report. #288's controls —

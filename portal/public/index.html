@@ -243,6 +243,15 @@
           <textarea name="answer" id="discovery-answer" rows="6"></textarea>
         </label>
 
+        <!-- #454: Jev's pre-submit check. Advice only — the person's click decides, and nothing here is recorded. -->
+        <div id="discovery-guard" class="portal-guard" hidden>
+          <p id="discovery-guard-prompt"></p>
+          <div class="portal-form-actions">
+            <button class="btn btn-primary" type="button" id="discovery-guard-offscript"></button>
+            <button class="btn btn-secondary" type="button" id="discovery-guard-answer">Send as my answer</button>
+          </div>
+        </div>
+
         <div class="portal-form-actions">
           <button class="btn btn-primary" type="submit" id="discovery-submit">Submit answer</button>
           <!-- MVP 8 (#289): the person's reason IS the record, so it reads the answer box above. It

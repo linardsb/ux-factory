@@ -683,7 +683,7 @@ $('#chat-form').addEventListener('submit', async (e) => {
 // #288: `step` is the selected posture FLOW step (a stance) and `vectorDeclared` is D1b's distinction
 // — {} is no vector (the unfaceted list — 31 since #392), a declared all-false vector is the consumer preset (16).
 // Both are selection state for controls the config drives; neither is a copy of a rule.
-const discovery = { config: null, session: null, running: false, proposals: null, step: null, vectorDeclared: false };
+const discovery = { config: null, session: null, running: false, checking: false, guard: null, proposals: null, step: null, vectorDeclared: false };
 
 // #286: the entry mode, Grill's model and the audited document are read off the form like the rest —
 // the server refuses what it will not take, by name. `documentText` is the textarea's value; it goes
@@ -998,6 +998,8 @@ function renderDiscoverySession() {
   if (!s) return;
   $('#discovery-session').hidden = false;
   const { cursor, head } = s;
+  // #454: the guard's advice was about one question; once the table moves on it is stale.
+  if (discovery.guard && discovery.guard.questionId !== cursor.question?.id) hideGuardChoice();
   const depth = discovery.config.depths.find((d) => d.id === head.depth);
   // An audit (#286): the document is the answer, stored once, so the answer field is hidden and the
   // submit reads as what it does.
@@ -1318,9 +1320,15 @@ const DISCOVERY_TURN_CONTROLS = ['#discovery-submit', '#discovery-park', '#disco
 // ONE SSE read loop for all four. They differ only in the body they POST and the line they report
 // afterwards; a second parser would drift from this one, and both would be invisible to every gate,
 // because portal.js touches the DOM at module scope and no CI group can run it.
+//
+// It RESOLVES true only when the turn ran. An `error` event does not throw — the stream still ends
+// cleanly — so it sets `failed`, which keeps the error as the status line and both boxes as typed
+// (#454: a look-up that never ran once read "Nothing was filed" and had its box cleared).
 async function postDiscoveryTurn({ body, runningLine, settledLine, clearAnswer = false, clearOffScript = false }) {
-  if (discovery.running || !discovery.session) return;
+  if (discovery.running || !discovery.session) return false;
+  let failed = false;
   const { slug, provenance } = discoveryEls();
+  hideGuardChoice();
   discovery.running = true;
   for (const sel of DISCOVERY_TURN_CONTROLS) { const el = $(sel); if (el) el.disabled = true; }
   $('#discovery-log').innerHTML = '';
@@ -1344,7 +1352,7 @@ async function postDiscoveryTurn({ body, runningLine, settledLine, clearAnswer =
         const chunk = buf.slice(0, idx); buf = buf.slice(idx + 2);
         if (!chunk.startsWith('data: ')) continue;
         const ev = JSON.parse(chunk.slice(6));
-        if (ev.type === 'error') { $('#discovery-status').textContent = ev.message; continue; }
+        if (ev.type === 'error') { failed = true; $('#discovery-status').textContent = ev.message; continue; }
         if (ev.type === 'done') { discovery.session = ev.view; continue; }
         if (ev.type === 'text') discoveryLog('text', ev.text + (ev.truncated ? ' […the rest is in transcript.jsonl]' : ''));
         // #289: offScript and source ride the whitelist now, so an escape-hatch filing reads as one.
@@ -1354,11 +1362,14 @@ async function postDiscoveryTurn({ body, runningLine, settledLine, clearAnswer =
     }
     // Re-read from disk rather than trusting the stream's last word: the package is the state.
     discovery.session = await api(`/api/discovery/session?slug=${encodeURIComponent(slug)}&provenance=${encodeURIComponent(provenance)}`);
+    if (failed) return false;
     if (clearAnswer) $('#discovery-answer').value = '';
     if (clearOffScript) $('#discovery-offscript').value = '';
     $('#discovery-status').textContent = settledLine(discovery.session);
+    return true;
   } catch (err) {
     $('#discovery-status').textContent = `Failed: ${err.message}`;
+    return false;
   } finally {
     discovery.running = false;
     // renderDiscoverySession restores every label and re-derives every disabled state (#286, #289).
@@ -1391,17 +1402,15 @@ function offScriptStatus(session, intent) {
     : 'The exchange is recorded. The question above is still on the table.';
 }
 
-$('#discovery-form').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  if (discovery.running || !discovery.session) return;
-  // An audit turn (#286) sends no text: the document stored at session start is the answer, and the
-  // server refuses a text by name if one arrives.
-  const audit = discovery.session.head.entryMode === 'existing-prd';
-  const text = audit ? undefined : $('#discovery-answer').value;
-  if (!audit && !text.trim()) { $('#discovery-status').textContent = 'An answer is needed before the turn can run.'; return; }
-  const questionId = discovery.session.cursor.question.id;
+// The two off-script running lines, named once: the two controls below and the #454 guard's choice
+// fire the same turns, so they say the same thing.
+const LOOKUP_LINE = 'Looking it up — the agent may search the web. This spends real tokens.';
+const ASIDE_LINE = 'Taking that off-script — this spends real tokens.';
+
+// The banked submit, shared by the form and the guard's "Send as my answer" so the two cannot drift.
+const submitAnswer = ({ audit, questionId, text }) => {
   $('#discovery-submit').textContent = audit ? 'Auditing…' : 'Judging…';
-  await postDiscoveryTurn({
+  return postDiscoveryTurn({
     body: audit ? { questionId } : { questionId, text },
     runningLine: audit
       ? 'Auditing the document against this question — this spends real tokens.'
@@ -1409,6 +1418,96 @@ $('#discovery-form').addEventListener('submit', async (e) => {
     clearAnswer: true,
     settledLine: (s) => (s.cursor.done ? 'That was the last question in this depth.' : 'Turn recorded. The next question is below.'),
   });
+};
+
+// #454 — THE GUARD NEVER THROWS AND NEVER BLOCKS. Any failure (a non-2xx refusal, a hung portal, bad
+// JSON) is "answer", which is the submit this drawer made before the guard existed. The 2.5 s cap sits
+// above the server's 1.5 s Jev cap plus local overhead; it exists so a hung portal cannot hold a submit.
+async function guardVerdict(questionId, text) {
+  try {
+    const { slug, provenance } = discoveryEls();
+    const r = await fetch('/api/discovery/check-answer', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ slug, provenance, questionId, text }),
+      signal: AbortSignal.timeout(2500),
+    });
+    if (!r.ok) return 'answer';
+    const j = await r.json();
+    return j.verdict === 'look-up' || j.verdict === 'aside' ? j.verdict : 'answer';
+  } catch {
+    return 'answer';
+  }
+}
+
+function hideGuardChoice() {
+  $('#discovery-guard').hidden = true;
+  discovery.guard = null;
+}
+
+// The choice is the person's: Jev's verdict only decides whether they are asked. Nothing here is
+// recorded — the turn they pick is the record.
+function showGuardChoice(verdict, { questionId, text }) {
+  $('#discovery-guard-prompt').textContent = verdict === 'look-up'
+    ? 'This reads like a look-up. Send it to the agent to search, or send it as your answer?'
+    : 'This reads like something beside the question. Send it as "Ask something else", or as your answer?';
+  $('#discovery-guard-offscript').textContent = verdict === 'look-up' ? 'Send as a look-up' : 'Send as something else';
+  discovery.guard = { verdict, questionId, text };
+  $('#discovery-guard').hidden = false;
+  $('#discovery-guard-offscript').focus();
+}
+
+$('#discovery-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  // `checking` closes the double-submit window: `running` is only set inside postDiscoveryTurn, so a
+  // second Enter during the guard's check would otherwise start a second check and a second turn.
+  if (discovery.running || discovery.checking || !discovery.session) return;
+  // An audit turn (#286) sends no text: the document stored at session start is the answer, and the
+  // server refuses a text by name if one arrives. It never reaches the guard (#454 Design 5).
+  const audit = discovery.session.head.entryMode === 'existing-prd';
+  const text = audit ? undefined : $('#discovery-answer').value;
+  if (!audit && !text.trim()) { $('#discovery-status').textContent = 'An answer is needed before the turn can run.'; return; }
+  const questionId = discovery.session.cursor.question.id;
+  if (audit) { await submitAnswer({ audit, questionId, text }); return; }
+  discovery.checking = true;
+  for (const sel of [...DISCOVERY_TURN_CONTROLS, '#discovery-answer']) { const el = $(sel); if (el) el.disabled = true; }
+  $('#discovery-status').textContent = 'Checking which box this belongs in…';
+  let verdict;
+  try {
+    verdict = await guardVerdict(questionId, text);
+  } finally {
+    discovery.checking = false;
+    // Restores every disabled state and the submit label, BEFORE submitAnswer sets 'Judging…'.
+    renderDiscoverySession();
+  }
+  if (verdict === 'answer') await submitAnswer({ audit, questionId, text });
+  else {
+    $('#discovery-status').textContent = '';
+    showGuardChoice(verdict, { questionId, text });
+  }
+});
+
+// The answer changed, so the advice about the old text no longer applies.
+$('#discovery-answer').addEventListener('input', () => { if (discovery.guard) hideGuardChoice(); });
+
+// "Send as a look-up" / "Send as something else": the existing off-script turn, with the text moved to
+// the off-script box. The answer box KEEPS its text (owner, 2026-09-27): a mixed "look it up … answer
+// …" text is the norm, and the person trims it to their own answer.
+$('#discovery-guard-offscript').addEventListener('click', async () => {
+  const g = discovery.guard;
+  if (!g) return;
+  hideGuardChoice();
+  $('#discovery-offscript').value = g.text;
+  const ran = await offScriptControl(g.verdict, g.verdict === 'look-up' ? LOOKUP_LINE : ASIDE_LINE)();
+  // Only once the turn really ran: telling the person to trim away a look-up that failed is the silent
+  // loss this guard exists to stop.
+  if (ran) $('#discovery-status').textContent += ' Your answer box still holds that text — trim it to your own answer, then submit.';
+});
+// "Send as my answer": submitted unchanged, and the guard is not asked twice.
+$('#discovery-guard-answer').addEventListener('click', async () => {
+  const g = discovery.guard;
+  if (!g) return;
+  hideGuardChoice();
+  await submitAnswer({ audit: false, questionId: g.questionId, text: g.text });
 });
 
 // MVP 8 — PARK IT. The reason IS the record, so it reads the answer box: there is nothing to store if
@@ -1430,18 +1529,18 @@ $('#discovery-park').addEventListener('click', async () => {
 // filing rule pin separately in the record rather than being one event the agent classifies. Neither
 // closes the turn, so the answer box is deliberately NOT cleared: the person may have been mid-answer.
 const offScriptControl = (intent, runningLine) => async () => {
-  if (discovery.running || !discovery.session) return;
+  if (discovery.running || !discovery.session) return false;
   const text = $('#discovery-offscript').value;
-  if (!text.trim()) { $('#discovery-status').textContent = 'Say what you want looked up, or what the question did not ask for, then press the button again.'; return; }
-  await postDiscoveryTurn({
+  if (!text.trim()) { $('#discovery-status').textContent = 'Say what you want looked up, or what the question did not ask for, then press the button again.'; return false; }
+  return postDiscoveryTurn({
     body: { kind: 'off-script', intent, text },
     runningLine,
     clearOffScript: true,
     settledLine: (s) => offScriptStatus(s, intent),
   });
 };
-$('#discovery-lookup').addEventListener('click', offScriptControl('look-up', 'Looking it up — the agent may search the web. This spends real tokens.'));
-$('#discovery-aside').addEventListener('click', offScriptControl('aside', 'Taking that off-script — this spends real tokens.'));
+$('#discovery-lookup').addEventListener('click', offScriptControl('look-up', LOOKUP_LINE));
+$('#discovery-aside').addEventListener('click', offScriptControl('aside', ASIDE_LINE));
 
 // The PRD, without a terminal (#338 F1). #290 shipped the fold CLI-only, so the honest description of
 // the chain was "the session is entirely in the UI, and one terminal command afterwards produces the
