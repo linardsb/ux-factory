@@ -1,0 +1,94 @@
+{
+  "by": null,
+  "at": null,
+  "screens": {
+    "screen-run": [
+      {
+        "a": {
+          "id": "c005",
+          "section": "discovery-partner.prd.md › Problem",
+          "text": "**Nobody else can audit it.** A decision and the evidence behind it sit in the same paragraph or in neither. A stakeholder is asked to trust the author."
+        },
+        "b": {
+          "id": "c061",
+          "section": "discovery-partner.prd.md › Success metrics",
+          "text": "Metric: **Auditability** · Target: Every decision in the pack has an evidence link and a wrong-if line; every evidence row has a provenance label · How measured: Checked over the run package · Cobra check → guardrail: Gamed by labelling everything \"assumption\" → a decision resting only on assumptions is **flagged in the pack**, not counted as evidenced"
+        },
+        "real": null,
+        "note": ""
+      },
+      {
+        "a": {
+          "id": "c029",
+          "section": "discovery-partner.prd.md › Hypothesis",
+          "text": "**We'll know we're RIGHT if** the owner's *next real discovery session* starts in the UI rather than the terminal, and the Faster Payment run reaches a generated PRD in one sitting."
+        },
+        "b": {
+          "id": "c030",
+          "section": "discovery-partner.prd.md › Hypothesis",
+          "text": "**We'll know we're WRONG if** the owner reaches for `/think` in the terminal for that next real product anyway."
+        },
+        "real": null,
+        "note": ""
+      },
+      {
+        "a": {
+          "id": "c035",
+          "section": "discovery-partner.prd.md › Target user and JTBD",
+          "text": "**Secondary, named but out of scope: an invited guest** (a hiring manager) running the same workflow on their own product at an unlisted instance. The UI is built so the same screens serve them — no separate path, no operator-only affordances that would need unpicking. What is deferred is the *deployment*: auth, per-guest spend caps, abuse handling and a server-side runtime."
+        },
+        "b": {
+          "id": "c066",
+          "section": "discovery-partner.prd.md › Non-goals",
+          "text": "**No guest deployment.** No auth, no per-guest budget, no rate limiting, no unlisted instance, no server-side runtime. §8's \"no live LLM calls at view time\" and \"not a SaaS product\" stand unamended."
+        },
+        "real": null,
+        "note": ""
+      }
+    ],
+    "partner-audit-3": [
+      {
+        "a": {
+          "id": "c005",
+          "section": "discovery-partner.prd.md › Problem",
+          "text": "**Nobody else can audit it.** A decision and the evidence behind it sit in the same paragraph or in neither. A stakeholder is asked to trust the author."
+        },
+        "b": {
+          "id": "c061",
+          "section": "discovery-partner.prd.md › Success metrics",
+          "text": "Metric: **Auditability** · Target: Every decision in the pack has an evidence link and a wrong-if line; every evidence row has a provenance label · How measured: Checked over the run package · Cobra check → guardrail: Gamed by labelling everything \"assumption\" → a decision resting only on assumptions is **flagged in the pack**, not counted as evidenced"
+        },
+        "real": null,
+        "note": ""
+      },
+      {
+        "a": {
+          "id": "c029",
+          "section": "discovery-partner.prd.md › Hypothesis",
+          "text": "**We'll know we're RIGHT if** the owner's *next real discovery session* starts in the UI rather than the terminal, and the Faster Payment run reaches a generated PRD in one sitting."
+        },
+        "b": {
+          "id": "c030",
+          "section": "discovery-partner.prd.md › Hypothesis",
+          "text": "**We'll know we're WRONG if** the owner reaches for `/think` in the terminal for that next real product anyway."
+        },
+        "real": null,
+        "note": ""
+      },
+      {
+        "a": {
+          "id": "c035",
+          "section": "discovery-partner.prd.md › Target user and JTBD",
+          "text": "**Secondary, named but out of scope: an invited guest** (a hiring manager) running the same workflow on their own product at an unlisted instance. The UI is built so the same screens serve them — no separate path, no operator-only affordances that would need unpicking. What is deferred is the *deployment*: auth, per-guest spend caps, abuse handling and a server-side runtime."
+        },
+        "b": {
+          "id": "c066",
+          "section": "discovery-partner.prd.md › Non-goals",
+          "text": "**No guest deployment.** No auth, no per-guest budget, no rate limiting, no unlisted instance, no server-side runtime. §8's \"no live LLM calls at view time\" and \"not a SaaS product\" stand unamended."
+        },
+        "real": null,
+        "note": ""
+      }
+    ]
+  }
+}
