@@ -35,6 +35,7 @@ import { checkAnswer } from './lib/discovery-guard.mjs';
 // The recorded import (#311). Statically SDK-free (build-checks 43.1); the SDK is reached only inside
 // readBrilliant, which runImport calls for a selection read.
 import { dropTooLarge, editMapping, importView, isProposalName, readUpload, runImport } from './lib/import-run.mjs';
+import { suggest as suggestImport, SUGGEST_PROVENANCES } from './lib/import-suggest.mjs';
 
 const PUBLIC_DIR = path.join(PORTAL_DIR, 'public');
 const MIME = {
@@ -456,6 +457,9 @@ const server = createServer(async (req, res) => {
     }
 
     // --- the recorded import (#311) ---
+    // #455: both routes ask Jev about the parts the matcher could not name; the canvas journey turns it
+    // off (UXF_IMPORT_SUGGEST=off) so it never spends a call. It fails open inside suggest().
+    const suggesterFor = (prov) => (process.env.UXF_IMPORT_SUGGEST !== 'off' && SUGGEST_PROVENANCES.includes(prov) ? suggestImport : null);
     // A stale page is a 409 checked HERE, before runImport, as /api/canvas/save does: the in-lock check
     // stays as the second line, but a throw there reaches the catch-all as a 500. A refusal the owner
     // should read (not reachable, nothing selected, not an export) is DATA — 200 { refused }.
@@ -465,7 +469,7 @@ const server = createServer(async (req, res) => {
       assertProvenanceRoot(b.provenance, root);
       const conflict = saveConflict(path.join(root, 'build'), b.base);
       if (conflict) return json(res, 409, { error: conflict });
-      return json(res, 200, await runImport({ pkgRoot: root, provenance: b.provenance, base: b.base, entrance: b.entrance, ids: b.ids ?? null, mode: b.mode }));
+      return json(res, 200, await runImport({ pkgRoot: root, provenance: b.provenance, base: b.base, entrance: b.entrance, ids: b.ids ?? null, mode: b.mode, suggester: suggesterFor(b.provenance) }));
     }
     if (p === '/api/canvas/import/drop' && req.method === 'POST') {
       const provenance = url.searchParams.get('provenance');
@@ -478,7 +482,7 @@ const server = createServer(async (req, res) => {
       if (tooLarge) { req.resume(); return json(res, 200, { refused: tooLarge }); }
       const bytes = await readUpload(req);
       return json(res, 200, await runImport({ pkgRoot: root, provenance, base, entrance: 'drop', mode: Number(url.searchParams.get('mode') || 1),
-        file: { name: url.searchParams.get('name') || 'dropped file', bytes } }));
+        file: { name: url.searchParams.get('name') || 'dropped file', bytes }, suggester: suggesterFor(provenance) }));
     }
     if (p === '/api/canvas/import/view' && req.method === 'GET') {
       const provenance = url.searchParams.get('provenance');

@@ -1,0 +1,70 @@
+{
+  "by": null,
+  "at": null,
+  "nodes": [
+    {
+      "fixture": "import/fixtures/spike-c-instance.blueprint.txt",
+      "path": "ir.children[0].children[0]",
+      "layer": "Avatar",
+      "kind": "shape",
+      "label": null,
+      "note": ""
+    },
+    {
+      "fixture": "import/fixtures/spike-c-instance.blueprint.txt",
+      "path": "ir.children[0].children[1]",
+      "layer": "Text block",
+      "kind": "frame",
+      "label": null,
+      "note": ""
+    },
+    {
+      "fixture": "import/fixtures/spike-c-master.blueprint.txt",
+      "path": "ir.children[0].children[0]",
+      "layer": "Frame 1",
+      "kind": "frame",
+      "label": null,
+      "note": ""
+    },
+    {
+      "fixture": "import/fixtures/spike-c-master.blueprint.txt",
+      "path": "ir.children[0].children[0].children[0]",
+      "layer": "Avatar",
+      "kind": "shape",
+      "label": null,
+      "note": ""
+    },
+    {
+      "fixture": "import/fixtures/spike-c-master.blueprint.txt",
+      "path": "ir.children[0].children[0].children[1]",
+      "layer": "Text block",
+      "kind": "frame",
+      "label": null,
+      "note": ""
+    },
+    {
+      "fixture": "import/fixtures/spike-c-master.blueprint.txt",
+      "path": "ir.children[0].children[1]",
+      "layer": "Frame 2",
+      "kind": "frame",
+      "label": null,
+      "note": ""
+    },
+    {
+      "fixture": "import/fixtures/spike-c-master.blueprint.txt",
+      "path": "ir.children[0].children[1].children[0]",
+      "layer": "Avatar",
+      "kind": "shape",
+      "label": null,
+      "note": ""
+    },
+    {
+      "fixture": "import/fixtures/spike-c-master.blueprint.txt",
+      "path": "ir.children[0].children[1].children[1]",
+      "layer": "Text block",
+      "kind": "frame",
+      "label": null,
+      "note": ""
+    }
+  ]
+}

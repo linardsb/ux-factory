@@ -110,7 +110,7 @@ async function boot(attempt = 1) {
   childExit = null;
   child = spawn(process.execPath, [path.join(REPO, "portal/server.mjs")], {
     cwd: path.join(REPO, "portal"),
-    env: { ...process.env, PORT: String(port), JOBS_DIR: scratch, UXF_BRILLIANT_MCP: MCP_DOWN, UXF_IMPORT_TIMEOUT_MS: "8000" },
+    env: { ...process.env, PORT: String(port), JOBS_DIR: scratch, UXF_BRILLIANT_MCP: MCP_DOWN, UXF_IMPORT_TIMEOUT_MS: "8000", UXF_IMPORT_SUGGEST: "off" },
     stdio: ["ignore", fd, fd],
   });
   child.on("exit", (code, signal) => { childExit = { code, signal }; });
@@ -584,6 +584,10 @@ async function importPass(engine, base, page, t, step, errors) {
     let err = null;
     try { checkRecord(readRec("i1")); } catch (e) { err = e.message; }
     t("I2 · the record passes checkRecord", err === null, err ?? "");
+    // #455: the spawn inherits the shell's TYPESAFE_API_KEY, so the seam is what keeps the journey free.
+    const sugLine = readFileSync(path.join(importsDir(), "i1.transcript.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l)).filter((l) => l.type === "suggest").at(-1);
+    t("I2 · suggestions are off on the journey: the record carries suggestions [] and the transcript's suggest line says so",
+      canon(readRec("i1").suggestions) === canon([]) && sugLine?.ran === false && sugLine.reason === "suggestions are off on this call", JSON.stringify({ suggestions: readRec("i1").suggestions, sugLine }));
     const last = ledger("fp-import").at(-1);
     t("I2 · the ledger's last line is component.propose {name, i1, mode 1}", last?.op === "component.propose" && last.params?.recordId === "i1" && last.params?.name === name, JSON.stringify(last));
     const label = await page.locator("[data-import-label]").textContent();
@@ -631,7 +635,7 @@ async function importPass(engine, base, page, t, step, errors) {
     const fd = openSync(LOG, "a");
     const hang = spawn(process.execPath, [path.join(REPO, "portal/server.mjs")], {
       cwd: path.join(REPO, "portal"),
-      env: { ...process.env, PORT: String(port), JOBS_DIR: scratch, UXF_BRILLIANT_MCP: MCP_HANG, UXF_IMPORT_TIMEOUT_MS: "8000" },
+      env: { ...process.env, PORT: String(port), JOBS_DIR: scratch, UXF_BRILLIANT_MCP: MCP_HANG, UXF_IMPORT_TIMEOUT_MS: "8000", UXF_IMPORT_SUGGEST: "off" },
       stdio: ["ignore", fd, fd],
     });
     const b2 = `http://127.0.0.1:${port}`;

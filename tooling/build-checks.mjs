@@ -14650,9 +14650,366 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   group("jev screen", `discovery/claims.mjs + portal/lib/discovery-screen.mjs (#453, #466): IMPORTED in CI with no portal/node_modules, the splitter importing nothing and the screen only node built-ins, ./jev.mjs and the splitter, neither naming the SDK or zod · THE SPLITTER deterministic on the frozen fixture (its md5 pinned), equal claim by claim to the committed fixture-claims.json at the current CLAIMS_VERSION, ids gapless, every claim's first token on its own source span, and its rules driven on SYNTHETIC inputs (a fence, a table header and data rows, a nested item, a blockquote, CRLF, the heading path, a non-string and a 1000-claim refusal against a 999-claim control) · THE QUESTIONS (every other claim plus none, never the target; relation + same_subject) and a batching that preserves every question in order under the token budget and refuses an oversized one · SELECTION on labelled SYNTHETIC numbers through the pure functions only: a mutual pick deduplicated, T2 and T_SAME inclusive at 0.5, K+2 passing pairs capped at K, chooseT1's proviso returning the lowest fitting grid value · FAIL-VISIBLE through screenSession (the route's Claude screen) with injected FAILURES only — no ask refused by name before any write, an ask failure and a timeout each leaving exactly one unavailable line and no throw (askJev's own failures are group 44's), writeScreen refusing an existing file, readScreen an unknown type by line and accepting the Claude screen's two types · THE PROMPT: no block and Grill's two stamps unmoved with no tensions, the block between the document and GRILL_STANCE with TENSION_RULE once before PARENT_RULE, none of it in the turn prompt, its own stamp moved by one trailing space and pinned for Grill on Opus, refused on Think, Create PRD and the interview, and the transport and runTurn wiring read as source · THE JEV REPLAY of the committed real run (model, document, claims version and question wording bound; every request's question ids and timeout asserted; every line but ts reproduced; a flipped stage-2 answer moving kept as the positive control) · THE PROJECTION: no screen byte-identical, "Screen did not run", raisedBy by ids, by quotes, one id, one quote and the lowest seq, a synthetic Claude kept pair and an unparseable Claude answer rendered, and partner-audit-3's Tensions section byte-matched to its committed prd.md · labels.json matching both Jev screens' kept pairs and claude-labels.json both Claude runs' · THE STAGE-2 DIAGNOSTIC on the 16 pre-registered joins (model, document, claims version and question wording bound; the committed request equal to what diagnosticBatches builds today; RECOGNISED recomputed at the module's own T2 and T_SAME, pair by pair, and the verdict pinned FAIL 0/3, with a positive control that all-recognised contradiction joins read PASS) · THE CLAUDE SCREEN'S PURE HALF on labelled SYNTHETIC answers (a bare, a fenced and a prose-wrapped answer parsed and named, not JSON, no pairs array, one malformed item among two, an empty list) and on the REAL fixture (an 8-word window of every one of the 13 join claims mapped to its claim, c044 without its asterisks, a curly apostrophe, a hyphen for an em dash and an added full stop mapped; an ellipsis, an absent string and a heading unmapped; a repeated phrase and a boundary-crossing span ambiguous; no two claims' spans overlapping; same-claim, duplicate and 12 pairs → 10 kept then outside-K), tensionsOf dispatching on the line family, and claudePromptSha plus the verbatim system text bound to the rubric's pre-registration · THE CLAUDE REPLAYS of the committed fixture and smoke runs (45.14) and live run (45.15, its screened text embedded and md5-bound): model, document, claims version, promptSha and the exact request bound, init advertising no tool and no MCP server, the registered model in modelUsage, the one response replayed verbatim through screenSession with CLAUDE_TIMEOUT_MS and every line but ts reproduced, the fixture's score pinned to the rubric's §Result (1/3, #2 FOUND), a c043 ↔ c077 pair scoring #6 FOUND alone and OUTSIDE K as the 11th as the positive control, and this file never naming the paid call · and git status unchanged across the group${notes.length ? ` · NOTE: ${notes.join("; ")}` : ""}. What it cannot reach: the live APIs today (the committed responses are what was measured), run-to-run variance (one run of the diagnostic and of each Claude run), whether Jev's picks or Claude's pairs generalise beyond the one fixture, whether a kept pair is real (the owner's labels in tooling/jev-screen/labels.json and claude-labels.json), and the route and the drawer (server.mjs imports chat.mjs, which reaches the SDK, and portal.js has no CI runner — the drawer walk of partner-audit-3 is the observation)`);
 }
 
+// --- 46 · machine suggestions for unnamed import nodes (#455) -----------------------------------------
+//
+// portal/lib/import-suggest.mjs (one Jev Choice question per node the matcher could not name, top 3
+// stored BESIDE the verdict), its record field in import/report.mjs, its wiring through runImport and
+// editMapping, the canvas routes' seam and the operator CLI's labels checker, bound to the committed
+// real responses in tooling/import-suggest/spike-c-run.json.
+//
+// THE HONESTY RULE FOR THIS GROUP (group 44's, mirrored): every probability it reads comes from
+// spike-c-run.json, which tooling/import-suggest.mjs --run wrote from real API responses. An injected
+// `ask` or `fetchImpl` may only FAIL — throw, reject, report a status, or answer the wrong model — or
+// REPLAY a committed response verbatim, matched by question id. And every case injects `ask`, `key` or
+// `fetchImpl`: the operator's real key is in process.env when this runs locally. The checkRecord and
+// projectRecord cases may build a SYNTHETIC record, labelled so in the message, because they test the
+// template, not Jev.
+//
+// WHAT THIS GROUP CANNOT REACH: the live API today (the committed responses are what was measured),
+// whether Jev's ranking is right (the owner's labels.json and --report are the observation), the canvas
+// page (the portal has no CI runner — the owner-run walk is the observation), and the route wiring
+// beyond the source pin (server.mjs imports chat.mjs, which reaches the SDK).
+
+{
+  const { cpSync } = await import("node:fs");
+  const { walk } = await import("../import/ir.mjs");
+  const deep = (v) => (v && typeof v === "object" && !Array.isArray(v)
+    ? `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${deep(v[k])}`).join(",")}}`
+    : (Array.isArray(v) ? `[${v.map(deep).join(",")}]` : JSON.stringify(v)));
+  const threw = (fn) => { try { fn(); return null; } catch (e) { return e.message; } };
+  const fold = (what, fn, fallback = null) => {
+    try { return fn(); } catch (e) { ok(false, `${what} threw instead of answering: ${e.message}`); return fallback; }
+  };
+  const afold = async (what, fn, fallback = null) => {
+    try { return await fn(); } catch (e) { ok(false, `${what} threw instead of answering: ${e.message}`); return fallback; }
+  };
+  const sha = (s) => createHash("sha256").update(s).digest("hex");
+  const temps = [];
+  const scratch = (tag) => { const d = mkdtempSync(join(tmpdir(), `uxf-g46-${tag}-`)); temps.push(d); return d; };
+  const pkgCopy = (tag) => { const d = join(scratch(tag), "pkg"); cpSync(join(ROOT, "discovery/faster-payment"), d, { recursive: true }); return d; };
+  const ledger = (pkg) => readFileSync(join(pkg, "build/ops.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
+  const noTs = (list) => (list ?? []).map(({ ts, ...rest }) => rest);
+  const decomment = (file) => readFileSync(join(ROOT, file), "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  const gitSnap = () => execFileSync("git", ["status", "--porcelain", "--", "import", "portal/lib", "tooling/import-suggest", "handoff", "system", "discovery"], { cwd: ROOT, encoding: "utf8" });
+  const GIT_BEFORE = gitSnap();
+  const INSTANCE_FX = "import/fixtures/spike-c-instance.blueprint.txt";
+  const MASTER_FX = "import/fixtures/spike-c-master.blueprint.txt";
+  const MASTER_PATHS = ["ir.children[0].children[0]", "ir.children[0].children[0].children[0]", "ir.children[0].children[0].children[1]",
+    "ir.children[0].children[1]", "ir.children[0].children[1].children[0]", "ir.children[0].children[1].children[1]"];
+
+  // --- 46.1 the import graph: jev.mjs and the IR only — no SDK, no zod ---------------------------------
+  let S = null, J = null, M = null, CLI = null;
+  try {
+    S = await import("../portal/lib/import-suggest.mjs");
+    J = await import("../portal/lib/jev.mjs");
+    M = await import("../portal/lib/import-run.mjs");
+    CLI = await import("./import-suggest.mjs");
+  } catch (e) { ok(false, `46.1: import-suggest.mjs, import-run.mjs or tooling/import-suggest.mjs did not import (${e.message}) — CI has no portal/node_modules, so the suggester must stay SDK- and zod-free`); }
+  const sugCode = decomment("portal/lib/import-suggest.mjs");
+  const sugFrom = [...sugCode.matchAll(/^\s*import\s+(?:[^'"]*?from\s+)?["']([^"']+)["']/gm)].map((m) => m[1]);
+  const SUG_ALLOWED = ["./jev.mjs", "../../import/ir.mjs"];
+  ok(deep(sugFrom) === deep(SUG_ALLOWED), `46.1: import-suggest.mjs imports ${JSON.stringify(sugFrom)} beyond ${JSON.stringify(SUG_ALLOWED)} — exactly the Jev client and the IR walk`);
+  ok(!/claude-agent-sdk|\bzod\b/.test(sugCode), "46.1: import-suggest.mjs names zod or the Agent SDK — it must stay SDK- and zod-free");
+  ok(S && deep(S.SUGGEST_PROVENANCES) === deep(["fictional", "real"]), `46.1: SUGGEST_PROVENANCES is ${deep(S?.SUGGEST_PROVENANCES)} — both provenances (owner, 2026-09-27, Q1)`);
+  ok(S && Object.keys(S).every((k) => !/THRESHOLD|^T_|^T\d/.test(k)), `46.1: import-suggest.mjs exports a threshold (${Object.keys(S ?? {}).filter((k) => /THRESHOLD|^T_|^T\d/.test(k)).join(", ")}) — ticket A4: none until labelled data supports one`);
+
+  if (S && J && M && CLI) {
+    const INPUTS = fold("loadInputs()", () => M.loadInputs(), null);
+    const pipeOf = (fx) => fold(`runPipeline(${fx})`, () => M.runPipeline({ text: readFileSync(join(ROOT, fx), "utf8"), tool: "brilliant", ...INPUTS }), null);
+    const INSTANCE = pipeOf(INSTANCE_FX), MASTER = pipeOf(MASTER_FX);
+    const RUN_FILE = join(ROOT, CLI.RUN_FILE);
+    const RUN = existsSync(RUN_FILE) ? JSON.parse(readFileSync(RUN_FILE, "utf8")) : null;
+    const readOf = (fx) => RUN?.reads?.find((r) => r.fixture === fx) ?? null;
+    // Replays a committed response VERBATIM, matched by the one question id the request carries.
+    const replayAsk = (read) => {
+      const fn = async (body) => {
+        fn.calls += 1;
+        const ids = Object.keys(body?.questions ?? {});
+        if (ids.length !== 1) throw new Error(`replay: a request carried ${ids.length} questions, one per request`);
+        const q = read?.requests?.find((r) => r.id === ids[0]);
+        if (!q) throw new Error(`replay: no committed request ${ids[0]}`);
+        return structuredClone(q.response);
+      };
+      fn.calls = 0;
+      return fn;
+    };
+    const counting = () => { const fn = async () => { fn.calls += 1; throw new Error("counted, never answered"); }; fn.calls = 0; return fn; };
+
+    // --- 46.2 the trigger is code --------------------------------------------------------------------
+    const instPaths = INSTANCE ? S.unnamedPaths(INSTANCE.verdict) : [];
+    ok(deep(instPaths) === deep(["ir.children[0].children[0]", "ir.children[0].children[1]"]),
+      `46.2: unnamedPaths over the instance answered ${instPaths.length} paths ${JSON.stringify(instPaths)} — the avatar disc (floor) and the text block (structural-fallback)`);
+    const mastPaths = MASTER ? S.unnamedPaths(MASTER.verdict) : [];
+    ok(deep(mastPaths) === deep(MASTER_PATHS), `46.2: unnamedPaths over the master answered ${JSON.stringify(mastPaths)}, expected ${JSON.stringify(MASTER_PATHS)}`);
+    ok(!S.SUGGEST_VIA.includes("scored"), `46.2: SUGGEST_VIA ${JSON.stringify(S.SUGGEST_VIA)} includes "scored" — report.mjs refuses a suggestion on a scored node, so the two rules would disagree`);
+    if (INSTANCE) {
+      const allScored = structuredClone(INSTANCE.verdict);
+      const go = (v) => { if (v.kind) v.via = "scored"; (v.children ?? []).forEach(go); };
+      go(allScored);
+      const c = counting();
+      const r = await afold("suggest over an all-scored verdict", () => S.suggest({ ir: INSTANCE.ir, verdict: allScored, vocab: INPUTS.vocab }, { ask: c }), {});
+      ok(c.calls === 0 && r?.ran === false && r.reason === "no unnamed node" && deep(r.suggestions) === "[]",
+        `46.2: SYNTHETIC all-scored verdict — ${c.calls} calls, ${deep(r)} — no unnamed node means no call`);
+    }
+
+    // --- 46.3 the state filter ---------------------------------------------------------------------
+    for (const [label, pipe] of [["instance", INSTANCE], ["master", MASTER]]) {
+      if (!pipe) continue;
+      const byPath = new Map();
+      walk(pipe.ir, (n, p) => byPath.set(p, n));
+      for (const p of S.unnamedPaths(pipe.verdict)) {
+        const st = fold(`nodeState(${p})`, () => S.nodeState(byPath.get(p)), {});
+        const extra = Object.keys(st).filter((k) => !S.TEMPLATE.stateKeys.includes(k));
+        ok(extra.length === 0, `46.3: nodeState(${p}) carries ${extra.join(", ")} (${label}) — only ${S.TEMPLATE.stateKeys.join(", ")} leave the machine`);
+        ok(!/\b[0-9a-f]{16}\b|#[0-9a-fA-F]{6}\b/.test(JSON.stringify(st)), `46.3: nodeState(${p}) (${label}) carries an IR id or a colour: ${JSON.stringify(st)}`);
+      }
+      if (label === "instance") {
+        const tb = fold("nodeState(text block)", () => S.nodeState(byPath.get("ir.children[0].children[1]")), {});
+        ok(deep(tb.texts) === deep(["Amara Okafor", "Last seen 2 min ago"]) && tb.dir === "column" && tb.layer === "Text block",
+          `46.3: the text block's state is ${JSON.stringify(tb)} — its two texts, dir column, layer "Text block"`);
+      }
+    }
+    const many = { kind: "frame", name: "SYNTHETIC", children: Array.from({ length: 9 }, (_, i) => ({ kind: "text", name: `t${i}`, text: { content: "a".repeat(200) }, children: [] })) };
+    const cut = fold("nodeState(SYNTHETIC 9 texts)", () => S.nodeState(many), {});
+    ok(cut.texts?.length === S.MAX_TEXTS && cut.texts.every((t) => t.length === S.MAX_TEXT_CHARS) && S.MAX_TEXTS === 5 && S.MAX_TEXT_CHARS === 80,
+      `46.3: a SYNTHETIC node with 9 texts of 200 chars gave ${cut.texts?.length} texts of ${cut.texts?.map((t) => t.length).join("/")} — 5 of 80`);
+
+    // --- 46.4 the criteria -------------------------------------------------------------------------
+    const crit = fold("criteriaFrom(VOCAB)", () => S.criteriaFrom(VOCAB), {});
+    ok(Object.hasOwn(crit, "stack"), "46.4: stack is missing from the options — a ranking for a human keeps it (ticket Design 3)");
+    ok(deep(Object.keys(crit)) === deep([...Object.keys(VOCAB.components), S.NONE]),
+      `46.4: the options are ${JSON.stringify(Object.keys(crit))} — every vocabulary slug in vocabulary order, then "none"`);
+    const notVerbatim = Object.keys(VOCAB.components).filter((s) => crit[s] !== (VOCAB.components[s].usage ?? null));
+    ok(notVerbatim.length === 0 && crit.none === S.TEMPLATE.none, `46.4: the criteria for ${notVerbatim.join(", ") || "none"} are not the entry's usage verbatim`);
+    ok(threw(() => S.criteriaFrom({ components: { ...VOCAB.components, none: { usage: "x" } } }))?.includes("none"), "46.4: a vocabulary with a component named none was accepted");
+    ok(threw(() => S.criteriaFrom({ components: {} })) !== null, "46.4: an empty vocabulary was accepted");
+
+    // --- 46.5 the committed run --------------------------------------------------------------------
+    ok(RUN, `46.5: ${CLI.RUN_FILE} is missing — run \`node tooling/import-suggest.mjs --run\` (needs TYPESAFE_API_KEY)`);
+    if (RUN) {
+      ok(RUN.model === J.JEV_MODEL, `46.5: spike-c-run.json was answered by ${RUN.model}, the client pins ${J.JEV_MODEL} — re-run`);
+      ok(RUN.templateSha === sha(JSON.stringify(S.TEMPLATE)), "46.5: TEMPLATE changed since spike-c-run.json was recorded — re-run");
+      ok(RUN.inFlight === S.MAX_IN_FLIGHT, `46.5: the run used inFlight ${RUN.inFlight}, the module's MAX_IN_FLIGHT is ${S.MAX_IN_FLIGHT}`);
+      ok(RUN.note === CLI.NOTE, "46.5: the run file's note is not the CLI's NOTE — the file was edited, or the note moved without a re-run");
+      ok(deep(RUN.reads.map((r) => r.fixture)) === deep([...CLI.READS]) && deep([...CLI.READS]) === deep([INSTANCE_FX, MASTER_FX]),
+        `46.5: the run reads ${JSON.stringify(RUN.reads.map((r) => r.fixture))} — spike C's instance then master (Q2)`);
+      for (const [fx, pipe] of [[INSTANCE_FX, INSTANCE], [MASTER_FX, MASTER]]) {
+        const read = readOf(fx);
+        if (!read || !pipe) { ok(false, `46.5: no committed read or no pipeline for ${fx}`); continue; }
+        ok(read.fixtureSha256 === sha(readFileSync(join(ROOT, fx))), `46.5: ${fx} changed since the run — its sha256 is not the committed ${read.fixtureSha256}`);
+        const { questions, paths } = fold(`questionsFor(${fx})`, () => S.questionsFor(pipe.ir, pipe.verdict, INPUTS.vocab), { questions: {}, paths: {} });
+        ok(read.requests.length === Object.keys(questions).length, `46.5: ${fx} has ${read.requests.length} committed requests for ${Object.keys(questions).length} unnamed nodes`);
+        for (const q of read.requests) {
+          const ids = Object.keys(q.body?.questions ?? {});
+          ok(ids.length === 1 && ids[0] === q.id, `46.5: ${fx} request ${q.id} carried questions ${JSON.stringify(ids)} — one node per request`);
+          ok(q.body?.model === J.JEV_MODEL, `46.5: ${fx} request ${q.id} asked ${q.body?.model}`);
+          ok(questions[q.id] && deep(q.body.questions[q.id].instructions) === deep(questions[q.id].instructions),
+            `46.5: ${fx} ${q.id}: the node state sent is not what questionsFor builds today — the state builder moved since the run; re-run`);
+          const tok = q.response?.usage?.input_tokens;
+          ok(Number.isFinite(tok) && tok <= CLI.MAX_ACCEPTED, `46.5: ${fx} ${q.id} was ${tok} input tokens — at most ${CLI.MAX_ACCEPTED}, the largest observed accepted (R1)`);
+        }
+        const reparsed = read.requests.map((q) => fold(`parseAnswer(${fx} ${q.id})`, () => ({ path: paths[q.id],
+          ...S.parseAnswer(q.response.answers[q.id], Object.keys(q.body.questions[q.id].criteria), `answers.${q.id}`), model: q.response.model }), null));
+        ok(deep(reparsed) === deep(noTs(read.suggestions)), `46.5: ${fx}: parsing the committed answers gives ${deep(reparsed)}, the run's suggestions say ${deep(noTs(read.suggestions))}`);
+        for (const s of read.suggestions) {
+          ok(s.top.length === 3 && s.top.every((t, i) => t.p >= 0 && t.p <= 1 && (i === 0 || t.p <= s.top[i - 1].p)),
+            `46.5: ${fx} ${s.path}'s top is ${deep(s.top)} — three items, non-increasing, each in [0, 1]`);
+        }
+      }
+    }
+
+    // --- 46.6 parseAnswer's refusals, each on a broken copy of a committed answer ---------------------
+    const q0 = RUN?.reads?.[0]?.requests?.[0];
+    if (q0) {
+      const opts = Object.keys(q0.body.questions[q0.id].criteria);
+      const answer = q0.response.answers[q0.id];
+      ok(threw(() => S.parseAnswer(structuredClone(answer), opts)) === null, `46.6: POSITIVE CONTROL — the unbroken committed answer was refused: ${threw(() => S.parseAnswer(answer, opts))}`);
+      const k0 = Object.keys(answer.probabilities)[0];
+      for (const [label, brk, must] of [
+        ["type noul", (a) => { a.type = "noul"; }, "type"],
+        ["probabilities deleted", (a) => { delete a.probabilities; }, "probabilities"],
+        ["an answer naming avatr", (a) => { a.probabilities.avatr = 0; }, "avatr"],
+        ["a NaN", (a) => { a.probabilities[k0] = NaN; }, `probabilities.${k0}`],
+        ["a 1.5", (a) => { a.probabilities[k0] = 1.5; }, `probabilities.${k0}`],
+        ["confidence deleted", (a) => { delete a.confidence; }, "confidence"],
+      ]) {
+        const a = structuredClone(answer);
+        brk(a);
+        const m = threw(() => S.parseAnswer(a, opts));
+        ok(m !== null && m.includes(must), `46.6: ${label} was ${m === null ? "accepted" : `refused without naming ${must} (${m})`}`);
+      }
+      const partial = structuredClone(answer);
+      delete partial.probabilities[k0];
+      ok(threw(() => S.parseAnswer(partial, opts)) === null, "46.6: an answer missing one option was refused — a later vocabulary addition would red the committed run (R6)");
+    }
+
+    // --- 46.7 fail open through the real askJev (failures only), and the in-flight cap -----------------
+    if (INSTANCE && MASTER) {
+      const inst = { ir: INSTANCE.ir, verdict: INSTANCE.verdict, vocab: INPUTS.vocab };
+      const fetchAsk = (fetchImpl) => (b, o) => J.askJev(b, { ...o, key: "k", fetchImpl });
+      for (const [label, ask, must] of [
+        ["no key", (b, o) => J.askJev(b, { ...o, key: "" }), "TYPESAFE_API_KEY"],
+        ["a 429", fetchAsk(async () => new Response("slow down", { status: 429 })), "429"],
+        ["a timeout", fetchAsk(async () => { throw new DOMException("The operation was aborted due to timeout", "TimeoutError"); }), "timeout"],
+        ["another model", fetchAsk(async () => new Response(JSON.stringify({ model: "jev-9.9.9", answers: {}, usage: {} }), { status: 200 })), "jev-9.9.9"],
+      ]) {
+        const r = await afold(`suggest with ${label}`, () => S.suggest(inst, { ask }), {});
+        ok(r?.ran === false && deep(r.suggestions) === "[]" && String(r.reason).includes(must), `46.7: ${label} answered ${deep(r)} — ran false, [], a reason naming ${must}, and no throw`);
+      }
+      const z = counting();
+      const r0 = await afold("suggest with inFlight 0", () => S.suggest(inst, { ask: z, inFlight: 0 }), {});
+      ok(r0?.ran === false && z.calls === 0 && String(r0.reason).includes("inFlight"), `46.7: inFlight 0 answered ${deep(r0)} after ${z.calls} calls — refused, no call`);
+      const cap = counting();
+      const rc = await afold("suggest over the master with a failing ask", () => S.suggest({ ir: MASTER.ir, verdict: MASTER.verdict, vocab: INPUTS.vocab }, { ask: cap }), {});
+      ok(cap.calls === S.MAX_IN_FLIGHT && S.MAX_IN_FLIGHT === 4 && rc?.ran === false && rc.requests === cap.calls,
+        `46.7: a failing first wave made ${cap.calls} calls, expected ${S.MAX_IN_FLIGHT} — the next wave never starts (and the result says ${rc?.requests})`);
+      const rp = replayAsk(readOf(MASTER_FX));
+      const rr = await afold("suggest over the master, replayed", () => S.suggest({ ir: MASTER.ir, verdict: MASTER.verdict, vocab: INPUTS.vocab }, { ask: rp }), {});
+      ok(rp.calls === 6 && rr?.ran === true && rr.requests === 6 && deep(noTs(rr.suggestions)) === deep(noTs(readOf(MASTER_FX)?.suggestions)),
+        `46.7: the replayed master made ${rp.calls} calls and answered ${deep(rr && { ran: rr.ran, reason: rr.reason, n: rr.suggestions?.length })} — two waves, six suggestions equal to the committed ones`);
+    }
+
+    // --- 46.8 AC #1: the matcher's output is identical with and without suggestions ---------------------
+    const BP = readFileSync(join(ROOT, INSTANCE_FX));
+    const pa = pkgCopy("off"), pb = pkgCopy("on");
+    const runOf = (pkg, extra) => afold(`runImport (${extra.suggester ? "with" : "without"} suggestions)`, () => M.runImport({ pkgRoot: pkg, provenance: "real", base: ledger(pkg).length,
+      entrance: "drop", file: { name: "spike-c.txt", bytes: BP }, overridesDir: scratch("ov"), ...extra }), null);
+    const va = await runOf(pa, {});
+    const vb = RUN ? await runOf(pb, { suggester: (x) => S.suggest(x, { ask: replayAsk(readOf(INSTANCE_FX)) }) }) : null;
+    const recA = va && JSON.parse(readFileSync(join(pa, "build/imports/i1.json"), "utf8"));
+    const recB = vb && JSON.parse(readFileSync(join(pb, "build/imports/i1.json"), "utf8"));
+    const lastSuggest = (pkg) => readFileSync(join(pkg, "build/imports/i1.transcript.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l)).filter((l) => l.type === "suggest").at(-1);
+    if (recA && recB) {
+      const MATCHER = ["ir", "recognition", "drops", "snaps", "unbound", "mapping", "source", "fidelity"];
+      const moved = MATCHER.filter((k) => deep(recA[k]) !== deep(recB[k]));
+      ok(moved.length === 0, `46.8: the record's ${moved.join(", ")} differs with suggestions — Jev narrows, it never changes what the matcher made`);
+      ok(va.name === vb.name, `46.8: the proposal names differ (${va.name} vs ${vb.name})`);
+      for (const f of ["mapping.json", "template.txt", "spec.md", "block.css"]) {
+        const [x, y] = [pa, pb].map((p) => readFileSync(join(p, `build/proposals/${va.name}/${f}`)));
+        ok(x.equals(y), `46.8: proposals/${va.name}/${f} differs with suggestions`);
+      }
+      ok(deep(noTs(recB.suggestions)) === deep(noTs(readOf(INSTANCE_FX)?.suggestions)), `46.8: the record's suggestions ${deep(noTs(recB.suggestions))} are not the committed ones`);
+      ok(deep(recA.suggestions) === "[]", `46.8: with no suggester the record carries suggestions ${deep(recA.suggestions)} — []`);
+      const [la, lb] = [lastSuggest(pa), lastSuggest(pb)];
+      ok(la?.ran === false && la.reason === "suggestions are off on this call" && lb?.ran === true && lb.nodes === 2 && lb.requests === 2,
+        `46.8: the transcripts' suggest lines are ${deep(la)} and ${deep(lb)} — off, then ran over 2 nodes`);
+    } else ok(false, `46.8: a runImport did not complete (${va ? "with" : "without"} suggestions${RUN ? "" : "; no committed run"})`);
+
+    // --- 46.9 the record schema and its projection ------------------------------------------------------
+    const { checkRecord, projectRecord, REQUIRED_KEYS } = await import("../import/report.mjs");
+    // The break cases below index suggestions[0] and [1]: a replay that failed open would crash them.
+    ok(!recB || recB.suggestions?.length === 2, `46.9: the replayed record carries ${recB?.suggestions?.length} suggestions, not 2 — the cases below need both`);
+    if (recB?.suggestions?.length === 2) {
+      ok(threw(() => checkRecord(structuredClone(recB))) === null, `46.9: POSITIVE CONTROL — the replayed record is refused: ${threw(() => checkRecord(structuredClone(recB)))}`);
+      for (const [label, brk, must] of [
+        ["a suggestion on the scored status chip", (r) => { r.suggestions[0].path = "ir.children[0].children[2]"; }, "scored node"],
+        ["an unsorted top", (r) => { r.suggestions[0].top = [r.suggestions[0].top[1], r.suggestions[0].top[0], r.suggestions[0].top[2]]; }, "record.suggestions[0].top[1]"],
+        ["four items", (r) => { r.suggestions[0].top.push({ slug: "x", p: 0 }); }, "record.suggestions[0].top"],
+        ["a p of 1.2", (r) => { r.suggestions[1].top[0].p = 1.2; }, "record.suggestions[1].top[0].p"],
+        ["a duplicate path", (r) => { r.suggestions.push(structuredClone(r.suggestions[0])); }, "record.suggestions[2].path"],
+      ]) {
+        const r = structuredClone(recB);
+        brk(r);
+        const m = threw(() => checkRecord(r));
+        ok(m !== null && m.includes(must), `46.9: ${label} was ${m === null ? "accepted" : `refused without naming ${must} (${m})`}`);
+      }
+      const legacy = structuredClone(recB);
+      delete legacy.suggestions;
+      ok(threw(() => checkRecord(legacy)) === null && !REQUIRED_KEYS.includes("suggestions"), "46.9: a record with no suggestions key (legacy) is refused, or REQUIRED_KEYS names suggestions");
+      const mdB = projectRecord(recB), mdA = projectRecord(recA);
+      const section = mdB.slice(mdB.indexOf("**Machine suggestions"), mdB.indexOf("**Snaps**"));
+      ok(mdB.includes("**Machine suggestions (Jev, unratified)**") && recB.suggestions.every((s) => section.includes(`\`${s.path}\``)),
+        "46.9: the record's markdown lacks the Machine suggestions section or a suggested path");
+      ok(!section.includes("%") && !/\d{4}-\d{2}-\d{2}T/.test(section), "46.9: the suggestions section carries a % or an ISO timestamp — D9");
+      ok(mdA.includes("None on this record"), "46.9: an empty suggestions list does not say None on this record");
+      const faithful = JSON.parse(readFileSync(join(ROOT, "import/fixtures/records/spike-c-faithful.json"), "utf8"));
+      ok(!projectRecord(faithful).includes("Machine suggestions"), "46.9: the committed spike-c-faithful record renders a Machine suggestions line — a legacy record's markdown must not move");
+      const syn = structuredClone(recB);
+      syn.suggestions[0].top = [{ slug: "none", p: 0.5 }, { slug: "avatar", p: 0.3 }, { slug: "icon", p: 0.2 }];
+      const synLine = projectRecord(syn).split("\n").find((l) => l.includes(`\`${syn.suggestions[0].path}\``) && l.startsWith("- "));
+      ok(threw(() => checkRecord(structuredClone(syn))) === null && synLine?.includes("likely a new component"), `46.9: a SYNTHETIC none-first suggestion renders ${JSON.stringify(synLine)} — it says likely a new component`);
+      for (const s of recB.suggestions) {
+        const line = mdB.split("\n").find((l) => l.startsWith("- ") && l.includes(`\`${s.path}\``));
+        ok(Boolean(line?.includes("likely a new component")) === (s.top[0].slug === "none"), `46.9: ${s.path}'s line says likely-a-new-component ${line?.includes("likely a new component")} with top pick ${s.top[0].slug}`);
+      }
+      domStubControl();
+      globalThis.document = domStub("https://example.test/page");
+      try {
+        const render = (src) => renderMarkdown(document.createElement("div"), src);
+        const ragged = (root) => stubFindAll(root, "table").filter((t) => { const w = t.children.map((tr) => tr.children.length); return w.some((x) => x !== w[0]); });
+        ok(ragged(render("| a | b |\n| --- | --- |\n| x |")).length === 1, "46.9: CONTROL — the ragged-table detector missed a synthetic one; the record case proves nothing");
+        const root = render(mdB);
+        ok(ragged(root).length === 0 && stubFindAll(root, "ul").length >= 4, "46.9: the record's markdown renders a ragged table, or its lists did not reach the list branch");
+      } finally {
+        delete globalThis.document;
+      }
+    }
+
+    // --- 46.10 an edit carries suggestions forward ------------------------------------------------------
+    if (recB && vb) {
+      const before = deep(recB.suggestions);
+      const tp = "ir.children[0].children[1]";
+      await afold("editMapping(map stack)", async () => M.editMapping({ pkgRoot: pb, provenance: "real", name: vb.name, edit: { path: tp, map: "stack" }, overridesDir: scratch("ov-edit") }));
+      const rec2 = JSON.parse(readFileSync(join(pb, "build/imports/i1.json"), "utf8"));
+      const mp = JSON.parse(readFileSync(join(pb, `build/proposals/${vb.name}/mapping.json`), "utf8"));
+      const node = (v) => (v.path === tp ? v : (v.children ?? []).map(node).find(Boolean));
+      ok(deep(rec2.suggestions) === before, `46.10: an edit dropped the suggestions — before ${before}, after ${deep(rec2.suggestions)}`);
+      ok(mp.parts?.[tp]?.map === "stack" && node(rec2.recognition.verdict)?.via === "mapping" && threw(() => checkRecord(rec2)) === null,
+        `46.10: the edit wrote ${deep(mp.parts?.[tp])}, the node reads via ${node(rec2.recognition.verdict)?.via}, checkRecord ${threw(() => checkRecord(rec2)) ?? "passes"}`);
+      // A later matcher or vocabulary that scores a suggested node must prune it, not lock the import (PR #472 F1).
+      // Stand-in for that rescore: a stored suggestion on the status chip, which the matcher scores today.
+      const chip = "ir.children[0].children[2]";
+      const planted = structuredClone(rec2);
+      planted.suggestions.push({ ...structuredClone(rec2.suggestions[0]), path: chip });
+      writeFileSync(join(pb, "build/imports/i1.json"), JSON.stringify(planted, null, 2) + "\n");
+      const err = threw(() => M.editMapping({ pkgRoot: pb, provenance: "real", name: vb.name, edit: { path: tp, rename: "pruned" }, overridesDir: scratch("ov-edit") }));
+      const rec3 = JSON.parse(readFileSync(join(pb, "build/imports/i1.json"), "utf8"));
+      ok(err === null && deep(rec3.suggestions) === before,
+        `46.10: an edit over a suggestion on a now-scored node ${err ? `threw: ${err}` : `kept ${deep(rec3.suggestions)}, not the unnamed ones ${before}`}`);
+    }
+
+    // --- 46.11 the owner's labels file --------------------------------------------------------------------
+    const LABELS_PATH = join(ROOT, CLI.LABELS_FILE);
+    const labels = existsSync(LABELS_PATH) ? JSON.parse(readFileSync(LABELS_PATH, "utf8")) : null;
+    ok(labels, `46.11: ${CLI.LABELS_FILE} is missing — run \`node tooling/import-suggest.mjs --labels-template\``);
+    if (labels && RUN) {
+      const slugs = Object.keys(VOCAB.components);
+      ok(threw(() => CLI.checkLabels(labels, RUN, slugs)) === null, `46.11: the committed labels fail checkLabels: ${threw(() => CLI.checkLabels(labels, RUN, slugs))}`);
+      ok(labels.nodes.length === 8 && deep(labels.nodes.map((n) => [n.fixture, n.path])) === deep(RUN.reads.flatMap((r) => r.suggestions.map((s) => [r.fixture, s.path]))),
+        `46.11: the labels' ${labels.nodes.length} rows are not the run's 8 suggested nodes`);
+      ok(labels.by !== null || labels.nodes.every((n) => n.label === null), "46.11: a label is set while by is null — the session never writes a label");
+      const signed = structuredClone(labels);
+      signed.by = "owner"; signed.at = "SYNTHETIC";
+      for (const n of signed.nodes) n.label = "none";
+      ok(threw(() => CLI.checkLabels(signed, RUN, slugs)) === null, `46.11: POSITIVE CONTROL — an in-memory signed copy was refused: ${threw(() => CLI.checkLabels(signed, RUN, slugs))}`);
+      signed.nodes[0].label = "avatr";
+      const m = threw(() => CLI.checkLabels(signed, RUN, slugs));
+      ok(m?.includes("label avatr at spike-c-instance ir.children[0].children[0] is not a slug"), `46.11: label avatr at spike-c-instance ir.children[0].children[0] is not a slug — was ${m === null ? "accepted" : `refused as ${m}`}`);
+    }
+
+    // --- 46.12 the route wiring, pinned from source (server.mjs cannot be imported in CI) ------------------
+    const srv = decomment("portal/server.mjs");
+    const importRoute = srv.slice(srv.indexOf("p === '/api/canvas/import' &&"), srv.indexOf("p === '/api/canvas/import/drop'"));
+    const dropRoute = srv.slice(srv.indexOf("p === '/api/canvas/import/drop'"), srv.indexOf("p === '/api/canvas/import/view'"));
+    ok(/import\s*\{\s*suggest as suggestImport,\s*SUGGEST_PROVENANCES\s*\}\s*from\s*'\.\/lib\/import-suggest\.mjs'/.test(srv), "46.12: server.mjs does not import suggest and SUGGEST_PROVENANCES from ./lib/import-suggest.mjs");
+    ok(/const suggesterFor = \(prov\) => \(process\.env\.UXF_IMPORT_SUGGEST !== 'off' && SUGGEST_PROVENANCES\.includes\(prov\) \? suggestImport : null\);/.test(srv),
+      "46.12: suggesterFor is not gated on UXF_IMPORT_SUGGEST !== 'off' and SUGGEST_PROVENANCES.includes");
+    ok(importRoute.includes("suggester: suggesterFor(b.provenance)"), "46.12: /api/canvas/import does not pass suggester");
+    ok(dropRoute.includes("suggester: suggesterFor(provenance)"), "46.12: /api/canvas/import/drop does not pass suggester");
+    const journeyOff = (readFileSync(join(ROOT, "tooling/canvas-journey.mjs"), "utf8").match(/UXF_IMPORT_SUGGEST: "off"/g) ?? []).length;
+    ok(journeyOff === 2, `46.12: canvas-journey.mjs sets UXF_IMPORT_SUGGEST: "off" ${journeyOff} times — both portal spawns, or the journey spends a real call per drop`);
+  }
+
+  // --- 46.13 nothing tracked moved ------------------------------------------------------------------------
+  for (const d of temps) rmSync(d, { recursive: true, force: true });
+  ok(gitSnap() === GIT_BEFORE, `46.13: the group moved a tracked path — git status for import portal/lib tooling/import-suggest handoff system discovery went from ${JSON.stringify(GIT_BEFORE)} to ${JSON.stringify(gitSnap())}`);
+
+  group("import suggest", `portal/lib/import-suggest.mjs + tooling/import-suggest/spike-c-run.json (#455): IMPORTED in CI with no portal/node_modules, importing exactly the Jev client and the IR walk and exporting no threshold · the trigger is code — spike C's 2 + 6 unnamed paths by via, never "scored", and an all-scored SYNTHETIC verdict making no call · the state filter keeping only its seven keys, no IR id and no colour, 5 texts of 80 at most · the criteria being every vocabulary slug's usage verbatim, stack included, then none · the committed run bound to today — model, templateSha, both fixtures' sha256, one node per request under 38,875 tokens, every node state sent equal to today's builder, and the committed answers reparsing to the committed suggestions · parseAnswer refusing six broken copies by field after its positive control · failing open through the real askJev on no key, a 429, a timeout and another model, and a failing first wave stopping at 4 calls where the replay makes 6 · runImport's record, mapping.json, template.txt, spec.md and block.css identical with and without suggestions · checkRecord's placement and shape refusals, a legacy record passing and its markdown unmoved, and the projection rendering through the real renderMarkdown · an edit carrying the list forward while each node is unnamed and pruning one on a scored node · the owner's labels file checked in both states · the two routes and the journey's off switch pinned from source. What it cannot reach: the live API today, whether Jev's ranking is right (the owner's labels.json and --report are the observation), the canvas page (no CI runner — the owner-run walk), and the route wiring beyond the source pin`);
+}
+
   if (failures) {
     console.error(`\nbuild ✗  ${failures} failure(s)`);
     process.exit(1);
   }
-  console.log("\nbuild ✓  all 45 groups pass");
+  console.log("\nbuild ✓  all 46 groups pass");
 }

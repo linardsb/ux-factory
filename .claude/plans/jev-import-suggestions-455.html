@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Import suggestions brief</title>
+<style>
+:root { --bg:#fbfaf7; --fg:#22211f; --muted:#6b6862; --line:#e2dfd8; --accent:#3d6b5a; --card:#fff; }
+@media (prefers-color-scheme: dark) { :root { --bg:#1b1b1a; --fg:#ecebe7; --muted:#a19e97; --line:#34332f; --accent:#8cc3ad; --card:#232321; } }
+* { box-sizing:border-box }
+body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, sans-serif; }
+main { max-width:760px; margin:0 auto; padding:32px 16px 64px; }
+h1 { font-size:1.5rem; margin:0 0 4px } h2 { font-size:1.1rem; margin:36px 0 10px }
+.src { color:var(--muted); font-size:.9rem } a { color:var(--accent) }
+.card { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:14px 16px; margin:10px 0 }
+.card h3 { margin:0 0 6px; font-size:1rem }
+pre { background:var(--card); border:1px solid var(--line); border-radius:6px; padding:10px 12px; overflow-x:auto; font-size:.85rem; margin:8px 0 0 }
+.flow { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:8px; align-items:stretch }
+.box { border:1px solid var(--line); background:var(--card); border-radius:6px; padding:10px; font-size:.9rem; text-align:center }
+.box b { display:block; color:var(--accent) }
+ul.plain { padding-left:18px } ul.plain li { margin:4px 0 }
+ul.prompts { list-style:none; padding:0 }
+ul.prompts li { display:flex; justify-content:space-between; gap:12px; align-items:center; border-bottom:1px solid var(--line); padding:8px 0 }
+.copy { opacity:.35; border:0; background:none; color:inherit; cursor:pointer; font-size:15px; line-height:1; min-width:32px; min-height:32px }
+.copy:hover, .copy:focus-visible { opacity:1 }
+.copy::before { content:'⧉' } .copy.copied::before { content:'✓' }
+</style>
+</head>
+<body>
+<main>
+<h1>Import suggestions</h1>
+<p class="src">Full plan: <a href="jev-import-suggestions-455.md">jev-import-suggestions-455.md</a></p>
+
+<h2>What we're building and why</h2>
+<p>When the importer can't name a design part, the owner scans all 26 components by hand. After this build, a fast classifier ranks the three likeliest components beside that part, and the owner picks.</p>
+
+<h2>The concepts</h2>
+<div class="card"><h3>1. Decide, narrow, ratify</h3>
+<p>A rule-based matcher (fixed code rules) decides what each part is. A classifier only suggests. A person confirms. The suggestion lives in its own field, so it can never change the decision.</p>
+<pre>matcher:   "not sure"          ← still the answer
+Jev:       stack 0.62, list-row 0.21, none 0.08
+owner:     clicks "Use stack"  ← the owner's edit</pre></div>
+
+<div class="card"><h3>2. A Choice question</h3>
+<p>Jev (a small, fast AI classifier) picks one option from a list and gives each option a probability (a likelihood from 0 to 1). We ask one question per unnamed part, with every component plus "none" as options.</p></div>
+
+<div class="card"><h3>3. Fail open</h3>
+<p>Fail open means: if the helper breaks, carry on as if it wasn't there. No key, a timeout or an error gives an empty list, and the import still finishes. Like a satnav losing signal: you still arrive.</p></div>
+
+<div class="card"><h3>4. A recorded real answer</h3>
+<p>We call Jev once for real and save the exact request and reply in the repo. The automatic checks replay that saved reply, so they never spend money or invent an answer.</p></div>
+
+<h2>How the pieces fit</h2>
+<div class="flow">
+  <div class="box"><b>Drop a design</b>file arrives</div>
+  <div class="box"><b>Matcher</b>names what it can</div>
+  <div class="box"><b>Suggester</b>asks Jev about the rest</div>
+  <div class="box"><b>Record</b>verdict + suggestions, apart</div>
+  <div class="box"><b>Canvas view</b>top 3 + "Use" button</div>
+  <div class="box"><b>Checks</b>replay the saved reply</div>
+</div>
+
+<h2>The plan at a glance</h2>
+<ul class="plain">
+  <li>Phase 1: the suggestion module (first).</li>
+  <li>Phase 2: the record field (can run beside phase 1).</li>
+  <li>Phase 3: wire it into the import (needs 1 and 2).</li>
+  <li>Phase 4: one real call, saved (needs 1).</li>
+  <li>Phase 5: show it on the canvas page (needs 3).</li>
+  <li>Phase 6: the automatic checks and docs (needs all).</li>
+</ul>
+<pre>portal/lib/import-suggest.mjs      new: picks parts, asks Jev, reads answers
+portal/lib/import-run.mjs          passes suggestions into the record
+import/report.mjs                  optional "suggestions" field
+portal/server.mjs                  the import routes turn it on
+portal/public/canvas-import.mjs    top 3 and "Use" buttons
+tooling/import-suggest.mjs         new: the one real call, labels
+tooling/import-suggest/*.json      new: saved reply, owner labels
+tooling/build-checks.mjs           new check group 46
+tooling/canvas-journey.mjs         keeps suggestions off in tests</pre>
+<ul class="plain">
+  <li>The matcher's output is identical with and without suggestions.</li>
+  <li>All 8 unnamed spike C parts get a top 3; the owner labels what each really is.</li>
+  <li>The canvas shows suggestions; "Use" records the owner's own edit.</li>
+  <li>All checks green; no counted code lines move.</li>
+</ul>
+
+<h2>Go deeper</h2>
+<ul class="prompts">
+  <li data-prompt="/learn separating a decision from a suggestion in a data record"><span><b>/learn separating a decision from a suggestion</b></span><button class="copy" aria-label="Copy prompt"></button></li>
+  <li data-prompt="/learn classifier choice questions and probability distributions"><span><b>/learn choice questions and probabilities</b></span><button class="copy" aria-label="Copy prompt"></button></li>
+  <li data-prompt="/learn fail-open versus fail-closed design"><span><b>/learn fail open vs fail closed</b></span><button class="copy" aria-label="Copy prompt"></button></li>
+  <li data-prompt="/learn replaying recorded API responses in tests"><span><b>/learn replaying recorded responses in tests</b></span><button class="copy" aria-label="Copy prompt"></button></li>
+</ul>
+</main>
+<script>
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.copy')
+  if (!btn) return
+  const text = btn.closest('[data-prompt]').dataset.prompt
+  try {
+    await navigator.clipboard.writeText(text)
+  } catch {
+    const ta = Object.assign(document.createElement('textarea'), { value: text })
+    ta.style.cssText = 'position:fixed;opacity:0'
+    document.body.append(ta)
+    ta.select()
+    document.execCommand('copy')
+    ta.remove()
+  }
+  btn.classList.add('copied')
+  setTimeout(() => btn.classList.remove('copied'), 1200)
+})
+</script>
+</body>
+</html>
