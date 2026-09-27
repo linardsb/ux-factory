@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Contradiction screen brief</title>
+<style>
+  :root { --bg:#fbfaf7; --fg:#1d1d1b; --muted:#6b6a65; --line:#e3e0d8; --box:#f1eee6; --accent:#3d5a80; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#161615; --fg:#ecebe6; --muted:#9a988f; --line:#2e2d2a; --box:#21201e; --accent:#8fb0d9; } }
+  body { background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, sans-serif; margin:0; padding:24px 16px 64px; }
+  main { max-width:760px; margin:0 auto; }
+  h1 { font-size:24px; margin:0 0 4px; } h2 { font-size:18px; margin:36px 0 10px; } h3 { font-size:16px; margin:0 0 6px; }
+  .src { color:var(--muted); font-size:14px; }
+  .concepts { display:grid; gap:12px; }
+  .card { border:1px solid var(--line); border-radius:8px; padding:14px 16px; background:var(--box); }
+  pre { background:var(--bg); border:1px solid var(--line); border-radius:6px; padding:10px 12px; overflow-x:auto; font-size:13px; margin:8px 0 0; }
+  .flow { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  .flow div { border:1px solid var(--accent); border-radius:6px; padding:8px 10px; font-size:14px; }
+  .flow span { color:var(--muted); }
+  ul { padding-left:20px; } li { margin:4px 0; }
+  ul.learn { list-style:none; padding:0; }
+  ul.learn li { display:flex; justify-content:space-between; gap:12px; border-bottom:1px solid var(--line); padding:8px 0; }
+  .copy { opacity:.35; border:0; background:none; color:inherit; cursor:pointer; font-size:15px; line-height:1 }
+  .copy:hover, .copy:focus-visible { opacity:1 }
+  .copy::before { content:'⧉' } .copy.copied::before { content:'✓' }
+  code { font-size:14px; }
+</style>
+</head>
+<body>
+<main>
+<h1>Contradiction screen before the audit</h1>
+<p class="src">Plan: <code>.claude/plans/jev-contradiction-screen-453.md</code></p>
+
+<h2>What we're building and why</h2>
+<p>Today the audit agent reads a document one question at a time, so it never notices two places that disagree. After this, a cheap classifier flags suspicious pairs first, and the agent checks them.</p>
+
+<h2>The concepts this rests on</h2>
+<div class="concepts">
+  <div class="card">
+    <h3>Splitting a document into claims</h3>
+    <p>We cut the document into small statements, each with a fixed label like <code>c017</code>. Stable labels let every later step, and every test, point at the same sentence.</p>
+    <pre>## MVP
+7. A transition note is required…   → c052
+9. One real run: Faster Payment…    → c058</pre>
+  </div>
+  <div class="card">
+    <h3>A classifier, not a writer</h3>
+    <p>Jev is a classifier (a model that only picks answers and scores them, never writes prose). It costs about a cent to check every pair. Here it acts like a smoke detector: it flags a pair, Claude checks it during the audit, and the owner rules on it.</p>
+  </div>
+  <div class="card">
+    <h3>Deciding the cut-offs in advance</h3>
+    <p>A threshold (the score a pair needs to be kept) is fixed before the run, without looking at the right answers. Setting it afterwards would mean tuning the test until it passes.</p>
+  </div>
+  <div class="card">
+    <h3>A fingerprint of the prompt</h3>
+    <p>A fingerprint (a short hash of the prompt's text) is saved with every recorded run. If the prompt changes, old recordings stop matching. So the new block appears only when there are pairs, and gets its own fingerprint.</p>
+  </div>
+</div>
+
+<h2>How the pieces fit</h2>
+<div class="flow">
+  <div>PRD document</div><span>→</span>
+  <div>Claims with ids</div><span>→</span>
+  <div>Jev: which pairs clash?</div><span>→</span>
+  <div>screen.jsonl (written once)</div><span>→</span>
+  <div>Audit agent judges pairs</div><span>→</span>
+  <div>PRD page: raised / not raised</div>
+</div>
+
+<h2>The plan at a glance</h2>
+<ul>
+  <li><b>Phase 1</b> — the splitter and its committed ids.</li>
+  <li><b>Phase 2</b> — write down the scoring rules before any paid call (needs Phase 1).</li>
+  <li><b>Phase 3</b> — the screen module and its command-line tool.</li>
+  <li><b>Phase 4</b> — the audit prompt block, turn stamp, session route (needs Phase 3's reader).</li>
+  <li><b>Phase 5</b> — the Tensions section on the generated PRD.</li>
+  <li><b>Phase 6</b> — the new check group and the count updates.</li>
+  <li><b>Phase 7</b> — the two paid runs, the owner's labels, the report (needs Phase 2 committed and the API key).</li>
+</ul>
+<pre>discovery/claims.mjs                 splits a document into claims
+portal/lib/discovery-screen.mjs      asks Jev, keeps pairs, writes screen.jsonl
+portal/lib/discovery-postures.mjs    the conditional tensions block + its stamp
+portal/lib/discovery-transport.mjs   passes pairs in, stamps screened turns
+portal/lib/discovery.mjs             reads the screen each audit turn
+portal/server.mjs · public/portal.js runs the screen when an audit opens
+discovery/prd-projection.mjs         the Tensions section
+tooling/jev-screen.mjs               operator command, same functions
+tooling/jev-screen/*.json            ids, the real responses, owner labels
+docs/epics/fixtures/…screen-rubric.md  the scoring rules, written first
+discovery/partner-audit-3/           the recorded screened audit
+tooling/build-checks.mjs             group 45, plus two updated checks</pre>
+<ul>
+  <li>The command-line tool runs on the frozen PRD and prints kept pairs, requests, tokens and cost.</li>
+  <li>Found and missed are reported against the pre-written rubric; precision comes from the owner's labels.</li>
+  <li>The report says Jev saw only the document.</li>
+  <li>One real screened audit is recorded; its PRD page shows raised or not raised per pair.</li>
+  <li>The checks prove the splitter is stable, the page section matches, and a failed screen says so.</li>
+  <li>Stage two asks two questions per pair, and every pick and pair is recorded, including dropped ones.</li>
+  <li>All checks pass and the portal boots.</li>
+</ul>
+
+<h2>Go deeper</h2>
+<ul class="learn">
+  <li data-prompt="/learn splitting markdown into addressable claims"><span><b>/learn splitting markdown into addressable claims</b> — why stable ids matter.</span><button class="copy" aria-label="Copy prompt"></button></li>
+  <li data-prompt="/learn cheap classifier screen then expensive model judge"><span><b>/learn cheap classifier screen then expensive model judge</b> — the two-stage pattern.</span><button class="copy" aria-label="Copy prompt"></button></li>
+  <li data-prompt="/learn pre-registering thresholds before an evaluation"><span><b>/learn pre-registering thresholds before an evaluation</b> — avoiding tuning to the answer.</span><button class="copy" aria-label="Copy prompt"></button></li>
+  <li data-prompt="/learn prompt fingerprints and stale recordings"><span><b>/learn prompt fingerprints and stale recordings</b> — why the block has its own stamp.</span><button class="copy" aria-label="Copy prompt"></button></li>
+</ul>
+</main>
+<script>
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.copy')
+  if (!btn) return
+  const text = btn.closest('[data-prompt]').dataset.prompt
+  try {
+    await navigator.clipboard.writeText(text)
+  } catch {
+    const ta = Object.assign(document.createElement('textarea'), { value: text })
+    ta.style.cssText = 'position:fixed;opacity:0'
+    document.body.append(ta)
+    ta.select()
+    document.execCommand('copy')
+    ta.remove()
+  }
+  btn.classList.add('copied')
+  setTimeout(() => btn.classList.remove('copied'), 1200)
+})
+</script>
+</body>
+</html>
