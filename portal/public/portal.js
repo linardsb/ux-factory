@@ -966,7 +966,10 @@ $('#discovery-open').addEventListener('click', async () => {
   // legal scope-check session with three facets ticked. selectDepth's throw is the belt.
   const plan = facetPlanNow();
   if (depthComposes() && plan.overflow.length) { $('#discovery-facet-note').scrollIntoView({ block: 'nearest' }); $('#discovery-start-status').textContent = `The vector overflows full discovery's ${plan.budget}: ${$('#discovery-facet-note').textContent}`; return; }
-  $('#discovery-start-status').textContent = 'Opening…';
+  // #453: an audit's create runs the contradiction screen before the route answers, and it can take a minute.
+  $('#discovery-start-status').textContent = entryMode === 'existing-prd'
+    ? 'Screening the document for contradictions (Jev) — this can take up to a minute.'
+    : 'Opening…';
   try {
     discovery.session = await api('/api/discovery/session', {
       method: 'POST', headers: { 'content-type': 'application/json' },
@@ -987,6 +990,11 @@ $('#discovery-open').addEventListener('click', async () => {
   $('#discovery-start-status').textContent = discovery.session.created
     ? `Opened ${slug}.`
     : `Resumed ${slug} from disk — ${discovery.session.cursor.index} of ${discovery.session.cursor.total} answered.`;
+  // #453: the screen's outcome, on an audit's create only (the route sends `screen` then and never else).
+  const sc = discovery.session.screen;
+  if (sc) $('#discovery-start-status').textContent += sc.status === 'ran'
+    ? ` Contradiction screen: ${sc.kept} pair(s) kept.`
+    : ` Contradiction screen did not run: ${sc.reason}. The audit opens without it.`;
   $('#discovery-start').disabled = true;
   renderDiscoverySession();
   // A resumed package may already carry proposals; read them from disk rather than waiting for a run.

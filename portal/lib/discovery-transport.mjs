@@ -44,7 +44,7 @@ import {
 // The tool descriptions are prompt text and live with the rest of the prompt text (#341) — ONE copy,
 // the one group 30 pins and the fingerprint covers. POSTURES and resolvePosture are here for the
 // probes only.
-import { affordanceFingerprintOf, POSTURES, resolvePosture, TOOL_DESCRIPTIONS } from './discovery-postures.mjs';
+import { affordanceFingerprintOf, POSTURES, resolvePosture, screenFingerprintOf, TOOL_DESCRIPTIONS } from './discovery-postures.mjs';
 
 // A per-turn cap, not a session cap. Resume-per-turn means every turn is a fresh query(), so session
 // length is governed by the depth ladder rather than by this number. chat.mjs's 40 is for an open
@@ -164,7 +164,7 @@ export function buildOpServer({ root, turn, state, onLine }) {
 
 // --- the turn -------------------------------------------------------------------------------------
 
-export async function runDiscoveryTurn({ root, head, question, answer, turn, posture, state, affordance = null, park = false, answers = [], onLine }) {
+export async function runDiscoveryTurn({ root, head, question, answer, turn, posture, state, affordance = null, park = false, answers = [], tensions = [], onLine }) {
   // The folded ledger goes INTO the prompt (#341) — the same holder buildOpServer folds onto, so the
   // brief and the applier read one ledger.
   // The run's provenance goes INTO the system prompt (#347): read off run.json's head, never guessed.
@@ -172,7 +172,9 @@ export async function runDiscoveryTurn({ root, head, question, answer, turn, pos
   // refuses by name. Packages recorded before #286 all carry blank-idea; the default is belt.
   // #289: `affordance` and `park` choose the turn prompt, and `answers` is what pendingBrief reads — the
   // person's own words, so the agent can file an aside it could not otherwise read after a restart.
-  const { systemPrompt, prompt } = posture.build({ question, answer, turn, ledger: state.current.ops, provenance: head.provenance, entryMode: head.entryMode ?? 'blank-idea', answers, park, affordance });
+  // #453: `tensions` are the contradiction screen's kept pairs, read from screen.jsonl by the session
+  // module on an audit; [] everywhere else, which leaves every prompt byte-identical.
+  const { systemPrompt, prompt } = posture.build({ question, answer, turn, ledger: state.current.ops, provenance: head.provenance, entryMode: head.entryMode ?? 'blank-idea', answers, park, affordance, tensions });
   const server = buildOpServer({ root, turn, state, onLine });
   // MVP 7's fetch tools, ON AN OFF-SCRIPT TURN ONLY (#289) — allowed BY NAME through fenceDecision's
   // extraTools seam (#359), never by path, so #287's READ_TOOLS assertion is untouched. A banked turn
@@ -255,6 +257,9 @@ export async function runDiscoveryTurn({ root, head, question, answer, turn, pos
         // a model override, and Grill is the one settable posture, so a by-id lookup would stamp a
         // Grill-on-Opus turn with the sonnet hash.
         ...(fetching || park ? { affordanceFingerprint: affordanceFingerprintOf(posture) } : {}),
+        // #453. Which SCREENED audit surface this turn ran under, on a turn whose prompt carried the
+        // tensions block and nowhere else — off the RESOLVED posture, for the reason above.
+        ...(tensions.length ? { screenFingerprint: screenFingerprintOf(posture) } : {}),
         ts: new Date().toISOString(),
       };
     }

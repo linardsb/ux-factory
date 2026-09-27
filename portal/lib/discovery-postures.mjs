@@ -26,7 +26,9 @@
 // thirty turn prompts; and PARENT_RULE keeps the recency tail #341 paid for. The turn prompt names the
 // document's ref and never carries its text (group 30 case 32 pins both halves). Think and Create PRD
 // refuse an existing-prd build by name. An audit never holds a question for a second ask — that rule
-// is the session module's RE_ASKS table, not a prompt.
+// is the session module's RE_ASKS table, not a prompt. The contradiction screen's TENSIONS BLOCK (#453)
+// sits after the document and before GRILL_STANCE, and only when the screen kept at least one pair —
+// with none, the audit's system prompt is byte-identical to the unscreened one.
 //
 // THINK'S STRINGS ARE BYTE-STABLE; GROUPS 32 AND 33 ARE THE TRIPWIRE. Five recordings carry Think's
 // two stamps on every turnStats entry and three of them are gate-compared live, so buildThinkTurn's
@@ -75,7 +77,7 @@
 // fingerprintOf hashes one build per input set in FINGERPRINT_INPUTS_FOR[posture] (absent: the one
 // set, FINGERPRINT_INPUTS); Grill's covers the interview AND the audit template, so an edit to either
 // moves its stamp. A template BRANCH the fixed inputs never take sits outside the hash by
-// construction, and there are FOUR of them today, not one (PR #381 F2 — the earlier form of this
+// construction, and there are FIVE of them today, not one (PR #381 F2 — the earlier form of this
 // sentence claimed the re-ask brief alone, and a mutation of PROVENANCE_RULE.real's text left all four
 // stamps unmoved with a green gate — the same hole #366 was written to close, and #384 closed here;
 // the fourth arrived with #289 and is named below, which is this list's own rule applied to the merge
@@ -97,6 +99,10 @@
 //     verbatim pin, and its url / name / ref fallback arms are covered only on the url arm. #384
 //     pinned the two branches above and left this one where it is — the same shape, the same gap.
 //     Widening it is still open.
+//   · the TENSIONS BLOCK (#453), on Grill's audit template — AUDIT_FINGERPRINT_INPUTS carries no
+//     tensions, so the block renders for no posture stamp; it is covered by screenFingerprintOf
+//     instead, stamped as `screenFingerprint` on a screened turn's stats. Guarded by group 45's stamp
+//     cases (45.7).
 // A NEW branch belongs on this list with its guard named, or it is unguarded and nothing says so.
 // Over one input set the join is byte-identical to the pre-#286 form, which is what keeps Think's
 // two stamps where the recordings have them (group 30 case 30 pins the literal).
@@ -106,7 +112,7 @@ import { auditExchanges, LEVELS, OPS, PARAMS, parentCandidates } from '../../dis
 // The projection's OWN section table, so Create PRD's section brief follows the page rather than
 // restating it (#286). prd-projection.mjs imports node built-ins, bank.mjs and ops.mjs only, and its
 // CLI guard compares import.meta.url to argv[1], so importing it here runs nothing.
-import { LATER_QUESTIONS, METRIC_STAGE, NON_GOAL_QUESTIONS, SECTIONS } from '../../discovery/prd-projection.mjs';
+import { fold, LATER_QUESTIONS, METRIC_STAGE, NON_GOAL_QUESTIONS, SECTIONS } from '../../discovery/prd-projection.mjs';
 
 // The thing spike 2 tests. If a run comes back dirty — the agent asked a second question, filed two
 // closing ops on one turn, or filed nothing — this string is what gets tightened, and only this string.
@@ -422,7 +428,8 @@ function need(value, what) {
 // system prompt: the system prompt stays byte-stable across the session so its cache holds, and the
 // ledger changes every turn. A caller that forgets it must fail loudly rather than quietly regress to
 // the rehearsal's behaviour, where parenting was a recollection (#341).
-export function buildThinkTurn({ question, answer, turn, ledger, provenance, entryMode = 'blank-idea', answers = [], park = false, affordance = null }) {
+export function buildThinkTurn({ question, answer, turn, ledger, provenance, entryMode = 'blank-idea', answers = [], park = false, affordance = null, tensions = [] }) {
+  tensionsGuard(tensions, 'Think');
   if (!question || typeof question !== 'object') throw new Error('discovery-postures: a question entry is required');
   // #286: the one refusal Think gained. It fires on a value no existing caller passes, so every
   // existing input still builds byte-identical output (group 30 case 30 pins the stamp).
@@ -561,7 +568,8 @@ ${answer.text}`;
 // document is not a person's answer. The system prompt puts the stance and the section brief before
 // the shared block; the turn prompt asks for the section in prose, carries the re-ask brief on a
 // second ask, and still ends on the parent (recency).
-export function buildCreatePrdTurn({ question, answer, turn, ledger, provenance, entryMode = 'blank-idea', answers = [], park = false, affordance = null }) {
+export function buildCreatePrdTurn({ question, answer, turn, ledger, provenance, entryMode = 'blank-idea', answers = [], park = false, affordance = null, tensions = [] }) {
+  tensionsGuard(tensions, 'Create PRD');
   commonGuards({ question, answer, turn, ledger, provenance });
   affordanceGuards({ park, affordance, entryMode });
   if (entryMode === 'existing-prd') throw new Error('discovery-postures: Create PRD is an interview posture — an existing-prd session starts at Grill (MVP 2)');
@@ -600,19 +608,43 @@ ${park ? parkClose(question, answer) : `Say in prose which section this feeds, t
   return { systemPrompt, prompt };
 }
 
+// THE CONTRADICTION SCREEN'S BLOCK (#453). Candidate tensions are pairs of claims Jev scored as possibly
+// contradicting (portal/lib/discovery-screen.mjs); the audit agent judges them with the verdict it
+// already has — DODGED → flag_weak_answer — so there is no fifth verb. Every claim text is folded onto
+// one line, so a newline inside a claim cannot open a structure in the prompt.
+export const TENSION_RULE = `A candidate tension is evidence, not a finding. When the question on the table touches either claim of a pair, judge that pair against the document: if the two claims cannot both hold of this product, that is DODGED — file flag_weak_answer with one missing entry that names both claim ids and quotes both claims. If they can both hold, or the question touches neither claim, ignore the pair and do not mention it.`;
+
+export function tensionsBlock(tensions) {
+  if (!tensions.length) return '';
+  const row = ({ a, b }) => `- ${a.id} (${fold(a.section)}): "${fold(a.text)}" ↔ ${b.id} (${fold(b.section)}): "${fold(b.text)}"`;
+  return `Candidate tensions (machine screen, unverified) — pairs of claims in the document a classifier scored as possibly contradicting each other:
+${tensions.map(row).join('\n')}
+
+${TENSION_RULE}`;
+}
+
+function tensionsGuard(tensions, where) {
+  if (!Array.isArray(tensions)) throw new Error(`discovery-postures: tensions must be an array (got ${typeof tensions})`);
+  for (const [i, t] of tensions.entries())
+    for (const side of ['a', 'b'])
+      if (typeof t?.[side]?.id !== 'string' || typeof t[side].text !== 'string') throw new Error(`discovery-postures: tensions[${i}].${side} must carry a string id and text`);
+  if (where && tensions.length) throw new Error(`discovery-postures: candidate tensions belong to Grill's audit template only — ${where} refuses them`);
+}
+
 // GRILL (#286): the interview template on a blank idea, the AUDIT template on an existing PRD. In the
 // audit the answer record IS the stored document — the server wrote it once at session start
 // (discovery.mjs appendDocument) — and its text goes into the SYSTEM prompt between the two fences,
 // before the stance and every rule, for the reasons the header gives; the turn prompt names its ref
 // and never carries its text. The wrong answer kind is refused in both directions, so a document can
 // never be judged as a person's answer, and a person's answer can never be audited as if it were one.
-export function buildGrillTurn({ question, answer, turn, ledger, provenance, entryMode = 'blank-idea', answers = [], park = false, affordance = null }) {
+export function buildGrillTurn({ question, answer, turn, ledger, provenance, entryMode = 'blank-idea', answers = [], park = false, affordance = null, tensions = [] }) {
   commonGuards({ question, answer, turn, ledger, provenance });
   affordanceGuards({ park, affordance, entryMode });
   if (entryMode !== 'blank-idea' && entryMode !== 'existing-prd') throw new Error(`discovery-postures: entryMode must be blank-idea or existing-prd (got ${JSON.stringify(entryMode)})`);
   const audit = entryMode === 'existing-prd';
   if (audit && answer.kind !== 'document') throw new Error(`discovery-postures: an audit turn's answer is the stored document (kind "document") — got kind ${JSON.stringify(answer.kind)}; an existing-prd session is opened with its document and every turn judges that one record`);
   if (!audit && answer.kind === 'document') throw new Error("discovery-postures: a Grill interview judges a person's answer, not a stored document — a document is an existing-prd session's");
+  tensionsGuard(tensions, audit ? null : "Grill's interview template");
 
   if (!audit) {
     const systemPrompt = `You are the discovery partner inside a local workbench. You are handed ONE banked
@@ -653,7 +685,7 @@ The document, stored as ${answer.ref} in the answer store — every op you file 
 <<<DOCUMENT
 ${answer.text}
 DOCUMENT>>>
-
+${tensions.length ? `\n${tensionsBlock(tensions)}\n` : ''}
 ${GRILL_STANCE}
 
 ${MVP6_LINE}
@@ -850,6 +882,20 @@ export const affordanceFingerprintOf = ({ build, model }) => fingerprintOf({ bui
 export const AFFORDANCE_FINGERPRINT = Object.freeze(Object.fromEntries(
   Object.entries(POSTURES).map(([id, p]) => [id, affordanceFingerprintOf(p)]),
 ));
+
+// THE SCREENED AUDIT SURFACE, STAMPED (#453) — #289's design again. The audit template with ONE fixed
+// synthetic tension, so the block and TENSION_RULE are inside a hash; stamped as `screenFingerprint` on
+// a screened turn's stats only, taken off the RESOLVED posture for the reason above. NOT in
+// FINGERPRINT_INPUTS_FOR: that would move Grill's stamp and stale partner-audit-1 and -2.
+export const SCREEN_FINGERPRINT_INPUTS = Object.freeze({
+  ...AUDIT_FINGERPRINT_INPUTS,
+  tensions: Object.freeze([Object.freeze({
+    a: Object.freeze({ id: 'fp-c1', section: 'FIXED', text: 'A fixed claim.' }),
+    b: Object.freeze({ id: 'fp-c2', section: 'FIXED', text: 'A fixed other claim.' }),
+    contradicts: 0.9,
+  })]),
+});
+export const screenFingerprintOf = ({ build, model }) => fingerprintOf({ build, model, inputs: [SCREEN_FINGERPRINT_INPUTS] });
 
 // The posture a run actually runs under (#286 D4). Its own object, by identity, when the model is its
 // own (so a pre-#286 package resolves to exactly what it was recorded under); a frozen five-key copy

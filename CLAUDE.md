@@ -99,6 +99,7 @@ portal/                       local-first workbench (127.0.0.1 only, never deplo
   lib/origin.mjs              the CSRF guard server.mjs applies before ANY routing
   lib/jev.mjs                 the TypeSafe (Jev) fetch client — no SDK; model pinned; #453 reuses it
   lib/discovery-guard.mjs     the answer-box guard — two Noul questions, decide(), fail-open (#454)
+  lib/discovery-screen.mjs    the contradiction screen — Jev picks + pair confirms → screen.jsonl, fail-visible (#453)
   lib/builder.mjs             the OPERATOR PATH — /build's ten answers → a real composition question
   lib/canvas-store.mjs        the build package: list · load · append-only save, the ledger fold and the
                               canvas.json derivation (verifyBuild is the gate); routes in server.mjs
@@ -115,8 +116,8 @@ proto/                        the two data-connected prototype pages (vd-/fw- co
 proto/compositions/           COMMITTED composition proposals from real record-composition.mjs runs
 traces/                       committed real agent-run traces, raw + curated pairs (traces/README.md)
 replay/                       the studio's replay artifacts (replay/README.md) — brief · board · projection
-discovery/                    the discovery half (epic #279) — bank.mjs: the edited question bank (65 source-backed + #283's ten) + the depth selectors, five facet modules, presets and the ~30 budget (whole-bank is a frozen literal) · ops.mjs: the FOUR-verb op grammar + pure applier (answer-by-reference; no SDK) + five pure reads beside it (parentCandidates · auditParenting · ledgerView · auditTraceability · auditExchanges) · prd-projection.mjs: the run package → prd.md, a pure fold over the ops (no clock, no SDK) · proposals.mjs: the proposal shapes, the four refusals, the derived status and the proposals.md fold — pure, and never imported by prd-projection.mjs (#359) · README.md: the run-package format; Node-only, no page reads it
-discovery/<slug>/             committed FICTIONAL run packages — run.json · answers.jsonl (server-written only) · transcript.jsonl (text · op · denied) · prd.md · proposals.jsonl (append-only: proposal · verdict) · proposals.md
+discovery/                    the discovery half (epic #279) — bank.mjs: the edited question bank (65 source-backed + #283's ten) + the depth selectors, five facet modules, presets and the ~30 budget (whole-bank is a frozen literal) · ops.mjs: the FOUR-verb op grammar + pure applier (answer-by-reference; no SDK) + five pure reads beside it (parentCandidates · auditParenting · ledgerView · auditTraceability · auditExchanges) · prd-projection.mjs: the run package → prd.md, a pure fold over the ops (no clock, no SDK) · proposals.mjs: the proposal shapes, the four refusals, the derived status and the proposals.md fold — pure, and never imported by prd-projection.mjs (#359) · claims.mjs: the document → claims splitter (#453) · README.md: the run-package format; Node-only, no page reads it
+discovery/<slug>/             committed FICTIONAL run packages — run.json · answers.jsonl (server-written only) · transcript.jsonl (text · op · denied) · prd.md · proposals.jsonl (append-only: proposal · verdict) · proposals.md · screen.jsonl (an audit's contradiction screen, written once, #453)
 import/                       the design-import core (epic #295) — Node-only, no portal, no SDK, no page
   ir.mjs                      the intermediate representation both converters emit and the matcher reads
   brilliant.mjs               blueprint read → IR; its layout branch is S2's (#299), lifted not rewritten
@@ -135,7 +136,7 @@ docs/epics/                   PRD + architecture decisions governing the platfor
 docs/figma-runbook.md         operator steps for the Figma boundary + the request-budget rules
 
 tooling/
-  build-checks.mjs            44 PURE groups, in CI — the repo's main gate  (→ references/gates.md)
+  build-checks.mjs            45 PURE groups, in CI — the repo's main gate  (→ references/gates.md)
   build-journey.mjs           /build ×3 engines, operator-run             (→ references/gates.md)
   proto-journey.mjs           the two proto pages ×3 engines              (→ references/gates.md)
   studio-journey.mjs          the studio ×3 engines + the INP gate        (→ references/gates.md)
@@ -149,6 +150,7 @@ tooling/
   board-op.mjs                the fenced build agent's ONLY build tool — one op per call, prints the board
   fieldwork-kpis.mjs          ground-truth KPIs — a post-hoc JUDGE, NEVER fed to an agent prompt
   jev-guard-eval.mjs          the guard's labelled eval — operator-run, needs TYPESAFE_API_KEY (→ jev-guard/)
+  jev-screen.mjs              the screen's operator CLI — paid, needs TYPESAFE_API_KEY (→ jev-screen/)
   regen-import-records.mjs    GENERATES import/fixtures/records/ — here, not in import/, because it reads system/wcag.mjs
   inp-observer.mjs            the driver-injected PerformanceObserver helper; nothing ships
   figma/figma-read.mjs        the shared read — auth, the Enterprise gate, the cache, --from
@@ -213,7 +215,7 @@ The kb (`_factory/kb/` in the jobs folder) is the database — record shapes + p
 ## On-demand context
 Route on-demand detail to `.claude/references/` — never back into this file.
 
-- **`gates.md`** — the gate stack: build-checks' 44 groups, the six journey drivers, the pixel gate, the morph gates, and what each one states it CANNOT reach. Read before adding or changing a gate, or before trusting a green run.
+- **`gates.md`** — the gate stack: build-checks' 45 groups, the six journey drivers, the pixel gate, the morph gates, and what each one states it CANNOT reach. Read before adding or changing a gate, or before trusting a green run.
 - **`token-system.md`** — the three-layer mechanic and how to add a token.
 - **`kb-format.md`** — kb record shapes + the ComponentSpec / DataContract format.
 - **`backend-api-best-practices.md`** — API route work · **`frontend-component-best-practices.md`** — UI work.

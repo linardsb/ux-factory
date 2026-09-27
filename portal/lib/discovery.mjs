@@ -53,6 +53,7 @@ import { DEPTHS, FACETS, facetPlan, MODULES, normaliseFacets, OPENING_SET, PRESE
 import { applyOps, auditExchanges, ledgerView, LEVELS, OPS, PARAMS, PROVENANCE, SOURCES } from '../../discovery/ops.mjs';
 import { HAS_TOKEN, JOBS_DIR, REPO_DIR } from './env.mjs';
 import { AFFORDANCES, MODEL_SETTABLE, MODELS, POSTURES, resolvePosture } from './discovery-postures.mjs';
+import { readScreen, tensionsOf } from './discovery-screen.mjs';
 
 const bad = (msg) => { throw new Error(`discovery: ${msg}`); };
 
@@ -1092,6 +1093,10 @@ function stateFromTranscript(transcript, answers) {
 //
 // Both still take withDiscoveryRunLock: two concurrent turns would append to the same append-only files.
 //
+// THE CONTRADICTION SCREEN (#453): an audit turn reads the screen's kept pairs from screen.jsonl on
+// every turn, and because that file is written once at create (the session route, never here), the
+// audit's system prompt stays byte-stable across the session. Every other turn passes [].
+//
 // THE PROMPT'S QUESTION is the one on the table for BOTH shapes (#454, fixing #289). An off-script
 // turn carries no questionId — its answer line records question_id null, and that stays — but its
 // prompt still names the question it sits beside. Until #454 it was built from questionById(undefined),
@@ -1148,6 +1153,7 @@ export async function runTurn({ slug, provenance, questionId, kind = 'banked', i
       affordance: offScript ? intent : null,
       park,
       answers,
+      tensions: audit ? tensionsOf(readScreen(root)) : [],
       onLine,
     });
     // The transport already wrote it at init (plan M4); idempotent belt-and-braces for the caller.

@@ -13,7 +13,8 @@ import { receiveExport, runFigmaPull } from './lib/figma.mjs';
 import { draftRun, listScenarios, QUESTION_INPUTS, runBuild, stepEvent } from './lib/builder.mjs';
 // #284's discovery session. Every export here is SDK-free; the SDK is reached only by runTurn's lazy
 // import of ./lib/discovery-transport.mjs, after every guard — see portal/lib/discovery.mjs's header.
-import { assertProvenanceRoot, closeSession, discoveryConfig, openSession, resolveRunRoot, resumeMismatch, runTurn, sessionView, turnEvent, withDiscoveryRunLock } from './lib/discovery.mjs';
+import { assertProvenanceRoot, closeSession, discoveryConfig, documentOf, openSession, resolveRunRoot, resumeMismatch, runTurn, sessionView, turnEvent, withDiscoveryRunLock } from './lib/discovery.mjs';
+import { screenSession } from './lib/discovery-screen.mjs';
 import { ACTS, DEFAULT_ANSWERS, QUADRANT_MEANINGS, QUESTIONS, SUMMARY_TERM } from '../system/build-questions.mjs';
 // The PRD fold (#290). Pure — no clock, no network, no SDK — and it WRITES NOTHING here: the route
 // below calls projectPrd over readPackage and streams the bytes, never writePrd. See #338 F1.
@@ -205,7 +206,16 @@ const server = createServer(async (req, res) => {
       // A 409 leaves the package untouched: openSession already returned the disk state, and no write
       // happens on the resume path.
       if (mismatch) return json(res, 409, { error: mismatch });
-      return json(res, 200, view);
+      // #453. The contradiction screen, on an audit's CREATE path only (a resume never re-screens). It
+      // writes screen.jsonl once — the run's lines, or one `unavailable` line — and never throws for a
+      // Jev failure. The same resolveRunRoot + assertProvenanceRoot pair the GET route runs.
+      let screen = null;
+      if (view.created && view.head.entryMode === 'existing-prd') {
+        const root = resolveRunRoot({ provenance: b.provenance, slug: b.slug });
+        assertProvenanceRoot(b.provenance, root);
+        screen = await screenSession(root, documentOf(view.answers).text);
+      }
+      return json(res, 200, screen ? { ...view, screen } : view);
     }
     // Read-only: the package as it stands. The drawer re-fetches this after a turn so the cursor and
     // the recorded turns come from disk rather than from a second client-side copy.
