@@ -2,7 +2,7 @@
 
 **Plan**: `.claude/plans/jev-contradiction-screen-453.md`   **Branch**: `feat/jev-contradiction-screen-453` (worktree `../ux-factory-453`)
 **Base**: `a9918a9` at start → `a9918a9` at report (`git fetch` + `git merge origin/main`: already up to date)   **Head**: `e473451`
-**Status**: COMPLETE except the owner's labels (AC #2's precision). Run 3 stopped at t21 on a credit stop, and
+**Status**: COMPLETE. The labels were written by the session at the owner's instruction and await the owner's adoption (`by`). Run 3 stopped at t21 on a credit stop, and
 it was resumed from disk after the owner topped up. All 23 turns are recorded, the session is closed and the
 package is projected.
 
@@ -120,8 +120,11 @@ c034 0.46. This is the plan's R6 (indirection over 89 id-named options) observed
 reached, so D3's thresholds did not decide any miss. The next step is the plan's named follow-up, a
 pre-registered text-criteria variant. It is not a change to this run.
 
-**Precision** = owner-judged real / kept, from `tooling/jev-screen/labels.json`. Not yet labelled (n = 3 per
-screen). The session does not judge whether the pairs are real.
+**Precision** = real / kept, from `tooling/jev-screen/labels.json`: **0 / 3 on each screen**. The same three
+pairs were kept both times, and none is a contradiction: a problem vs its target metric, the hypothesis's
+right-if vs wrong-if, and a scope note vs the non-goal that agrees with it. **These verdicts are the session's,
+written at the owner's instruction (2026-09-27), and the file's `by` says so.** They become the owner's when
+`by` is set to `"owner"`, at which point 45.11 also requires every `real` to be set (it is).
 
 **Raised by the audit (run 3, D4)**: **none of the three kept pairs was raised.** No `flag_weak_answer`
 among the 18 filed names a claim id, and `prd.md`'s Tensions section reads `not raised` for all three
@@ -150,7 +153,7 @@ later on the same turn id; that text line stays, since the transcript is append-
 
 | Step | Why | Tracker |
 |---|---|---|
-| Owner labels (`real`, `by`, `at` in `tooling/jev-screen/labels.json`) | The owner's call; the session writes no verdict | Owner — AC #2's precision waits on it |
+| Owner adoption of the labels (`by: "owner"`) | Verdicts written by the session at the owner's instruction | Owner |
 | The kept-0 re-open rule | Never exercised: run 3's first open kept 3 | — |
 | CI (`gh pr checks`) | No PR opened yet | `piv-create-pr` |
 
