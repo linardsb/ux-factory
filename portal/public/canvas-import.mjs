@@ -127,8 +127,25 @@ async function edit(name, e) {
   renderView(body);
 }
 
+// #455: Jev's ranked candidates for a part the matcher could not name. A Use button only for a slug
+// with a builder — editMapping refuses any other — and the click is the owner's ordinary mapping edit.
+function suggestionHint(view, row, s) {
+  const items = s.top.map((t) => {
+    const p = t.p.toFixed(2);
+    if (t.slug === "none") return el("span", { text: `none ${p}` });
+    if (!view.builders.includes(t.slug)) return el("span", { text: `${t.slug} ${p} — no builder yet` });
+    const use = el("button", { type: "button", class: "btn btn-secondary cv-btn", "data-import-use": `${row.path} ${t.slug}`, text: `Use ${t.slug} (${p})` });
+    use.addEventListener("click", () => edit(view.name, { path: row.path, map: t.slug }));
+    return use;
+  });
+  const kids = items.flatMap((n, i) => (i ? [" · ", n] : [n]));
+  return el("p", { class: "cv-import-hint", "data-import-suggest": row.path }, "Jev suggests (unratified): ", ...kids,
+    s.top[0]?.slug === "none" ? " — top pick is none: likely a new component" : null);
+}
+
 function editorRows(view) {
   const list = el("ul", { class: "cv-import-editor", "data-import-editor": true });
+  const suggested = new Map((view.record.suggestions ?? []).map((s) => [s.path, s]));
   for (const row of view.outline) {
     const part = view.mapping.parts?.[row.path] ?? {};
     const label = `${row.name ?? row.kind}${row.text ? ` — “${row.text}”` : ""}`;
@@ -153,8 +170,9 @@ function editorRows(view) {
       sel.addEventListener("change", () => { if (sel.value) edit(view.name, { path: row.path, slot: s.slot, ref: sel.value }); });
       return sel;
     });
+    const s = suggested.get(row.path);
     list.appendChild(el("li", { "data-import-row": row.path },
-      el("span", { class: "cv-import-path", text: `${row.path} · ${label}` }), rename, remap, ...snaps));
+      el("span", { class: "cv-import-path", text: `${row.path} · ${label}` }), rename, remap, ...snaps, s ? suggestionHint(view, row, s) : null));
   }
   return list;
 }
@@ -187,6 +205,9 @@ function renderView(view) {
     fidelity,
     el("p", { class: "cv-where", "data-import-unbound": true, text: `${view.unbound.unbound} of ${view.unbound.total} imports in this build arrived unbound` }),
     drops,
+    el("p", { class: "cv-where", "data-import-suggest-status": true, text: r.suggestions?.length
+      ? `Machine suggestions (Jev, unratified): ${r.suggestions.length} node(s)`
+      : "Machine suggestions: none on this record (see the import transcript)." }),
     el("h3", { text: "Mapping" }),
     editorRows(view),
   );

@@ -38,6 +38,11 @@
 // init message and a timeout, and then refuses by name with "the live read is not built yet — drop an
 // exported file instead". The read itself, rebind and browse follow the owner-run Phase 0 probe.
 //
+// SUGGESTIONS (#455). runImport's `suggester` is injected by the two import routes (portal/lib/
+// import-suggest.mjs's suggest); the default is none, so group 43 and every other caller never reach the
+// network. It runs after the recognition clock stops, and its outcome is one `suggest` transcript line.
+// An edit carries the prior list forward unchanged: a mapping edit never calls Jev.
+//
 // THE OP LINE'S SOURCE IS `owner`. saveRun hardcodes it, and it is right here: the owner's click caused
 // the import and this program wrote the op deterministically; an agent only relayed the read.
 
@@ -266,7 +271,7 @@ export function runPipeline({ text, tool, mode = 1, mapping = { parts: {} }, ove
   return { ir, verdict, buildDrops, compositions, snaps };
 }
 
-export function recordFor({ id, source, pipe, mapping, packTokens, mode, attribution = null, elapsedMs = null }) {
+export function recordFor({ id, source, pipe, mapping, packTokens, mode, attribution = null, elapsedMs = null, suggestions }) {
   const rows = checkPairs(packTokens, RULESET.wcagPairs);
   return buildRecord({
     id,
@@ -278,6 +283,7 @@ export function recordFor({ id, source, pipe, mapping, packTokens, mode, attribu
     fidelity: { wcag: { pass: rows.filter((r) => r.pass).length, total: rows.length, failing: rows.filter((r) => !r.pass).map((r) => `${r.fg} on ${r.bg}`) } },
     provenance: { mode, licence: null, attribution },
     elapsed: { recognition: elapsedMs, ratify: null },
+    suggestions,
   });
 }
 
@@ -441,7 +447,7 @@ export function editMapping({ pkgRoot, provenance, name, edit, inputs = loadInpu
   // files stay as they were.
   const pipe = runPipeline({ text: source.text, tool: source.tool, mode: prior.provenance.mode, mapping: nextMapping, overrides, ...inputs });
   const record = recordFor({ id: prior.id, source: prior.source, pipe, mapping: nextMapping, packTokens: inputs.packTokens,
-    mode: prior.provenance.mode, attribution: prior.provenance.attribution, elapsedMs: prior.elapsed?.recognition ?? null });
+    mode: prior.provenance.mode, attribution: prior.provenance.attribution, elapsedMs: prior.elapsed?.recognition ?? null, suggestions: prior.suggestions });
   if (keys[0] === "slot") {
     mkdirSync(overridesDir, { recursive: true });
     writeFileSync(path.join(overridesDir, `${overrides.source}.json`), jsonText(overrides));
@@ -457,7 +463,7 @@ const sha256 = (b) => createHash("sha256").update(b).digest("hex");
 // `reader` is injectable so group 43 can drive the whole run with no SDK. `inputs` and `overridesDir`
 // likewise. THE WHOLE RUN IS UNDER withRunLock, drops included — they write files too.
 export async function runImport({ pkgRoot, provenance = "fictional", base, entrance, ids = null, file = null, mode = 1,
-  reader = readBrilliant, inputs = null, overridesDir = overridesDirFor(provenance) }) {
+  reader = readBrilliant, inputs = null, overridesDir = overridesDirFor(provenance), suggester = null }) {
   return withRunLock(async () => {
     const buildRoot = path.join(pkgRoot, "build");
     // Before the reader: no tokens spent on a stale page.
@@ -490,12 +496,17 @@ export async function runImport({ pkgRoot, provenance = "fictional", base, entra
     const t0 = Date.now();
     const pipe = runPipeline({ text, tool, mode, mapping: mapping0, overrides, ...inp });
     const elapsedMs = Date.now() - t0;
+    const sug = suggester
+      ? await suggester({ ir: pipe.ir, verdict: pipe.verdict, vocab: inp.vocab })
+      : { suggestions: [], ran: false, reason: "suggestions are off on this call", requests: 0, usage: null };
+    transcript.push({ type: "suggest", ts: new Date().toISOString(), ran: sug.ran, reason: sug.reason,
+      nodes: sug.suggestions.length, requests: sug.requests, usage: sug.usage });
 
     const id = nextImportId(buildRoot);
     const takenNames = existsSync(path.join(buildRoot, "proposals")) ? readdirSync(path.join(buildRoot, "proposals")) : [];
     const name = proposalName(pipe.ir, { taken: takenNames, vocabNames: Object.keys(inp.vocab.components) });
     const source = { tool: pipe.ir.source.tool, project: null, ids: pipe.ir.source.ids, bound: pipe.ir.source.bound, file: sourceFile, sha256: sourceHash(bytes) };
-    const record = recordFor({ id, source, pipe, mapping: mapping0, packTokens: inp.packTokens, mode, elapsedMs });
+    const record = recordFor({ id, source, pipe, mapping: mapping0, packTokens: inp.packTokens, mode, elapsedMs, suggestions: sug.suggestions });
     const mapping = { record: id, parts: {} };
     writeImport(buildRoot, {
       id, record, transcript, name, mapping, reference,

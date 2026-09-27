@@ -104,6 +104,7 @@ portal/                       local-first workbench (127.0.0.1 only, never deplo
   lib/canvas-store.mjs        the build package: list · load · append-only save, the ledger fold and the
                               canvas.json derivation (verifyBuild is the gate); routes in server.mjs
   lib/import-run.mjs          the RECORDED IMPORT — Brilliant read (lazy SDK) or a dropped file → record + proposal
+  lib/import-suggest.mjs      Jev's top 3 for the nodes the matcher could not name — beside the verdict, fail-open (#455)
   public/                     vanilla SPA — hash routing, template strings, no framework; plus
                               canvas.html + canvas.mjs (+ canvas-import.mjs, #311), the one MODULE page (the build canvas, #306)
   record-trace.mjs            build-time trace recorder (CLI) — a REAL agent run
@@ -136,7 +137,7 @@ docs/epics/                   PRD + architecture decisions governing the platfor
 docs/figma-runbook.md         operator steps for the Figma boundary + the request-budget rules
 
 tooling/
-  build-checks.mjs            45 PURE groups, in CI — the repo's main gate  (→ references/gates.md)
+  build-checks.mjs            46 PURE groups, in CI — the repo's main gate  (→ references/gates.md)
   build-journey.mjs           /build ×3 engines, operator-run             (→ references/gates.md)
   proto-journey.mjs           the two proto pages ×3 engines              (→ references/gates.md)
   studio-journey.mjs          the studio ×3 engines + the INP gate        (→ references/gates.md)
@@ -151,6 +152,7 @@ tooling/
   fieldwork-kpis.mjs          ground-truth KPIs — a post-hoc JUDGE, NEVER fed to an agent prompt
   jev-guard-eval.mjs          the guard's labelled eval — operator-run, needs TYPESAFE_API_KEY (→ jev-guard/)
   jev-screen.mjs              the screen's operator CLI — paid, needs TYPESAFE_API_KEY (→ jev-screen/)
+  import-suggest.mjs          the import suggestions' operator CLI — paid, needs TYPESAFE_API_KEY (→ import-suggest/)
   regen-import-records.mjs    GENERATES import/fixtures/records/ — here, not in import/, because it reads system/wcag.mjs
   inp-observer.mjs            the driver-injected PerformanceObserver helper; nothing ships
   figma/figma-read.mjs        the shared read — auth, the Enterprise gate, the cache, --from
@@ -215,7 +217,7 @@ The kb (`_factory/kb/` in the jobs folder) is the database — record shapes + p
 ## On-demand context
 Route on-demand detail to `.claude/references/` — never back into this file.
 
-- **`gates.md`** — the gate stack: build-checks' 45 groups, the six journey drivers, the pixel gate, the morph gates, and what each one states it CANNOT reach. Read before adding or changing a gate, or before trusting a green run.
+- **`gates.md`** — the gate stack: build-checks' 46 groups, the six journey drivers, the pixel gate, the morph gates, and what each one states it CANNOT reach. Read before adding or changing a gate, or before trusting a green run.
 - **`token-system.md`** — the three-layer mechanic and how to add a token.
 - **`kb-format.md`** — kb record shapes + the ComponentSpec / DataContract format.
 - **`backend-api-best-practices.md`** — API route work · **`frontend-component-best-practices.md`** — UI work.

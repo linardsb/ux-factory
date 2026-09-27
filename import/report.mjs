@@ -46,6 +46,14 @@
 // template adds none, with every reason removed.) 42.6 also renders both committed mds through the
 // real renderMarkdown.
 //
+// MACHINE SUGGESTIONS (#455). `suggestions` is OPTIONAL and never in REQUIRED_KEYS: a record made
+// before #455 and both committed fixture records carry no such key, and buildRecord adds it only when a
+// caller passes one. It is NEVER DERIVED — a stored observation from outside the repo (Jev's ranking),
+// like `fidelity.deltaEMin` — so checkRecord checks its shape and its placement only: every suggestion
+// sits on a verdict node the matcher did NOT score (`via` other than "scored"; a remapped unnamed node
+// reads "mapping" and keeps its suggestion). portal/lib/import-suggest.mjs's SUGGEST_VIA is the sender's
+// rule; import/ may not import portal/, so build-checks 46.2 checks the two agree.
+//
 // PURE. Imports ./ir.mjs and ./fidelity.mjs only — no fs. The WCAG half is computed by the caller
 // (system/wcag.mjs is outside import/, and build-checks 40.7 keeps import/'s graph inside itself) and
 // handed in as data, which is also the seam #311's import-run needs.
@@ -122,7 +130,7 @@ const canon = (v) => (v && typeof v === "object" && !Array.isArray(v)
   ? `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${canon(v[k])}`).join(",")}}`
   : (Array.isArray(v) ? `[${v.map(canon).join(",")}]` : JSON.stringify(v)));
 
-export function buildRecord({ id, source, ir, recognition, mapping, fidelity, provenance, elapsed }) {
+export function buildRecord({ id, source, ir, recognition, mapping, fidelity, provenance, elapsed, suggestions }) {
   const snaps = snapsOf(ir);
   const f = fidelity && typeof fidelity === "object" ? fidelity : {};
   return checkRecord({
@@ -132,6 +140,34 @@ export function buildRecord({ id, source, ir, recognition, mapping, fidelity, pr
     unbound: unboundOf(snaps),
     fidelity: { ...f, verdict: fidelityVerdict(f) },
     provenance, elapsed,
+    ...(suggestions !== undefined ? { suggestions } : {}),
+  });
+}
+
+// The optional machine suggestions (#455): shape and placement, never re-derived.
+function checkSuggestions(r) {
+  const list = r.suggestions;
+  if (!Array.isArray(list)) throw new Error(`record.suggestions: expected an array, got ${list === null ? "null" : typeof list}`);
+  const nodes = new Map();
+  const go = (v) => { if (v?.kind) nodes.set(v.path, v); (v?.children ?? []).forEach(go); };
+  go(r.recognition?.verdict);
+  const seen = new Set();
+  list.forEach((s, i) => {
+    const at = `record.suggestions[${i}]`;
+    if (!s || typeof s !== "object") throw new Error(`${at}: expected an object`);
+    if (seen.has(s.path)) throw new Error(`${at}.path: ${JSON.stringify(s.path)} appears twice — one suggestion per node`);
+    seen.add(s.path);
+    const v = nodes.get(s.path);
+    if (!v) throw new Error(`${at}.path: ${JSON.stringify(s.path)} is not a node of the verdict tree`);
+    if (v.via === "scored") throw new Error(`${at}.path: ${JSON.stringify(s.path)} is a scored node — a suggestion sits beside a verdict the matcher could not reach, never beside one it made`);
+    if (!Array.isArray(s.top) || s.top.length < 1 || s.top.length > 3) throw new Error(`${at}.top: expected 1–3 ranked items, got ${Array.isArray(s.top) ? s.top.length : typeof s.top}`);
+    s.top.forEach((t, j) => {
+      if (typeof t?.slug !== "string" || !t.slug) throw new Error(`${at}.top[${j}].slug: expected a non-empty string, got ${JSON.stringify(t?.slug)}`);
+      if (!num(t.p) || t.p < 0 || t.p > 1) throw new Error(`${at}.top[${j}].p: ${JSON.stringify(t.p)} is not a number in [0, 1]`);
+      if (j > 0 && t.p > s.top[j - 1].p) throw new Error(`${at}.top[${j}].p: ${t.p} ranks above top[${j - 1}]'s ${s.top[j - 1].p} — the list is in non-increasing order`);
+    });
+    if (!num(s.confidence) || s.confidence < 0 || s.confidence > 1) throw new Error(`${at}.confidence: ${JSON.stringify(s.confidence)} is not a number in [0, 1]`);
+    for (const k of ["model", "ts"]) if (typeof s[k] !== "string" || !s[k]) throw new Error(`${at}.${k}: expected a non-empty string, got ${JSON.stringify(s[k])}`);
   });
 }
 
@@ -164,6 +200,7 @@ export function checkRecord(r) {
   if (dm?.reference?.sha256 && dm.reference.sha256 === dm.candidate?.sha256) {
     throw new Error(`record.fidelity.deltaEMin: the reference and the candidate are the same image (${dm.reference.sha256}) — O3b`);
   }
+  if (Object.hasOwn(r, "suggestions")) checkSuggestions(r);
   return r;
 }
 
@@ -255,6 +292,14 @@ export function projectRecord(r) {
   go(r.recognition.verdict);
   para("**Structure**");
   para(table(["path", "kind", "name", "recognised as"], rows));
+
+  // #455: only on a record that carries the field, so a legacy record's markdown is unchanged. Bullets,
+  // not a table: a layer name is free text. Probabilities to four places, never a `%`, never the ts.
+  if (Object.hasOwn(r, "suggestions")) {
+    para("**Machine suggestions (Jev, unratified)**");
+    if (!r.suggestions.length) para("None on this record: the import transcript's `suggest` line says why (no key, a failure, or no unnamed node).");
+    else bullets(r.suggestions.map((s) => `${code(s.path)} (${names.get(s.path) ?? "unnamed"}) — ${s.top.map((t) => `${code(t.slug)} ${t.p.toFixed(4)}`).join(", ")} — confidence ${s.confidence.toFixed(4)} · model ${code(s.model)}${s.top[0]?.slug === "none" ? " — top pick is `none`: likely a new component" : ""}`));
+  }
 
   para("**Snaps**");
   if (!r.snaps.length) para("Bound source — nothing to snap.");
