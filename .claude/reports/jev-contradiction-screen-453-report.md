@@ -85,6 +85,10 @@ import (TDZ) and proved nothing. It was replaced by the empty-list form above.
 - Projection: the new module and `origin/main`'s give byte-identical `--stdout` on all 11 committed packages (observed, md5 compare).
 - Portal smoke with no key (`.env` moved aside): `/api/health` ok. An audit open wrote one line, `{"type":"unavailable",…,"reason":"jev: TYPESAFE_API_KEY is not set in portal/.env"}`, and the route returned `screen: {status:"unavailable"}`. The throwaway package was deleted (observed).
 - The drawer at run 3's open showed `Opened partner-audit-3. Contradiction screen: 3 pair(s) kept.` (observed, Playwright on the served page).
+- **A resume never re-screens** (observed): the drawer resumed `partner-audit-3` four times, and `screen.jsonl`
+  still holds 96 lines, exactly one `summary`, and one `ts` (`10:11:32.835Z`) across every line. A re-screen
+  would have thrown in `writeScreen` and 500'd the route.
+- Every recorded turn t1–t20 has exactly one closing op, and no `turnStats` entry lacks a closer (observed).
 
 ### The screens (Jev)
 
@@ -147,14 +151,21 @@ any request. Jev is a classifier endpoint with no tools, so run 2's fence proble
 | README §The screened audit (partner-audit-3) | Needs run 3's final numbers | Same |
 | Owner labels (`real`, `by`, `at` in `labels.json`) | The owner's call | Owner |
 | Confirming the kept-0 re-open rule | Never exercised: run 3's first open kept 3 | — |
-| A resume re-screening nothing, observed through the route | The resume-path POST used for the check omitted the document and was refused by name; the `view.created` gate was verified by reading the code | 45.7 source pins cover `runTurn`'s read, not the route |
+| README §Files `partner-audit-3/` line and §The screened audit (name t21's `Credit balance is too low` text line there, as `later-not-never-1`'s entry does) | Waits on run 3 | Same as run 3 |
 | CI (`gh pr checks`) | No PR opened yet | `piv-create-pr` |
+
+**The driver's `isError` check was vacuous**: the main transport's `turnStats` carry no `isError` field (only
+the probe's do). The guard that caught t21 was the cursor-advance and stats-count check.
+
+**Remaining cost (derived)**: t21 starts on a cold cache, about t1's $0.152, and t22–t23 about $0.07 each, so
+roughly $0.30. That puts run 3 near $1.84, inside the plan's $1.6–1.9.
 
 **To resume run 3**: `cd ../ux-factory-453/portal && PORT=<free> node server.mjs`, then drive the drawer's
 "Start or resume" with slug `partner-audit-3` and "Audit this question" three more times, then Finish. The
 Playwright driver used for t1–t20 is `scratchpad/drawer.cjs` (`turns <port>`, then `finish <port>`). Answer
-inside five minutes of each turn for the prompt cache. Then run `node discovery/prd-projection.mjs
-partner-audit-3` and commit the package unedited.
+inside five minutes of each turn for the prompt cache. Before projecting, check t1–t23 each have exactly one
+closing op and no `turnStats` entry lacks a closer (a credit error can wear `ok: true`). Then run `node
+discovery/prd-projection.mjs partner-audit-3` and commit the package unedited.
 
 ## Deviations from the plan
 
