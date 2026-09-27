@@ -985,3 +985,14 @@ upper estimate; the CLI prints the observed figures.
   estimator is named in the pre-registration: `CHARS_PER_TOKEN` and `REQUEST_TOKEN_BUDGET` are set once from the
   smoke's observed `usage.input_tokens` before Task 17, and do not move after it. Task 16b's smoke gains a third
   request (full state, 30 questions) so the per-question token cost can be solved for.
+- 2026-09-27 (implementation, after the CLI screen at 10:08Z and BEFORE partner-audit-3 is opened) — **the kept-0
+  branch, registered.** Jev is not bit-stable, and the CLI screen's stage-1 picks were marginal (5 of 90 non-`none`,
+  p 0.30-0.79), so the route's screen can run and keep zero pairs, leaving no block and nothing for AC #4 to observe.
+  Rule, extending Task 18's `unavailable` GOTCHA: a create whose screen is `unavailable` OR keeps 0 pairs is
+  discarded before turn 1 and re-opened, **at most 3 opens in total**; every discarded screen's summary (or
+  unavailable) line goes in the report. If all three keep 0, run 3 is not recorded and AC #4 is reported not met.
+  No threshold, wording or estimator moves between opens. 32.7 becomes the invariant itself — every turn carries a
+  `screenFingerprint` equal to the Opus-resolved screened surface IFF the package's kept pairs are non-empty — and
+  45.9's positive control branches on the package's `summary.kept`.
+- 2026-09-27 (implementation) — 45.8's REDDENS mutation is `K = 2`, not the plan's `K = 9`: the CLI run kept 3 pairs,
+  so K = 9 cannot change a line.

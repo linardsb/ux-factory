@@ -10016,11 +10016,15 @@ console.log(JSON.stringify([row(openSession(audit)), row(openSession(audit)), ro
       // No committed package carries an affordanceFingerprint: the surface is new and nothing has run
       // under it. Stated rather than assumed, so the day one does the reader knows it is new.
       ok((JSON.parse(readFileSync(rj, "utf8")).turnStats ?? []).every((t) => t.affordanceFingerprint === undefined), `32.7: discovery/${slug} carries an affordanceFingerprint — no committed package was recorded through a park or off-script turn`);
+      // #453: a turn carries a screenFingerprint IFF its prompt carried the tensions block, which is IFF
+      // the package's screen.jsonl kept a pair — so the invariant holds whatever a screen kept.
       const screenStamps = [...new Set((JSON.parse(readFileSync(rj, "utf8")).turnStats ?? []).map((t) => t.screenFingerprint))];
-      if (slug === "partner-audit-3") {
+      const screenLines = existsSync(join(ROOT, "discovery", slug, "screen.jsonl"))
+        ? readFileSync(join(ROOT, "discovery", slug, "screen.jsonl"), "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l)) : [];
+      if (screenLines.some((l) => l.type === "pair" && l.kept)) {
         const want = screenFingerprintOf(resolvePosture({ posture, model }));
-        ok(same(screenStamps, [want]), `32.7: discovery/${slug} carries screenFingerprint ${JSON.stringify(screenStamps.map((x) => String(x).slice(0, 8)))} but the current screened ${posture} (${model}) surface is ${want.slice(0, 8)} — every turn of the screened audit must carry it, taken off the RESOLVED posture`);
-      } else ok(same(screenStamps, [undefined]), `32.7: discovery/${slug} carries a screenFingerprint — only partner-audit-3 was recorded through the contradiction screen`);
+        ok(same(screenStamps, [want]), `32.7: discovery/${slug} carries screenFingerprint ${JSON.stringify(screenStamps.map((x) => String(x).slice(0, 8)))} but the current screened ${posture}${model ? ` (${model})` : ""} surface is ${want.slice(0, 8)} — every turn of a screened audit that kept a pair must carry it, taken off the RESOLVED posture`);
+      } else ok(same(screenStamps, [undefined]), `32.7: discovery/${slug} carries a screenFingerprint but its screen kept no pair — the block never rendered, so no turn ran under the screened surface`);
     }
     // The denied lines are the receipt of any in-turn correction; counted for the ✓ line, never
     // asserted — zero corrections and one correction are both honest recordings.
@@ -14424,7 +14428,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       const live = cut(projectPrd(readPackage(PA3)));
       const committed = cut(readFileSync(join(PA3, "prd.md"), "utf8"));
       ok(live === committed, "45.9: partner-audit-3's Tensions section no longer matches its committed prd.md byte for byte");
-      ok(live.includes("#### ") && /· (raised by the audit|not raised)/.test(live), "45.9: partner-audit-3's Tensions section names no kept pair — the byte compare above would pass on an empty section");
+      const keptN = S.readScreen(PA3).find((l) => l.type === "summary")?.kept ?? 0;
+      ok(keptN > 0 ? live.includes("#### ") && /· (raised by the audit|not raised)/.test(live) : live.includes("The screen ran and kept no pair."),
+        `45.9: partner-audit-3's Tensions section does not render its ${keptN} kept pair(s) — the byte compare above would pass on an empty section`);
     }
 
     // --- 45.11 the owner's labels ------------------------------------------------------------------
