@@ -680,7 +680,7 @@ reader to hit it. Four divergences, each asserted BY NAME by group 36, because t
 later edit trimming that header to something shorter and truer-sounding:
 
 1. `type` is `frame | note | decision | exhibit`, where the spec allows only `text | file | link | group`;
-2. `height` is OPTIONAL here and REQUIRED there, because a frame's height is its content's until someone authors one;
+2. `height` is OPTIONAL here and REQUIRED there, because a frame's height is its content's until someone authors one (an exhibit's height is always written, `EXHIBIT_SIZE`);
 3. `ref` is added, pointing a node at the op or decision it came from (`screen:add-payee`, `state:error of f1`), and the spec has no such key;
 4. `relation` replaces the spec's `label` on an edge, because `flows` and `embodies` are a closed set rather than free text.
 
@@ -688,8 +688,12 @@ A conformant reader REFUSES `type: "frame"`, so this file must never be describe
 flat. Nodes are `{id, type, x, y, width, height?, ref}` and edges `{id, fromNode, toNode, relation}`.
 Since #306 the nodes are every frame, every note (`ref: "note:<id>"`) and one decision card per ref any
 frame embodies (`id: "d<ref>"`, `ref: "decision:<ref>"`), and the edges are every arrow (`flows`) and one
-`embodies` edge per frame × decision ref (`id: "e-<frameId>-d<ref>"`). A frame's `height` is written
-only once someone authors one; until then it is its content's.
+`embodies` edge per frame × decision ref (`id: "e-<frameId>-d<ref>"`). Since #475 there is also one
+`exhibit` node per Mode 2 `component.propose` — the frozen original, its id the proposal's (`pr1`), its
+`ref` `"proposal:<name>"`, its size `EXHIBIT_SIZE` (320×280) — whose box never meets a frame's: a frame
+with no authored height counts as reaching down without end, so an exhibit sits beside the flow unless
+that screen's height was authored first. A frame's `height` is written only once someone authors one;
+until then it is its content's.
 
 **DERIVED, NEVER AUTHORED.** Every node and edge is rewritten from `ops.jsonl` on save and the file
 carries no fact the ops do not — except the positions, which are the one thing it owns. That is why

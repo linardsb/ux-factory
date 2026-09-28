@@ -28,7 +28,7 @@ import { checkProposalLines, projectProposals, proposalsView, readProposalPackag
 import { BOOT_SHA, headSha, isStale } from './lib/version.mjs';
 // The build package (#306): the run list, one run, and the append-only save. Node built-ins plus the
 // SDK-free canvas-ops.mjs, pinned by build-checks group 36.6.
-import { foldLedger, listBuilds, loadBuild, loadDecisions, provenanceLabel, saveConflict, saveRun } from './lib/canvas-store.mjs';
+import { foldLedger, listBuilds, loadBuild, loadDecisions, loadExhibits, provenanceLabel, saveConflict, saveRun } from './lib/canvas-store.mjs';
 import { questionById } from '../discovery/bank.mjs';
 // The answer-box guard (#454): Jev's pre-submit check. Writes nothing; fails open inside the module.
 import { checkAnswer } from './lib/discovery-guard.mjs';
@@ -441,7 +441,7 @@ const server = createServer(async (req, res) => {
       return json(res, 200, {
         provenance, slug, label: provenanceLabel({ declared, root: provenance }),
         doc, effective: effective.map(({ op, params }) => ({ op, params })),
-        count: pkg.ops.length, canvas: pkg.canvas, decisions,
+        count: pkg.ops.length, canvas: pkg.canvas, decisions, exhibits: loadExhibits(root, doc),
       });
     }
     // APPEND-ONLY AND CONFLICT-CHECKED (D10). saveConflict and saveRun are synchronous, and nothing

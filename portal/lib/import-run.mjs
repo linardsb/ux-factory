@@ -55,6 +55,11 @@
 // An edit carries the prior list forward while each node is still unnamed, pruning any the re-derived
 // verdict now scores: a mapping edit never calls Jev.
 //
+// A MODE 2 IMPORT PLACES ITS EXHIBIT (#475). canvas-store's arrangement refuses a node with no
+// position, and by the time the op is appended the record is already on disk (invariant 3), so the run
+// computes the exhibit's box with placeExhibit — right of every authored box — and hands it to saveRun
+// beside the op. A Mode 1 import has no canvas node and passes the positions through unchanged.
+//
 // THE OP LINE'S SOURCE IS `owner`. saveRun hardcodes it, and it is right here: the owner's click caused
 // the import and this program wrote the op deterministically; an agent only relayed the read.
 
@@ -68,10 +73,10 @@ import { BUILDERS, build, recognise } from "../../import/recognise.mjs";
 import { buildRecord, projectRecord } from "../../import/report.mjs";
 import { readOverrides, snap, sourceHash, SLOT_FAMILY, targetsFrom } from "../../import/snap-rules.mjs";
 import { walk } from "../../import/ir.mjs";
-import { PROPOSAL_NAME_RE } from "../../system/canvas-ops.mjs";
+import { exhibitsOf, PROPOSAL_NAME_RE } from "../../system/canvas-ops.mjs";
 import { RULESET } from "../../system/derive.rules.mjs";
 import { checkPairs } from "../../system/wcag.mjs";
-import { loadBuild, loadDecisions, positionsOf, saveConflict, saveRun } from "./canvas-store.mjs";
+import { foldLedger, loadBuild, loadDecisions, placeExhibit, positionsOf, saveConflict, saveRun } from "./canvas-store.mjs";
 import { withRunLock } from "./builder.mjs";
 import { JOBS_DIR, REPO_DIR } from "./env.mjs";
 import { bindingOf, brilliantServer, classifyBridge, failureOf, openBridge, parseExport, parseInit, parseLookup, parsePage, parseSelection, TOOLS } from "./brilliant-mcp.mjs";
@@ -456,10 +461,15 @@ export async function runImport({ pkgRoot, provenance = "fictional", base, entra
 
     // The op, through canvas-store's one live writer. The ledger is re-read: base was checked above.
     const pkg = loadBuild(buildRoot);
+    const op = { op: "component.propose", params: { name, recordId: id, mode }, status: "applied" };
+    const positions = positionsOf(pkg?.canvas);
+    if (mode === 2) {
+      const { doc } = foldLedger([...(pkg?.ops ?? []), op]);
+      const ex = exhibitsOf(doc).find((e) => e.recordId === id);
+      positions[ex.id] = placeExhibit(doc, positions);
+    }
     const { count } = saveRun(pkgRoot, {
-      base: pkg?.ops?.length ?? 0,
-      ops: [{ op: "component.propose", params: { name, recordId: id, mode }, status: "applied" }],
-      positions: positionsOf(pkg?.canvas), decisions: loadDecisions(pkgRoot),
+      base: pkg?.ops?.length ?? 0, ops: [op], positions, decisions: loadDecisions(pkgRoot),
     });
     return { name, recordId: id, count, binding, view: importView(pkgRoot, name) };
   }, "an import");

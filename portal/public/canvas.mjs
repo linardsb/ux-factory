@@ -19,6 +19,15 @@
 //      refused gesture recorded nothing, so the ledger says nothing about it.
 //   4. EVERY STRING FROM THE PACKAGE IS textContent. Transcript answers, questions and notes are
 //      someone's words, and nothing here builds markup from a string.
+//   5. A FROZEN ORIGINAL NEVER ENTERS A FRAME (G7, #475). A Mode 2 import is an exhibit node beside the
+//      flow. After every gesture that can move geometry — ui.move, ui.move-group (align and
+//      distribute emit it too), ui.resize, ui.frame-size (the inspector changes a width without
+//      ui.resize) and ui.redo (which restores a box without emitting ui.move) — the page runs
+//      canvas-ops.mjs's exhibitClashes over the SAME two arguments the server's arrangement uses (the
+//      document and gatherPositions()), so the two agree by construction. A clash is undone at once,
+//      every pending line the refused gesture added is dropped (call 3: it recorded nothing), and the
+//      refusal is said aloud. flush() is the backstop: a clash that reaches it is not sent, and the
+//      page does NOT go broken — the next clean gesture saves everything pending.
 //
 // The driver seam is getCanvasPage() (studio-verbs.mjs's getVerbs idiom): page globals are not this
 // repo's test surface.
@@ -30,7 +39,7 @@ import { mountCanvasVerbs } from "/system/studio-verbs.mjs";
 import { mountCanvasSelect } from "/system/studio-select.mjs";
 import { mountStudioLayers } from "/system/studio-layers.mjs";
 import { mountStudioMinimap } from "/system/studio-minimap.mjs";
-import { applyOp, frameTree, placeDecision } from "/system/canvas-ops.mjs";
+import { applyOp, EXHIBIT_SIZE, exhibitClashes, exhibitsOf, frameTree, placeDecision } from "/system/canvas-ops.mjs";
 import { PRESET_NAMES, WIDTH_MAX, WIDTH_MIN, presetWidth } from "/system/device-presets.mjs";
 
 const el = (tag, attrs, ...kids) => {
@@ -65,6 +74,8 @@ let vocab = null;
 let canvas = null;
 let bus = null;
 let verbs = null;
+// id → the /api/canvas/run `exhibits` entry (name, record, tool, file, attribution, licence, PNG).
+let exhibitMeta = new Map();
 
 // id → { wrap, node, kind, sig, details? } for every node this page placed.
 const onStage = new Map();
@@ -292,10 +303,68 @@ function placeCard(ref) {
   onStage.set(id, { node, wrap: node.parentElement, kind: "decision", sig: canon(cardParts(ref).map((p) => p.textContent)) });
 }
 
+// ---- exhibits: a Mode 2 import, beside the flow (#475) ---------------------------------------------
+
+function exhibitParts(e) {
+  const name = e?.name ?? "unknown";
+  const tool = e?.tool ?? "an unknown tool";
+  const parts = [el("p", { class: "cv-exhibit-title", text: "Frozen original · Mode 2" })];
+  if (e?.reference) parts.push(el("img", { src: e.reference, alt: `The original ${name}, as exported from ${tool}` }));
+  else parts.push(el("p", { class: "cv-flag", text: "No reference image — only a live Brilliant read captures one; this import was a dropped file." }));
+  parts.push(el("p", { class: "cv-exhibit-meta", text: `${name} · import ${e?.recordId ?? "?"} · ${e?.file ? `dropped file ${e.file}` : `read from ${tool}`}` }));
+  parts.push(el("p", { text: "Beside the flow for comparison. It never joins the system and never goes inside a frame." }));
+  parts.push(el("p", { class: "cv-exhibit-meta", text: `Attribution: ${e?.attribution ?? "not recorded"} · licence: ${e?.licence ?? "not recorded"}` }));
+  return parts;
+}
+
+function placeExhibitNode(ex) {
+  const meta = exhibitMeta.get(ex.id) ?? ex;
+  const node = el("div", { class: "cv-exhibit" }, ...exhibitParts(meta));
+  node.style.width = `${EXHIBIT_SIZE.w}px`;
+  node.style.height = `${EXHIBIT_SIZE.h}px`;
+  node.dataset.stxName = `Original ${ex.name}`;
+  // The server placed it (import-run's placeExhibit), so a missing box does not happen; the origin is
+  // not a rule, and the guard refuses the first gesture if it would ever land on a frame.
+  const b = boxes.get(ex.id) ?? { x: 0, y: 0 };
+  canvas.place(node, { x: b.x, y: b.y, w: EXHIBIT_SIZE.w, name: `Original ${ex.name}`, component: "exhibit", id: ex.id });
+  onStage.set(ex.id, { node, wrap: node.parentElement, kind: "exhibit", sig: ex.id });
+}
+
+const refusal = (clash) => {
+  const f = frameOf(clash.frameId);
+  const where = f ? frameName(f) : clash.frameId;
+  const name = exhibitsOf(doc).find((e) => e.id === clash.exhibitId)?.name ?? clash.exhibitId;
+  return `Refused: the original ${name} would sit inside ${where} — a frozen original stays beside the flow (G7). Put back. To place it below ${where}, give that screen a height first (resize it).`;
+};
+
+// Where `pending` stood when the current gesture began — set by a handler registered BEFORE every
+// consumer, so a refusal drops exactly what the refused gesture (and its undo) added and never a line
+// an earlier gesture queued, which may be in a save that is still in flight.
+let gestureMark = 0;
+// The frame whose height a resize just made authored, if it was not before: a refused resize puts that
+// back too, or the next save would write a height nobody chose.
+let newlyAuthored = null;
+
+function keepExhibitsBeside(action) {
+  const clash = exhibitClashes(doc, gatherPositions())[0];
+  if (!clash) { newlyAuthored = null; return; }
+  bus.emit({ type: "ui.undo", source: action?.source ?? "keyboard" });
+  pending.splice(gestureMark);
+  if (newlyAuthored) {
+    const id = newlyAuthored;
+    authoredH.delete(id);
+    if (onStage.has(id)) fitHeight(id, onStage.get(id));
+  }
+  newlyAuthored = null;
+  canvas.say(refusal(clash)); // AFTER the undo, whose own "Undone: …" would otherwise be the last word
+}
+
+const GEOMETRY_VERBS = Object.freeze(["ui.move", "ui.move-group", "ui.resize", "ui.frame-size", "ui.redo"]);
+
 // ---- reconcile: make the stage say what the document says ----------------------------------------
 
 function reconcile() {
-  const want = new Set([...doc.frames.map((f) => f.id), ...(doc.notes ?? []).map((n) => n.id), ...refsInOrder().map((r) => `d${r}`)]);
+  const want = new Set([...doc.frames.map((f) => f.id), ...(doc.notes ?? []).map((n) => n.id), ...refsInOrder().map((r) => `d${r}`), ...exhibitsOf(doc).map((e) => e.id)]);
   for (const [id, entry] of [...onStage]) {
     if (want.has(id) || drafts.has(id)) continue;
     const b = readBox(entry.wrap);
@@ -326,6 +395,7 @@ function reconcile() {
     const sig = canon(parts.map((p) => p.textContent));
     if (sig !== entry.sig) { entry.node.replaceChildren(...parts); entry.sig = sig; }
   }
+  for (const ex of exhibitsOf(doc)) if (!onStage.has(ex.id)) placeExhibitNode(ex);
   canvas.setArrows(doc.arrows);
 }
 
@@ -366,6 +436,7 @@ const adapter = {
   resized(id, box) {
     const f = frameOf(id);
     if (!f) return;
+    newlyAuthored = authoredH.has(id) ? null : id;
     authoredH.add(id);
     // A height-only resize is arrangement, not a size op: the width is the document's fact.
     const width = Math.min(WIDTH_MAX, Math.max(WIDTH_MIN, Math.round(box.w)));
@@ -388,6 +459,9 @@ async function flush() {
   if (broken) return;
   if (saving) { again = true; return; }
   const positions = gatherPositions();
+  // THE BACKSTOP (call 5): a clash the guard missed is not sent, and the session stays alive.
+  const clash = exhibitClashes(doc, positions)[0];
+  if (clash) { setSave(`Not saved yet — ${refusal(clash)}`); return; }
   const key = canon(positions);
   if (!pending.length && key === lastSavedKey) return;
   const ops = pending.slice();
@@ -607,6 +681,7 @@ async function boot() {
     effective = run.effective;
     count = run.count;
     decisions = run.decisions;
+    exhibitMeta = new Map((run.exhibits ?? []).map((e) => [e.id, e]));
     renderLabel(run);
     for (const n of run.canvas?.nodes ?? []) {
       boxes.set(n.id, { x: n.x, y: n.y, ...(n.type !== "frame" && { w: n.width }), ...(n.height != null && { h: n.height }) });
@@ -618,8 +693,13 @@ async function boot() {
     reconcile();
 
     bus = createBus();
+    // FIRST, before every consumer: where pending stood when this gesture began (call 5).
+    for (const t of GEOMETRY_VERBS) bus.on(t, () => { gestureMark = pending.length; });
     registerConsumers();
     verbs = mountCanvasVerbs(canvas, { bus, docHook: adapter });
+    // AFTER the verbs, so the guard judges the box they produced (setPos's clamp included), and
+    // before the save below.
+    for (const t of GEOMETRY_VERBS) bus.on(t, keepExhibitsBeside);
     const select = mountCanvasSelect(canvas, { bus });
     mountStudioLayers(document.body, { canvas, select });
     mountStudioMinimap(document.body, { canvas });
