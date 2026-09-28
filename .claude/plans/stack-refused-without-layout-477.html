@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stack refusal brief</title>
+<style>
+  :root { --bg:#fbfaf7; --fg:#1f2328; --muted:#5b6470; --line:#dcd8cf; --card:#fff; --accent:#3d6b5a; --warn:#9a4a2a; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#16181b; --fg:#e6e3dc; --muted:#9aa3ad; --line:#30343a; --card:#1e2125; --accent:#8cc2ab; --warn:#e0a07f; } }
+  * { box-sizing:border-box }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, sans-serif }
+  main { max-width:760px; margin:0 auto; padding:28px 16px 60px }
+  h1 { font-size:24px; margin:0 0 4px } h2 { font-size:18px; margin:32px 0 10px }
+  .src { color:var(--muted); font-size:14px } a { color:var(--accent) }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:14px 16px; margin:10px 0 }
+  .card h3 { margin:0 0 6px; font-size:16px }
+  pre { background:var(--card); border:1px solid var(--line); border-radius:6px; padding:10px 12px; overflow-x:auto; font-size:13px; margin:8px 0 0 }
+  .flow { display:flex; flex-wrap:wrap; gap:8px; align-items:center }
+  .box { border:1px solid var(--line); background:var(--card); border-radius:6px; padding:8px 10px; font-size:14px }
+  .box.bad { border-color:var(--warn) } .box.good { border-color:var(--accent) }
+  .arrow { color:var(--muted) }
+  ul.plain { padding-left:18px } ul.plain li { margin:4px 0 }
+  ul.prompts { list-style:none; padding:0 }
+  ul.prompts li { display:flex; justify-content:space-between; gap:10px; align-items:center; border-bottom:1px solid var(--line); padding:8px 0 }
+  .copy { opacity:.35; border:0; background:none; color:inherit; cursor:pointer; font-size:15px; line-height:1 }
+  .copy:hover, .copy:focus-visible { opacity:1 }
+  .copy::before { content:'⧉' } .copy.copied::before { content:'✓' }
+</style>
+</head>
+<body>
+<main>
+<h1>A part that can't be built should say so, not crash</h1>
+<p class="src">Source of truth: <a href="stack-refused-without-layout-477.md">stack-refused-without-layout-477.md</a></p>
+
+<h2>What we're building and why</h2>
+<p>Today the owner can tell the importer "treat this box as a stack". If the box never said which way its items run, the importer builds a broken part anyway, and the preview crashes. After the fix, the part is not built, and the screen explains why.</p>
+
+<h2>The concepts this plan rests on</h2>
+
+<div class="card">
+  <h3>1. Required props (the settings a part can't do without)</h3>
+  <p>Every part in the design system lists settings it must have. A stack must know its direction: row or column. The fix hinges on this list.</p>
+  <pre>stack   → direction (required), gap, pad, align
+icon    → name (required), size (required)</pre>
+</div>
+
+<div class="card">
+  <h3>2. "Present" is not "filled"</h3>
+  <p>The builder checked that the <em>slot</em> for direction existed. It never checked that anything was <em>in</em> it. Like a form with the "date" box printed but left blank. The fix checks the value, not the box.</p>
+  <pre>before: is there a direction key?     yes → build
+after:  does direction hold a value?  no  → don't build</pre>
+</div>
+
+<div class="card">
+  <h3>3. A loss list (the record of what couldn't be carried over)</h3>
+  <p>When the importer can't use something, it writes a row saying what and why. Skipping a part is honest when the row exists. If a refused part had already built smaller parts inside it, each of those gets a row too, so nothing disappears unnamed.</p>
+</div>
+
+<div class="card">
+  <h3>4. A check that must be able to fail</h3>
+  <p>The new check tries every part of two saved designs against every builder: 144 pairs. On today's code 16 of them crash, so the check goes red. It also confirms a real stack still builds, so it can't pass by refusing everything. A second check runs the owner's real mapping step end to end.</p>
+</div>
+
+<h2>How the pieces fit</h2>
+<div class="flow">
+  <span class="box">Owner maps a box to "stack"</span><span class="arrow">→</span>
+  <span class="box">Builder fills settings</span><span class="arrow">→</span>
+  <span class="box good">Direction empty? Don't build, log why, name what went with it</span><span class="arrow">→</span>
+  <span class="box">Screen: "not emitted, see drops"</span>
+</div>
+<p class="src">Before the fix, step three let the empty value through, and the preview crashed with "Refused by the renderer".</p>
+
+<h2>The plan at a glance</h2>
+<ul class="plain">
+  <li><b>Phase 1, the checks:</b> the 144-pair sweep and the end-to-end mapping check. Written first, so you watch them fail.</li>
+  <li><b>Phase 2, the rule:</b> check values, not keys, and log every part a refusal takes with it. Needs Phase 1 in place.</li>
+  <li><b>Phase 3, the wording:</b> update the gate descriptions, then run everything.</li>
+</ul>
+<pre>import/recognise.mjs            # the one-line rule + three comments made true
+tooling/build-checks.mjs        # 40.29: the sweep · 43.14: the real mapping step
+.claude/references/gates.md     # the gate's description, updated to match</pre>
+<ul class="plain">
+  <li>The issue's example gives "nothing built", with two rows explaining why.</li>
+  <li>The sweep fails on today's code and passes after the fix.</li>
+  <li>A box that does have a direction still becomes a stack.</li>
+  <li>Every part lost with a refused one is named in the loss list.</li>
+  <li>The owner's real mapping step gives "nothing built" too.</li>
+  <li>The comments say what the code does.</li>
+  <li>All three copies of the gate description match.</li>
+  <li>No saved expected-output file changes, and the full check run is green.</li>
+</ul>
+
+<h2>Go deeper</h2>
+<ul class="prompts">
+  <li data-prompt="/learn required props in a component vocabulary">
+    <span><b>/learn required props in a component vocabulary</b> — how a part declares what it can't do without.</span>
+    <button class="copy" aria-label="Copy prompt"></button></li>
+  <li data-prompt="/learn null versus missing key in JavaScript">
+    <span><b>/learn null versus missing key in JavaScript</b> — why `in` and `== null` answer different questions.</span>
+    <button class="copy" aria-label="Copy prompt"></button></li>
+  <li data-prompt="/learn loss lists in a design importer">
+    <span><b>/learn loss lists in a design importer</b> — recording what wasn't carried instead of guessing.</span>
+    <button class="copy" aria-label="Copy prompt"></button></li>
+  <li data-prompt="/learn property-based sweeps with positive controls">
+    <span><b>/learn property-based sweeps with positive controls</b> — making a check prove it can fail.</span>
+    <button class="copy" aria-label="Copy prompt"></button></li>
+</ul>
+</main>
+<script>
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.copy')
+  if (!btn) return
+  const text = btn.closest('[data-prompt]').dataset.prompt
+  try {
+    await navigator.clipboard.writeText(text)
+  } catch {
+    const ta = Object.assign(document.createElement('textarea'), { value: text })
+    ta.style.cssText = 'position:fixed;opacity:0'
+    document.body.append(ta)
+    ta.select()
+    document.execCommand('copy')
+    ta.remove()
+  }
+  btn.classList.add('copied')
+  setTimeout(() => btn.classList.remove('copied'), 1200)
+})
+</script>
+</body>
+</html>
