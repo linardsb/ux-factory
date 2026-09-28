@@ -1,7 +1,7 @@
 # Implementation Report — live import fidelity: render the candidate and measure ΔE-MIN (#474)
 
 **Plan**: `.claude/plans/import-live-fidelity-474.md`   **Branch**: `feature/import-live-fidelity-474` (worktree `../wt-474b`)
-**Base**: `1b43cee` (origin/main at start) → `1b43cee` (origin/main at report; unmoved, nothing to merge)   **Status**: COMPLETE — except canvas-journey's I4, which fails on main (Issues)
+**Base**: `1b43cee` (origin/main at start) → `9398860` (origin/main merged at `aa926a9`: #475, #481)   **Status**: COMPLETE
 
 ## Summary
 
@@ -118,11 +118,16 @@ never committed. It proves the wiring from the page through the spawn to the rec
 - CodeQL 2.27.0 locally, with the repo's `codeql-config.yml` and the code-scanning suite: **0 results**.
   `measure-render.mjs`, `import-measure.mjs` and `canvas-import.mjs` are in the extraction log (observed).
 
+- **After merging origin/main at `9398860` (#475, #481), observed:**
+  - `build-checks` → `all 46 groups pass`, 0 ✗.
+  - Import records → no drift; `drift-check` ✓; loc summary → no drift.
+  - `canvas-journey all` → chromium 125/0, firefox 124/0, webkit 124/0, with I12's render reading 1.3379 in each.
+  - #475 had taken case id 43.15, so this ticket's case is **43.16**.
+
 ## Not run
 
 - **Q1**, the neutral-pack contrast fix: tracked as #482. Until it lands, every live verdict reads `red`.
-- **A green `canvas-journey all`** on this branch: I4 fails on main. It is fixed in PR #481 (issue #480), which
-  passes all three engines with no failures. Merging main into this branch after #481 lands makes this journey green.
+- None beyond Q1. I4 was fixed on main by #481 (issue #480), and after the merge the journey is green on all three engines.
 
 ## Deviations from the plan
 
