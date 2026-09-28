@@ -120,9 +120,9 @@ never committed. It proves the wiring from the page through the spawn to the rec
 
 ## Not run
 
-- **Q1**, the neutral-pack contrast ticket: the owner's call, not opened. Until it lands, every live verdict reads `red`.
-- **A green `canvas-journey all`**: not reachable in this PR, because I4 fails on main (Issues). Tracker: the owner's
-  call on filing it.
+- **Q1**, the neutral-pack contrast fix: tracked as #482. Until it lands, every live verdict reads `red`.
+- **A green `canvas-journey all`** on this branch: I4 fails on main. It is fixed in PR #481 (issue #480), which
+  passes all three engines with no failures. Merging main into this branch after #481 lands makes this journey green.
 
 ## Deviations from the plan
 
