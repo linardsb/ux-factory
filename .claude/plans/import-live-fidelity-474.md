@@ -971,3 +971,7 @@ scratchpad, never under `.claude/plans/` as `.mjs`).
   - Task 12 was split: its SYNTHETIC half (refusals, invalidation, O3b, lock, odd size, the pure helpers, the real
     child's no-renderer and timeout paths) needs no owner fixture and landed first; the replay of the owner's pair
     lands after Task 11.
+- 2026-09-28 — Task 11 ran (owner): the importer maps Brilliant spacing BY ROLE (`import/brilliant.mjs`), and
+  Brilliant's `spacing.lg` is 16 where the contract's is 24, so a faithful frame's padding must use a token whose
+  values agree (`spacing.sm`, 8). Brilliant's gap field offers no token (a typed 4 snaps exactly to `--spacing-xs`),
+  and its line height is a multiple, not px. Result: faithful 1.3379, wrong 29.7584 — AC 10 met.

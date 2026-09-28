@@ -1,7 +1,7 @@
 # Implementation Report — live import fidelity: render the candidate and measure ΔE-MIN (#474)
 
 **Plan**: `.claude/plans/import-live-fidelity-474.md`   **Branch**: `feature/import-live-fidelity-474` (worktree `../wt-474b`)
-**Base**: `1b43cee` (origin/main at start) → not yet re-based   **Status**: PARTIAL — paused at Task 11 (owner-run, blocks the PR by D3)
+**Base**: `1b43cee` (origin/main at start) → `1b43cee` (origin/main at report; unmoved, nothing to merge)   **Status**: COMPLETE — except canvas-journey's I4, which fails on main (Issues)
 
 ## Summary
 
@@ -10,8 +10,9 @@ The owner can press "Measure fidelity" on a Brilliant import in the canvas view.
 Chromium at the scale the reference was exported at. `portal/lib/import-measure.mjs` flattens both PNGs over white,
 crops the candidate to the reference's size and measures it with `fidelity.mjs`'s rung 6. It then rebuilds the
 record through `buildRecord` and writes the candidate PNG, a `measure` transcript line, the record and its markdown.
-A mapping edit returns the record to `missing` and deletes the candidate. What is still missing: the owner's live pair,
-the replay of that pair in 43.15, and I12 run on the real fixture.
+A mapping edit returns the record to `missing` and deletes the candidate. The owner's live pair is committed verbatim
+under `import/fixtures/measure-live/`: faithful worst ΔE **1.3379**, wrong **29.7584**, against THRESHOLD 5.0
+(AC 10 met). 43.15 replays the pair in CI, and I12 re-renders it for real on all three page engines, reproducing 1.3379.
 
 ## Tasks completed
 
@@ -30,7 +31,10 @@ the replay of that pair in 43.15, and I12 run on the real fixture.
   strings, the group comment blocks and `gates.md` (canvas-journey: its header and success line).
 - Task 12 (SYNTHETIC half) → `tooling/build-checks.mjs` 43.15.
 - Task 13 → `tooling/canvas-journey.mjs` (UPDATE): `fp-measure` seed, I12, I12b, `withPortal`'s `extraEnv`.
-- NOT DONE: Task 11 (owner), 43.15's replay of the owner's pair, I12 on the real fixture.
+- Task 11 → `import/fixtures/measure-live/` (CREATE): the owner drew the frames in Brilliant and pressed Import
+  selection and Measure fidelity through a portal on this branch, on a scratch `JOBS_DIR`, with Jev suggestions on
+  (the owner's call). The implementer copied the files verbatim and wrote the README.
+- Task 12 (the replay) → `tooling/build-checks.mjs` 43.15 part 0.
 
 ## Tests added
 
@@ -50,6 +54,19 @@ the replay of that pair in 43.15, and I12 run on the real fixture.
   - the pure helpers.
 - **canvas-journey I12/I12b** — see Proving the checks.
 
+## Task 11 — the decision rule (observed)
+
+| Frame | worst ΔE (region) | root | title | subtitle | verdict |
+|---|---|---|---|---|---|
+| faithful | **1.3379** (text:Amara Okafor) | 0.7267 | 1.3379 | 1.0001 | red (WCAG 11/12, Q1) |
+| wrong | **29.7584** (text:Amara Okafor) | — | 29.7584 | — | red |
+
+faithful < 5.0 and wrong ≥ 5.0 → AC 10 met. The proxy predicted ≈ 2.3 and ≈ 30. The first attempt was imported but
+never measured, and was discarded. Brilliant sent `pad(16:$spacing.lg)`, which the importer maps BY ROLE to the
+contract's 24 px `--spacing-lg`. It also sent an unbound gap of 10, and the subtitle's grey as a text-range colour
+over a black fill. The recipe changed to padding `spacing.sm` (8 in both systems), a typed gap of 4 (exact snap to
+`--spacing-xs`), and layer fills. That attempt is kept in the session scratchpad only.
+
 ## Proving the checks
 
 | Check | Mutation (restored after) | Red observed | Positive control |
@@ -68,6 +85,9 @@ the replay of that pair in 43.15, and I12 run on the real fixture.
 | 43.15 | stale re-read skipped (`if (false)`) | `a stale measurement answered "red" and wrote imports/i1.json` | 〃 |
 | 43.15 | exit 3 not mapped to no-renderer | `the renderer child with no Playwright answered {render-failed…}` | 〃 |
 | 43.15 | a zero-area box not pushed to `skipped` | `regionsFromBoxes answered {… skipped:[]}` | 〃 |
+| 43.15 replay | `want.worst` read from the OTHER frame's measure.json | `the owner's faithful frame re-measured worst {…1.3379} — the committed faithful.measure.json says {…29.7584}` (+ both THRESHOLD lines, + wrong's pair) | faithful 1.3379 < 5 and wrong 29.7584 ≥ 5 re-measured in CI |
+| 43.15 replay | reference decoded without `{ over }` | `measureImport(the owner's faithful frame) threw …: alpha 0 at pixel 0 is not opaque` | 〃 |
+| 43.15 replay | candidate decoded without `{ over }` and uncropped | **no red on the replay** — Chromium writes RGB, so the candidate flatten is a no-op on this pair. It is kept for an RGBA candidate; the SYNTHETIC 319×81 case still reds on the crop | recorded as a check no mutation of this pair can redden |
 | I12 | `spawnRender` pointed at `tooling/no-such-render.mjs` | `✗ I12 · the view left missing … The renderer failed.`, `✗ … candidate.png … missing`, `✗ I12b …` — the refusal's words, not a timeout | clean run: I12 5/5, I12b 2/2 ✓ |
 
 Driver proof: the first stale mutation (`false && a || b || c`) did not take effect. Operator precedence kept `b` and
@@ -90,16 +110,19 @@ never committed. It proves the wiring from the page through the spawn to the rec
   `{"error":"name \"../x\" is not a component name"} 400` (observed).
 - `node tooling/canvas-journey.mjs chromium`, SYNTHETIC stand-in → `101 passed, 1 failed`. The failure is I4, which
   fails identically with every change stashed (`94 passed, 1 failed`, base `1b43cee`) (observed).
+- `node tooling/canvas-journey.mjs all`, real fixture → chromium `101 passed, 1 failed`, firefox `100/1`, webkit
+  `100/1`. The failure is I4 in each engine; I12 and I12b are ✓ in all three, and the page's render measured
+  `1.3379 at text:Amara Okafor` in each (observed).
+- Final tree (`fb179c4` + report): build-checks `all 46 groups pass`, records `no drift`, drift-check ✓,
+  `gen-loc-summary --check` `3 groups — no drift` after commit (observed).
+- CodeQL 2.27.0 locally, with the repo's `codeql-config.yml` and the code-scanning suite: **0 results**.
+  `measure-render.mjs`, `import-measure.mjs` and `canvas-import.mjs` are in the extraction log (observed).
 
 ## Not run
 
-- **Task 11**, the owner's live pair. Owner-run, D3, blocks the PR. Tracker: this PR.
-- **43.15's replay of the owner's pair**, and its "wrong frame's measure.json" mutation. Waits on Task 11.
-- **I12 on the real fixture**, and `canvas-journey all` (firefox and webkit). Waits on Task 11.
-- **`gen-loc-summary --check` after staging**: expected no drift (no new file falls in a group). Not yet run.
-- **The rebase onto origin/main** and re-running the gates on the merged tree.
-- **CodeQL** (local bundle) over `measure-render.mjs`'s file serving.
-- **Q1**, the neutral-pack contrast ticket: the owner's call. Not opened.
+- **Q1**, the neutral-pack contrast ticket: the owner's call, not opened. Until it lands, every live verdict reads `red`.
+- **A green `canvas-journey all`**: not reachable in this PR, because I4 fails on main (Issues). Tracker: the owner's
+  call on filing it.
 
 ## Deviations from the plan
 
@@ -108,7 +131,10 @@ never committed. It proves the wiring from the page through the spawn to the rec
 - **Task 12 split**: the SYNTHETIC half landed before Task 11, on SYNTHETIC measurable imports built with `synthPng`.
   The plan had driven the refusal battery off the owner's faithful replay. The replay itself still follows Task 11.
   The battery no longer depends on the owner's fixture.
-- **Task 11 recipe (plan error)**: the texts' sizes must be bound to Brilliant font-size tokens. See AMENDMENTS.
+- **Task 11 recipe (plan error)**: text sizes are bound to Brilliant font-size tokens; padding is `spacing.sm` (8),
+  not 16; the gap of 4 is typed (Brilliant's gap field has no token); line height is a multiple (1.6 → Brilliant's
+  1.63 token, 1.5); the subtitle is 12 px (`font.size.xs`), not 13; and Jev suggestions were on (the owner's call).
+  See AMENDMENTS and the fixture README.
 - **Task 8 smoke (plan error)**: `PORT=0` meets the origin guard as a 403; a chosen free port is used instead.
 - **`importView`'s label** reads `threshold ${THRESHOLD}` (imported from `fidelity.mjs`), not a literal `5`, so the
   words cannot drift from the constant.
