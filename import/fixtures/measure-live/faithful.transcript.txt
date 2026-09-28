@@ -1,0 +1,7 @@
+{"type":"meta","ts":"2026-09-28T15:19:17.425Z","entrance":"selection","transport":"stdio","server":"npx","allowed":["init","get_selection","lookup","export"]}
+{"type":"tool","ts":"2026-09-28T15:19:18.231Z","tool":"init","input":{"agentName":"ux-factory import"},"ok":true,"ms":6,"bytes":24730,"sha256":"685715a3a7d25112ee0a386fcd7baff09077bd741f21f5c9e8b0d70902e32591"}
+{"type":"tool","ts":"2026-09-28T15:19:18.233Z","tool":"get_selection","input":{"canvasId":"main.bl"},"ok":true,"ms":2,"bytes":911,"sha256":"4272d5217f7f79d0bab7ecd654d73f83e63ad0a1ee4c0c82f44fa046f20f08be"}
+{"type":"tool","ts":"2026-09-28T15:19:18.236Z","tool":"lookup","input":{"scope":["dcbd44e13e90cdd7"],"format":"blueprint","expandInstances":true},"ok":true,"ms":3,"bytes":1013,"sha256":"20d88518d51a880031079410bb7043ad7d8897167f0ab6e1367288d2c78475fb"}
+{"type":"tool","ts":"2026-09-28T15:19:18.255Z","tool":"export","input":{"canvasId":"main.bl","ids":["dcbd44e13e90cdd7"],"format":"png","scale":1},"ok":true,"ms":19,"bytes":5268,"sha256":"6105c4218904760c9eac4b347ee1609fa99a923190aa40d55da6d2dffccc3f66"}
+{"type":"binding","ts":"2026-09-28T15:19:18.256Z","project":"playground","tabId":"tab-222a9bd0-eade-49a3-a33b-de0c8e409d4b","surface":"web","otherTabs":0}
+{"type":"suggest","ts":"2026-09-28T15:19:19.811Z","ran":true,"reason":null,"nodes":1,"requests":1,"usage":{"input_tokens":7146,"output_tokens":232}}
