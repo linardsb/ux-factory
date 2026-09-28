@@ -175,8 +175,9 @@ function plainData(value, verb, path) {
 
 // A FROZEN ORIGINAL NEVER ENTERS A FRAME (#475, G7). A Mode 2 proposal is kept beside the flow for
 // comparison; a composition, a state's override.add or a variant's overrides.<frame>.add naming it
-// would put it inside a screen. The walk follows `children` only, never `props`, where a component may
-// carry a prop that happens to be called `name`. FORWARD ONLY: a name proposed as Mode 2 after a frame
+// would put it inside a screen. The walk follows `children` and an add entry's `part` (the
+// architecture's {parentId, index, part} wrapper, which has no name of its own), never `props`, where a
+// component may carry a prop that happens to be called `name`. FORWARD ONLY: a name proposed as Mode 2 after a frame
 // already uses it is not caught, because the applier refuses what an op does, never retroactively —
 // and import-run's proposalName never picks a name a frame could already render.
 function refuseFrozen(verb, tree, doc) {
@@ -188,6 +189,7 @@ function refuseFrozen(verb, tree, doc) {
     const pr = frozen.get(node.name);
     if (pr) throw new Error(`${verb}: "${node.name}" is a frozen original (Mode 2, ${pr.id}) — it stays beside the flow as an exhibit and never enters a frame (G7)`);
     if (Array.isArray(node.children)) node.children.forEach(walk);
+    if (plainObject(node.part)) walk(node.part);
   };
   walk(tree);
 }
