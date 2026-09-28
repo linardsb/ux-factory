@@ -481,9 +481,11 @@ const propsFor = (entry, node, verdict, ctx, drops) => {
 const stackShape = (node, drops) => {
   const out = {};
   const L = node.layout;
-  // A `stack` verdict on a node with no layout is not reachable while the fallback tests for one —
-  // and it is exactly what a fallback that stopped testing would produce. Refuse it by name rather
-  // than read `null.gap`: a TypeError here would kill a gate run before a single named failure spoke.
+  // A `stack` verdict on a node with no layout is reachable since #311: the owner's `map` sends any
+  // node to `stack` without the fallback's `ir.layout` test (portal/lib/import-run.mjs:180). This row
+  // and propsFor's `unfillable-required-prop` are the record, and build()'s closing check, which reads
+  // the VALUE, returns null. Refuse it by name rather than read `null.gap`: a TypeError here would
+  // kill a gate run before a single named failure spoke.
   if (!L) {
     drops.push(drop({
       kind: "no-vocabulary-slot", slot: "layout",
@@ -538,7 +540,7 @@ export const BUILDERS = Object.freeze({
   // this builder is not where that happens: `list.empty` has no slot in any design read, so propsFor
   // records it unfillable and build()'s closing required-prop check discards this whole object —
   // rows included, for any input, always. What survives a design read of a list is the LOSS LIST,
-  // not the rows. That is the honest answer: an importer that emitted the rows under an invented
+  // not the rows — and each row it built is on it by name (#477). That is the honest answer: an importer that emitted the rows under an invented
   // empty-state copy would be writing the designer's words for them. Case 40.12 asserts BOTH halves
   // — what this builder computes, and what build() emits through the only entry point a source has.
   list: (node, verdict, entry, ctx, drops) => ({
@@ -548,9 +550,10 @@ export const BUILDERS = Object.freeze({
   }),
 });
 
-// Dispatch through BUILDERS. An uncovered verdict, a missing builder, or an unfillable required prop
+// Dispatch through BUILDERS. An uncovered verdict, a missing builder, or a required prop absent or null
 // returns null WITH THE DROP RECORDED — never a guess. Descendant drops are pushed BEFORE the null
-// return, so the loss list stays total whatever the outcome.
+// return, and a refused composition files one row per child it had built, so the loss list stays
+// total whatever the outcome.
 export function build(node, verdict, vocab, drops = []) {
   if (!verdict.covered || !verdict.name) return null;
   const entry = vocab.components[verdict.name];
@@ -625,8 +628,21 @@ export function build(node, verdict, vocab, drops = []) {
     }
   }
 
-  // A required prop that could not be filled means the node was understood and cannot be emitted.
-  const missing = requiredOf(entry).filter(([p]) => !(p in (out.props ?? {})));
-  if (missing.length) return null;
+  // A required prop that could not be filled — ABSENT, OR PRESENT AND null — means the node was
+  // understood and cannot be emitted. The VALUE is read, not the key: BUILDERS.stack writes `direction`
+  // from layout.dir unconditionally, so on a layout-less node an owner mapped to stack (#311) the key
+  // was there holding null, passed, and reached the renderer as a refusal instead of a loss (#477).
+  const missing = requiredOf(entry).filter(([p]) => out.props?.[p] == null);
+  if (missing.length) {
+    // WHAT THE REFUSAL TAKES WITH IT IS RECORDED. A child built above (or by BUILDERS.list) was
+    // emittable on its own and goes nowhere once its parent is refused; without a row it would leave
+    // the loss list in silence — ir.mjs invariant 4. One row per emitted child, the child's subtree
+    // travelling with it (#477).
+    for (const kid of out.children ?? []) drops.push(drop({
+      kind: "no-vocabulary-slot", slot: `${verdict.path}.children`, value: kid.name,
+      reason: `${kid.name} was built and is not emitted: its parent ${verdict.name} is refused for ${missing.map(([p]) => `${verdict.name}.${p}`).join(", ")}, and everything under it goes with it`,
+    }));
+    return null;
+  }
   return out;
 }
