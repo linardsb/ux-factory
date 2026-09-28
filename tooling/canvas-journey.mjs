@@ -40,7 +40,12 @@
 // both ids, and Browse again is served from the session cache (I11); `unpaired` — the not-paired
 // refusal with ONE action "Import again", the bridge's own words as the detail line, and the click
 // sends the import again (I10); `hang-call` — Re-bind's click posts the binding check and the line
-// updates (I10b). Every side child is on a free port, is asserted to be THIS worktree's portal before
+// updates (I10b). THE MEASUREMENT (#474): the owner's faithful frame (import/fixtures/measure-live/) is
+// seeded in-process into fp-measure, measured through the page by the spawned tooling/measure-render.mjs
+// — worst ΔE under THRESHOLD, the derived verdict, the candidate at the reference's size — and a rename
+// returns it to missing and deletes the candidate (I12); a side child with UXF_MEASURE_VRDIR at a missing
+// directory shows the no-renderer refusal IN THE VIEW with the panel closed, the record unchanged (I12b).
+// Every side child is on a free port, is asserted to be THIS worktree's portal before
 // use, and is killed by its own handle. git status over system/, handoff/, discovery/ and
 // import/overrides/ is compared across the pass (AC #4).
 //
@@ -64,13 +69,16 @@
 
 import { createRequire } from "node:module";
 import { spawn, execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { cpSync, existsSync, mkdirSync, mkdtempSync, openSync, readdirSync, readFileSync, realpathSync, rmSync } from "node:fs";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { foldLedger, loadBuild, verifyBuild } from "../portal/lib/canvas-store.mjs";
-import { checkRecord } from "../import/report.mjs";
+import { checkRecord, fidelityVerdict } from "../import/report.mjs";
+import { THRESHOLD } from "../import/fidelity.mjs";
+import { editMapping, runImport } from "../portal/lib/import-run.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, "..");
@@ -157,10 +165,10 @@ async function boot(attempt = 1) {
 // scratch JOBS_DIR, asserted to be THIS worktree's portal before use, killed by its own handle.
 // `mcp === null` leaves the real bridge (no override); `timeoutMs === null` keeps the reader's default.
 const sides = new Set();
-async function withPortal(mcp, fn, { timeoutMs = "8000" } = {}) {
+async function withPortal(mcp, fn, { timeoutMs = "8000", extraEnv = {} } = {}) {
   const port = await freePort();
   const fd = openSync(LOG, "a");
-  const env = { ...process.env, PORT: String(port), JOBS_DIR: scratch, UXF_IMPORT_SUGGEST: "off" };
+  const env = { ...process.env, PORT: String(port), JOBS_DIR: scratch, UXF_IMPORT_SUGGEST: "off", ...extraEnv };
   if (mcp === null) delete env.UXF_BRILLIANT_MCP; else env.UXF_BRILLIANT_MCP = mcp;
   if (timeoutMs === null) delete env.UXF_IMPORT_TIMEOUT_MS; else env.UXF_IMPORT_TIMEOUT_MS = timeoutMs;
   const proc = spawn(process.execPath, [path.join(REPO, "portal/server.mjs")], { cwd: path.join(REPO, "portal"), env, stdio: ["ignore", fd, fd] });
@@ -227,6 +235,11 @@ function seed() {
   mkdirSync(imp);
   for (const f of ["run.json", "answers.jsonl", "transcript.jsonl"]) cpSync(path.join(src, f), path.join(imp, f));
   cpSync(path.join(src, "build"), path.join(imp, "build"), { recursive: true });
+  // #474's measurement pass, likewise on its own copy.
+  const mea = path.join(DISC(), "fp-measure");
+  mkdirSync(mea);
+  for (const f of ["run.json", "answers.jsonl", "transcript.jsonl"]) cpSync(path.join(src, f), path.join(mea, f));
+  cpSync(path.join(src, "build"), path.join(mea, "build"), { recursive: true });
 }
 const buildDir = (slug) => path.join(DISC(), slug, "build");
 const ledger = (slug) => readFileSync(path.join(buildDir(slug), "ops.jsonl"), "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l));
@@ -588,6 +601,7 @@ async function leg(engine, base, results) {
     });
 
     await importPass(engine, base, page, t, step, errors);
+    await measurePass(base, page, t, step);
 
     t("16 · no page errors or console errors across the leg", errors.length === 0, errors.slice(0, 3).join(" | "));
     const gitAfter = gitDiscovery();
@@ -929,6 +943,86 @@ async function fakeBridgePass(page, t, step) {
   }));
 }
 
+// ---- the measurement pass (#474) ----------------------------------------------------------------------
+// The owner's FAITHFUL frame (import/fixtures/measure-live/, a verbatim live import) seeded in-process into
+// fp-measure through the real runImport + the owner's committed mapping, then measured THROUGH THE PAGE:
+// the button → the route → the spawned tooling/measure-render.mjs → Playwright's Chromium (whatever engine
+// the page runs in) → the record → the view. The ASSERTION is under/over THRESHOLD and the derived
+// verdict word, never the digits: a local render may differ from the committed replay by platform.
+const MEASURE_FX = path.join(REPO, "import/fixtures/measure-live");
+const measureDir = () => path.join(buildDir("fp-measure"), "imports");
+const sha = (f) => createHash("sha256").update(readFileSync(f)).digest("hex");
+const ihdr = (f) => { const b = readFileSync(f); return `${b.readUInt32BE(16)}x${b.readUInt32BE(20)}`; };
+
+async function seedMeasure() {
+  const fx = (f) => readFileSync(path.join(MEASURE_FX, `faithful.${f}`));
+  const transcript = fx("transcript.txt").toString("utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l));
+  const pkg = path.join(DISC(), "fp-measure");
+  const overridesDir = path.join(scratch, "_measure-overrides");
+  const r = await runImport({ pkgRoot: pkg, provenance: "real", base: ledger("fp-measure").length, entrance: "selection", overridesDir,
+    reader: async () => ({ text: fx("blueprint.txt").toString("utf8"), reference: fx("reference.png"), transcript, binding: null }) });
+  if (!r?.name) throw new Error(`seeding fp-measure answered ${JSON.stringify(r?.refused ?? r)}`);
+  const parts = JSON.parse(readFileSync(path.join(MEASURE_FX, "mapping.json"), "utf8"));
+  for (const [p, m] of Object.entries(parts)) {
+    for (const k of ["map", "rename", "drop"]) {
+      const v = k === "rename" ? m.name : m[k];
+      if (v !== undefined) editMapping({ pkgRoot: pkg, provenance: "real", name: r.name, edit: { path: p, [k]: v }, overridesDir });
+    }
+  }
+  return { name: r.name, id: r.recordId };
+}
+
+async function measurePass(base, page, t, step) {
+  let seeded = null;
+  await step("I12 · Measure fidelity renders the candidate; the faithful frame's worst ΔE is under 5", async () => {
+    seeded = await seedMeasure();
+    const rec = () => JSON.parse(readFileSync(path.join(measureDir(), `${seeded.id}.json`), "utf8"));
+    const png = path.join(measureDir(), `${seeded.id}.candidate.png`);
+    await page.goto(`${base}/canvas.html?provenance=real&slug=fp-measure&import=${seeded.name}`, { waitUntil: "load" });
+    await page.waitForSelector("[data-import-view]:not([hidden]) [data-import-measure]", { timeout: 20000 });
+    const b = await page.locator("[data-import-measure]").boundingBox();
+    t("I12 · the Measure fidelity button measures at least 44×44", b && b.width >= 44 && b.height >= 44, `${b?.width}×${b?.height}`);
+    await page.locator("[data-import-measure]").click();
+    const settled = await page.waitForFunction(() => document.querySelector("[data-import-fidelity]")?.dataset.importFidelity !== "missing"
+      || (document.querySelector("[data-import-measure-refusal]")?.textContent ?? "") !== "", null, { timeout: 60000 }).then(() => true, () => false);
+    const refusal = await page.locator("[data-import-measure-refusal]").textContent();
+    const line = await page.locator("[data-import-fidelity]").textContent();
+    const r = rec();
+    const worst = r.fidelity.deltaEMin?.worst;
+    t("I12 · the view left missing, naming a worst region under THRESHOLD", settled && !refusal && Number.isFinite(worst?.value) && worst.value < THRESHOLD && line.includes(`worst ΔE ${worst.value} at ${worst.region}`),
+      `${refusal || line} (worst ${JSON.stringify(worst)})`);
+    console.log(`    · measured worst ΔE ${worst?.value} at ${worst?.region} (the committed replay: see faithful.measure.json)`);
+    let err = null;
+    try { checkRecord(r); } catch (e) { err = e.message; }
+    t("I12 · the record passes checkRecord, and the page's verdict word is the DERIVED one", err === null && (await page.locator("[data-import-fidelity]").getAttribute("data-import-fidelity")) === fidelityVerdict(r.fidelity), err ?? line);
+    const ref = path.join(measureDir(), `${seeded.id}.reference.png`);
+    t("I12 · imports/<id>.candidate.png is a PNG of the reference's size", existsSync(png) && ihdr(png) === ihdr(ref), existsSync(png) ? `${ihdr(png)} vs ${ihdr(ref)}` : "missing");
+    // D6: an edit through the page returns the record to missing and deletes the candidate.
+    const input = page.locator('[data-import-rename="ir.children[0]"]');
+    await input.fill("measured-row");
+    await input.dispatchEvent("change");
+    const back = await page.waitForFunction(() => document.querySelector("[data-import-fidelity]")?.dataset.importFidelity === "missing", null, { timeout: 15000 }).then(() => true, () => false);
+    t("I12 · a rename through the page reads missing — not measured, never a pass, and the PNG is gone",
+      back && (await page.locator("[data-import-fidelity]").textContent()).includes("missing — not measured, never a pass") && !existsSync(png), await page.locator("[data-import-fidelity]").textContent());
+  });
+
+  await step("I12b · a refusal is visible in the view with the panel closed", () => withPortal(MCP_DOWN, async (b2) => {
+    if (!seeded) throw new Error("I12 did not seed fp-measure");
+    const recFile = path.join(measureDir(), `${seeded.id}.json`);
+    const before = sha(recFile);
+    await page.goto(`${b2}/canvas.html?provenance=real&slug=fp-measure&import=${seeded.name}`, { waitUntil: "load" });
+    await page.waitForSelector("[data-import-view]:not([hidden]) [data-import-measure]", { timeout: 20000 });
+    const panelHidden = await page.locator("[data-import-panel]").isHidden();
+    await page.locator("[data-import-measure]").click();
+    const box = page.locator("[data-import-measure-refusal]");
+    await page.waitForFunction(() => (document.querySelector("[data-import-measure-refusal]")?.textContent ?? "") !== "", null, { timeout: 30000 });
+    const text = await box.textContent();
+    t("I12b · the no-renderer refusal is VISIBLE with the panel closed and names npm ci", panelHidden && (await box.isVisible()) && text.includes("npm ci"), `${panelHidden ? "" : "panel open; "}${text}`);
+    t("I12b · …and the record on disk is unchanged", sha(recFile) === before);
+    await page.goto("about:blank");
+  }, { extraEnv: { UXF_MEASURE_VRDIR: "/nonexistent" } }));
+}
+
 // ---- --live-brilliant (#311 PR B, Task 7.2) — owner-run, chromium, the REAL bridge ---------------------------
 async function liveLeg(results) {
   const t = (name, cond, extra = "") => {
@@ -1022,5 +1116,5 @@ try {
 }
 console.log(totalFails
   ? `\ncanvas-journey ✗  ${totalFails} assertion(s) failed`
-  : `\ncanvas-journey ✓  the run list · the in-repo spine opened with ZERO saves and its save notice · run.json's provenance label with the root flagged · frames, the arrow and decision cards rendered from the ledger and the transcript with no overlap · a note, a decision link, a refused remove, a remove and its undo, a numeric width and a pointer resize each ONE ledger entry and ONE undo · a reload that keeps them · verifyBuild [] on disk and the disk document equal to the page's · 403 cross-origin and 409 stale · the stand-in flagged, not blocked · the inspector in the viewport on both branches · 44×44 targets · the import pass: the MCP-down refusal with one action, two drops writing record + proposal + one component.propose line each with one record shape, a mapping edit re-deriving the record and the view, the run lock refusing a drop "already in flight" and the hung read's one action routed to Re-bind, a stale drop's one action reloading the page, an oversize drop refused and a traversal name a 400 · over the fake bridge: Check binding naming the tab's project and surface, Import selection writing the one selected id + a reference.png shown in the Original pane + a mapping edit (I9), the unpaired refusal's one action and the bridge's own words with Import again re-sending (I10), Re-bind running the binding check (I10b), Browse's two thumbnail tiles importing as one two-id record and served again from the session cache (I11) · no page errors · nothing under system/, handoff/, discovery/ or import/overrides/ changed (${toRun.join(", ")})`);
+  : `\ncanvas-journey ✓  the run list · the in-repo spine opened with ZERO saves and its save notice · run.json's provenance label with the root flagged · frames, the arrow and decision cards rendered from the ledger and the transcript with no overlap · a note, a decision link, a refused remove, a remove and its undo, a numeric width and a pointer resize each ONE ledger entry and ONE undo · a reload that keeps them · verifyBuild [] on disk and the disk document equal to the page's · 403 cross-origin and 409 stale · the stand-in flagged, not blocked · the inspector in the viewport on both branches · 44×44 targets · the import pass: the MCP-down refusal with one action, two drops writing record + proposal + one component.propose line each with one record shape, a mapping edit re-deriving the record and the view, the run lock refusing a drop "already in flight" and the hung read's one action routed to Re-bind, a stale drop's one action reloading the page, an oversize drop refused and a traversal name a 400 · over the fake bridge: Check binding naming the tab's project and surface, Import selection writing the one selected id + a reference.png shown in the Original pane + a mapping edit (I9), the unpaired refusal's one action and the bridge's own words with Import again re-sending (I10), Re-bind running the binding check (I10b), Browse's two thumbnail tiles importing as one two-id record and served again from the session cache (I11) · the owner's faithful frame measured through the page by the spawned renderer, worst ΔE under THRESHOLD with the derived verdict, a rename returning it to missing and deleting the candidate (I12), and the no-renderer refusal visible in the view with the panel closed (I12b) · no page errors · nothing under system/, handoff/, discovery/ or import/overrides/ changed (${toRun.join(", ")})`);
 process.exit(totalFails ? 1 : 0);
