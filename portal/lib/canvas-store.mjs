@@ -13,7 +13,9 @@
 // saveConflict + saveRun for a save. The fold, the canvas.json derivation (arrangement) and the gate
 // predicate (verifyBuild) live here rather than in system/canvas-ops.mjs because the page never needs
 // them — the server folds on load and derives on save — so they stay Node-side, out of the runtime
-// line count approach.html renders, and beside the only writer of the files they judge.
+// line count approach.html renders, and beside the only writer of the files they judge. The Mode 2
+// exhibit's derivation and placeExhibit (#475) live here for the same reason: the page never places an
+// exhibit (an import reloads it) — it only calls the shared clash rule, which is canvas-ops.mjs's.
 //
 // NO SDK, AND NOTHING THAT COULD REACH ONE. It imports node built-ins plus ../../system/canvas-ops.mjs,
 // which group 35.9 pins SDK-free in its own right; group 36.6 pins exactly this set. That is what lets
@@ -32,7 +34,7 @@
 
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { applyOps } from "../../system/canvas-ops.mjs";
+import { applyOps, EXHIBIT_SIZE, exhibitClashes, exhibitsOf } from "../../system/canvas-ops.mjs";
 
 export const OPS_FILE = "ops.jsonl";
 export const CANVAS_FILE = "canvas.json";
@@ -93,7 +95,7 @@ export function loadBuild(root) {
 
 // The committed $description, as the derivation writes it. Group 36.4 asserts the committed file
 // carries exactly this and that it still names all four divergences from JSON Canvas 1.0.
-export const CANVAS_DESCRIPTION = "JSON Canvas–SHAPED, and deliberately NOT JSON Canvas 1.0 (jsoncanvas.org/spec/1.0, read 2026-09-18). Four divergences, named rather than left for a reader to hit: (1) `type` is frame|note|decision|exhibit, where the spec allows only text|file|link|group; (2) `height` is OPTIONAL here and REQUIRED there, because a frame's height is its content's until someone authors one; (3) `ref` is added, pointing a node at the op or decision it came from, and the spec has no such key; (4) `relation` replaces the spec's `label` on an edge, because flows and embodies are a closed set rather than free text. A conformant reader REFUSES type: \"frame\", so this file must never be described as JSON Canvas flat. WHAT IS DERIVED AND WHAT IS NOT, stated exactly (corrected 2026-09-21, PR #432's open question 4). Every node and edge here — which frames exist, their ids, widths, screen and base refs, which arrows connect them, every note, every decision card and every `embodies` edge from a frame to a decision in its decisionRefs (#306) — is rewritten from ops.jsonl on save, and build-checks group 36 folds the committed ledger (undo lines included) through the real applier and compares the whole derivation, node by node and edge by edge. POSITIONS ARE AUTHORED. The ops carry no geometry by design: where a thing sits is the arrangement's business, and an op that carried an x would make these two files two sources for one fact. That is why group 36's inverse case requires a MOVED frame to still pass, and it is why nothing here can drift-check an x. The earlier wording said positions came from the rank layout — they do not, that layout has no concept of a state frame, and f2.x is 472 where its pitch is 236.";
+export const CANVAS_DESCRIPTION = "JSON Canvas–SHAPED, and deliberately NOT JSON Canvas 1.0 (jsoncanvas.org/spec/1.0, read 2026-09-18). Four divergences, named rather than left for a reader to hit: (1) `type` is frame|note|decision|exhibit, where the spec allows only text|file|link|group; (2) `height` is OPTIONAL here and REQUIRED there, because a frame's height is its content's until someone authors one; (3) `ref` is added, pointing a node at the op or decision it came from, and the spec has no such key; (4) `relation` replaces the spec's `label` on an edge, because flows and embodies are a closed set rather than free text. A conformant reader REFUSES type: \"frame\", so this file must never be described as JSON Canvas flat. WHAT IS DERIVED AND WHAT IS NOT, stated exactly (corrected 2026-09-21, PR #432's open question 4). Every node and edge here — which frames exist, their ids, widths, screen and base refs, which arrows connect them, every note, every decision card and every `embodies` edge from a frame to a decision in its decisionRefs (#306), and one `exhibit` per Mode 2 `component.propose` (#475) — the frozen original, `EXHIBIT_SIZE` 320×280, its id the proposal's and its ref `proposal:<name>`, whose box never meets a frame's (a frame with no authored height counts as reaching down without end) — is rewritten from ops.jsonl on save, and build-checks group 36 folds the committed ledger (undo lines included) through the real applier and compares the whole derivation, node by node and edge by edge. POSITIONS ARE AUTHORED. The ops carry no geometry by design: where a thing sits is the arrangement's business, and an op that carried an x would make these two files two sources for one fact. That is why group 36's inverse case requires a MOVED frame to still pass, and it is why nothing here can drift-check an x. The earlier wording said positions came from the rank layout — they do not, that layout has no concept of a state frame, and f2.x is 472 where its pitch is 236.";
 
 const STATUSES = Object.freeze(["applied", "accepted", "proposed", "refused", "undone"]);
 
@@ -142,7 +144,10 @@ const decisionRefsOf = (doc) => {
 // arrangement(doc, positions) → the canvas.json object.
 //
 // EVERYTHING BUT POSITION IS DERIVED from the document (D7): frames, notes, one decision card per
-// ref any frame embodies, arrows as `flows` edges, and an `embodies` edge per frame × ref. Positions
+// ref any frame embodies, one exhibit per Mode 2 proposal (#475), arrows as `flows` edges, and an
+// `embodies` edge per frame × ref. An exhibit's size is EXHIBIT_SIZE, never the arrangement's, and one
+// that meets a frame is REFUSED naming both and G7 — so saveRun refuses before writing and verifyBuild
+// reports it, one site. Positions
 // come from `positions` ({id: {x, y, w?, h?}}), and a node with none is REFUSED naming it — a
 // derivation that invented one would put a hand-chosen number in a committed file with no one having
 // chosen it. Key order is the committed file's: id, type, x, y, width, height?, ref.
@@ -163,12 +168,46 @@ export function arrangement(doc, positions) {
     ...doc.frames.map((f) => node(f.id, "frame", f.width, f.baseId ? `state:${f.stateKey} of ${f.baseId}` : `screen:${f.screenId}`)),
     ...(doc.notes ?? []).map((n) => node(n.id, "note", positions?.[n.id]?.w, `note:${n.id}`)),
     ...decisionRefsOf(doc).map((r) => node(`d${r}`, "decision", positions?.[`d${r}`]?.w, `decision:${r}`)),
+    ...exhibitsOf(doc).map((e) => {
+      const p = at(e.id);
+      return { id: e.id, type: "exhibit", x: p.x, y: p.y, width: EXHIBIT_SIZE.w, height: EXHIBIT_SIZE.h, ref: `proposal:${e.name}` };
+    }),
   ];
+  const clash = exhibitClashes(doc, positions)[0];
+  if (clash) {
+    const name = exhibitsOf(doc).find((e) => e.id === clash.exhibitId)?.name;
+    throw new Error(`arrangement: exhibit "${clash.exhibitId}" (${name}) meets frame "${clash.frameId}" — a frozen original stays beside the flow, never inside a frame (G7)`);
+  }
   const edges = [
     ...doc.arrows.map((a) => ({ id: a.id, fromNode: a.from.frameId, toNode: a.to.frameId, relation: "flows" })),
     ...doc.frames.flatMap((f) => (f.decisionRefs ?? []).map((r) => ({ id: `e-${f.id}-d${r}`, fromNode: f.id, toNode: `d${r}`, relation: "embodies" }))),
   ];
   return { $description: CANVAS_DESCRIPTION, nodes, edges };
+}
+
+// placeExhibit(doc, positions, gap?) → { x, y } — where a new Mode 2 exhibit sits (#475).
+//
+// RIGHT OF EVERY AUTHORED BOX, AT THE FRAMES' TOP ROW: x is the largest right edge over frames (their
+// width is the document's), notes, decision cards and exhibits already placed, plus the gap; y is the
+// smallest frame y. Clear of every frame by construction, because it starts past every frame's right
+// edge. Node-only: portal/lib/import-run.mjs calls it before saveRun, because arrangement refuses a
+// node with no position and the import's files are already on disk by then.
+export function placeExhibit(doc, positions, gap = 32) {
+  const fin = Number.isFinite;
+  const pos = positions && typeof positions === "object" ? positions : {};
+  const widths = new Map([
+    ...(doc?.frames ?? []).map((f) => [f.id, f.width]),
+    ...exhibitsOf(doc).map((e) => [e.id, EXHIBIT_SIZE.w]),
+  ]);
+  const rights = [];
+  const tops = [];
+  for (const [id, p] of Object.entries(pos)) {
+    if (!p || !fin(p.x)) continue;
+    const w = widths.has(id) ? widths.get(id) : p.w;
+    if (fin(w)) rights.push(p.x + w);
+  }
+  for (const f of doc?.frames ?? []) if (fin(pos[f.id]?.y)) tops.push(pos[f.id].y);
+  return { x: rights.length ? Math.max(...rights) + gap : 0, y: tops.length ? Math.min(...tops) : 0 };
 }
 
 // positionsOf(canvas) → {id: {x, y, w?, h?}} — the AUTHORED half of a canvas.json. `w` for
@@ -274,6 +313,26 @@ export function loadDecisions(pkgRoot) {
       wrongIf: l.params?.wrong_if ?? null,
       level: l.params?.level ?? null,
     }));
+}
+
+// loadExhibits(pkgRoot, doc) → [{ id, name, recordId, tool, file, attribution, licence, reference }] —
+// what the canvas page shows on each Mode 2 exhibit (#475). `reference` is the live read's PNG as a
+// data URL (importView's precedent), null for a dropped file, which carries none. recordId is already
+// ^i[1-9][0-9]*$ — the applier refuses anything else — so the join cannot leave build/imports/.
+export function loadExhibits(pkgRoot, doc) {
+  const dir = join(pkgRoot, "build", "imports");
+  return exhibitsOf(doc).map((e) => {
+    const record = readJson(join(dir, `${e.recordId}.json`));
+    const png = join(dir, `${e.recordId}.reference.png`);
+    return {
+      id: e.id, name: e.name, recordId: e.recordId,
+      tool: record?.source?.tool ?? null,
+      file: record?.source?.file ?? null,
+      attribution: record?.provenance?.attribution ?? null,
+      licence: record?.provenance?.licence ?? null,
+      reference: existsSync(png) ? `data:image/png;base64,${readFileSync(png).toString("base64")}` : null,
+    };
+  });
 }
 
 // provenanceLabel({ declared, root }) → { text, mismatch } — the honesty contract's label (D12).

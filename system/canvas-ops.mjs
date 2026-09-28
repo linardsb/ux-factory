@@ -173,6 +173,27 @@ function plainData(value, verb, path) {
   }
 }
 
+// A FROZEN ORIGINAL NEVER ENTERS A FRAME (#475, G7). A Mode 2 proposal is kept beside the flow for
+// comparison; a composition, a state's override.add or a variant's overrides.<frame>.add naming it
+// would put it inside a screen. The walk follows `children` and an add entry's `part` (the
+// architecture's {parentId, index, part} wrapper, which has no name of its own), never `props`, where a
+// component may carry a prop that happens to be called `name`. FORWARD ONLY: a name proposed as Mode 2 after a frame
+// already uses it is not caught, because the applier refuses what an op does, never retroactively —
+// and import-run's proposalName never picks a name a frame could already render.
+function refuseFrozen(verb, tree, doc) {
+  const frozen = new Map(doc.proposals.filter((x) => x && x.mode === 2).map((x) => [x.name, x]));
+  if (!frozen.size) return;
+  const walk = (node) => {
+    if (Array.isArray(node)) { node.forEach(walk); return; }
+    if (!plainObject(node)) return;
+    const pr = frozen.get(node.name);
+    if (pr) throw new Error(`${verb}: "${node.name}" is a frozen original (Mode 2, ${pr.id}) — it stays beside the flow as an exhibit and never enters a frame (G7)`);
+    if (Array.isArray(node.children)) node.children.forEach(walk);
+    if (plainObject(node.part)) walk(node.part);
+  };
+  walk(tree);
+}
+
 // CONNECT'S TWO ENDPOINTS, EXACT THE WAY PARAMS IS (#302, PR #432's open question 3, owner's call
 // 2026-09-21: close it). The rule this file states about itself — a recorded op never says more than
 // the op that was applied — was enforced on the ENVELOPE and one level down was open: an unknown key
@@ -224,6 +245,7 @@ export function applyOp(doc, op) {
       if (typeof p.why !== "string" || !p.why.trim()) {
         throw new Error(`screen.compose: "why" must be one sentence naming the decision and the reason — a composition nobody can judge is refused (D4)`);
       }
+      refuseFrozen("screen.compose", p.composition, next);
       next.frames.push({
         id: nextId("f", frameIds()),
         screenId: p.screenId,
@@ -264,6 +286,7 @@ export function applyOp(doc, op) {
       if (twin) {
         throw new Error(`state.add: "${base.id}" already carries a "${p.stateKey}" state (${twin.id}) — one design per state per screen, and missingStates counts distinct keys so a second one would be absorbed rather than reported`);
       }
+      if (plainObject(p.override) && p.override.add !== undefined) refuseFrozen("state.add", p.override.add, next);
       // A STATE IS A SIBLING FRAME CARRYING AN OVERRIDE, never a copy of the base. The architecture's
       // call, and the reason resolve() exists: a copy drifts from its base the first time the base
       // changes, and the whole point of a state is that it IS the base except where it says so.
@@ -401,6 +424,7 @@ export function applyOp(doc, op) {
         if (!plainObject(ov)) {
           throw new Error(`variant.add: the override for "${fid}" must be an object — this op carried ${JSON.stringify(ov)}`);
         }
+        if (ov.add !== undefined) refuseFrozen("variant.add", ov.add, next);
       }
       // Stored as an override map keyed by frame id (G33). The lane UI and the per-variant
       // completeness check are #314's.
@@ -588,4 +612,67 @@ export function placeDecision(anchor, taken, size = { w: 280, h: 160 }, gap = 32
   const row = [a, ...(Array.isArray(taken) ? taken.map(box).filter(Boolean) : [])]
     .filter((b) => b.y < a.y + a.h && a.y < b.y + b.h);
   return { x: Math.max(...row.map((b) => b.x + b.w)) + gap, y: a.y };
+}
+
+// ---- #475: the Mode 2 exhibit (G7, "Beside the canvas only, never inside a frame") ---------------
+//
+// AN EXHIBIT IS DERIVED, NOT RECORDED. A Mode 2 `component.propose` is the whole fact: the frozen
+// original exists, and it never joins the system. There is no exhibit verb — the epic's op-verb lock is
+// #315's, and a second record of one fact is what canvas.json's "no fact the ops do not" forbids — so
+// the node's id is the proposal's (pr1) and only its position is authored.
+//
+// EXHIBIT_SIZE IS FIXED. An exhibit is a .stx-slot: studio-canvas.mjs never gives one an authored
+// height and studio-verbs.mjs refuses to resize one, so the page's CSS box and Node's box are this one
+// number rather than two that happen to agree.
+export const EXHIBIT_SIZE = Object.freeze({ w: 320, h: 280 });
+
+// exhibitsOf(doc) → [{ id, name, recordId }] — every Mode 2 proposal, in proposal order. A read, so
+// total over junk: a malformed entry is skipped.
+export function exhibitsOf(doc) {
+  const list = Array.isArray(doc?.proposals) ? doc.proposals : [];
+  return list.filter((p) => plainObject(p) && p.mode === 2 && typeof p.id === "string")
+    .map((p) => ({ id: p.id, name: p.name, recordId: p.recordId }));
+}
+
+// exhibitClash(exhibit, frames) → the id of the first frame whose box meets the exhibit's, else null.
+//
+// A FRAME WITH NO AUTHORED HEIGHT REACHES DOWN WITHOUT END. Its height is its content's until someone
+// authors one (CANVAS_DESCRIPTION's divergence 2), and Node cannot measure content, so the only reading
+// both sides can compute is the conservative one — which is why "beside" means beside. Resizing a
+// frame authors its height and ends the reading for that frame. Strict overlap, so touching edges
+// pass. Total: a junk exhibit answers null, junk frames are skipped.
+export function exhibitClash(exhibit, frames) {
+  const fin = Number.isFinite;
+  if (!exhibit || !fin(exhibit.x) || !fin(exhibit.y)) return null;
+  const x2 = exhibit.x + EXHIBIT_SIZE.w;
+  const y2 = exhibit.y + EXHIBIT_SIZE.h;
+  for (const f of Array.isArray(frames) ? frames : []) {
+    if (!f || !fin(f.x) || !fin(f.y) || !fin(f.w)) continue;
+    const fy2 = fin(f.h) ? f.y + f.h : Infinity;
+    if (exhibit.x < f.x + f.w && f.x < x2 && exhibit.y < fy2 && f.y < y2) return f.id;
+  }
+  return null;
+}
+
+// exhibitClashes(doc, positions) → [{ exhibitId, frameId }], one per exhibit that meets a frame.
+//
+// THE ONE CALL BOTH SIDES MAKE, WITH THE SAME TWO ARGUMENTS: the document and the AUTHORED half of
+// canvas.json ({id: {x, y, w?, h?}}). portal/lib/canvas-store.mjs's arrangement passes the positions it
+// derives under; portal/public/canvas.mjs passes gatherPositions(), which writes a frame's h only when
+// authored. So the page and the save agree by construction — placeDecision's rule, tightened from "two
+// callers assemble boxes the same way" to "one function assembles them". A frame's width is the
+// DOCUMENT's (frame.size), never the arrangement's. A node with no finite position is skipped: the
+// derivation's own at() refuses that separately.
+export function exhibitClashes(doc, positions) {
+  const pos = plainObject(positions) ? positions : {};
+  const frames = (Array.isArray(doc?.frames) ? doc.frames : []).flatMap((f) => {
+    const p = plainObject(f) ? pos[f.id] : null;
+    return p ? [{ id: f.id, x: p.x, y: p.y, w: f.width, h: p.h }] : [];
+  });
+  const out = [];
+  for (const e of exhibitsOf(doc)) {
+    const frameId = exhibitClash(pos[e.id], frames);
+    if (frameId !== null) out.push({ exhibitId: e.id, frameId });
+  }
+  return out;
 }

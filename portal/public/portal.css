@@ -326,6 +326,17 @@
 .cv-card-a, .cv-card-w, .cv-card-by { color: var(--color-fg-muted); }
 /* A transcript answer can run to a paragraph; the card shows its opening and the stage stays legible. */
 .cv-card-a { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+/* A Mode 2 exhibit (#475): the frozen original, beside the flow. The dashed border is the one visual
+   difference that says "not a screen"; its size is canvas-ops.mjs's EXHIBIT_SIZE, set inline. */
+.cv-exhibit {
+  box-sizing: border-box; display: flex; flex-direction: column; gap: var(--spacing-xs); overflow: hidden;
+  background: var(--color-bg-surface); border: 1px dashed var(--color-border); border-radius: var(--radius-sm);
+  padding: var(--spacing-sm); font-size: var(--type-caption);
+}
+.cv-exhibit p { margin: 0; overflow-wrap: anywhere; }
+.cv-exhibit-title { font-weight: 600; }
+.cv-exhibit img { flex: 1; min-height: 120px; width: 100%; object-fit: contain; }
+.cv-exhibit-meta { color: var(--color-fg-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* the frame inspector — a popover; the anchor branch applies only when canvas.mjs took it */
 .cv-inspector {
