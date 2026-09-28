@@ -43,7 +43,8 @@
 // updates (I10b). Inside the paired child, #475's exhibit (X1–X7): a Mode 2 Import selection places one
 // exhibit where placeExhibit recomputed in Node says, its PNG loaded and labelled, measured clear of
 // every frame; on a 2400-px page a drag onto f1 and a redo after it are refused and put back with no
-// ledger line; f2 → desktop is refused while f1 → desktop is accepted; a vertical resize authors f1's
+// ledger line; f2 → desktop and a pointer resize of f2 into it are refused (no line, no height written)
+// while f1 → desktop is accepted; a vertical resize authors f1's
 // height and the exhibit may then sit below it; a Mode 2 drop is flagged as having no image. Every side child is on a free port, is asserted to be THIS worktree's portal before
 // use, and is killed by its own handle. git status over system/, handoff/, discovery/ and
 // import/overrides/ is compared across the pass (AC #4).
@@ -981,6 +982,22 @@ async function fakeBridgePass(page, t, step) {
           t("X4 · …and undone (one undone line)", l4b.length === n4 + 2 && l4b.at(-1).status === "undone", JSON.stringify(l4b.slice(n4)));
         }
 
+        // X4b: a POINTER resize growing f2 into the exhibit is refused too — its width put back, no ledger
+        // line, and the height the refused resize would have authored is not written either.
+        {
+          const g = await p.locator('[data-stx-id="f2"] > .stx-resize').boundingBox();
+          const w0 = await wOf(p, "f2");
+          const nb = ledger("fp-import").length;
+          await p.mouse.move(g.x + g.width / 2, g.y + g.height / 2);
+          await p.mouse.down();
+          for (let i = 1; i <= 10; i += 1) await p.mouse.move(g.x + g.width / 2 + i * 70, g.y + g.height / 2);
+          await p.mouse.up();
+          await sleep(500);
+          t("X4b · a pointer resize of f2 into the exhibit is refused and its width put back", (await said(p)).includes("Refused") && (await wOf(p, "f2")) === w0, `${await said(p)} · w ${await wOf(p, "f2")} (was ${w0})`);
+          const f2disk = loadBuild(buildDir("fp-import")).canvas.nodes.find((n) => n.id === "f2");
+          t("X4b · …no ledger line, and canvas.json carries no height for f2 (the refused resize authored nothing)", ledger("fp-import").length === nb && f2disk && !("height" in f2disk), `${ledger("fp-import").length - nb} lines · ${JSON.stringify(f2disk)}`);
+        }
+
         // X6: resizing f1 authors its height, after which the original may sit below that screen.
         const grip = await p.locator('[data-stx-id="f1"] > .stx-resize').boundingBox();
         const n6 = ledger("fp-import").length;
@@ -1163,5 +1180,5 @@ try {
 }
 console.log(totalFails
   ? `\ncanvas-journey ✗  ${totalFails} assertion(s) failed`
-  : `\ncanvas-journey ✓  the run list · the in-repo spine opened with ZERO saves and its save notice · run.json's provenance label with the root flagged · frames, the arrow and decision cards rendered from the ledger and the transcript with no overlap · a note, a decision link, a refused remove, a remove and its undo, a numeric width and a pointer resize each ONE ledger entry and ONE undo · a reload that keeps them · verifyBuild [] on disk and the disk document equal to the page's · 403 cross-origin and 409 stale · the stand-in flagged, not blocked · the inspector in the viewport on both branches · 44×44 targets · the import pass: the MCP-down refusal with one action, two drops writing record + proposal + one component.propose line each with one record shape, a mapping edit re-deriving the record and the view, the run lock refusing a drop "already in flight" and the hung read's one action routed to Re-bind, a stale drop's one action reloading the page, an oversize drop refused and a traversal name a 400 · over the fake bridge: Check binding naming the tab's project and surface, Import selection writing the one selected id + a reference.png shown in the Original pane + a mapping edit (I9), the unpaired refusal's one action and the bridge's own words with Import again re-sending (I10), Re-bind running the binding check (I10b), Browse's two thumbnail tiles importing as one two-id record and served again from the session cache (I11) · a Mode 2 import as an exhibit beside the flow — placed by rule, its PNG shown, a drag, a redo and a preset change into a frame each refused and put back with no ledger line, an authored height letting it sit below a screen, a drop flagged as having no image (X1–X7, #475) · no page errors · nothing under system/, handoff/, discovery/ or import/overrides/ changed (${toRun.join(", ")})`);
+  : `\ncanvas-journey ✓  the run list · the in-repo spine opened with ZERO saves and its save notice · run.json's provenance label with the root flagged · frames, the arrow and decision cards rendered from the ledger and the transcript with no overlap · a note, a decision link, a refused remove, a remove and its undo, a numeric width and a pointer resize each ONE ledger entry and ONE undo · a reload that keeps them · verifyBuild [] on disk and the disk document equal to the page's · 403 cross-origin and 409 stale · the stand-in flagged, not blocked · the inspector in the viewport on both branches · 44×44 targets · the import pass: the MCP-down refusal with one action, two drops writing record + proposal + one component.propose line each with one record shape, a mapping edit re-deriving the record and the view, the run lock refusing a drop "already in flight" and the hung read's one action routed to Re-bind, a stale drop's one action reloading the page, an oversize drop refused and a traversal name a 400 · over the fake bridge: Check binding naming the tab's project and surface, Import selection writing the one selected id + a reference.png shown in the Original pane + a mapping edit (I9), the unpaired refusal's one action and the bridge's own words with Import again re-sending (I10), Re-bind running the binding check (I10b), Browse's two thumbnail tiles importing as one two-id record and served again from the session cache (I11) · a Mode 2 import as an exhibit beside the flow — placed by rule, its PNG shown, a drag, a redo, a preset change and a pointer resize into a frame each refused and put back with no ledger line, an authored height letting it sit below a screen, a drop flagged as having no image (X1–X7, #475) · no page errors · nothing under system/, handoff/, discovery/ or import/overrides/ changed (${toRun.join(", ")})`);
 process.exit(totalFails ? 1 : 0);
