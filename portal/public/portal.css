@@ -335,8 +335,8 @@
 }
 .cv-exhibit p { margin: 0; overflow-wrap: anywhere; }
 .cv-exhibit-title { font-weight: 600; }
-.cv-exhibit img { flex: 1; min-height: 0; width: 100%; object-fit: contain; }
-.cv-exhibit-meta { color: var(--color-fg-muted); }
+.cv-exhibit img { flex: 1; min-height: 120px; width: 100%; object-fit: contain; }
+.cv-exhibit-meta { color: var(--color-fg-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* the frame inspector — a popover; the anchor branch applies only when canvas.mjs took it */
 .cv-inspector {

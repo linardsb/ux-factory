@@ -311,9 +311,11 @@ function exhibitParts(e) {
   const parts = [el("p", { class: "cv-exhibit-title", text: "Frozen original · Mode 2" })];
   if (e?.reference) parts.push(el("img", { src: e.reference, alt: `The original ${name}, as exported from ${tool}` }));
   else parts.push(el("p", { class: "cv-flag", text: "No reference image — only a live Brilliant read captures one; this import was a dropped file." }));
-  parts.push(el("p", { class: "cv-exhibit-meta", text: `${name} · import ${e?.recordId ?? "?"} · ${e?.file ? `dropped file ${e.file}` : `read from ${tool}`}` }));
-  parts.push(el("p", { text: "Beside the flow for comparison. It never joins the system and never goes inside a frame." }));
-  parts.push(el("p", { class: "cv-exhibit-meta", text: `Attribution: ${e?.attribution ?? "not recorded"} · licence: ${e?.licence ?? "not recorded"}` }));
+  // One line each, ellipsed inside the fixed box; the whole line is the title, so nothing is lost.
+  const meta = (text) => el("p", { class: "cv-exhibit-meta", title: text, text });
+  parts.push(meta(`${name} · import ${e?.recordId ?? "?"} · ${e?.file ? `dropped file ${e.file}` : `read from ${tool}`}`));
+  parts.push(el("p", { text: "Kept for comparison: never joins the system or goes inside a frame." }));
+  parts.push(meta(`Attribution: ${e?.attribution ?? "not recorded"} · licence: ${e?.licence ?? "not recorded"}`));
   return parts;
 }
 
