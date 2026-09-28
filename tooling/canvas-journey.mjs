@@ -816,14 +816,25 @@ async function dropOnePart(page, name) {
   const remap = page.locator("[data-import-remap]").first();
   const at = await remap.getAttribute("data-import-remap");
   const count = async () => Number((await page.locator("[data-import-drops] h3").textContent()).match(/\((\d+)\)/)?.[1]);
+  // I4's rule (#477): the owner's drop row appears, any build() child-loss row for the same node goes, and
+  // the total moves by one only when there was no such row to replace.
+  const rowsOf = () => page.locator("[data-import-drops] li").allTextContents();
+  const has = (rows, prefix) => rows.some((r) => r.startsWith(prefix));
   const before = readFileSync(mapFile, "utf8");
   const dropsBefore = await count();
+  const rowsBefore = await rowsOf();
   const resp = quiet(page.waitForResponse((r) => r.url().endsWith("/api/canvas/import/mapping"), { timeout: 10000 }));
   await remap.selectOption("drop");
   await resp;
   await page.waitForFunction(() => /re-derived/.test(document.querySelector("[data-import-status]")?.textContent ?? ""), null, { timeout: 5000 });
   const after = readFileSync(mapFile, "utf8");
-  return { ok: after !== before && JSON.parse(after).parts[at]?.drop === true && (await count()) === dropsBefore + 1, why: `${at}: drops ${dropsBefore} → ${await count()} · ${after}` };
+  const rowsAfter = await rowsOf();
+  const replaced = has(rowsBefore, `build ${at}:`);
+  return {
+    ok: after !== before && JSON.parse(after).parts[at]?.drop === true && has(rowsAfter, `mapping mapping.${at}:`) && !has(rowsAfter, `build ${at}:`)
+      && (await count()) === dropsBefore + (replaced ? 0 : 1),
+    why: `${at}: drops ${dropsBefore} → ${await count()} (${replaced ? "replacing build()'s row" : "a new row"}) · ${after}`,
+  };
 }
 
 async function fakeBridgePass(page, t, step) {
@@ -855,7 +866,7 @@ async function fakeBridgePass(page, t, step) {
       const kept = await lineOf(page);
       t("I9 · after the reload, the binding line is the read's (kept for the session)", kept.includes("this tab's project (name not exposed) · web") && kept.includes("at the last Brilliant read"), kept);
       const d = await dropOnePart(page, body.name);
-      t("I9 · dropping a part rewrote mapping.json and the view re-rendered its drop list (+1)", d.ok, d.why);
+      t("I9 · dropping a part rewrote mapping.json and the view re-rendered its drop list with the owner's row", d.ok, d.why);
     });
 
     await step("I11 · Browse, pick two, import them, Browse again (cached)", async () => {
