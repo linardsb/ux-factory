@@ -1,6 +1,6 @@
 # Implementation Report — the Mode 2 exhibit beside the canvas (#475)
 
-**Plan**: `.claude/plans/mode2-exhibit-beside-canvas-475.md`   **Branch**: `feat/mode2-exhibit-475` (worktree `../wt-475`)   **Base**: `1b43cee` → `1b43cee` (`origin/main` unmoved at report time; `git fetch` observed)   **Status**: COMPLETE, except Task 0.5's ticket, which waits for the owner's approval
+**Plan**: `.claude/plans/mode2-exhibit-beside-canvas-475.md`   **Branch**: `feat/mode2-exhibit-475` (worktree `../wt-475`)   **Base**: `1b43cee` → `1b43cee` (`origin/main` unmoved at report time; `git fetch` observed; final HEAD `a4899a6` + this report)   **Status**: COMPLETE, except Task 0.5's ticket, which waits for the owner's approval
 
 ## Summary
 A Mode 2 `component.propose` now derives an `exhibit` node in `canvas.json`: id = the proposal's id, 320×280, `ref: proposal:<name>`. A Mode 2 import places it by rule (`placeExhibit`: right of every authored box, at the frames' top row). One pure predicate, `exhibitClashes(doc, positions)`, refuses any exhibit that meets a frame. Node calls it in `arrangement`, so `saveRun` and `verifyBuild` refuse too. The canvas page calls it after every geometry gesture and puts a refused gesture back with no ledger line. `flush()` is a non-fatal backstop. The applier refuses a frozen original in `screen.compose`, `state.add`'s `override.add` and `variant.add`'s `overrides.<frame>.add`.
@@ -28,7 +28,7 @@ A Mode 2 `component.propose` now derives an `exhibit` node in `canvas.json`: id 
 - **35.14**: the three verbs refuse a frozen original, each naming the verb, `frozen-row`, `pr1` and G7. Four positive controls: the same three verbs naming a Mode 1 proposal, and a prop called `name`.
 - **36.11**: `placeExhibit` gives 1518/0. `pr1` derives exactly. A scratch package written by `saveBuild` passes `verifyBuild` (the positive control). Mode 1 derives no node. The exhibit moved inside f1 is refused naming pr1, f1 and G7; moved clear, it passes. Width 999 is refused, an extra `pr9` is refused, and a missing position is refused by `arrangement`.
 - **43.15**: a Mode 2 import appends one mode-2 line, puts `pr1` at 1518/0 and leaves a package that passes `verifyBuild`. `loadExhibits` carries the PNG data URL. A second import lands at 1870. A Mode 2 drop carries no PNG, with tool `brilliant` and file `m.txt`.
-- **canvas-journey X1–X7 + X3b**, inside the paired fake-bridge child. X3–X6 run on a 2400-px page.
+- **canvas-journey X1–X7 + X3b + X4b**, inside the paired fake-bridge child. X3–X6 run on a 2400-px page. X4b pointer-resizes f2 into the exhibit: refused, width put back, no ledger line, and no `height` written for f2.
 - `node tooling/build-checks.mjs` → `build ✓  all 46 groups pass` (observed, final tree).
 
 ## Proving the checks
@@ -44,17 +44,18 @@ A Mode 2 `component.propose` now derives an `exhibit` node in `canvas.json`: id 
 | 43.15 placement | disable the `mode === 2` block in `runImport` | "a Mode 2 runImport (43.15) threw …: arrangement: node \"pr1\" has no position" and "appended 0 lines … imports/i1.json on disk: true" (8 failures) | — |
 | X3 guard on `ui.move` (plan REDDENS 0) | drop `"ui.move"` from `GEOMETRY_VERBS` | X3 ×3 red; save line "Not saved yet — Refused: …", 0 ledger lines (the backstop keeps the session alive) | X4 f1 → desktop accepted |
 | X3b guard on `ui.redo` (plan REDDENS a) | drop `"ui.redo"` | X3b red: "Redone: … at 40, 40 · … Not saved yet — Refused" | — |
+| X4b guard on `ui.resize` | drop `"ui.resize"` | X4b "resized to 1090 by 352 · w 1090 (was 390)" (+2 X6 lines downstream) | X6 accepted resize |
+| X4b refused resize authors nothing (`newlyAuthored`) | delete `authoredH.delete(id)` | X4b "…canvas.json carries no height for f2" red: `"height":352` on disk | — |
 | X4 pending removal (plan REDDENS b) | comment out `pending.splice(gestureMark)` | X4 "no ledger line" red with the `frame.size` applied + undone pair on disk | — |
 
 **The driver proved on a known-bad input:** mutation (0) turns every X3 line red, so the journey's drag, live-region read and box read can each fail.
 
-**Behaviour with no check (recorded, not claimed):** `newlyAuthored` means a refused **resize** also drops the frame's newly authored height (see Additions). No journey case refuses a resize by height, so no mutation of that line reddens anything. It is kept because without it the next save would write a frame height nobody chose. Whether that deserves a journey case is the reviewer's call.
 
 ## Validation results
 - Level 1: `node --check` on all seven files → no output (observed).
-- Level 2: `node tooling/build-checks.mjs` → `build ✓  all 46 groups pass` (observed, before and after the baseline commit).
-- CI `verify` locally: `node tooling/drift-check.mjs` → `drift-check ✓  syntax · token-css · … · group-count` (observed, after `tooling/style-dictionary` `npm ci`). `node tooling/token-lint.mjs` → `token-lint ✓  63 contract tokens · 0 undeclared · 0 orphan · DTCG valid`. `node agent-layer/gen-loc-summary.mjs --check` (after staging) → `loc summary ✓  3 groups — no drift`.
-- Level 3: `node tooling/canvas-journey.mjs all` on HEAD `4133227` plus the `7f5fc9b` page fix (uncommitted at run time, identical to the commit) → chromium 115 ✓ / 1 ✗, firefox 114 ✓ / 1 ✗, webkit 114 ✓ / 1 ✗ (observed). The only ✗ is `I4 · the view's drop list grew by exactly one  11 → 11` on each engine: exactly the plan's pre-existing baseline (Task 0.5). The plan's baseline was 280 passes. This run has 343, and 343 − 280 = 63 = 21 new lines × 3 engines (derived; the 21 are X1–X7's 20 assertions plus X3b). `git status --porcelain -- discovery/ system/ handoff/ import/overrides/` was empty afterwards (observed).
+- Level 2: `node tooling/build-checks.mjs` on clean HEAD `a4899a6` → `build ✓  all 46 groups pass` (observed).
+- CI `verify` locally, all on clean HEAD `a4899a6`: `node tooling/drift-check.mjs` → `drift-check ✓  syntax · token-css · … · group-count` (observed, after `tooling/style-dictionary` `npm ci`). `node tooling/token-lint.mjs` → `token-lint ✓  63 contract tokens · 0 undeclared · 0 orphan · DTCG valid`. `node agent-layer/gen-loc-summary.mjs --check` → `loc summary ✓  3 groups — no drift`.
+- Level 3: `node tooling/canvas-journey.mjs all` on clean HEAD `a4899a6` → chromium 117 ✓ / 1 ✗, firefox 116 ✓ / 1 ✗, webkit 116 ✓ / 1 ✗ (observed). The only ✗ is `I4 · the view's drop list grew by exactly one  11 → 11` on each engine: exactly the plan's pre-existing baseline (Task 0.5). The plan's baseline was 280 passes. This run has 349, and 349 − 280 = 69 = 23 new lines × 3 engines (derived; the 23 are X1–X7's 20 assertions, X3b and X4b's two). `git status --porcelain -- discovery/ system/ handoff/ import/overrides/` was empty afterwards (observed).
 - Level 4: portal on an OS-assigned port, killed by its own PID → `/api/health` `{"ok":true,…,"stale":false}`, and `/api/canvas/run?provenance=fictional&slug=faster-payment` → `exhibits: []` (observed).
 - A chromium screenshot of a real Mode 2 exhibit on a scratch package, read by eye. The first render squeezed the PNG to about 40 px, fixed in `7f5fc9b`. The image now measures 120 px and every line fits.
 - Task 5.3 baselines: a Docker `mcr.microsoft.com/playwright:v1.61.1-jammy` container on a clean detached worktree of `695d253` → `33 passed`, `git status` = exactly the three `approach-*.png` (observed). Re-run without `--update-snapshots -g approach` → `3 passed (5.5s)` (observed).
@@ -75,9 +76,10 @@ A Mode 2 `component.propose` now derives an `exhibit` node in `canvas.json`: id 
 - Task 5.4's comments were posted under the plan's recorded owner approval of 2026-09-28.
 
 ## Additions beyond the plan
-- **`newlyAuthored` in `canvas.mjs`**: `adapter.resized` notes whether the resize made a frame's height authored for the first time. A refused resize takes that frame back out of `authoredH` and refits it, so the refused gesture leaves no height in `canvas.json` either (call 3: a refused gesture records nothing). It has no check; see Proving the checks.
-- **X3b** (the redo case) is the plan's REDDENS (a) made concrete, and **X7** covers page errors on the wide context.
+- **`newlyAuthored` in `canvas.mjs`**: `adapter.resized` notes whether the resize made a frame's height authored for the first time. A refused resize takes that frame back out of `authoredH` and refits it, so the refused gesture leaves no height in `canvas.json` either (call 3: a refused gesture records nothing). X4b proves it (see Proving the checks).
+- **X3b** (the redo case) is the plan's REDDENS (a) made concrete, **X4b** covers AC 3's "resize" (only an accepted resize was planned), and **X7** covers page errors on the wide context.
 
 ## Issues encountered
+- **A package that holds a Mode 2 proposal from before #475 cannot be saved after this lands.** It has no position for the exhibit, so `arrangement`'s `at()` refuses every `saveRun`, and the page would place the exhibit at 0/0 on top of f1. The check found none: no committed package has one (group 36 passes), and the owner's jobs folder has no `_discovery/*/build/` at all (`ls` matched nothing, observed). Any such package would need Task 2.2's regeneration, with `placeExhibit`, before its next save.
 - The fixture PNG (`import/fixtures/brilliant-live/export-png.json`) renders as a solid black block. These are the capture's own pixels, not a page defect, but an owner looking at an exhibit built from the fake bridge will see black.
 - A fresh worktree needed `npm ci` in four tool dirs before the gates would run (environment, not code).
