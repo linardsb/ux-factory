@@ -3,7 +3,7 @@
 Captured 2026-09-28 from `@brilliant-hq/mcp` 0.1.8 through the portal's own Import selection and Measure
 fidelity (branch `feature/import-live-fidelity-474`), on a scratch `JOBS_DIR`. **The owner drew both frames and
 pressed both buttons**; the implementer only copied the files. **Verbatim; a change is a re-capture, never an
-edit.** Replayed by build-checks 43.15 and seeded into canvas-journey's I12.
+edit.** Replayed by build-checks 43.16 and seeded into canvas-journey's I12.
 
 The pair is the positive control for the live measurement (the plan's D3): a design the vocabulary can express,
 drawn twice, differing in one colour.

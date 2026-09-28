@@ -12,12 +12,12 @@ crops the candidate to the reference's size and measures it with `fidelity.mjs`'
 record through `buildRecord` and writes the candidate PNG, a `measure` transcript line, the record and its markdown.
 A mapping edit returns the record to `missing` and deletes the candidate. The owner's live pair is committed verbatim
 under `import/fixtures/measure-live/`: faithful worst ΔE **1.3379**, wrong **29.7584**, against THRESHOLD 5.0
-(AC 10 met). 43.15 replays the pair in CI, and I12 re-renders it for real on all three page engines, reproducing 1.3379.
+(AC 10 met). 43.16 replays the pair in CI, and I12 re-renders it for real on all three page engines, reproducing 1.3379.
 
 ## Tasks completed
 
 - Task 1 → `import/fidelity.mjs` (UPDATE): opt-in `{ over }` on `decodePng` and `measure`, checked on entry.
-- Task 2 → `tooling/build-checks.mjs` (UPDATE): 42.15, plus a top-level SYNTHETIC `synthPng` encoder shared with 43.15.
+- Task 2 → `tooling/build-checks.mjs` (UPDATE): 42.15, plus a top-level SYNTHETIC `synthPng` encoder shared with 43.16.
 - Task 3, Task 6 → `portal/lib/import-measure.mjs` (CREATE).
 - Task 4 → `tooling/measure-render.mjs` (CREATE).
 - Task 5 → `tooling/build-checks.mjs` 43.1 (UPDATE): pins `import-measure.mjs`'s import graph.
@@ -27,14 +27,14 @@ under `import/fixtures/measure-live/`: faithful worst ΔE **1.3379**, wrong **29
 - Task 8 → `portal/server.mjs` (UPDATE): `POST /api/canvas/import/measure`.
 - Task 9 → `portal/public/canvas-import.mjs` (UPDATE): the button, the verdict line, and the measurement's refusal and
   status in the view.
-- Task 10 → the prose for 42.15, 43.1, 43.15 (SYNTHETIC half) and I12/I12b in all three copies: the `group()`
+- Task 10 → the prose for 42.15, 43.1, 43.16 (SYNTHETIC half) and I12/I12b in all three copies: the `group()`
   strings, the group comment blocks and `gates.md` (canvas-journey: its header and success line).
-- Task 12 (SYNTHETIC half) → `tooling/build-checks.mjs` 43.15.
+- Task 12 (SYNTHETIC half) → `tooling/build-checks.mjs` 43.16.
 - Task 13 → `tooling/canvas-journey.mjs` (UPDATE): `fp-measure` seed, I12, I12b, `withPortal`'s `extraEnv`.
 - Task 11 → `import/fixtures/measure-live/` (CREATE): the owner drew the frames in Brilliant and pressed Import
   selection and Measure fidelity through a portal on this branch, on a scratch `JOBS_DIR`, with Jev suggestions on
   (the owner's call). The implementer copied the files verbatim and wrote the README.
-- Task 12 (the replay) → `tooling/build-checks.mjs` 43.15 part 0.
+- Task 12 (the replay) → `tooling/build-checks.mjs` 43.16 part 0.
 
 ## Tests added
 
@@ -42,7 +42,7 @@ under `import/fixtures/measure-live/`: faithful worst ΔE **1.3379**, wrong **29
   2×1 RGBA PNG composites to 255,255,255 and 178,127,127. A bad `over` is refused on RGBA and RGB input. `measure()`
   called with three arguments is unmoved.
 - **43.1**: `import-measure.mjs` imports in CI. Its specifiers are pinned, with no `playwright` and no dynamic import.
-- **43.15 (SYNTHETIC half)**:
+- **43.16 (SYNTHETIC half)**:
   - faithful < THRESHOLD and wrong ≥ THRESHOLD; `checkRecord` passes; the verdict is derived; the render job is
     one stack at 320×82, scale 1; the PNG and exactly one `measure` line are written; the markdown carries the verdict.
   - an edit returns the record to `missing` and deletes the PNG.
@@ -78,16 +78,16 @@ over a black fill. The recipe changed to padding `spacing.sm` (8 in both systems
 | 42.15 | default `over = [255,255,255]` | `the committed live export decoded WITHOUT { over } — the default must still throw` | 〃 |
 | 43.1 | `const pw = await import("@playwright/test")` in import-measure | `43.1: … imports dynamically or names playwright … (D1)` | clean `build import run ✓` |
 | 43.1 | `import { withRunLock } from "./builder.mjs"` | `43.1: … imports [..., "./builder.mjs"] — node: built-ins, ../../import/*.mjs, ./import-run.mjs and ./env.mjs only` | 〃 |
-| 43.15 | reference decoded without `{ over: BACKDROP }` | `measureImport(SYNTHETIC faithful) threw …: png: reference: alpha 0 at pixel 0 is not opaque` | SYNTHETIC faithful < 5 and wrong ≥ 5 in the same run |
-| 43.15 | `cropTo` removed | `measureImport over a SYNTHETIC 319x81 reference threw …: image sizes differ — reference 319x81, candidate 320x82` | 〃 |
-| 43.15 | `scaleOf` always 2 | `SYNTHETIC faithful measured {unknown-scale … 320 × 2 = 640}` (the plan predicted a `cropTo` throw — see AMENDMENTS) | 〃 |
-| 43.15 | `editMapping`'s candidate `rmSync` removed | `after an edit, imports/i1.candidate.png is still on disk` | 〃 |
-| 43.15 | stale re-read skipped (`if (false)`) | `a stale measurement answered "red" and wrote imports/i1.json` | 〃 |
-| 43.15 | exit 3 not mapped to no-renderer | `the renderer child with no Playwright answered {render-failed…}` | 〃 |
-| 43.15 | a zero-area box not pushed to `skipped` | `regionsFromBoxes answered {… skipped:[]}` | 〃 |
-| 43.15 replay | `want.worst` read from the OTHER frame's measure.json | `the owner's faithful frame re-measured worst {…1.3379} — the committed faithful.measure.json says {…29.7584}` (+ both THRESHOLD lines, + wrong's pair) | faithful 1.3379 < 5 and wrong 29.7584 ≥ 5 re-measured in CI |
-| 43.15 replay | reference decoded without `{ over }` | `measureImport(the owner's faithful frame) threw …: alpha 0 at pixel 0 is not opaque` | 〃 |
-| 43.15 replay | candidate decoded without `{ over }` and uncropped | **no red on the replay** — Chromium writes RGB, so the candidate flatten is a no-op on this pair. It is kept for an RGBA candidate; the SYNTHETIC 319×81 case still reds on the crop | recorded as a check no mutation of this pair can redden |
+| 43.16 | reference decoded without `{ over: BACKDROP }` | `measureImport(SYNTHETIC faithful) threw …: png: reference: alpha 0 at pixel 0 is not opaque` | SYNTHETIC faithful < 5 and wrong ≥ 5 in the same run |
+| 43.16 | `cropTo` removed | `measureImport over a SYNTHETIC 319x81 reference threw …: image sizes differ — reference 319x81, candidate 320x82` | 〃 |
+| 43.16 | `scaleOf` always 2 | `SYNTHETIC faithful measured {unknown-scale … 320 × 2 = 640}` (the plan predicted a `cropTo` throw — see AMENDMENTS) | 〃 |
+| 43.16 | `editMapping`'s candidate `rmSync` removed | `after an edit, imports/i1.candidate.png is still on disk` | 〃 |
+| 43.16 | stale re-read skipped (`if (false)`) | `a stale measurement answered "red" and wrote imports/i1.json` | 〃 |
+| 43.16 | exit 3 not mapped to no-renderer | `the renderer child with no Playwright answered {render-failed…}` | 〃 |
+| 43.16 | a zero-area box not pushed to `skipped` | `regionsFromBoxes answered {… skipped:[]}` | 〃 |
+| 43.16 replay | `want.worst` read from the OTHER frame's measure.json | `the owner's faithful frame re-measured worst {…1.3379} — the committed faithful.measure.json says {…29.7584}` (+ both THRESHOLD lines, + wrong's pair) | faithful 1.3379 < 5 and wrong 29.7584 ≥ 5 re-measured in CI |
+| 43.16 replay | reference decoded without `{ over }` | `measureImport(the owner's faithful frame) threw …: alpha 0 at pixel 0 is not opaque` | 〃 |
+| 43.16 replay | candidate decoded without `{ over }` and uncropped | **no red on the replay** — Chromium writes RGB, so the candidate flatten is a no-op on this pair. It is kept for an RGBA candidate; the SYNTHETIC 319×81 case still reds on the crop | recorded as a check no mutation of this pair can redden |
 | I12 | `spawnRender` pointed at `tooling/no-such-render.mjs` | `✗ I12 · the view left missing … The renderer failed.`, `✗ … candidate.png … missing`, `✗ I12b …` — the refusal's words, not a timeout | clean run: I12 5/5, I12b 2/2 ✓ |
 
 Driver proof: the first stale mutation (`false && a || b || c`) did not take effect. Operator precedence kept `b` and

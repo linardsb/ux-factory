@@ -11233,7 +11233,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
 // `.trim()` is a human read.
 
 {
-  const { OPS: COPS, PARAMS: CPARAMS, ENDPOINT_KEYS, STATE_KEYS, applyOp, applyOps, canDeleteBasePart, emptyDoc, frameTree, missingStates, placeDecision, resolve } =
+  const { OPS: COPS, PARAMS: CPARAMS, ENDPOINT_KEYS, EXHIBIT_SIZE, STATE_KEYS, applyOp, applyOps, canDeleteBasePart, emptyDoc, exhibitClash, exhibitClashes, exhibitsOf, frameTree, missingStates, placeDecision, resolve } =
     await import("../system/canvas-ops.mjs");
   const { DEVICE_PRESETS, PRESET_NAMES, WIDTH_MAX, WIDTH_MIN, presetWidth } = await import("../system/device-presets.mjs");
   const deep = (v) => (v && typeof v === "object" && !Array.isArray(v)
@@ -11654,7 +11654,81 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     ok(folded?.proposals?.length === 1, `a pre-#311 document (no proposals key) did not fold component.propose: ${deep(folded)}`);
   }
 
-  group("canvas ops", `#311's component.propose (35.12): pr1 minted deterministically and pr2 after it, eight refusals each matched on what they name (a bad name two ways, a duplicate name, a duplicate recordId, a recordId that is not i<n>, mode 3 and mode "1", an id slot), every key but proposals untouched, status "proposed" and no proposal.ratify in OPS — a proposal never reaches the vocabulary without #313 — and a pre-#311 document with no proposals key folding · #306's four verbs and frame.size's free width: annotate minting n1 and EDITING in place (a noteId that does not resolve is refused, or it is the smuggling slot), frame.link REPLACING the list, frame.size {width} recording preset null, variant.add one lane, frame.remove taking its arrows with it — and 19 refusals naming the blocker (a state or a variant lane overriding the frame), each rule on decisionRefs, blank text, the lane key, the override map, and exactly-one-of preset/width with the 320–2560 bounds · frameTree resolving base sets, then the state\'s override, then its own sets, DROPPING a hidden node rather than writing `+"`"+`hidden`+"`"+` (the real validateComposition refuses that prop, and the returned trees pass it), flagging a dangling set and a hidden root, total over junk · placeDecision right of the anchor\'s whole ROW (894 then 1206 on the spine, where right-of-the-anchor is 422, on top of f2), a lower row ignored, total over junk · non-data inside params (a function, a symbol, nested) refused BY PATH before structuredClone's unnamed DataCloneError can speak (#437) · OPS ↔ PARAMS the same ${COPS.length} verbs in BOTH directions, every list frozen BY MUTATION at both levels (Object.freeze is shallow, and a pushable PARAMS entry lets the frozen case pass for the wrong reason), STATE_KEYS pinned as the five-state floor with "ideal" leading it, and NO PARAMS entry offering an id slot for the thing its op creates — the only way to enforce board-ops' mint-from-the-document rule is on the key set · a VALID_FOR fixture per verb so an ELEVENTH verb with no fixture fails BY NAME, each fixture's keys asserted to be in its own PARAMS entry · EVERY constructive call routed through one fold() that turns a throw into a NAMED failure rather than an uncaught one: ok() only accumulates and group() prints at the end, so an unguarded throw here kills the process before a single named failure speaks — found by mutation (widening a PARAMS entry with an id slot makes 35.1's own assertion false AND makes the fold throw, and unguarded the throw won) · the happy six-op fold: ids minted f1/f2 and a1 with no op carrying one, a state proven to be a SIBLING carrying an override rather than a copy of its base, frame.size recording BOTH the preset name and the width so a later table edit moves new frames and leaves committed ones, and PURITY proven by mutating the input and by mutating the return · 19 refusals each DRIVEN by a broken op and matched on the words it must NAME — including D4's `+"`"+`why`+"`"+` three ways (absent, EMPTY, non-string), a state outside the minimum, a dangling frameId in each of four positions, an unknown verb, an unknown param, an unknown ENVELOPE key, a document that is not one, and PR #432's three open questions as the owner closed them on 2026-09-21: a state OF a state (which missingStates walks base frames only and could never have reported), a DUPLICATE (baseId, stateKey) (which its Set absorbed silently), and an unknown key INSIDE connect's from or to — with ENDPOINT_KEYS frozen at both levels beside PARAMS and `+"`"+`partId`+"`"+` proven to be `+"`"+`from`+"`"+`'s alone — behind the positive control that EVERY verb's minimal valid op is ACCEPTED, without which the battery would pass on an applier that refuses everything, plus applyOps naming the failing INDEX and verb · the TWO-LAYER rule gated: frame.sets (screen.set's) and frame.overrides.set (state.add's) proven to be the SAME SHAPE so ONE resolve applies both, with the state's layer proven to win over the base's — measured rather than assumed, because the spine's first render dropped its screen.set entirely and nothing said who joined the composition to the sets · resolve() proven to FLAG a dangling override and to keep it OUT of the resolved parts (never dropped, because it is a real thing someone wrote) with landing set and hide both applied, total over 6 junk shapes · missingStates as a LIST rather than a count, only BASE frames considered, a base with the floor met OMITTED so an empty answer means met rather than unchecked, total over 6 · canDeleteBasePart refusing by naming the state, its frame and what to do instead, with the part NOTHING overrides proven to pass so the refusal does not fire on everything · the preset table frozen with presetWidth answering NULL rather than a default · and the import graph pinned to device-presets.mjs alone. What it cannot reach: whether a composition RENDERS (group 3's), whether a frame ever reaches the canvas or the page renders frameTree's output (studio-journey's and canvas-journey's), and whether a `+"`"+`why`+"`"+` is any GOOD — a sentence that says nothing while passing .trim() is a human read`);
+  // --- 35.13 the Mode 2 exhibit (#475, G7): exhibitsOf, exhibitClash, exhibitClashes ------------
+  {
+    ok(EXHIBIT_SIZE.w === 320 && EXHIBIT_SIZE.h === 280, `EXHIBIT_SIZE is ${deep(EXHIBIT_SIZE)}; the page's box and Node's box are 320×280`);
+    try { EXHIBIT_SIZE.w = 1; } catch { /* strict mode throws; either way the read below decides */ }
+    ok(EXHIBIT_SIZE.w === 320, "EXHIBIT_SIZE is not frozen — an assignment landed, so the page and Node could disagree on the box");
+    const ex = exhibitsOf({ proposals: [{ id: "pr1", name: "a-row", recordId: "i1", mode: 1 }, { id: "pr2", name: "b-row", recordId: "i2", mode: 2 }, null, { id: "pr3", name: "c-row", recordId: "i3", mode: 2 }] });
+    ok(deep(ex) === deep([{ id: "pr2", name: "b-row", recordId: "i2" }, { id: "pr3", name: "c-row", recordId: "i3" }]),
+      `exhibitsOf answered ${deep(ex)}; Mode 2 only, in proposal order`);
+    for (const junk of [null, undefined, 42, { proposals: "no" }, { proposals: [null, 7, { mode: 2 }] }]) {
+      ok(threw(() => exhibitsOf(junk)) === null && exhibitsOf(junk).length === 0, `exhibitsOf(${JSON.stringify(junk)}) threw or answered something — a read is total over junk`);
+    }
+    const f1 = { id: "f1", x: 0, y: 0, w: 390 };
+    const f2 = { id: "f2", x: 472, y: 0, w: 390 };
+    for (const [label, got, want] of [
+      ["1518/0, right of the flow", exhibitClash({ x: 1518, y: 0 }, [f1, f2]), null],
+      ["100/900 below f1; a frame with no authored height reaches down without end", exhibitClash({ x: 100, y: 900 }, [f1, f2]), "f1"],
+      ["100/700 below an authored 600", exhibitClash({ x: 100, y: 700 }, [{ ...f1, h: 600 }]), null],
+      ["100/500 overlapping an authored 600", exhibitClash({ x: 100, y: 500 }, [{ ...f1, h: 600 }]), "f1"],
+      ["390/0 touching f1's right edge", exhibitClash({ x: 390, y: 0 }, [f1]), null],
+      ["1518/0 with f2 widened to 1100 (472 + 1100 = 1572 > 1518)", exhibitClash({ x: 1518, y: 0 }, [f1, { ...f2, w: 1100 }]), "f2"],
+    ]) ok(got === want, `exhibitClash ${label} answered ${JSON.stringify(got)}, not ${JSON.stringify(want)}`);
+    ok(threw(() => exhibitClash(null, [f1])) === null && exhibitClash(null, [f1]) === null
+      && exhibitClash({ x: 100, y: 0 }, [null, 7, { x: "a" }]) === null,
+      "exhibitClash over a junk exhibit or junk frames threw or answered a frame — a read is total over junk");
+    const cdoc = fold([
+      { op: "screen.compose", params: VALID_FOR["screen.compose"] },
+      { op: "state.add", params: VALID_FOR["state.add"] },
+      { op: "component.propose", params: { name: "frozen-row", recordId: "i1", mode: 2 } },
+    ]) ?? emptyDoc();
+    const at = (pr1, f1pos = { x: 0, y: 0 }, f2pos = { x: 472, y: 0 }) => exhibitClashes(cdoc, { f1: f1pos, f2: f2pos, ...(pr1 && { pr1 }) });
+    ok(deep(at({ x: 1518, y: 0 })) === "[]", `exhibitClashes on the spine layout answered ${deep(at({ x: 1518, y: 0 }))}; 1518 is right of f2's 862`);
+    ok(deep(at({ x: 100, y: 900 })) === deep([{ exhibitId: "pr1", frameId: "f1" }]),
+      `exhibitClashes with pr1 below an unbounded f1 answered ${deep(at({ x: 100, y: 900 }))}`);
+    ok(deep(at({ x: 100, y: 900 }, { x: 0, y: 0, h: 600 })) === "[]",
+      "exhibitClashes ignored f1's AUTHORED height from positions — resizing a screen is the owner's way to place an original below it");
+    ok(deep(at(null)) === "[]", "exhibitClashes refused an exhibit with no position — that is the derivation's at(), not this read");
+    ok(deep(at({ x: 1518, y: 0 }, { x: 0, y: 0 }, { x: 472, y: 0, w: 9999 })) === "[]",
+      "exhibitClashes took a frame's width from positions — a frame's width is the document's (frame.size), never the arrangement's");
+    ok(threw(() => exhibitClashes(null, null)) === null && threw(() => exhibitClashes(cdoc, 7)) === null,
+      "exhibitClashes threw over junk — a read is total");
+  }
+
+  // --- 35.14 a frozen original never enters a frame (#475, G7): three verbs refuse it ----------
+  {
+    const m2 = fold([
+      { op: "screen.compose", params: VALID_FOR["screen.compose"] },
+      { op: "component.propose", params: { name: "frozen-row", recordId: "i1", mode: 2 } },
+      { op: "component.propose", params: { name: "kept-row", recordId: "i2", mode: 1 } },
+    ]) ?? emptyDoc();
+    const compose = (tree) => () => applyOp(m2, { op: "screen.compose", params: { ...VALID_FOR["screen.compose"], composition: tree } });
+    const state = (add) => () => applyOp(m2, { op: "state.add", params: { baseId: "f1", stateKey: "error", override: { add } } });
+    const variant = (add) => () => applyOp(m2, { op: "variant.add", params: { key: "b", overrides: { f1: { add } } } });
+    const nested = (n) => ({ name: "stack", children: [{ name: "stack", children: [{ name: n }] }] });
+    for (const [label, fn, verb] of [
+      ["screen.compose, nested two levels in children", compose(nested("frozen-row")), "screen.compose"],
+      ["state.add's override.add", state({ name: "frozen-row" }), "state.add"],
+      ["variant.add's overrides.f1.add", variant([{ name: "frozen-row" }]), "variant.add"],
+      // the architecture's own add shape, {parentId, index, part}: the wrapper has no name, the part does
+      ["state.add's override.add as {parentId, index, part}", state([{ parentId: "p1", index: 0, part: { name: "frozen-row" } }]), "state.add"],
+      ["variant.add's overrides.f1.add as {parentId, index, part}", variant([{ parentId: "p1", index: 0, part: { name: "frozen-row" } }]), "variant.add"],
+    ]) {
+      ok(names(fn, verb, "frozen-row", "pr1", "G7") === null, `35.14 ${label}: a composition naming a frozen original was ACCEPTED or refused without naming it — got ${threw(fn) ?? "NO THROW"}`);
+    }
+    // POSITIVE CONTROLS: a Mode 1 proposal may enter a frame, and a prop called `name` is not a node.
+    for (const [label, fn] of [
+      ["screen.compose naming a Mode 1 proposal", compose(nested("kept-row"))],
+      ["state.add naming a Mode 1 proposal", state({ name: "kept-row" })],
+      ["variant.add naming a Mode 1 proposal", variant([{ name: "kept-row" }])],
+      ["state.add's {parentId, index, part} naming a Mode 1 proposal", state([{ parentId: "p1", index: 0, part: { name: "kept-row" } }])],
+      ["variant.add's {parentId, index, part} naming a Mode 1 proposal", variant([{ parentId: "p1", index: 0, part: { name: "kept-row" } }])],
+      ["a prop called name", compose({ name: "stack", children: [{ name: "text", props: { name: "frozen-row" } }] })],
+    ]) ok(threw(fn) === null, `35.14 positive control — ${label} was refused: ${threw(fn)}`);
+  }
+
+  group("canvas ops", `#475's Mode 2 exhibit (35.13, 35.14): EXHIBIT_SIZE 320×280 frozen by mutation; exhibitsOf answering Mode 2 proposals only, in order, total over 5 junk docs; exhibitClash over six literal boxes — right of the flow clear, below a frame with no authored height REFUSED (it reaches down without end, the only reading Node can compute), below an authored 600 clear, overlapping it refused, touching edges clear, a widened f2 refused — and junk answering null; exhibitClashes, the ONE call the page and arrangement both make, honouring an authored h from positions (the resize escape hatch), skipping an unplaced exhibit and taking a frame's width from the DOCUMENT even when positions says 9999 · the frozen-original refusal in screen.compose (nested two levels), state.add's override.add and variant.add's overrides.<frame>.add — each both bare and in the architecture's {parentId, index, part} wrapper, whose part the walk must reach — each naming the verb, the name, pr1 and G7, behind two kinds of positive control: the same three ops naming a Mode 1 proposal accepted, and a prop called name not mistaken for a node · #311's component.propose (35.12): pr1 minted deterministically and pr2 after it, eight refusals each matched on what they name (a bad name two ways, a duplicate name, a duplicate recordId, a recordId that is not i<n>, mode 3 and mode "1", an id slot), every key but proposals untouched, status "proposed" and no proposal.ratify in OPS — a proposal never reaches the vocabulary without #313 — and a pre-#311 document with no proposals key folding · #306's four verbs and frame.size's free width: annotate minting n1 and EDITING in place (a noteId that does not resolve is refused, or it is the smuggling slot), frame.link REPLACING the list, frame.size {width} recording preset null, variant.add one lane, frame.remove taking its arrows with it — and 19 refusals naming the blocker (a state or a variant lane overriding the frame), each rule on decisionRefs, blank text, the lane key, the override map, and exactly-one-of preset/width with the 320–2560 bounds · frameTree resolving base sets, then the state\'s override, then its own sets, DROPPING a hidden node rather than writing `+"`"+`hidden`+"`"+` (the real validateComposition refuses that prop, and the returned trees pass it), flagging a dangling set and a hidden root, total over junk · placeDecision right of the anchor\'s whole ROW (894 then 1206 on the spine, where right-of-the-anchor is 422, on top of f2), a lower row ignored, total over junk · non-data inside params (a function, a symbol, nested) refused BY PATH before structuredClone's unnamed DataCloneError can speak (#437) · OPS ↔ PARAMS the same ${COPS.length} verbs in BOTH directions, every list frozen BY MUTATION at both levels (Object.freeze is shallow, and a pushable PARAMS entry lets the frozen case pass for the wrong reason), STATE_KEYS pinned as the five-state floor with "ideal" leading it, and NO PARAMS entry offering an id slot for the thing its op creates — the only way to enforce board-ops' mint-from-the-document rule is on the key set · a VALID_FOR fixture per verb so an ELEVENTH verb with no fixture fails BY NAME, each fixture's keys asserted to be in its own PARAMS entry · EVERY constructive call routed through one fold() that turns a throw into a NAMED failure rather than an uncaught one: ok() only accumulates and group() prints at the end, so an unguarded throw here kills the process before a single named failure speaks — found by mutation (widening a PARAMS entry with an id slot makes 35.1's own assertion false AND makes the fold throw, and unguarded the throw won) · the happy six-op fold: ids minted f1/f2 and a1 with no op carrying one, a state proven to be a SIBLING carrying an override rather than a copy of its base, frame.size recording BOTH the preset name and the width so a later table edit moves new frames and leaves committed ones, and PURITY proven by mutating the input and by mutating the return · 19 refusals each DRIVEN by a broken op and matched on the words it must NAME — including D4's `+"`"+`why`+"`"+` three ways (absent, EMPTY, non-string), a state outside the minimum, a dangling frameId in each of four positions, an unknown verb, an unknown param, an unknown ENVELOPE key, a document that is not one, and PR #432's three open questions as the owner closed them on 2026-09-21: a state OF a state (which missingStates walks base frames only and could never have reported), a DUPLICATE (baseId, stateKey) (which its Set absorbed silently), and an unknown key INSIDE connect's from or to — with ENDPOINT_KEYS frozen at both levels beside PARAMS and `+"`"+`partId`+"`"+` proven to be `+"`"+`from`+"`"+`'s alone — behind the positive control that EVERY verb's minimal valid op is ACCEPTED, without which the battery would pass on an applier that refuses everything, plus applyOps naming the failing INDEX and verb · the TWO-LAYER rule gated: frame.sets (screen.set's) and frame.overrides.set (state.add's) proven to be the SAME SHAPE so ONE resolve applies both, with the state's layer proven to win over the base's — measured rather than assumed, because the spine's first render dropped its screen.set entirely and nothing said who joined the composition to the sets · resolve() proven to FLAG a dangling override and to keep it OUT of the resolved parts (never dropped, because it is a real thing someone wrote) with landing set and hide both applied, total over 6 junk shapes · missingStates as a LIST rather than a count, only BASE frames considered, a base with the floor met OMITTED so an empty answer means met rather than unchecked, total over 6 · canDeleteBasePart refusing by naming the state, its frame and what to do instead, with the part NOTHING overrides proven to pass so the refusal does not fire on everything · the preset table frozen with presetWidth answering NULL rather than a default · and the import graph pinned to device-presets.mjs alone. What it cannot reach: whether a composition RENDERS (group 3's), whether a frame ever reaches the canvas or the page renders frameTree's output (studio-journey's and canvas-journey's), whether the page puts a refused move back (canvas-journey's), and whether a `+"`"+`why`+"`"+` is any GOOD — a sentence that says nothing while passing .trim() is a human read`);
 }
 
 // --- 36 · the build package's round trip (#302) ----------------------------------------------------
@@ -11680,7 +11754,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
 
 {
   const { applyOps: cApplyOps } = await import("../system/canvas-ops.mjs");
-  const { CANVAS_DESCRIPTION, arrangement, foldLedger, listBuilds, loadBuild, loadDecisions, positionsOf, provenanceLabel, saveBuild, saveConflict, saveRun, verifyBuild } =
+  const { CANVAS_DESCRIPTION, arrangement, foldLedger, listBuilds, loadBuild, loadDecisions, placeExhibit, positionsOf, provenanceLabel, saveBuild, saveConflict, saveRun, verifyBuild } =
     await import("../portal/lib/canvas-store.mjs");
   const { cpSync } = await import("node:fs");
   const deep = (v) => (v && typeof v === "object" && !Array.isArray(v)
@@ -11790,6 +11864,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     ["the added ref key", /`ref` is added|ref. is added/i],
     ["relation replacing label", /`relation` replaces|relation. replaces/i],
     ["the #306 notes, decision cards and embodies edges", /decision card.*`embodies`/],
+    ["the #475 exhibits", /`exhibit` per Mode 2/],
   ]) {
     ok(re.test(CANVAS_DESCRIPTION), `CANVAS_DESCRIPTION does not name ${what} — all four divergences are named, or the claim is a half-truth`);
   }
@@ -11930,7 +12005,50 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     rmSync(dir, { recursive: true, force: true });
   }
 
-  group("build package", `every committed discovery/*/build/ package DISCOVERED by listBuilds (at least one, faster-payment among them) and put through ONE per-package check — the store's own verifyBuild (seqs gapless and 1-based, ISO stamps, source owner|agent and every committed line "owner" because no agent ran and the contract forbids saying one did, a status in the enum, NO x or y on any line, the ledger FOLDING with undo lines included, and canvas.json equal node by node and edge by edge to what the ops derive under its OWN positions) · the spine's first six lines PINNED AS A PREFIX (${lines.length} lines today) rather than a count, so the owner arranging it through canvas.html cannot red CI while a rewritten history still does · D7's positive control computed IN MEMORY from that frozen prefix — d7, d8 and e-f1-d7/e-f1-d8 derived from f1's decisionRefs, never read off the committed file · the mutations, all through verifyBuild: a corrupted screenId fails naming the ref, a MOVED frame still passes (positions are authored), a dropped embodies edge and an extra note the ops never made both fail · the why asserted on the LEDGER (a reason is not geometry) · the committed $description IS the store's CANVAS_DESCRIPTION, naming all four divergences from JSON Canvas 1.0 and the #306 node and edge kinds · the round trip BYTE-identical · the store's imports node built-ins plus exactly canvas-ops.mjs, and its RUN_SLUG_RE byte-equal to discovery.mjs's · foldLedger: apply-undo-redo equals the plain apply, an undone line POPS, a wrong-op undo refused naming both seqs, proposed/refused skipped, an unknown status refused · saveRun on a scratch copy: the original ledger a byte-identical PREFIX after an append, lines stamped owner with gapless seqs, a refused op (frame.remove f1) throwing AND leaving both files byte-identical, proposed refused, an unrecorded frame.link ref refused with a transcript and accepted on a stand-in, a missing position refused by id, saveConflict stale vs current · provenanceLabel preferring run.json's provenance and flagging a disagreeing root · listBuilds skipping a dir with no build/, a capitalised slug, a file and an absent root; loadDecisions 20 on faster-payment (d7 → a4) and null with no transcript · 36.10 the owner's edit stays green: a note, a relink DROPPING decision 7, a remove and its undo saved through the real saveRun, then the per-package check and the prefix pin still pass, and an undo reaching past the page's load refused. What it cannot reach: the page itself — whether it renders, saves on a gesture and never on load (canvas-journey's) — and whether the compose op's why is a good reason, which is a human read`);
+  // --- 36.11 the Mode 2 exhibit (#475, G7), derived IN MEMORY from the frozen prefix --------------
+  // The prefix plus one component.propose line, written to a scratch dir with saveBuild (never the
+  // committed package), then every mutation through the store's own verifyBuild.
+  {
+    const stamp = (o, seq) => ({ seq, at: "2026-09-28T00:00:00.000Z", source: "owner", ...o, status: "applied" });
+    const withProposal = (mode) => [...lines.slice(0, 6), stamp({ op: "component.propose", params: { name: "frozen-row", recordId: "i1", mode } }, 7)];
+    const spinePos = { f1: { x: 0, y: 0 }, f2: { x: 472, y: 0 }, d7: { x: 894, y: 0, w: 280 }, d8: { x: 1206, y: 0, w: 280 } };
+    const derive = (ops, pos) => { try { return arrangement(foldLedger(ops).doc, pos); } catch (e) { return { threw: e.message }; } };
+    const m2ops = withProposal(2);
+    const m2doc = (() => { try { return foldLedger(m2ops).doc; } catch (e) { ok(false, `36.11: the Mode 2 ledger did not fold (${e.message})`); return null; } })();
+    const placed = m2doc ? placeExhibit(m2doc, spinePos) : null;
+    ok(deep(placed) === deep({ x: 1518, y: 0 }), `placeExhibit on the spine answered ${deep(placed)}; right of d8 is 1206 + 280 + 32 = 1518, at the frames' top row 0`);
+    const m2 = derive(m2ops, { ...spinePos, pr1: placed });
+    const pr1 = m2.nodes?.find((n) => n.id === "pr1");
+    ok(deep(pr1) === deep({ id: "pr1", type: "exhibit", x: 1518, y: 0, width: 320, height: 280, ref: "proposal:frozen-row" }),
+      `Mode 2 derives no pr1, or the wrong one: ${deep(pr1 ?? m2.threw ?? null)}`);
+    const scratch = mkdtempSync(join(tmpdir(), "canvas-exhibit-"));
+    let clean = null;
+    if (!m2.threw) {
+      saveBuild(scratch, m2, m2ops);
+      clean = loadBuild(scratch);
+      ok(deep(verifyBuild(clean)) === "[]", `the clean Mode 2 package failed verifyBuild: ${deep(verifyBuild(clean))}`);
+    }
+    rmSync(scratch, { recursive: true, force: true });
+    const m1 = derive(withProposal(1), spinePos);
+    ok(!m1.threw && !m1.nodes.some((n) => n.type === "exhibit") && deep(verifyBuild({ ops: withProposal(1), canvas: m1 })) === "[]",
+      `a Mode 1 proposal derived an exhibit or failed verifyBuild: ${deep(m1.threw ?? verifyBuild({ ops: withProposal(1), canvas: m1 }))}`);
+    const base = clean ?? { ops: m2ops, canvas: { nodes: [], edges: [] } };
+    const edit = (patch) => ({ ops: base.ops, canvas: { ...base.canvas, nodes: base.canvas.nodes.map((n) => (n.id === "pr1" ? { ...n, ...patch } : n)) } });
+    const inside = verifyBuild(edit({ x: 100, y: 900 }));
+    ok(inside.some((f) => f.includes('"pr1"') && f.includes('"f1"') && f.includes("G7")),
+      `the exhibit moved inside f1 passed verifyBuild, or failed without naming pr1, f1 and G7: ${deep(inside)}`);
+    ok(deep(verifyBuild(edit({ x: 2000, y: 600 }))) === "[]",
+      `an exhibit moved clear of both frames failed verifyBuild (${deep(verifyBuild(edit({ x: 2000, y: 600 })))}) — a moved exhibit is authored, like a moved frame`);
+    const wide = verifyBuild(edit({ width: 999 }));
+    ok(wide.some((f) => f.includes('"pr1"') && f.includes("the ops derive")), `the exhibit's width edited to 999 passed verifyBuild: ${deep(wide)}`);
+    const extra = { ops: base.ops, canvas: { ...base.canvas, nodes: [...base.canvas.nodes, { id: "pr9", type: "exhibit", x: 3000, y: 0, width: 320, height: 280, ref: "proposal:ghost-row" }] } };
+    ok(verifyBuild(extra).some((f) => f.includes('"pr9"') && f.includes("carries a fact the ops do not")),
+      `an exhibit the ops never made passed verifyBuild: ${deep(verifyBuild(extra))}`);
+    ok(names(() => arrangement(m2doc, spinePos), '"pr1"', "no position") === null,
+      `an exhibit with no position must be refused by arrangement naming it — got ${threw(() => arrangement(m2doc, spinePos))}`);
+  }
+
+  group("build package", `every committed discovery/*/build/ package DISCOVERED by listBuilds (at least one, faster-payment among them) and put through ONE per-package check — the store's own verifyBuild (seqs gapless and 1-based, ISO stamps, source owner|agent and every committed line "owner" because no agent ran and the contract forbids saying one did, a status in the enum, NO x or y on any line, the ledger FOLDING with undo lines included, and canvas.json equal node by node and edge by edge to what the ops derive under its OWN positions) · the spine's first six lines PINNED AS A PREFIX (${lines.length} lines today) rather than a count, so the owner arranging it through canvas.html cannot red CI while a rewritten history still does · D7's positive control computed IN MEMORY from that frozen prefix — d7, d8 and e-f1-d7/e-f1-d8 derived from f1's decisionRefs, never read off the committed file · the mutations, all through verifyBuild: a corrupted screenId fails naming the ref, a MOVED frame still passes (positions are authored), a dropped embodies edge and an extra note the ops never made both fail · the why asserted on the LEDGER (a reason is not geometry) · the committed $description IS the store's CANVAS_DESCRIPTION, naming all four divergences from JSON Canvas 1.0 and the #306 node and edge kinds · the round trip BYTE-identical · the store's imports node built-ins plus exactly canvas-ops.mjs, and its RUN_SLUG_RE byte-equal to discovery.mjs's · foldLedger: apply-undo-redo equals the plain apply, an undone line POPS, a wrong-op undo refused naming both seqs, proposed/refused skipped, an unknown status refused · saveRun on a scratch copy: the original ledger a byte-identical PREFIX after an append, lines stamped owner with gapless seqs, a refused op (frame.remove f1) throwing AND leaving both files byte-identical, proposed refused, an unrecorded frame.link ref refused with a transcript and accepted on a stand-in, a missing position refused by id, saveConflict stale vs current · provenanceLabel preferring run.json's provenance and flagging a disagreeing root · listBuilds skipping a dir with no build/, a capitalised slug, a file and an absent root; loadDecisions 20 on faster-payment (d7 → a4) and null with no transcript · 36.10 the owner's edit stays green: a note, a relink DROPPING decision 7, a remove and its undo saved through the real saveRun, then the per-package check and the prefix pin still pass, and an undo reaching past the page's load refused · 36.11 #475's Mode 2 exhibit, in memory from the prefix plus one component.propose: placeExhibit on the spine at 1518/0 (right of d8, 1206 + 280 + 32), pr1 derived as a 320×280 exhibit with ref proposal:frozen-row and a scratch package written by saveBuild passing verifyBuild (the positive control), a Mode 1 proposal deriving no node, the exhibit moved inside f1 refused naming pr1, f1 and G7, moved clear of both frames still passing (its position is authored), its width edited to 999 refused, an exhibit the ops never made refused, and one with no position refused by arrangement. What it cannot reach: the page itself — whether it renders, saves on a gesture and never on load, and whether it renders the exhibit's PNG (canvas-journey's) — and whether the compose op's why is a good reason, which is a human read`);
 }
 
 // --- 37 · the ledger (#434) ------------------------------------------------------------------------
@@ -13402,7 +13520,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   group("icons", `the committed Phosphor subset (#305, epic #295 G8): a hand-maintained system/icons.manifest.json → agent-layer/gen-icons.mjs → a frozen system/icons.mjs → the \`icon\` template, with no runtime icon library anywhere and the package itself in a build-time tool dir no page can reach · THE CONTROLS FIRST, and one of them is NEW: the standing domStubControl() exercises createElement only, so a namespace control of its own proves the stub records the NS it was given AND that a createElement node records null — without it every ns assertion below would pass against a template built with el(), which yields an HTMLUnknownElement that paints nothing while every other assertion still passes · MANIFEST ↔ MAP identity IN ORDER (the emitted key order is the manifest's, which is why the generator refuses an unsorted one), the viewBox pinned, the map frozen, every \`d\` a non-empty moveto · A SUBSET rather than a vendoring (AC #2), asserted by an UPPER BOUND of 20 and never by reading the package — deliberately loose, a seventh or nineteenth glyph being fine, because what it refuses is a category error and not growth; the 1512 per weight is the number that bound refuses and it appears only in the failure message, so a generator that started copying them all fails by a number rather than as a 37 MB diff nobody reads · EVERY manifest name RENDERED through the real renderComposition over the real DOM stub — span.ds-icon with its data-size and no data-refused, exactly one namespaced <svg> carrying the viewBox, currentColor, aria-hidden and focusable, exactly one namespaced <path>, and its \`d\` compared to ICONS[n] BY LOOP VARIABLE, because a template drawing one glyph for every name would pass every other assertion in the case · the spec's OWN example asserted separately, since that is what /components mounts · A NON-MANIFEST NAME REFUSED VISIBLY (AC #1b): data-refused set, the literal name as text, data-size kept, and ZERO svg and ZERO path — the empty box being the exact failure mode the branch replaces · FIVE PROTOTYPE-CHAIN names refused (constructor, toString, __proto__, hasOwnProperty, valueOf), beside THE MUTATION that decides whether that case can fail at all: the ICONS[name] truthiness form must still RENDER "constructor", or 41.6 is green against a trap the template never had · \`gen-icons --check\` proven able to fail (AC #1c) through the PURE emitIcons — the clean leg as the positive control, then a manifest with one name dropped emitting different text, plus the unsorted and duplicate refusals, all in memory with NOTHING written to disk · THE MANIFEST'S OWN THREE REFUSALS driven over six synthetic strings through the PURE parseManifest — malformed JSON, a bad weight and a bad icons array — each throw required to NAME the file, because a bare SyntaxError says \"position 2\" and this chain carries a dozen generated JSON artifacts; the malformed case is the one that earns the block, since an unnamed throw there was re-raised by this group's own fallback and ENDED the run with a stack trace while group 41 printed nothing at all · pathOf's SHAPE GUARD driven over five synthetic SVGs (a moved viewBox, an absent one, two paths, a <circle>, a path with no moveto), each throw required to name the FILE and say what moved, with the COMMITTED map's own shape REPRODUCED as the positive control so the five are not refusing everything — nothing in this case reads node_modules, which is why the group survives a missing install, and a package whose shape genuinely MOVED is caught by the drift leg (genIcons → pathOf over the real files) rather than here · and THE VALIDATOR, where the refusals actually live: a valid icon passes, each missing required prop is refused as one, a size outside the enum is refused NAMING [md|lg|xl], an icon holding a child is refused, and a stack holding an icon both validates AND renders the glyph through renderChild. What it cannot reach: how the glyph LOOKS — that \`check\` draws a tick and not a cross, that md/lg/xl are visibly distinct, that a refused icon reads as a mistake — which is the pixel gate's and a human read's; and that the refusal's border and auto size WIN at runtime, which is catalog-journey's, because a regex over the stylesheet sees neither specificity nor a pack override`);
 }
 
-// A SYNTHETIC PNG encoder for groups 42.15 and 43.15 (#474): 8-bit, colour type 2 (RGB) or 6 (RGBA),
+// A SYNTHETIC PNG encoder for groups 42.15 and 43.16 (#474): 8-bit, colour type 2 (RGB) or 6 (RGBA),
 // filter 0 on every row, one IDAT. This file had none (fidelity.mjs has no encoder either); the cases
 // that need a PNG no tool drew build one here and say SYNTHETIC in their own messages.
 const synthPng = (w, h, ct, px) => {
@@ -13435,7 +13553,7 @@ const synthPng = (w, h, ct, px) => {
 // right token for a human (#311's mapping editor); a LIVE import's candidate — both fixture candidates
 // here are S3's hand-authored harness renders, and each record says so; the live candidate is the
 // importer's own composition, measured by portal/lib/import-measure.mjs (#474), reached by group 43's
-// 43.15 and rendered for real only by canvas-journey's I12; whether the markdown READS well in the handoff (#314);
+// 43.16 and rendered for real only by canvas-journey's I12; whether the markdown READS well in the handoff (#314);
 // and the icon glyph box, which is measured geometry and not a token slot — R4 reads it and group 40
 // drives it (#456).
 
@@ -13827,7 +13945,7 @@ const synthPng = (w, h, ct, px) => {
 // WHAT THIS GROUP CANNOT REACH: a REAL bridge and pairing — the fake answers the committed captures
 // (import/fixtures/brilliant-live/) at once, where the real unpaired tools/list waits ~46 s and opens a
 // tab; only canvas-journey's owner-run --live-brilliant leg meets it; whether a draft is any GOOD (a
-// human read at #313); and a real render — 43.15 injects the render (the owner's committed candidate, or
+// human read at #313); and a real render — 43.16 injects the render (the owner's committed candidate, or
 // SYNTHETIC PNGs; the real
 // tooling/measure-render.mjs child is spawned only for its no-renderer and timeout paths), so the spawn
 // through Playwright is canvas-journey I12's.
@@ -13896,7 +14014,7 @@ const synthPng = (w, h, ct, px) => {
   const liveRead = new Set();
   const live = (name) => { liveRead.add(name); return JSON.parse(readFileSync(join(LIVE_DIR, name), "utf8")); };
   // The fake bridge (tooling/fake-brilliant-bridge.mjs) wired to the client over two in-process
-  // PassThroughs — no bridge is spawned in this group (43.15 spawns only the renderer child, for its two
+  // PassThroughs — no bridge is spawned in this group (43.16 spawns only the renderer child, for its two
   // browser-free paths). `log` sees every message the fake received.
   const { PassThrough } = await import("node:stream");
   const { serve } = await import("./fake-brilliant-bridge.mjs");
@@ -14147,6 +14265,39 @@ const synthPng = (w, h, ct, px) => {
         `43.14: the refused person row filed what it had built as [${took.join(", ")}] — expected one row each for the stack at ir.children[0].children[1] and the icon at [3]`);
     }
 
+    // --- 43.15 a Mode 2 import places its exhibit (#475, G7) ------------------------------------
+    // Without placeExhibit before saveRun, arrangement refuses the new pr1 for having no position —
+    // AFTER the record is on disk (invariant 3), leaving a record with no op. Asserted both ways.
+    {
+      const { loadBuild: lb, loadExhibits, verifyBuild: vb } = await import("../portal/lib/canvas-store.mjs");
+      const png = fold("parseExport(export-png.json) for 43.15", () => BM.parseExport(live("export-png.json")).bytes, null);
+      const pm = pkgCopy("m2");
+      const bm = ledger(pm).length;
+      const r15 = await afold("a Mode 2 runImport (43.15)", () => M.runImport({ pkgRoot: pm, provenance: "real", base: bm, entrance: "selection", mode: 2, overridesDir: scratch("ov15"),
+        reader: async () => ({ text: BLUEPRINT.toString("utf8"), transcript: [], reference: png }) }));
+      const lm = ledger(pm);
+      ok(r15 && lm.length === bm + 1 && lm.at(-1).params?.mode === 2,
+        `43.15: a Mode 2 import appended ${lm.length - bm} lines (the last ${deep(lm.at(-1)?.params)}) — exactly one, mode 2; imports/i1.json on disk: ${existsSync(join(pm, "build/imports/i1.json"))}`);
+      const node15 = (pkg, id) => fold("read canvas.json (43.15)", () => lb(join(pkg, "build")).canvas.nodes.find((n) => n.id === id), null);
+      const n1 = node15(pm, "pr1");
+      ok(n1?.type === "exhibit" && n1.x === 1518 && n1.y === 0, `43.15: canvas.json carries pr1 as ${deep(n1)} — an exhibit at 1518/0, right of d8 (1206 + 280 + 32)`);
+      ok(deep(fold("verifyBuild after a Mode 2 import", () => vb(lb(join(pm, "build"))), ["threw"])) === "[]",
+        `43.15: the package a Mode 2 import leaves fails verifyBuild: ${deep(fold("verifyBuild", () => vb(lb(join(pm, "build"))), ["threw"]))}`);
+      const doc15 = (pkg) => fold("fold after a Mode 2 import", () => foldLedger(ledger(pkg)).doc, null);
+      const ex1 = fold("loadExhibits (43.15)", () => loadExhibits(pm, doc15(pm)), []);
+      ok(ex1[0]?.id === "pr1" && String(ex1[0]?.reference).startsWith("data:image/png;base64,iVBOR") && ex1[0]?.tool === "brilliant",
+        `43.15: loadExhibits answered ${deep(ex1.map((e) => ({ ...e, reference: e.reference?.slice(0, 30) ?? null })))} — pr1 with the live read's PNG as a data URL`);
+      const r15b = await afold("a second Mode 2 runImport (43.15)", () => M.runImport({ pkgRoot: pm, provenance: "real", base: ledger(pm).length, entrance: "selection", mode: 2, overridesDir: scratch("ov15b"),
+        reader: async () => ({ text: BLUEPRINT.toString("utf8"), transcript: [], reference: png }) }));
+      const n2 = node15(pm, "pr2");
+      ok(r15b && n2?.type === "exhibit" && n2.x === 1870 && n2.y === 0, `43.15: the second Mode 2 exhibit is ${deep(n2)} — at 1870/0, right of the first (1518 + 320 + 32)`);
+      const pd = pkgCopy("m2drop");
+      await afold("a Mode 2 drop (43.15)", () => M.runImport({ pkgRoot: pd, provenance: "real", base: ledger(pd).length, entrance: "drop", mode: 2, overridesDir: scratch("ov15d"), file: { name: "m.txt", bytes: BLUEPRINT } }));
+      const exd = fold("loadExhibits after a drop (43.15)", () => loadExhibits(pd, doc15(pd)), []);
+      ok(exd.length === 1 && exd[0].reference === null && exd[0].tool === "brilliant" && exd[0].file === "m.txt",
+        `43.15: a Mode 2 drop's exhibit is ${deep(exd)} — no PNG (a drop carries none), tool brilliant, file m.txt`);
+    }
+
     // --- 43.9 NAMES ------------------------------------------------------------------------------
     const irNamed = (n) => ({ children: [{ name: n, component: null }] });
     const vocabNames = Object.keys(VOCAB.components);
@@ -14319,18 +14470,18 @@ const synthPng = (w, h, ct, px) => {
     ok(heldR?.refused?.kind === "stale-binding", `43.13: the held import answered ${deep(heldR)} — the hung read times out as stale-binding and releases the lock`);
   }
 
-  // --- 43.15 THE LIVE MEASUREMENT: refusals, invalidation, O3b and the pure helpers (#474) -----------
+  // --- 43.16 THE LIVE MEASUREMENT: refusals, invalidation, O3b and the pure helpers (#474) -----------
   // portal/lib/import-measure.mjs over scratch packages. The render is INJECTED (`render`), so CI needs no
   // browser: every case here is a SYNTHETIC measurable import — a laid-out blueprint whose texts bind
   // font-size tokens, a SYNTHETIC RGBA reference and a SYNTHETIC candidate, both built with synthPng — and
   // says so in its messages. The real renderer (tooling/measure-render.mjs) is reached only for the two
   // paths that need no browser: no-renderer through the UXF_MEASURE_VRDIR seam, and render-timeout.
   if (IR_ && IM) {
-    const INP = fold("loadInputs() (43.15)", () => IR_.loadInputs(), null);
+    const INP = fold("loadInputs() (43.16)", () => IR_.loadInputs(), null);
     const { checkRecord: chk, fidelityVerdict: fv } = await import("../import/report.mjs");
     const { THRESHOLD } = await import("../import/fidelity.mjs");
     const SYN = [
-      "lookup SYNTHETIC — #474's measurable import (build-checks 43.15), not a Brilliant read",
+      "lookup SYNTHETIC — #474's measurable import (build-checks 43.16), not a Brilliant read",
       'aaaa1111aaaa1111 al(v,g(4:$spacing.xs),pad(16:$spacing.md)) s(320,82) f[] "Row"',
       '  bbbb2222bbbb2222 t("Amara Okafor",Manrope:$font.family,16:$font.size.md,r,align(l)) s(fill,hug) f[] "Text 1"',
       '  cccc3333cccc3333 t("Last seen 2 min ago",Manrope:$font.family,13:$font.size.sm,r,align(l)) s(fill,hug) f[] "Text 2"',
@@ -14354,9 +14505,9 @@ const synthPng = (w, h, ct, px) => {
     // A scratch package holding one SYNTHETIC import mapped to stack. `ref` and `input` are the read's.
     const measurable = async (tag, { text = SYN, ref = REF, input = { format: "png", scale: 1 }, map = true } = {}) => {
       const pkg = pkgCopy(`m-${tag}`), ov = scratch(`ov-m-${tag}`);
-      const r = await afold(`runImport (43.15 ${tag})`, () => IR_.runImport({ pkgRoot: pkg, base: ledger(pkg).length, entrance: "selection", inputs: INP, overridesDir: ov,
+      const r = await afold(`runImport (43.16 ${tag})`, () => IR_.runImport({ pkgRoot: pkg, base: ledger(pkg).length, entrance: "selection", inputs: INP, overridesDir: ov,
         reader: async () => ({ text, reference: ref, transcript: [exportLine(input)], binding: null }) }), {});
-      if (map && r?.name) fold(`editMapping to stack (43.15 ${tag})`, () => IR_.editMapping({ pkgRoot: pkg, provenance: "fictional", name: r.name, edit: { path: "ir.children[0]", map: "stack" }, inputs: INP, overridesDir: ov }));
+      if (map && r?.name) fold(`editMapping to stack (43.16 ${tag})`, () => IR_.editMapping({ pkgRoot: pkg, provenance: "fictional", name: r.name, edit: { path: "ir.children[0]", map: "stack" }, inputs: INP, overridesDir: ov }));
       const at = (f) => join(pkg, "build/imports", f);
       const snapDir = () => (existsSync(join(pkg, "build/imports")) ? readdirSync(join(pkg, "build/imports")).sort().map((f) => `${f}:${createHash("sha256").update(readFileSync(at(f))).digest("hex")}`).join("|") : "");
       return { pkg, ov, name: r?.name, id: r?.recordId, at, snapDir };
@@ -14374,27 +14525,27 @@ const synthPng = (w, h, ct, px) => {
       const want = JSON.parse(MLIVE(`${frame}.measure.json`));
       const cand = MLIVE(`${frame}.candidate.png`);
       const pkg = pkgCopy(`m-live-${frame}`), ov = scratch(`ov-live-${frame}`);
-      const r = await afold(`runImport (43.15 the owner's ${frame} frame)`, () => IR_.runImport({ pkgRoot: pkg, base: ledger(pkg).length, entrance: "selection", inputs: INP, overridesDir: ov,
+      const r = await afold(`runImport (43.16 the owner's ${frame} frame)`, () => IR_.runImport({ pkgRoot: pkg, base: ledger(pkg).length, entrance: "selection", inputs: INP, overridesDir: ov,
         reader: async () => ({ text: MLIVE(`${frame}.blueprint.txt`).toString("utf8"), reference: MLIVE(`${frame}.reference.png`), binding: null,
           transcript: MLIVE(`${frame}.transcript.txt`).toString("utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l)) }) }), {});
       for (const [path_, m] of Object.entries(MAP_LIVE)) for (const k of ["map", "drop", "name"]) {
-        if (m[k] !== undefined) fold(`editMapping ${path_} ${k} (43.15 ${frame})`, () => IR_.editMapping({ pkgRoot: pkg, provenance: "fictional", name: r.name, edit: { path: path_, [k === "name" ? "rename" : k]: m[k] }, inputs: INP, overridesDir: ov }));
+        if (m[k] !== undefined) fold(`editMapping ${path_} ${k} (43.16 ${frame})`, () => IR_.editMapping({ pkgRoot: pkg, provenance: "fictional", name: r.name, edit: { path: path_, [k === "name" ? "rename" : k]: m[k] }, inputs: INP, overridesDir: ov }));
       }
       const out = await afold(`measureImport(the owner's ${frame} frame)`, () => IM.measureImport({ pkgRoot: pkg, name: r?.name,
         render: async () => ({ png: cand, boxes: want.boxes, engine: want.engine, version: want.version }) }), {});
       const at = (f) => join(pkg, "build/imports", `${r?.recordId}${f}`);
       const rec = fold(`read the replayed ${frame} record`, () => JSON.parse(readFileSync(at(".json"), "utf8")), { fidelity: {} });
       ok(out?.measured === true && fold(`checkRecord(the ${frame} replay)`, () => chk(rec), null) !== null && rec.fidelity.verdict === fv(rec.fidelity),
-        `43.15: the owner's ${frame} frame replayed to ${deep(out?.refused ?? out?.verdict)} — the record must pass checkRecord with its verdict derived`);
+        `43.16: the owner's ${frame} frame replayed to ${deep(out?.refused ?? out?.verdict)} — the record must pass checkRecord with its verdict derived`);
       ok(deep(rec.fidelity.deltaEMin?.worst) === deep(want.worst) && rec.fidelity.deltaEMin?.scored === want.scored,
-        `43.15: the owner's ${frame} frame re-measured worst ${deep(rec.fidelity.deltaEMin?.worst)} (scored ${rec.fidelity.deltaEMin?.scored}) — the committed ${frame}.measure.json says ${deep(want.worst)} (scored ${want.scored})`);
+        `43.16: the owner's ${frame} frame re-measured worst ${deep(rec.fidelity.deltaEMin?.worst)} (scored ${rec.fidelity.deltaEMin?.scored}) — the committed ${frame}.measure.json says ${deep(want.worst)} (scored ${want.scored})`);
       ok(under ? want.worst.value < THRESHOLD : want.worst.value >= THRESHOLD,
-        `43.15: the owner's ${frame} frame reads worst ${want.worst.value} — expected ${under ? "under" : "at or over"} THRESHOLD ${THRESHOLD} (the pair must separate, or #474's STOP rule applies)`);
+        `43.16: the owner's ${frame} frame reads worst ${want.worst.value} — expected ${under ? "under" : "at or over"} THRESHOLD ${THRESHOLD} (the pair must separate, or #474's STOP rule applies)`);
       ok(existsSync(at(".candidate.png")) && createHash("sha256").update(readFileSync(at(".candidate.png"))).digest("hex") === createHash("sha256").update(cand).digest("hex"),
-        `43.15: the replayed ${frame} candidate on disk is not the committed ${frame}.candidate.png`);
+        `43.16: the replayed ${frame} candidate on disk is not the committed ${frame}.candidate.png`);
       const T = existsSync(at(".transcript.jsonl")) ? readFileSync(at(".transcript.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l)) : [];
       ok(T.filter((l) => l.type === "measure").length === 1 && readFileSync(at(".md"), "utf8").includes(rec.fidelity.verdict),
-        `43.15: the ${frame} replay wrote ${T.filter((l) => l.type === "measure").length} measure lines, or its markdown lacks the verdict`);
+        `43.16: the ${frame} replay wrote ${T.filter((l) => l.type === "measure").length} measure lines, or its markdown lacks the verdict`);
     }
 
     // 1. MEASURED, SYNTHETIC: a faithful SYNTHETIC candidate under THRESHOLD, a wrong one over it, each
@@ -14405,26 +14556,26 @@ const synthPng = (w, h, ct, px) => {
       const out = await afold(`measureImport(SYNTHETIC ${tag})`, () => IM.measureImport({ pkgRoot: m.pkg, name: m.name, render: stub(cand, calls) }), {});
       const rec = fold(`read the measured record (${tag})`, () => JSON.parse(readFileSync(m.at(`${m.id}.json`), "utf8")), {});
       ok(out?.measured === true && fold(`checkRecord(${tag})`, () => chk(rec), null) !== null && rec.fidelity?.verdict === fv(rec.fidelity) && out.verdict === rec.fidelity.verdict,
-        `43.15: SYNTHETIC ${tag} measured ${deep(out?.refused ?? out?.verdict)} — the record must pass checkRecord with its verdict derived by fidelityVerdict`);
+        `43.16: SYNTHETIC ${tag} measured ${deep(out?.refused ?? out?.verdict)} — the record must pass checkRecord with its verdict derived by fidelityVerdict`);
       const worst = rec.fidelity?.deltaEMin?.worst?.value;
       ok(Number.isFinite(worst) && (under ? worst < THRESHOLD : worst >= THRESHOLD),
-        `43.15: SYNTHETIC ${tag} reads worst ${deep(rec.fidelity?.deltaEMin?.worst)} — expected ${under ? "under" : "at or over"} THRESHOLD ${THRESHOLD}`);
+        `43.16: SYNTHETIC ${tag} reads worst ${deep(rec.fidelity?.deltaEMin?.worst)} — expected ${under ? "under" : "at or over"} THRESHOLD ${THRESHOLD}`);
       ok(deep(calls) === deep([{ composition: calls[0]?.composition, width: 320, height: 82, scale: 1, backdrop: IM.BACKDROP_HEX }]) && calls[0]?.composition?.name === "stack",
-        `43.15: SYNTHETIC ${tag} asked the renderer for ${deep(calls.map(({ composition, ...j }) => ({ ...j, name: composition?.name })))} — one stack job at 320x82, scale 1 (the transcript's), on ${IM.BACKDROP_HEX}`);
+        `43.16: SYNTHETIC ${tag} asked the renderer for ${deep(calls.map(({ composition, ...j }) => ({ ...j, name: composition?.name })))} — one stack job at 320x82, scale 1 (the transcript's), on ${IM.BACKDROP_HEX}`);
       const png = m.at(`${m.id}.candidate.png`);
       ok(existsSync(png) && readFileSync(png).equals(cand) && rec.fidelity.deltaEMin.candidate.file === `imports/${m.id}.candidate.png` && rec.fidelity.deltaEMin.candidate.source.includes("cropped top-left to 320×82"),
-        `43.15: SYNTHETIC ${tag}'s candidate PNG on disk is ${existsSync(png) ? "not the render's bytes" : "MISSING"}, or the record does not name it and the crop`);
+        `43.16: SYNTHETIC ${tag}'s candidate PNG on disk is ${existsSync(png) ? "not the render's bytes" : "MISSING"}, or the record does not name it and the crop`);
       const T = lines(m);
       ok(T.filter((l) => l.type === "measure").length === 1 && T.at(-1).type === "measure" && deep(T.at(-1).boxes) === deep(BOXES) && T.at(-1).verdict === rec.fidelity.verdict,
-        `43.15: SYNTHETIC ${tag}'s transcript gained ${T.filter((l) => l.type === "measure").length} measure lines — exactly one, last, with the child's unrounded boxes and the verdict`);
-      ok(readFileSync(m.at(`${m.id}.md`), "utf8").includes(rec.fidelity.verdict), `43.15: SYNTHETIC ${tag}'s markdown does not carry the verdict ${rec.fidelity.verdict}`);
+        `43.16: SYNTHETIC ${tag}'s transcript gained ${T.filter((l) => l.type === "measure").length} measure lines — exactly one, last, with the child's unrounded boxes and the verdict`);
+      ok(readFileSync(m.at(`${m.id}.md`), "utf8").includes(rec.fidelity.verdict), `43.16: SYNTHETIC ${tag}'s markdown does not carry the verdict ${rec.fidelity.verdict}`);
       if (under) {
         // 2. AN EDIT INVALIDATES (D6): the verdict returns to missing and the candidate goes.
         const v = fold("editMapping after a measurement", () => IR_.editMapping({ pkgRoot: m.pkg, provenance: "fictional", name: m.name, edit: { path: "ir.children[0]", rename: "row" }, inputs: INP, overridesDir: m.ov }), {});
         const after = JSON.parse(readFileSync(m.at(`${m.id}.json`), "utf8"));
-        ok(!existsSync(png), `43.15: after an edit, imports/${m.id}.candidate.png is still on disk — a candidate of the previous mapping is not a measurement of this one`);
+        ok(!existsSync(png), `43.16: after an edit, imports/${m.id}.candidate.png is still on disk — a candidate of the previous mapping is not a measurement of this one`);
         ok(after.fidelity.verdict === "missing" && !after.fidelity.deltaEMin && v?.label?.endsWith("fidelity: missing — not measured, never a pass") && v?.measurable === true,
-          `43.15: after an edit the record reads ${deep(after.fidelity.verdict)} with deltaEMin ${after.fidelity.deltaEMin ? "KEPT" : "gone"} and label ${deep(v?.label?.split(" · ").at(-1))} — missing again, still measurable`);
+          `43.16: after an edit the record reads ${deep(after.fidelity.verdict)} with deltaEMin ${after.fidelity.deltaEMin ? "KEPT" : "gone"} and label ${deep(v?.label?.split(" · ").at(-1))} — missing again, still measurable`);
       }
     }
 
@@ -14433,13 +14584,13 @@ const synthPng = (w, h, ct, px) => {
       const before = m.snapDir();
       const out = await afold(`measureImport (${what})`, () => IM.measureImport({ pkgRoot: m.pkg, name: m.name, render }), {});
       ok(out?.refused?.kind === kind && typeof out.refused.message === "string" && typeof out.refused.action?.label === "string" && m.snapDir() === before,
-        `43.15: ${what} answered ${deep(out?.refused ?? out)} and ${m.snapDir() === before ? "wrote nothing" : "WROTE under imports/"} — expected a ${kind} refusal with one action, nothing written`);
+        `43.16: ${what} answered ${deep(out?.refused ?? out)} and ${m.snapDir() === before ? "wrote nothing" : "WROTE under imports/"} — expected a ${kind} refusal with one action, nothing written`);
       return out;
     };
     const never = async () => { throw new Error("the renderer was called for a refused measurement"); };
     {
       const pkg = pkgCopy("m-drop");
-      const d = await afold("a drop of the SYNTHETIC blueprint (43.15)", () => IR_.runImport({ pkgRoot: pkg, base: ledger(pkg).length, entrance: "drop", file: { name: "syn.txt", bytes: Buffer.from(SYN) }, inputs: INP, overridesDir: scratch("ov-m-drop") }), {});
+      const d = await afold("a drop of the SYNTHETIC blueprint (43.16)", () => IR_.runImport({ pkgRoot: pkg, base: ledger(pkg).length, entrance: "drop", file: { name: "syn.txt", bytes: Buffer.from(SYN) }, inputs: INP, overridesDir: scratch("ov-m-drop") }), {});
       await refusal("a dropped import (no reference)", { pkg, name: d?.name, snapDir: () => readdirSync(join(pkg, "build/imports")).sort().join("|") }, never, "no-reference");
     }
     await refusal("the committed spike C read, as recognised (compositions [null])", await measurable("null", { text: BLUEPRINT.toString("utf8"), map: false }), never, "nothing-built");
@@ -14457,14 +14608,14 @@ const synthPng = (w, h, ct, px) => {
       } }), {});
       const rec = JSON.parse(readFileSync(m.at(`${m.id}.json`), "utf8"));
       ok(out?.refused?.kind === "stale" && out.refused.action?.measure === true && !existsSync(m.at(`${m.id}.candidate.png`)) && !rec.fidelity.deltaEMin && readFileSync(m.at(`${m.id}.transcript.jsonl`), "utf8") === before,
-        `43.15: a stale measurement answered ${deep(out?.refused ?? out?.verdict)} and ${rec.fidelity.deltaEMin ? `wrote imports/${m.id}.json` : "left the record unmeasured"} — the render was of the mapping before the edit`);
+        `43.16: a stale measurement answered ${deep(out?.refused ?? out?.verdict)} and ${rec.fidelity.deltaEMin ? `wrote imports/${m.id}.json` : "left the record unmeasured"} — the render was of the mapping before the edit`);
     }
     // 4. O3b: the reference returned as the candidate throws, and the record on disk is unchanged.
     {
       const m = await measurable("o3b");
       const before = m.snapDir();
       const msg = await athrew(() => IM.measureImport({ pkgRoot: m.pkg, name: m.name, render: stub(REF) }));
-      ok((msg ?? "").includes("O3b") && m.snapDir() === before, `43.15: the reference returned as the candidate answered ${deep(msg ?? "NO THROW")} — it must throw naming O3b and write nothing`);
+      ok((msg ?? "").includes("O3b") && m.snapDir() === before, `43.16: the reference returned as the candidate answered ${deep(msg ?? "NO THROW")} — it must throw naming O3b and write nothing`);
     }
     // 5. THE LOCK: a measurement while an import holds it is a busy refusal naming the holder.
     {
@@ -14476,8 +14627,8 @@ const synthPng = (w, h, ct, px) => {
         reader: async () => { await gate; return { refused: { kind: "nothing-selected", message: "x", action: { label: "x" } } }; } });
       const out = await afold("measureImport during an import", () => IM.measureImport({ pkgRoot: m.pkg, name: m.name, render: never }), {});
       release();
-      await afold("the held import (43.15)", () => held, {});
-      ok(out?.refused?.kind === "busy" && out.refused.message.includes("an import"), `43.15: a measurement during an import answered ${deep(out?.refused ?? out)} — busy, naming "an import"`);
+      await afold("the held import (43.16)", () => held, {});
+      ok(out?.refused?.kind === "busy" && out.refused.message.includes("an import"), `43.16: a measurement during an import answered ${deep(out?.refused ?? out)} — busy, naming "an import"`);
     }
     // 6. AN ODD REFERENCE, END TO END: 319x81 (SYNTHETIC) renders at ceil and is cropped, never refused.
     {
@@ -14485,7 +14636,7 @@ const synthPng = (w, h, ct, px) => {
       const calls = [];
       const out = await afold("measureImport over a SYNTHETIC 319x81 reference", () => IM.measureImport({ pkgRoot: m.pkg, name: m.name, render: stub(CAND, calls) }), {});
       ok(out?.measured === true && calls[0]?.width === 319 && calls[0]?.height === 81 && out.view?.record?.fidelity?.deltaEMin?.candidate?.source?.includes("cropped top-left to 319×81"),
-        `43.15: SYNTHETIC — a 319x81 reference answered ${deep(out?.refused ?? out?.verdict)} after asking ${deep(calls.map((c) => [c.width, c.height]))} — measured, the candidate cropped to 319x81`);
+        `43.16: SYNTHETIC — a 319x81 reference answered ${deep(out?.refused ?? out?.verdict)} after asking ${deep(calls.map((c) => [c.width, c.height]))} — measured, the candidate cropped to 319x81`);
     }
     // 7. THE REAL CHILD where no browser is needed: the no-renderer seam and the timeout.
     {
@@ -14495,37 +14646,37 @@ const synthPng = (w, h, ct, px) => {
       const nr = await afold("spawnRender with no Playwright (UXF_MEASURE_VRDIR)", () => IM.spawnRender(job), {});
       if (prev === undefined) delete process.env.UXF_MEASURE_VRDIR; else process.env.UXF_MEASURE_VRDIR = prev;
       ok(nr?.refused?.kind === "no-renderer" && nr.refused.message.includes("npm ci") && nr.refused.action?.hint === "cd tooling/visual-regression && npm ci",
-        `43.15: the renderer child with no Playwright answered ${deep(nr?.refused ?? "a render")} — exit 3 must read no-renderer, naming the install command`);
+        `43.16: the renderer child with no Playwright answered ${deep(nr?.refused ?? "a render")} — exit 3 must read no-renderer, naming the install command`);
       const to = await afold("spawnRender with a 5 ms timeout", () => IM.spawnRender(job, { timeoutMs: 5 }), {});
-      ok(to?.refused?.kind === "render-timeout" && to.refused.action?.measure === true, `43.15: a 5 ms render answered ${deep(to?.refused ?? "a render")} — render-timeout, Measure again`);
+      ok(to?.refused?.kind === "render-timeout" && to.refused.action?.measure === true, `43.16: a 5 ms render answered ${deep(to?.refused ?? "a render")} — render-timeout, Measure again`);
     }
     // 8. THE PURE HELPERS on SYNTHETIC inputs.
     const rb = fold("regionsFromBoxes (SYNTHETIC)", () => IM.regionsFromBoxes([{ name: "root", x: 0, y: 0, w: 320, h: 70 }, { name: "t", x: 16, y: 16, w: 288, h: 25.59 }, { name: "t", x: 0, y: 60, w: 10, h: 10 }, { name: "off", x: 400, y: 0, w: 10, h: 10 }, { name: "over", x: 300, y: 60, w: 50, h: 50 }], 2, 640, 140), {});
     ok(deep(rb) === deep({ regions: [{ name: "root", x: 0, y: 0, w: 640, h: 140 }, { name: "t", x: 32, y: 32, w: 576, h: 51 }, { name: "t #2", x: 0, y: 120, w: 20, h: 20 }, { name: "over", x: 600, y: 120, w: 40, h: 20 }], skipped: ["off"] }),
-      `43.15: SYNTHETIC — regionsFromBoxes answered ${deep(rb)} — rounded ×2, a duplicate suffixed #2, an overhang clamped, an off-image box SKIPPED by name`);
+      `43.16: SYNTHETIC — regionsFromBoxes answered ${deep(rb)} — rounded ×2, a duplicate suffixed #2, an overhang clamped, an off-image box SKIPPED by name`);
     ok((threw(() => IM.regionsFromBoxes([{ name: "a", x: 0, y: 0, w: 1, h: 1 }, { name: "b", x: NaN, y: 0, w: 1, h: 1 }], 1, 9, 9)) ?? "").includes("boxes[1].x"),
-      "43.15: SYNTHETIC — a non-finite coordinate was not refused naming boxes[1].x");
+      "43.16: SYNTHETIC — a non-finite coordinate was not refused naming boxes[1].x");
     const sc = (lines_, w, ref) => IM.scaleOf(lines_, w, ref);
     ok(sc([exportLine({ format: "png" })], 395, { w: 790, h: 402 }).scale === IM.LEGACY_SCALE && IM.LEGACY_SCALE === 2,
-      "43.15: an export line with no scale (every read before #474, the committed brilliant-live shape: 395 → 790) did not answer Brilliant's default 2");
+      "43.16: an export line with no scale (every read before #474, the committed brilliant-live shape: 395 → 790) did not answer Brilliant's default 2");
     ok(sc([exportLine({ scale: 1 })], 320, { w: 320, h: 82 }).scale === 1 && sc([exportLine({ scale: 2 })], "hug", { w: 777, h: 82 }).scale === 2,
-      "43.15: scale 1 for a 320 source at 320, or a hug width taking the line's scale, was not answered");
+      "43.16: scale 1 for a 320 source at 320, or a hug width taking the line's scale, was not answered");
     const wide = sc([exportLine({})], 360, { w: 790, h: 402 });
     ok(wide.refused?.kind === "unknown-scale" && wide.refused.message.includes("790") && wide.refused.message.includes("360 × 2 = 720"),
-      `43.15: 790 against 360 × 2 answered ${deep(wide)} — unknown-scale naming both figures`);
+      `43.16: 790 against 360 × 2 answered ${deep(wide)} — unknown-scale naming both figures`);
     ok(sc([], 320, { w: 320, h: 82 }).refused?.kind === "no-reference" && sc([exportLine({ scale: 1 }), { ...exportLine({ scale: 1 }), ok: false }], 320, { w: 320, h: 82 }).scale === 1,
-      "43.15: no export line did not answer no-reference, or a failed export line was read");
+      "43.16: no export line did not answer no-reference, or a failed export line was read");
     const cr = fold("cropTo 4x2 → 3x1", () => IM.cropTo({ w: 4, h: 2, data: Buffer.from([...Array(24).keys()]) }, 3, 1), null);
-    ok(cr?.w === 3 && cr.h === 1 && deep([...cr.data]) === deep([0, 1, 2, 3, 4, 5, 6, 7, 8]), `43.15: cropTo(4x2 → 3x1) kept ${deep(cr && [...cr.data])} — the top-left nine bytes`);
+    ok(cr?.w === 3 && cr.h === 1 && deep([...cr.data]) === deep([0, 1, 2, 3, 4, 5, 6, 7, 8]), `43.16: cropTo(4x2 → 3x1) kept ${deep(cr && [...cr.data])} — the top-left nine bytes`);
     ok((threw(() => IM.cropTo({ w: 4, h: 2, data: Buffer.alloc(24) }, 5, 2)) ?? "").includes("4x2") && (threw(() => IM.cropTo({ w: 8, h: 2, data: Buffer.alloc(48) }, 4, 2, 2)) ?? "").includes("to 4x2"),
-      "43.15: cropTo did not refuse a smaller image, or one more than scale px larger, naming both sizes");
+      "43.16: cropTo did not refuse a smaller image, or one more than scale px larger, naming both sizes");
   }
 
   // AC #4: nothing under system/, handoff/, discovery/ or import/overrides/ moved.
   ok(gitSnap() === GIT_BEFORE && readFileSync(join(ROOT, "handoff/verdant/vocabulary.json")).equals(VOCAB_BYTES),
     `43: the group moved a tracked path — git status for system handoff discovery import/overrides went from ${JSON.stringify(GIT_BEFORE)} to ${JSON.stringify(gitSnap())}`);
 
-  group("import run", `portal/lib/import-run.mjs + portal/lib/brilliant-mcp.mjs (#311): BOTH IMPORTED in CI with no portal/node_modules, neither naming the Agent SDK, zod or @modelcontextprotocol statically or lazily (the import path has no model since PR B), brilliant-mcp.mjs's parsed specifiers node: built-ins only, and import-run reading Brilliant through it with importFenceDecision as the one predicate · THE FENCE, one site — the client's call() — over the fake bridge (tooling/fake-brilliant-bridge.mjs) on in-process PassThroughs: get_selection reaching the fake (the positive control, and the flush), create_modify_elements, Write, execute_commands and undefined each resolving { denied } with ONE denied line via client and NO tools/call at the fake, a throwing predicate DENYING with a throwing recorder, openBridge refusing to build without decide, deniedLine refusing any via but client · THE CLASSIFIER: classifyBridge over eleven outcomes — not-running on an exit or stream end before initialize (\"did not start\"), not-answering on a timeout before tools/list, not-paired from the COMMITTED unpaired tools/list error with its words verbatim as detail and an Import again retry, not-reachable without get_selection, stale-binding routed to the binding check with and without a project, nothing-selected from the committed empty selection, read-failed on an isError and a mid-read exit — each with exactly one action, the two explicit successes answering null and six junk inputs failing closed as not-running · THE PARSERS over every committed capture (43.11): init's canvas id, one/none/two selections by selectedIds (never a scrape — the fill id is in the text), the -32602 and the isError thrown in the bridge's words, both lookups converted to their ids, both PNGs by size, byte count and their own sha256 line with a one-byte-flipped copy refused, the page's two top-level elements, the binding read and absent on the unpaired initialize, the tool list holding every read tool — and every .json in the directory read by some case · THE READER END TO END (43.12): runImport → readBrilliant → the client → the fake writing a 2155-byte reference.png, a record passing checkRecord with source.ids exactly the selection, a transcript of meta · four ok tool lines · one binding line and no cost, and one component.propose; two selected giving both ids (the annotation rule end to end), an ids read skipping get_selection, a SYNTHETIC _meta project reaching source.project, unpaired · exit · none-selected · hang-call · hang-init refused as not-paired · not-running · nothing-selected · stale-binding · not-answering with nothing written, and a non-JSON stdout line throwing · BROWSE AND THE BINDING CHECK (43.13): two 160-px thumbnails, a second browse cached with ZERO exports, refresh re-exporting, a SYNTHETIC 14-element page giving 12 tiles truncated of 14, bindingStatus's binding, canvas and selected count (0 is a state, not a refusal) and its not-paired, and a held import making both answer a busy refusal naming \"an import\" · THE DROP SNIFF: both committed fixtures sniffed to their tool, a REST read, a token export, an empty file, a PNG and prose refused naming why · BOTH SOURCES through runPipeline + recordFor passing checkRecord with EQUAL key sets, fidelity missing with WCAG computed and "missing" in the markdown — and AC #1b's pair: the same blueprint through an injected reader and through a drop giving deep-equal ir, recognition, drops, snaps and unbound · THE WRITER: a traversal name and id refused before any byte, exactly the eight-file set written, the drafts literal-free and saying they are the importer's · THE MAPPING EDITOR on a SYNTHETIC unbound Figma export: a remap to stack emitting what list could not, a rename reaching template.txt's part id, a snap edit moving the role caption → body and writing one override row named by the source hash, a drop adding exactly one read-then-dropped row, elapsed.recognition unchanged, and an unknown path and a cross-family ref refused with mapping.json untouched · THE OWNER'S MAP over the committed spike C read (43.14): the layout-less person row mapped to stack through the real applyMapping gives [null] with stack.direction and layout rows (#477) and names the stack and icon it had built by source index (PR #478) · runImport: ONE owner component.propose line folding to pr1, the record, md and transcript on disk when the op append fails (so they are written first), a second run during the first refused "already in flight", naming the import as the holder, and the first still returning, dropTooLarge refusing only a declared size over the cap, isProposalName refusing a traversal, a stale base refused with ZERO reader calls, a refused read and a PNG drop writing nothing · proposalName and unboundCount · THE LIVE MEASUREMENT (43.15, #474): import-measure.mjs IMPORTED in CI (43.1: node: built-ins, import/, ./import-run.mjs and ./env.mjs only, no playwright, no dynamic import); THE OWNER'S LIVE PAIR (import/fixtures/measure-live/, verbatim) re-imported through runImport and RE-MEASURED from the committed candidate bytes and boxes to the committed worst — faithful 1.3379 under THRESHOLD, wrong 29.7584 over it — each record passing checkRecord with its verdict derived; and over SYNTHETIC measurable imports with the render injected — a faithful candidate under THRESHOLD and a wrong one over it, each record passing checkRecord with its verdict DERIVED, one stack job at the transcript's scale, the candidate PNG and exactly one measure line written; an edit returning the record to missing and deleting the candidate (D6); no-reference, nothing-built, unknown-scale (a 790-px reference for a 320-px source, and scale 5), render-failed, no-renderer, render-timeout and stale (an edit during the render) each a refusal with one action writing nothing; O3b thrown with nothing written; busy while an import holds the lock; a 319x81 reference rendered at ceil and cropped; the real child's no-renderer (UXF_MEASURE_VRDIR) and timeout paths; and regionsFromBoxes, scaleOf and cropTo on SYNTHETIC inputs · and git status over system, handoff, discovery and import/overrides unchanged across the group. What it cannot reach: a REAL bridge and pairing — the fake answers the committed captures at once, where the real unpaired tools/list waits ~46 s and opens a tab (only canvas-journey's owner-run --live-brilliant leg meets it), whether a draft is any good (a human read at #313), and a real render — 43.15 injects it, so the spawn through Playwright is canvas-journey I12's`);
+  group("import run", `portal/lib/import-run.mjs + portal/lib/brilliant-mcp.mjs (#311): BOTH IMPORTED in CI with no portal/node_modules, neither naming the Agent SDK, zod or @modelcontextprotocol statically or lazily (the import path has no model since PR B), brilliant-mcp.mjs's parsed specifiers node: built-ins only, and import-run reading Brilliant through it with importFenceDecision as the one predicate · THE FENCE, one site — the client's call() — over the fake bridge (tooling/fake-brilliant-bridge.mjs) on in-process PassThroughs: get_selection reaching the fake (the positive control, and the flush), create_modify_elements, Write, execute_commands and undefined each resolving { denied } with ONE denied line via client and NO tools/call at the fake, a throwing predicate DENYING with a throwing recorder, openBridge refusing to build without decide, deniedLine refusing any via but client · THE CLASSIFIER: classifyBridge over eleven outcomes — not-running on an exit or stream end before initialize (\"did not start\"), not-answering on a timeout before tools/list, not-paired from the COMMITTED unpaired tools/list error with its words verbatim as detail and an Import again retry, not-reachable without get_selection, stale-binding routed to the binding check with and without a project, nothing-selected from the committed empty selection, read-failed on an isError and a mid-read exit — each with exactly one action, the two explicit successes answering null and six junk inputs failing closed as not-running · THE PARSERS over every committed capture (43.11): init's canvas id, one/none/two selections by selectedIds (never a scrape — the fill id is in the text), the -32602 and the isError thrown in the bridge's words, both lookups converted to their ids, both PNGs by size, byte count and their own sha256 line with a one-byte-flipped copy refused, the page's two top-level elements, the binding read and absent on the unpaired initialize, the tool list holding every read tool — and every .json in the directory read by some case · THE READER END TO END (43.12): runImport → readBrilliant → the client → the fake writing a 2155-byte reference.png, a record passing checkRecord with source.ids exactly the selection, a transcript of meta · four ok tool lines · one binding line and no cost, and one component.propose; two selected giving both ids (the annotation rule end to end), an ids read skipping get_selection, a SYNTHETIC _meta project reaching source.project, unpaired · exit · none-selected · hang-call · hang-init refused as not-paired · not-running · nothing-selected · stale-binding · not-answering with nothing written, and a non-JSON stdout line throwing · BROWSE AND THE BINDING CHECK (43.13): two 160-px thumbnails, a second browse cached with ZERO exports, refresh re-exporting, a SYNTHETIC 14-element page giving 12 tiles truncated of 14, bindingStatus's binding, canvas and selected count (0 is a state, not a refusal) and its not-paired, and a held import making both answer a busy refusal naming \"an import\" · THE DROP SNIFF: both committed fixtures sniffed to their tool, a REST read, a token export, an empty file, a PNG and prose refused naming why · BOTH SOURCES through runPipeline + recordFor passing checkRecord with EQUAL key sets, fidelity missing with WCAG computed and "missing" in the markdown — and AC #1b's pair: the same blueprint through an injected reader and through a drop giving deep-equal ir, recognition, drops, snaps and unbound · THE WRITER: a traversal name and id refused before any byte, exactly the eight-file set written, the drafts literal-free and saying they are the importer's · THE MAPPING EDITOR on a SYNTHETIC unbound Figma export: a remap to stack emitting what list could not, a rename reaching template.txt's part id, a snap edit moving the role caption → body and writing one override row named by the source hash, a drop adding exactly one read-then-dropped row, elapsed.recognition unchanged, and an unknown path and a cross-family ref refused with mapping.json untouched · THE OWNER'S MAP over the committed spike C read (43.14): the layout-less person row mapped to stack through the real applyMapping gives [null] with stack.direction and layout rows (#477) and names the stack and icon it had built by source index (PR #478) · runImport: ONE owner component.propose line folding to pr1, the record, md and transcript on disk when the op append fails (so they are written first), a second run during the first refused "already in flight", naming the import as the holder, and the first still returning, dropTooLarge refusing only a declared size over the cap, isProposalName refusing a traversal, a stale base refused with ZERO reader calls, a refused read and a PNG drop writing nothing · A MODE 2 IMPORT (#475, 43.15): one mode-2 line, its exhibit placed by placeExhibit at 1518/0 before saveRun (arrangement refuses a node with no position, and the record is already on disk), the package passing verifyBuild, loadExhibits carrying the live read's PNG as a data URL, a second Mode 2 import at 1870, and a Mode 2 drop's exhibit with no PNG, tool brilliant and its file name · proposalName and unboundCount · THE LIVE MEASUREMENT (43.16, #474): import-measure.mjs IMPORTED in CI (43.1: node: built-ins, import/, ./import-run.mjs and ./env.mjs only, no playwright, no dynamic import); THE OWNER'S LIVE PAIR (import/fixtures/measure-live/, verbatim) re-imported through runImport and RE-MEASURED from the committed candidate bytes and boxes to the committed worst — faithful 1.3379 under THRESHOLD, wrong 29.7584 over it — each record passing checkRecord with its verdict derived; and over SYNTHETIC measurable imports with the render injected — a faithful candidate under THRESHOLD and a wrong one over it, each record passing checkRecord with its verdict DERIVED, one stack job at the transcript's scale, the candidate PNG and exactly one measure line written; an edit returning the record to missing and deleting the candidate (D6); no-reference, nothing-built, unknown-scale (a 790-px reference for a 320-px source, and scale 5), render-failed, no-renderer, render-timeout and stale (an edit during the render) each a refusal with one action writing nothing; O3b thrown with nothing written; busy while an import holds the lock; a 319x81 reference rendered at ceil and cropped; the real child's no-renderer (UXF_MEASURE_VRDIR) and timeout paths; and regionsFromBoxes, scaleOf and cropTo on SYNTHETIC inputs · and git status over system, handoff, discovery and import/overrides unchanged across the group. What it cannot reach: a REAL bridge and pairing — the fake answers the committed captures at once, where the real unpaired tools/list waits ~46 s and opens a tab (only canvas-journey's owner-run --live-brilliant leg meets it), whether a draft is any good (a human read at #313), and a real render — 43.16 injects it, so the spawn through Playwright is canvas-journey I12's`);
 }
 
 // --- 44 · the jev guard (#454) -----------------------------------------------------------------------

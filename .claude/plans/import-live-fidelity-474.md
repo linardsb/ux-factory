@@ -975,3 +975,5 @@ scratchpad, never under `.claude/plans/` as `.mjs`).
   Brilliant's `spacing.lg` is 16 where the contract's is 24, so a faithful frame's padding must use a token whose
   values agree (`spacing.sm`, 8). Brilliant's gap field offers no token (a typed 4 snaps exactly to `--spacing-xs`),
   and its line height is a multiple, not px. Result: faithful 1.3379, wrong 29.7584 — AC 10 met.
+- 2026-09-28 — merge of origin/main (#475, #481): #475 took case id 43.15 for its Mode 2 exhibit, so this plan's
+  43.15 landed as **43.16**; every reference in the code, prose, report and fixture README says 43.16.

@@ -40,7 +40,12 @@
 // both ids, and Browse again is served from the session cache (I11); `unpaired` — the not-paired
 // refusal with ONE action "Import again", the bridge's own words as the detail line, and the click
 // sends the import again (I10); `hang-call` — Re-bind's click posts the binding check and the line
-// updates (I10b). THE MEASUREMENT (#474): the owner's faithful frame (import/fixtures/measure-live/) is
+// updates (I10b). Inside the paired child, #475's exhibit (X1–X7): a Mode 2 Import selection places one
+// exhibit where placeExhibit recomputed in Node says, its PNG loaded and labelled, measured clear of
+// every frame; on a 2400-px page a drag onto f1 and a redo after it are refused and put back with no
+// ledger line; f2 → desktop and a pointer resize of f2 into it are refused (no line, no height written)
+// while f1 → desktop is accepted; a vertical resize authors f1's
+// height and the exhibit may then sit below it; a Mode 2 drop is flagged as having no image. THE MEASUREMENT (#474): the owner's faithful frame (import/fixtures/measure-live/) is
 // seeded in-process into fp-measure, measured through the page by the spawned tooling/measure-render.mjs
 // — worst ΔE under THRESHOLD, the derived verdict, the candidate at the reference's size — and a rename
 // returns it to missing and deletes the candidate (I12); a side child with UXF_MEASURE_VRDIR at a missing
@@ -75,7 +80,7 @@ import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { foldLedger, loadBuild, verifyBuild } from "../portal/lib/canvas-store.mjs";
+import { foldLedger, loadBuild, placeExhibit, positionsOf, verifyBuild } from "../portal/lib/canvas-store.mjs";
 import { checkRecord, fidelityVerdict } from "../import/report.mjs";
 import { THRESHOLD } from "../import/fidelity.mjs";
 import { editMapping, runImport } from "../portal/lib/import-run.mjs";
@@ -685,12 +690,23 @@ async function importPass(engine, base, page, t, step, errors) {
       await resp;
       await page.waitForFunction(() => /re-derived/.test(document.querySelector("[data-import-status]")?.textContent ?? ""), null, { timeout: 5000 });
     };
+    // The view's rows are "<path> <slot>: <reason>". The root is a `list`, which build() refuses, so the
+    // node is ALREADY on the loss list as build()'s child-loss row (#477); the owner's drop replaces that
+    // row with its own, and the total holds. The rows are the claim, not a net count.
+    const P = "ir.children[0].children[3]";
+    const rowsOf = () => page.locator("[data-import-drops] li").allTextContents();
+    const has = (rows, prefix) => rows.some((r) => r.startsWith(prefix));
     const before = readFileSync(mapFile, "utf8");
     const dropsBefore = await count();
-    await editAndWait('[data-import-remap="ir.children[0].children[3]"]', "drop");
+    const rowsBefore = await rowsOf();
+    await editAndWait(`[data-import-remap="${P}"]`, "drop");
     const after = readFileSync(mapFile, "utf8");
-    t("I4 · a drop rewrote mapping.json on disk", after !== before && JSON.parse(after).parts["ir.children[0].children[3]"]?.drop === true, after);
-    t("I4 · the view's drop list grew by exactly one", (await count()) === dropsBefore + 1, `${dropsBefore} → ${await count()}`);
+    t("I4 · a drop rewrote mapping.json on disk", after !== before && JSON.parse(after).parts[P]?.drop === true, after);
+    const rowsAfter = await rowsOf();
+    t("I4 · the view swaps build()'s child-loss row for the owner's drop row, and the total holds (#477)",
+      has(rowsBefore, `build ${P}:`) && !has(rowsBefore, `mapping mapping.${P}:`)
+        && !has(rowsAfter, `build ${P}:`) && has(rowsAfter, `mapping mapping.${P}:`) && (await count()) === dropsBefore,
+      `${dropsBefore} → ${await count()} · before: ${rowsBefore.filter((r) => r.includes(P)).join(" | ")} · after: ${rowsAfter.filter((r) => r.includes(P)).join(" | ")}`);
     let err = null;
     try { checkRecord(readRec("i2")); } catch (e) { err = e.message; }
     t("I4 · imports/i2.json was re-derived and still passes checkRecord", err === null && readRec("i2").drops.some((d) => d.path === "mapping"), err ?? "");
@@ -819,14 +835,25 @@ async function dropOnePart(page, name) {
   const remap = page.locator("[data-import-remap]").first();
   const at = await remap.getAttribute("data-import-remap");
   const count = async () => Number((await page.locator("[data-import-drops] h3").textContent()).match(/\((\d+)\)/)?.[1]);
+  // I4's rule (#477): the owner's drop row appears, any build() child-loss row for the same node goes, and
+  // the total moves by one only when there was no such row to replace.
+  const rowsOf = () => page.locator("[data-import-drops] li").allTextContents();
+  const has = (rows, prefix) => rows.some((r) => r.startsWith(prefix));
   const before = readFileSync(mapFile, "utf8");
   const dropsBefore = await count();
+  const rowsBefore = await rowsOf();
   const resp = quiet(page.waitForResponse((r) => r.url().endsWith("/api/canvas/import/mapping"), { timeout: 10000 }));
   await remap.selectOption("drop");
   await resp;
   await page.waitForFunction(() => /re-derived/.test(document.querySelector("[data-import-status]")?.textContent ?? ""), null, { timeout: 5000 });
   const after = readFileSync(mapFile, "utf8");
-  return { ok: after !== before && JSON.parse(after).parts[at]?.drop === true && (await count()) === dropsBefore + 1, why: `${at}: drops ${dropsBefore} → ${await count()} · ${after}` };
+  const rowsAfter = await rowsOf();
+  const replaced = has(rowsBefore, `build ${at}:`);
+  return {
+    ok: after !== before && JSON.parse(after).parts[at]?.drop === true && has(rowsAfter, `mapping mapping.${at}:`) && !has(rowsAfter, `build ${at}:`)
+      && (await count()) === dropsBefore + (replaced ? 0 : 1),
+    why: `${at}: drops ${dropsBefore} → ${await count()} (${replaced ? "replacing build()'s row" : "a new row"}) · ${after}`,
+  };
 }
 
 async function fakeBridgePass(page, t, step) {
@@ -858,7 +885,7 @@ async function fakeBridgePass(page, t, step) {
       const kept = await lineOf(page);
       t("I9 · after the reload, the binding line is the read's (kept for the session)", kept.includes("this tab's project (name not exposed) · web") && kept.includes("at the last Brilliant read"), kept);
       const d = await dropOnePart(page, body.name);
-      t("I9 · dropping a part rewrote mapping.json and the view re-rendered its drop list (+1)", d.ok, d.why);
+      t("I9 · dropping a part rewrote mapping.json and the view re-rendered its drop list with the owner's row", d.ok, d.why);
     });
 
     await step("I11 · Browse, pick two, import them, Browse again (cached)", async () => {
@@ -895,6 +922,159 @@ async function fakeBridgePass(page, t, step) {
       await page.waitForSelector("[data-import-tile]", { timeout: 5000 }).catch(() => {});
       const note = await page.locator("[data-import-browse-count]").textContent().catch(() => "");
       t("I11 · Browse again → the same 2 tiles from the session cache", bb2.cached === true && (await tiles.count()) === 2 && note.includes("cache"), JSON.stringify({ cached: bb2.cached, note }));
+    });
+
+    // #475: a Mode 2 import is an exhibit beside the flow (G7). X1–X2 on the import page; X3–X6 on a
+    // 2400-px-wide page of the same portal, so f1 and the exhibit are both on screen at scale 1 and a
+    // pointer drag between them needs no auto-scroll.
+    await step("X1–X7 · a Mode 2 import is an exhibit beside the flow (#475)", async () => {
+      const canvasBefore = loadBuild(buildDir("fp-import")).canvas;
+      await openCanvas(page, b3, "real", "fp-import");
+      await openPanel(page);
+      await page.locator('input[name=cv-import-mode][value="2"]').check();
+      const body = await importVia(page, "[data-import-selection]");
+      const last = ledger("fp-import").at(-1);
+      t("X1 · Import selection in Mode 2 → a record and a component.propose line with mode 2", typeof body.recordId === "string" && last?.params?.mode === 2 && last.params.recordId === body.recordId, JSON.stringify(body.refused ?? body.error ?? last));
+      if (typeof body.recordId !== "string") return;
+      const doc = foldLedger(ledger("fp-import")).doc;
+      const exId = doc.proposals.find((p) => p.recordId === body.recordId)?.id;
+      const want = placeExhibit(doc, positionsOf(canvasBefore));
+      const disk = () => loadBuild(buildDir("fp-import")).canvas.nodes.find((n) => n.id === exId);
+      t(`X1 · canvas.json places ${exId} by placeExhibit, recomputed in Node (${JSON.stringify(want)})`, disk()?.type === "exhibit" && disk().x === want.x && disk().y === want.y, JSON.stringify(disk()));
+      const ex = page.locator(`[data-stx-component="exhibit"][data-stx-id="${exId}"]`);
+      const shown = (await page.locator('[data-stx-component="exhibit"]').count()) === 1 && (await ex.count()) === 1
+        && await page.waitForFunction((id) => { const im = document.querySelector(`[data-stx-id="${id}"] img`); return Boolean(im?.alt) && im.complete && im.naturalWidth > 0; }, exId, { timeout: 5000 }).then(() => true, () => false);
+      t(`X1 · after the reload, exactly one exhibit on the stage (${exId}), its PNG loaded`, shown);
+      t("X1 · …labelled \"Frozen original · Mode 2\"", ((await ex.textContent()) ?? "").includes("Frozen original · Mode 2"), await ex.textContent());
+      const hits = await page.evaluate((id) => {
+        const e = document.querySelector(`[data-stx-id="${id}"]`).getBoundingClientRect();
+        return [...document.querySelectorAll(".stx-frame")].filter((f) => { const r = f.getBoundingClientRect(); return e.left < r.right && r.left < e.right && e.top < r.bottom && r.top < e.bottom; }).map((f) => f.dataset.stxId);
+      }, exId);
+      t("X2 · measured: the exhibit's rendered box meets no frame's", hits.length === 0, hits.join(", "));
+
+      const wide = await page.context().browser().newContext({ viewport: { width: 2400, height: 1400 } });
+      const p = await wide.newPage();
+      const errs = [];
+      p.on("pageerror", (e) => errs.push(`pageerror: ${e.message}`));
+      p.on("console", (m) => { if (m.type() === "error") errs.push(`console: ${m.text()}`); });
+      try {
+        await openCanvas(p, b3, "real", "fp-import");
+        const boxOf = (id) => p.locator(`[data-stx-id="${id}"]`).evaluate((n) => ({ x: parseFloat(n.style.getPropertyValue("--x")), y: parseFloat(n.style.getPropertyValue("--y")), h: parseFloat(n.style.getPropertyValue("--h")) }));
+        const saveLine = () => p.locator("[data-canvas-save]").textContent();
+        // Drag the exhibit's move handle by (dx, dy) stage px; at scale 1 a screen px is a stage px.
+        const drag = async (id, dx, dy) => {
+          const g = await p.locator(`[data-stx-id="${id}"] > .stx-grab`).boundingBox();
+          const sx = g.x + g.width / 2, sy = g.y + g.height / 2;
+          await p.mouse.move(sx, sy);
+          await p.mouse.down();
+          for (let i = 1; i <= 10; i += 1) await p.mouse.move(sx + (dx * i) / 10, sy + (dy * i) / 10);
+          await p.mouse.up();
+          await sleep(400);
+        };
+        const scale = await p.locator('[data-stx-id="f1"]').evaluate((n) => n.getBoundingClientRect().width / parseFloat(n.style.getPropertyValue("--w")));
+        t("X3 · precondition: the wide page is at scale 1", Math.abs(scale - 1) < 0.01, String(scale));
+
+        const at0 = await boxOf(exId);
+        const f1 = await boxOf("f1");
+        const n0 = ledger("fp-import").length;
+        await drag(exId, f1.x + 40 - at0.x, f1.y + 40 - at0.y);
+        const s3 = await said(p);
+        t("X3 · dragging the exhibit onto f1 is announced \"Refused … beside the flow\"", s3.includes("Refused") && s3.includes("beside the flow"), s3);
+        const at3 = await boxOf(exId);
+        t("X3 · …the exhibit is put back (within 1 px)", Math.abs(at3.x - at0.x) <= 1 && Math.abs(at3.y - at0.y) <= 1, `${JSON.stringify(at0)} → ${JSON.stringify(at3)}`);
+        t("X3 · …no ledger line, and the save line is not \"Not saved\"", ledger("fp-import").length === n0 && !(await saveLine()).startsWith("Not saved"), `${ledger("fp-import").length - n0} lines · ${await saveLine()}`);
+        // Redo restores a box WITHOUT emitting ui.move, so the refused state sits in the redo tail.
+        await p.locator(".stx-scroll").focus();
+        await p.keyboard.press("ControlOrMeta+Shift+z");
+        await sleep(400);
+        const s3b = await said(p);
+        const at3b = await boxOf(exId);
+        t("X3b · Redo after the refusal is refused again: put back, no ledger line, never \"Not saved\"",
+          s3b.includes("Refused") && Math.abs(at3b.x - at0.x) <= 1 && Math.abs(at3b.y - at0.y) <= 1 && ledger("fp-import").length === n0 && !(await saveLine()).startsWith("Not saved"),
+          `${s3b} · ${JSON.stringify(at3b)} · ${ledger("fp-import").length - n0} lines · ${await saveLine()}`);
+
+        const cj = loadBuild(buildDir("fp-import")).canvas.nodes;
+        const xOf = (id) => cj.find((n) => n.id === id)?.x;
+        const [ex4, f1x, f2x] = [xOf(exId), xOf("f1"), xOf("f2")];
+        const pre = f1x + 1440 <= ex4 && ex4 < f2x + 1440;
+        t(`X4 · precondition: f1 + 1440 ≤ exhibit < f2 + 1440 (${f1x} + 1440 ≤ ${ex4} < ${f2x} + 1440)`, pre);
+        if (pre) {
+          const size = async (id, preset) => {
+            await openDetails(p, id);
+            await p.locator("#cv-size-preset").selectOption(preset);
+            await p.getByRole("button", { name: "Apply size" }).click();
+            await sleep(500);
+          };
+          const w2 = await wOf(p, "f2");
+          const n4 = ledger("fp-import").length;
+          await size("f2", "desktop");
+          t("X4 · f2 → desktop would grow it into the exhibit: refused, f2 keeps its width", (await said(p)).includes("Refused") && (await wOf(p, "f2")) === w2, `${await said(p)} · w ${await wOf(p, "f2")}`);
+          t("X4 · …and no ledger line (no applied + undone pair)", ledger("fp-import").length === n4, JSON.stringify(ledger("fp-import").slice(n4)));
+          await size("f1", "desktop");
+          const l4 = await waitLines("fp-import", n4 + 1);
+          t("X4 · f1 → desktop (0 + 1440 ≤ the exhibit) is ACCEPTED — the guard does not refuse everything", l4.length === n4 + 1 && l4.at(-1).op === "frame.size" && l4.at(-1).params.preset === "desktop", JSON.stringify(l4.slice(n4)));
+          await undo(p);
+          const l4b = await waitLines("fp-import", n4 + 2);
+          t("X4 · …and undone (one undone line)", l4b.length === n4 + 2 && l4b.at(-1).status === "undone", JSON.stringify(l4b.slice(n4)));
+        }
+
+        // X4b: a POINTER resize growing f2 into the exhibit is refused too — its width put back, no ledger
+        // line, and the height the refused resize would have authored is not written either.
+        {
+          const g = await p.locator('[data-stx-id="f2"] > .stx-resize').boundingBox();
+          const w0 = await wOf(p, "f2");
+          const nb = ledger("fp-import").length;
+          await p.mouse.move(g.x + g.width / 2, g.y + g.height / 2);
+          await p.mouse.down();
+          for (let i = 1; i <= 10; i += 1) await p.mouse.move(g.x + g.width / 2 + i * 70, g.y + g.height / 2);
+          await p.mouse.up();
+          await sleep(500);
+          t("X4b · a pointer resize of f2 into the exhibit is refused and its width put back", (await said(p)).includes("Refused") && (await wOf(p, "f2")) === w0, `${await said(p)} · w ${await wOf(p, "f2")} (was ${w0})`);
+          const f2disk = loadBuild(buildDir("fp-import")).canvas.nodes.find((n) => n.id === "f2");
+          t("X4b · …no ledger line, and canvas.json carries no height for f2 (the refused resize authored nothing)", ledger("fp-import").length === nb && f2disk && !("height" in f2disk), `${ledger("fp-import").length - nb} lines · ${JSON.stringify(f2disk)}`);
+        }
+
+        // X6: resizing f1 authors its height, after which the original may sit below that screen.
+        const grip = await p.locator('[data-stx-id="f1"] > .stx-resize').boundingBox();
+        const n6 = ledger("fp-import").length;
+        await p.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);
+        await p.mouse.down();
+        for (let i = 1; i <= 8; i += 1) await p.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2 + i * 5);
+        await p.mouse.up();
+        await sleep(500);
+        const f1h = await boxOf("f1");
+        const onDisk = () => loadBuild(buildDir("fp-import")).canvas.nodes;
+        t("X6 · a vertical resize authors f1's height (canvas.json carries it) and adds no ledger line", Number.isFinite(onDisk().find((n) => n.id === "f1")?.height) && ledger("fp-import").length === n6, JSON.stringify(onDisk().find((n) => n.id === "f1")));
+        const from6 = await boxOf(exId);
+        const ty = f1h.y + f1h.h + 40;
+        await drag(exId, f1h.x + 10 - from6.x, ty - from6.y);
+        const at6 = await boxOf(exId);
+        const d6 = onDisk().find((n) => n.id === exId);
+        t("X6 · the exhibit dragged below f1's authored bottom is ACCEPTED: no refusal, canvas.json has it there, verifyBuild []",
+          !(await said(p)).includes("Refused") && at6.y >= f1h.y + f1h.h && d6?.y === at6.y && canon(verifyBuild(loadBuild(buildDir("fp-import")))) === "[]",
+          `${await said(p)} · stage ${JSON.stringify(at6)} · disk ${JSON.stringify(d6)} · ${JSON.stringify(verifyBuild(loadBuild(buildDir("fp-import"))))}`);
+        await drag(exId, at0.x - at6.x, at0.y - at6.y);
+        t("X6 · …and dragged back beside the flow", !(await said(p)).includes("Refused") && Math.abs((await boxOf(exId)).x - at0.x) <= 1, await said(p));
+
+        // X5: a Mode 2 DROP carries no PNG, and the exhibit says so rather than showing an empty box.
+        await openPanel(p);
+        await p.locator('input[name=cv-import-mode][value="2"]').check();
+        const before = p.url();
+        const nav = p.waitForURL((u) => u.toString() !== before && u.searchParams.has("import"), { timeout: 15000 });
+        await p.locator("[data-import-file]").setInputFiles(path.join(REPO, "import/fixtures/spike-c-instance.blueprint.txt"));
+        await nav;
+        await p.waitForSelector("[data-import-view]:not([hidden]) [data-import-label]", { timeout: 20000 });
+        const d5 = foldLedger(ledger("fp-import")).doc;
+        const id5 = d5.proposals.at(-1)?.id;
+        const n5 = p.locator(`[data-stx-component="exhibit"][data-stx-id="${id5}"]`);
+        t(`X5 · a Mode 2 drop is an exhibit (${id5}) with no <img> and a flag saying there is no reference image`,
+          d5.proposals.at(-1)?.mode === 2 && (await n5.count()) === 1 && (await n5.locator("img").count()) === 0 && ((await n5.locator(".cv-flag").textContent()) ?? "").includes("No reference image"),
+          await n5.textContent().catch(() => "(no node)"));
+        t("X5 · verifyBuild on disk is [] after both Mode 2 imports and every gesture", canon(verifyBuild(loadBuild(buildDir("fp-import")))) === "[]", JSON.stringify(verifyBuild(loadBuild(buildDir("fp-import")))));
+        t("X7 · no page errors or console errors on the wide page", errs.length === 0, errs.slice(0, 3).join(" | "));
+      } finally {
+        await wide.close();
+      }
     });
     await page.goto("about:blank");
   }));
@@ -1116,5 +1296,5 @@ try {
 }
 console.log(totalFails
   ? `\ncanvas-journey ✗  ${totalFails} assertion(s) failed`
-  : `\ncanvas-journey ✓  the run list · the in-repo spine opened with ZERO saves and its save notice · run.json's provenance label with the root flagged · frames, the arrow and decision cards rendered from the ledger and the transcript with no overlap · a note, a decision link, a refused remove, a remove and its undo, a numeric width and a pointer resize each ONE ledger entry and ONE undo · a reload that keeps them · verifyBuild [] on disk and the disk document equal to the page's · 403 cross-origin and 409 stale · the stand-in flagged, not blocked · the inspector in the viewport on both branches · 44×44 targets · the import pass: the MCP-down refusal with one action, two drops writing record + proposal + one component.propose line each with one record shape, a mapping edit re-deriving the record and the view, the run lock refusing a drop "already in flight" and the hung read's one action routed to Re-bind, a stale drop's one action reloading the page, an oversize drop refused and a traversal name a 400 · over the fake bridge: Check binding naming the tab's project and surface, Import selection writing the one selected id + a reference.png shown in the Original pane + a mapping edit (I9), the unpaired refusal's one action and the bridge's own words with Import again re-sending (I10), Re-bind running the binding check (I10b), Browse's two thumbnail tiles importing as one two-id record and served again from the session cache (I11) · the owner's faithful frame measured through the page by the spawned renderer, worst ΔE under THRESHOLD with the derived verdict, a rename returning it to missing and deleting the candidate (I12), and the no-renderer refusal visible in the view with the panel closed (I12b) · no page errors · nothing under system/, handoff/, discovery/ or import/overrides/ changed (${toRun.join(", ")})`);
+  : `\ncanvas-journey ✓  the run list · the in-repo spine opened with ZERO saves and its save notice · run.json's provenance label with the root flagged · frames, the arrow and decision cards rendered from the ledger and the transcript with no overlap · a note, a decision link, a refused remove, a remove and its undo, a numeric width and a pointer resize each ONE ledger entry and ONE undo · a reload that keeps them · verifyBuild [] on disk and the disk document equal to the page's · 403 cross-origin and 409 stale · the stand-in flagged, not blocked · the inspector in the viewport on both branches · 44×44 targets · the import pass: the MCP-down refusal with one action, two drops writing record + proposal + one component.propose line each with one record shape, a mapping edit re-deriving the record and the view, the run lock refusing a drop "already in flight" and the hung read's one action routed to Re-bind, a stale drop's one action reloading the page, an oversize drop refused and a traversal name a 400 · over the fake bridge: Check binding naming the tab's project and surface, Import selection writing the one selected id + a reference.png shown in the Original pane + a mapping edit (I9), the unpaired refusal's one action and the bridge's own words with Import again re-sending (I10), Re-bind running the binding check (I10b), Browse's two thumbnail tiles importing as one two-id record and served again from the session cache (I11) · a Mode 2 import as an exhibit beside the flow — placed by rule, its PNG shown, a drag, a redo, a preset change and a pointer resize into a frame each refused and put back with no ledger line, an authored height letting it sit below a screen, a drop flagged as having no image (X1–X7, #475) · the owner's faithful frame measured through the page by the spawned renderer, worst ΔE under THRESHOLD with the derived verdict, a rename returning it to missing and deleting the candidate (I12), and the no-renderer refusal visible in the view with the panel closed (I12b) · no page errors · nothing under system/, handoff/, discovery/ or import/overrides/ changed (${toRun.join(", ")})`);
 process.exit(totalFails ? 1 : 0);
