@@ -954,3 +954,20 @@ scratchpad, never under `.claude/plans/` as `.mjs`).
 ## AMENDMENTS
 
 - 2026-09-28 — risk pass (owner: "address all risks"): D4 scale 2 → 1 on a measured proxy floor; D4b crop replaces the parity refusal; view-local measure refusal (R5); per-record scale from the transcript (R7); risk register; confidence 10.
+- 2026-09-28 — implementation (plan errors, found by running them):
+  - Task 8's smoke used `PORT=0`: the origin guard (`portal/lib/origin.mjs`) answers only the configured port, so a
+    POST to an OS-assigned port is a 403 "cross-origin request refused … localhost:0". Pick a free port first
+    (`net.createServer().listen(0)`), then `PORT=<it>`; the 400 was observed that way.
+  - Task 12's REDDENS "make `scaleOf` always answer 2 → `cropTo` throws": the replay's `render` is a stub returning
+    fixed bytes, so no 640×164 render happens. With a numeric root width of 320 it reds as an `unknown-scale`
+    refusal ("the source says 320 × 2 = 640"), observed.
+  - Task 3/6's `scaleOf` input `record.ir.children[0]?.layout?.size?.w`: a node with no `al()` carries its size on
+    `style.size` (`import/brilliant.mjs:485-489`), so the root width is read as `layout.size.w ?? style.size.w`.
+  - Task 11's recipe: the converter reads a text's size only when it is bound to a Brilliant `$font.size.*` token
+    (`import/brilliant.mjs` t() reader, `:$font.size.` branch). A bare size leaves `text.size` null, `text.role`
+    unfillable, and the texts are not emitted — the candidate would be an empty padded stack (observed on a
+    SYNTHETIC line). The owner binds both texts' sizes to Brilliant font-size tokens; the subtitle takes the
+    nearest one Brilliant offers to 13 px, and the Mapped column must show both texts before Measure is pressed.
+  - Task 12 was split: its SYNTHETIC half (refusals, invalidation, O3b, lock, odd size, the pure helpers, the real
+    child's no-renderer and timeout paths) needs no owner fixture and landed first; the replay of the owner's pair
+    lands after Task 11.
