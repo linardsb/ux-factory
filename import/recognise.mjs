@@ -543,11 +543,15 @@ export const BUILDERS = Object.freeze({
   // not the rows — and each row it built is on it by name (#477). That is the honest answer: an importer that emitted the rows under an invented
   // empty-state copy would be writing the designer's words for them. Case 40.12 asserts BOTH halves
   // — what this builder computes, and what build() emits through the only entry point a source has.
-  list: (node, verdict, entry, ctx, drops) => ({
-    name: "list",
-    props: propsFor(entry, node, verdict, ctx, drops),
-    children: verdict.children.map((cv, i) => build(node.children[i], cv, ctx.vocab, drops)).filter(Boolean),
-  }),
+  list: (node, verdict, entry, ctx, drops) => {
+    const props = propsFor(entry, node, verdict, ctx, drops);
+    const children = [];
+    for (const [i, cv] of verdict.children.entries()) {
+      const built = build(node.children[i], cv, ctx.vocab, drops);
+      if (built) { children.push(built); ctx.keptAt.push(i); }
+    }
+    return { name: "list", props, children };
+  },
 });
 
 // Dispatch through BUILDERS. An uncovered verdict, a missing builder, or a required prop absent or null
@@ -575,7 +579,7 @@ export function build(node, verdict, vocab, drops = []) {
   { let off = node.text?.content ? 1 : 0; kidTexts.forEach((t, i) => { offsets[i] = off; off += t.length; }); }
   const chipAt = verdict.children.findIndex((c) => c.name === "status-chip");
   const ctx = {
-    texts, children: verdict.children, vocab, consumed: new Set(),
+    texts, children: verdict.children, vocab, consumed: new Set(), keptAt: [],
     chipText: chipAt >= 0 ? (kidTexts[chipAt][0] ?? null) : null,
     chipIndex: chipAt >= 0 && kidTexts[chipAt].length ? offsets[chipAt] : -1,
   };
@@ -622,7 +626,7 @@ export function build(node, verdict, vocab, drops = []) {
           continue;
         }
         const built = build(node.children[i], cv, vocab, drops);
-        if (built) kept.push(built);
+        if (built) { kept.push(built); ctx.keptAt.push(i); }
       }
       if (kept.length) out.children = kept;
     }
@@ -632,14 +636,17 @@ export function build(node, verdict, vocab, drops = []) {
   // understood and cannot be emitted. The VALUE is read, not the key: BUILDERS.stack writes `direction`
   // from layout.dir unconditionally, so on a layout-less node an owner mapped to stack (#311) the key
   // was there holding null, passed, and reached the renderer as a refusal instead of a loss (#477).
+  // This rests on propsFor never writing a null: a builder that sets a required prop itself means null
+  // as "unfilled", and is refused here for it (PR #478 F2).
   const missing = requiredOf(entry).filter(([p]) => out.props?.[p] == null);
   if (missing.length) {
     // WHAT THE REFUSAL TAKES WITH IT IS RECORDED. A child built above (or by BUILDERS.list) was
     // emittable on its own and goes nowhere once its parent is refused; without a row it would leave
     // the loss list in silence — ir.mjs invariant 4. One row per emitted child, the child's subtree
-    // travelling with it (#477).
-    for (const kid of out.children ?? []) drops.push(drop({
-      kind: "no-vocabulary-slot", slot: `${verdict.path}.children`, value: kid.name,
+    // travelling with it (#477), slotted by its SOURCE index from ctx.keptAt — never its position in
+    // out.children, which holds survivors only (PR #478 F1).
+    for (const [k, kid] of (out.children ?? []).entries()) drops.push(drop({
+      kind: "no-vocabulary-slot", slot: `${verdict.path}.children[${ctx.keptAt[k]}]`, value: kid.name,
       reason: `${kid.name} was built and is not emitted: its parent ${verdict.name} is refused for ${missing.map(([p]) => `${verdict.name}.${p}`).join(", ")}, and everything under it goes with it`,
     }));
     return null;
