@@ -1,0 +1,53 @@
+import { createRequire } from "node:module";
+import { readFileSync, existsSync, writeFileSync } from "node:fs";
+import path from "node:path";
+import { measure, setOver, decodePng } from "./fid-probe.mjs";
+const REPO = path.resolve("main474");
+const pw = createRequire("/Users/Berzins/Desktop/Linards_current/ux-factory/tooling/visual-regression/")("@playwright/test");
+const svg = readFileSync(path.join(REPO, ".claude/plans/design-import-spike-c/06.svg"), "utf8");
+const faces = [...svg.matchAll(/@font-face\s*\{[^}]*\}/g)].map((m) => m[0]).join("\n");
+const W = 320, H = 82, S = 2;
+const comp = { name: "stack", props: { direction: "column", gap: "xs", pad: "md" }, children: [
+  { name: "text", props: { role: "body", content: "Amara Okafor" } }, { name: "text", props: { role: "caption", content: "Last seen 2 min ago" } }] };
+const b = await pw.chromium.launch();
+const page = await (await b.newContext({ viewport: { width: 400, height: 140 }, deviceScaleFactor: S })).newPage();
+const O = "http://measure.invalid";
+let html = "";
+await page.route("**/*", (r) => {
+  const u = new URL(r.request().url());
+  if (u.origin !== O) return r.abort();
+  if (u.pathname === "/") return r.fulfill({ contentType: "text/html", body: html });
+  const f = path.join(REPO, u.pathname);
+  if (!f.startsWith(REPO + path.sep) || !existsSync(f)) return r.fulfill({ status: 404, body: "" });
+  return r.fulfill({ contentType: f.endsWith(".css") ? "text/css" : f.endsWith(".json") ? "application/json" : "text/javascript", body: readFileSync(f) });
+});
+// the candidate: the real render path
+html = `<!doctype html><meta charset=utf-8><link rel=stylesheet href=/system/tokens.contract.css><link rel=stylesheet href=/system/tokens.neutral.css><link rel=stylesheet href=/system/components.css><style>html,body{margin:0;background:#fff}#root{width:${W}px;height:${H}px;overflow:hidden}</style><div id=root></div>`;
+await page.goto(O + "/");
+const boxes = await page.evaluate(async (comp) => {
+  const { renderComposition } = await import("/system/agentic-renderer.mjs");
+  const vocab = await (await fetch("/handoff/verdant/vocabulary.json")).json();
+  const root = document.getElementById("root"); root.appendChild(renderComposition(vocab, comp)); await document.fonts.ready;
+  const o = root.getBoundingClientRect(); const out = [{ name: "root", x: 0, y: 0, w: o.width, h: o.height }];
+  for (const e of root.querySelectorAll("*")) { if (![...e.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())) continue;
+    const r = e.getBoundingClientRect(); out.push({ name: "text:" + e.textContent.trim(), x: r.x - o.x, y: r.y - o.y, w: r.width, h: r.height }); }
+  return out; }, comp);
+const cand = await page.screenshot({ clip: { x: 0, y: 0, width: W, height: H } });
+const regions = boxes.map((q) => ({ name: q.name, x: Math.round(q.x * S), y: Math.round(q.y * S), w: Math.min(Math.round(q.w * S), W * S - Math.round(q.x * S)), h: Math.min(Math.round(q.h * S), H * S - Math.round(q.y * S)) }));
+// the reference proxy: Brilliant's own Manrope, transparent background, the recipe's sizes
+const ref = async (title) => {
+  html = `<!doctype html><meta charset=utf-8><style>${faces} html,body{margin:0;background:transparent}
+  #f{width:${W}px;height:${H}px;box-sizing:border-box;padding:16px;display:flex;flex-direction:column;gap:4px;font-family:Manrope;font-weight:400}
+  .a{font-size:16px;line-height:25.6px;color:${title}} .b{font-size:13px;line-height:19.5px;color:#6b7280} p{margin:0}</style><div id=f><p class=a>Amara Okafor</p><p class=b>Last seen 2 min ago</p></div>`;
+  await page.goto(O + "/"); await page.evaluate(() => document.fonts.ready);
+  return page.screenshot({ clip: { x: 0, y: 0, width: W, height: H }, omitBackground: true });
+};
+setOver([255, 255, 255]);
+for (const [label, c] of [["faithful", "#1a1a1a"], ["wrong", "#1a7f37"]]) {
+  const r = await ref(c);
+  console.log(label, "ref ct", r[25], JSON.stringify(measure(r, cand, regions).regions.map((g) => [g.name, g.value, g.excluded])));
+  writeFileSync(`floor-${label}-ref.png`, r);
+}
+writeFileSync("floor-cand.png", cand);
+console.log(JSON.stringify(regions));
+await b.close();

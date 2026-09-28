@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Live import fidelity</title>
+<style>
+  :root { --bg:#fbfbfa; --fg:#1a1a1a; --muted:#6b7280; --line:#e3e3df; --card:#fff; --accent:#2f5d8a; --good:#2e7d4f; --bad:#b3403a; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#16181b; --fg:#e7e7e4; --muted:#9aa0a8; --line:#2c3035; --card:#1d2024; --accent:#8cb4dc; --good:#7cc79a; --bad:#e58a84; } }
+  * { box-sizing: border-box }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 -apple-system, system-ui, sans-serif; }
+  main { max-width: 820px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 28px; margin: 0 0 6px; } h2 { font-size: 19px; margin: 36px 0 12px; }
+  .src { color: var(--muted); font-size: 14px; } a { color: var(--accent); }
+  .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(240px,1fr)); gap: 12px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; min-width:0; }
+  .card h3 { margin:0 0 6px; font-size:16px; } .card p { margin: 0 0 8px; }
+  pre { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:10px 12px; font-size:13px; overflow-x:auto; margin:8px 0 0; }
+  .flow { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+  .box { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:8px 12px; font-size:14px; }
+  .arrow { color: var(--muted); }
+  .good { color: var(--good); font-weight:600 } .bad { color: var(--bad); font-weight:600 }
+  ol, ul { padding-left: 20px; } li { margin: 4px 0; }
+  ul.prompts { list-style:none; padding:0; }
+  ul.prompts li { display:flex; justify-content:space-between; gap:12px; align-items:center; border:1px solid var(--line); background:var(--card); border-radius:8px; padding:8px 12px; }
+  .copy { opacity:.35; border:0; background:none; color:inherit; cursor:pointer; font-size:15px; line-height:1; min-width:32px; min-height:32px; }
+  .copy:hover, .copy:focus-visible { opacity:1 }
+  .copy::before { content:'⧉' } .copy.copied::before { content:'✓' }
+</style>
+</head>
+<body>
+<main>
+<h1>Live import fidelity</h1>
+<p class="src">Build brief for ticket #474. The full plan: <a href="import-live-fidelity-474.md">import-live-fidelity-474.md</a></p>
+
+<h2>What we're building and why</h2>
+<p>Today, importing a design from Brilliant says "fidelity: missing", because nothing ever compares the picture with what we built. After this, one button renders our version, compares the colours, and answers <span class="good">green</span> or <span class="bad">red</span>. One grey in today's neutral theme fails a contrast check, so every live answer reads red until that grey is fixed; the colour gap still tells right from wrong.</p>
+
+<h2>The concepts this plan rests on</h2>
+<div class="grid">
+  <div class="card">
+    <h3>Headless rendering</h3>
+    <p>A browser with no window draws the page and saves a screenshot. The name is <em>headless Chromium</em>. We need it to turn our built component into pixels.</p>
+    <pre>composition → browser → candidate.png</pre>
+  </div>
+  <div class="card">
+    <h3>A separate helper process</h3>
+    <p>The portal starts a small program, waits for its answer, then carries on. That is a <em>child process</em> (a program another program launches). The browser library stays out of the portal.</p>
+    <pre>portal ──spawn──▶ measure-render
+       ◀── png + boxes ──</pre>
+  </div>
+  <div class="card">
+    <h3>Colour difference per part</h3>
+    <p>For each text or icon, average its ink colour in both pictures and measure the gap. The number is <em>ΔE</em> (how different two colours look to a person). Over 5 reads red.</p>
+    <pre>example numbers, not measured:
+title  #1a1a1a vs #1a1a1a → ΔE 0.9  close
+title  #1a1a1a vs #1a7f37 → ΔE 30   far</pre>
+  </div>
+  <div class="card">
+    <h3>See-through pixels</h3>
+    <p>Brilliant's export has a clear background, so edge pixels are partly see-through. We lay both pictures on the same white sheet first, then trim ours to the same size. That step is <em>alpha flattening</em> (alpha = how opaque a pixel is).</p>
+  </div>
+</div>
+
+<h2>How the pieces fit</h2>
+<div class="flow">
+  <span class="box">Owner clicks<br>"Measure fidelity"</span><span class="arrow">→</span>
+  <span class="box">Portal route<br>(phase 3)</span><span class="arrow">→</span>
+  <span class="box">Helper draws our version<br>(phase 2)</span><span class="arrow">→</span>
+  <span class="box">Flatten + compare colours<br>(phase 1)</span><span class="arrow">→</span>
+  <span class="box">Record reads green or red</span><span class="arrow">→</span>
+  <span class="box">Owner's real pair proves it<br>(phase 4)</span>
+</div>
+
+<h2>The plan at a glance</h2>
+<ol>
+  <li><b>Phase 1</b>: the pure maths (flatten, part boxes, record rebuild). Needs nothing.</li>
+  <li><b>Phase 2</b>: the drawing helper. Runs in parallel with phase 1.</li>
+  <li><b>Phase 3</b>: route, button, "an edit clears the result". Needs 1 and 2.</li>
+  <li><b>Phase 4</b>: the owner draws a right and a wrong frame; tests replay them. Needs 3.</li>
+</ol>
+<pre>import/fidelity.mjs                 decode can flatten see-through pixels
+portal/lib/import-measure.mjs       NEW  measures and writes the record
+portal/lib/import-run.mjs           export at scale 1, edits clear the result
+tooling/measure-render.mjs          NEW  the browser helper
+portal/server.mjs                   the measure route
+portal/public/canvas-import.mjs     the button and the verdict line
+import/fixtures/measure-live/       NEW  the owner's two real frames
+tooling/build-checks.mjs            42.15, 43.15
+tooling/canvas-journey.mjs          I12, the real click</pre>
+<ul>
+  <li>A live import measures to green or red from the page.</li>
+  <li>Part boxes come from our rendered version.</li>
+  <li>Every measured record passes the record check.</li>
+  <li>The portal loads no browser library itself.</li>
+  <li>The two committed example records do not change.</li>
+  <li>Every "can't measure" case answers with one clear action.</li>
+  <li>A mapping edit returns the result to missing.</li>
+  <li>The button and result live on the canvas page.</li>
+  <li>The gates say what they cannot reach.</li>
+  <li>The owner's right frame scores under 5, the wrong one 5 or more.</li>
+</ul>
+
+<h2>Go deeper</h2>
+<ul class="prompts">
+  <li data-prompt="/learn headless browser rendering with Playwright"><span><b>/learn headless browser rendering with Playwright</b></span><button class="copy" aria-label="Copy prompt"></button></li>
+  <li data-prompt="/learn child processes in Node (spawn, stdin, stdout, exit codes)"><span><b>/learn child processes in Node (spawn, stdin, stdout, exit codes)</b></span><button class="copy" aria-label="Copy prompt"></button></li>
+  <li data-prompt="/learn CIEDE2000 colour difference (ΔE)"><span><b>/learn CIEDE2000 colour difference (ΔE)</b></span><button class="copy" aria-label="Copy prompt"></button></li>
+  <li data-prompt="/learn alpha compositing (the over operator)"><span><b>/learn alpha compositing (the over operator)</b></span><button class="copy" aria-label="Copy prompt"></button></li>
+</ul>
+</main>
+<script>
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.copy')
+  if (!btn) return
+  const text = btn.closest('[data-prompt]').dataset.prompt
+  try {
+    await navigator.clipboard.writeText(text)
+  } catch {
+    const ta = Object.assign(document.createElement('textarea'), { value: text })
+    ta.style.cssText = 'position:fixed;opacity:0'
+    document.body.append(ta)
+    ta.select()
+    document.execCommand('copy')
+    ta.remove()
+  }
+  btn.classList.add('copied')
+  setTimeout(() => btn.classList.remove('copied'), 1200)
+})
+</script>
+</body>
+</html>

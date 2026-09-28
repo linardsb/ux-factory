@@ -1,0 +1,44 @@
+import { createRequire } from "node:module";
+import { readFileSync, existsSync } from "node:fs";
+import path from "node:path";
+const REPO = path.resolve("main474");
+const require = createRequire("/Users/Berzins/Desktop/Linards_current/ux-factory/tooling/visual-regression/");
+const pw = require("@playwright/test");
+const comp = JSON.parse(readFileSync("probe-comp.json", "utf8"));
+const W = 320, H = 70, DSF = 2;
+const browser = await pw.chromium.launch();
+const ctx = await browser.newContext({ viewport: { width: W + 40, height: H + 40 }, deviceScaleFactor: DSF });
+const page = await ctx.newPage();
+const ORIGIN = "http://measure.invalid";
+await page.route("**/*", (route) => {
+  const u = new URL(route.request().url());
+  if (u.origin !== ORIGIN) return route.abort();
+  if (u.pathname === "/") return route.fulfill({ contentType: "text/html", body: `<!doctype html><meta charset=utf-8>
+<link rel=stylesheet href=/system/tokens.contract.css><link rel=stylesheet href=/system/tokens.neutral.css><link rel=stylesheet href=/system/components.css>
+<style>html,body{margin:0;background:#ffffff}#root{width:${W}px;height:${H}px;overflow:hidden}</style><div id=root></div>` });
+  const f = path.join(REPO, u.pathname);
+  if (!f.startsWith(REPO + path.sep) || !existsSync(f)) return route.fulfill({ status: 404, body: "" });
+  const ct = f.endsWith(".css") ? "text/css" : f.endsWith(".mjs") || f.endsWith(".js") ? "text/javascript" : f.endsWith(".json") ? "application/json" : "application/octet-stream";
+  return route.fulfill({ contentType: ct, body: readFileSync(f) });
+});
+const errs = []; page.on("pageerror", (e) => errs.push(e.message));
+await page.goto(ORIGIN + "/");
+const boxes = await page.evaluate(async (comp) => {
+  const { renderComposition } = await import("/system/agentic-renderer.mjs");
+  const vocab = await (await fetch("/handoff/verdant/vocabulary.json")).json();
+  const root = document.getElementById("root");
+  root.appendChild(renderComposition(vocab, comp));
+  await document.fonts.ready;
+  const o = root.getBoundingClientRect();
+  const out = [{ name: "root", x: 0, y: 0, w: o.width, h: o.height }];
+  for (const e of root.querySelectorAll("*")) {
+    const own = [...e.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim());
+    if (!own && e.localName !== "svg") continue;
+    const r = e.getBoundingClientRect();
+    out.push({ name: e.dataset.part ?? (own ? `text:${e.textContent.trim().slice(0, 24)}` : "icon"), x: r.x - o.x, y: r.y - o.y, w: r.width, h: r.height, tag: e.localName, cls: e.className });
+  }
+  return out;
+}, comp);
+const png = await page.screenshot({ clip: { x: 0, y: 0, width: W, height: H } });
+console.log(JSON.stringify(boxes), errs, png.readUInt32BE(16), png.readUInt32BE(20), png[25]);
+await browser.close();
