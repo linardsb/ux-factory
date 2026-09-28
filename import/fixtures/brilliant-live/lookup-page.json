@@ -1,0 +1,25 @@
+{
+  "jsonrpc": "2.0",
+  "id": 8,
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"totalMatches\":2,\"returnedCount\":2,\"searchedCanvases\":1,\"results\":[{\"canvasId\":\"playground\",\"matchCount\":2,\"returnedCount\":2,\"elements\":[{\"id\":\"630fe03901352c90\",\"name\":\"Rectangle 1\",\"type\":\"rectangle\"},{\"id\":\"36cc06ddb7e3a767\",\"name\":\"Pay\",\"type\":\"text\",\"text\":\"Pay\"}]}]}"
+      }
+    ],
+    "_meta": {
+      "brilliant": {
+        "project": {
+          "handle": "",
+          "name": "",
+          "title": ""
+        },
+        "tabId": "tab-222a9bd0-eade-49a3-a33b-de0c8e409d4b",
+        "viewOnly": false,
+        "surface": "web",
+        "otherTabs": []
+      }
+    }
+  }
+}

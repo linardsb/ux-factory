@@ -103,7 +103,8 @@ portal/                       local-first workbench (127.0.0.1 only, never deplo
   lib/builder.mjs             the OPERATOR PATH — /build's ten answers → a real composition question
   lib/canvas-store.mjs        the build package: list · load · append-only save, the ledger fold and the
                               canvas.json derivation (verifyBuild is the gate); routes in server.mjs
-  lib/import-run.mjs          the RECORDED IMPORT — Brilliant read (lazy SDK) or a dropped file → record + proposal
+  lib/import-run.mjs          the RECORDED IMPORT — Brilliant read (stdio client) or a dropped file → record + proposal
+  lib/brilliant-mcp.mjs       the Brilliant bridge's stdio JSON-RPC client + its wire shapes; no SDK, no model
   lib/import-suggest.mjs      Jev's top 3 for the nodes the matcher could not name — beside the verdict, fail-open (#455)
   public/                     vanilla SPA — hash routing, template strings, no framework; plus
                               canvas.html + canvas.mjs (+ canvas-import.mjs, #311), the one MODULE page (the build canvas, #306)
@@ -149,6 +150,7 @@ tooling/
   visual-regression/          isolated Playwright — the CI pixel gate     (→ references/gates.md)
   curate-trace.mjs · validate-trace.mjs   deterministic curation + the Trace format's drift guard
   board-op.mjs                the fenced build agent's ONLY build tool — one op per call, prints the board
+  fake-brilliant-bridge.mjs   the Brilliant bridge answered from import/fixtures/brilliant-live/ (CI + journey)
   fieldwork-kpis.mjs          ground-truth KPIs — a post-hoc JUDGE, NEVER fed to an agent prompt
   jev-guard-eval.mjs          the guard's labelled eval — operator-run, needs TYPESAFE_API_KEY (→ jev-guard/)
   jev-screen.mjs              the screen's operator CLI — paid, needs TYPESAFE_API_KEY (→ jev-screen/)

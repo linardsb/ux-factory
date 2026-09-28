@@ -1,0 +1,30 @@
+{
+  "tool": "list_projects",
+  "input": {},
+  "ms": 12,
+  "reply": {
+    "jsonrpc": "2.0",
+    "id": 7,
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"projects\":[]}"
+        }
+      ],
+      "_meta": {
+        "brilliant": {
+          "project": {
+            "handle": "",
+            "name": "",
+            "title": ""
+          },
+          "tabId": "tab-222a9bd0-eade-49a3-a33b-de0c8e409d4b",
+          "viewOnly": false,
+          "surface": "web",
+          "otherTabs": []
+        }
+      }
+    }
+  }
+}

@@ -1,15 +1,16 @@
 // portal/lib/import-run.mjs — hand-written canon (this repo; not generated). THE RECORDED IMPORT: a
-// Brilliant read (through the Agent SDK) or a dropped file → the import chain → an import record, its
-// markdown, a transcript and a PROPOSAL in the build package, plus one `component.propose` op (epic
-// #295 ticket #311; docs/epics/canvas-design-import.architecture.md § Boundaries "The import is a
-// recorded run", § Data model "Proposals" and "The import record"; .claude/plans/
-// import-run-recorded-import-311.md).
+// Brilliant read (a direct stdio client — portal/lib/brilliant-mcp.mjs) or a dropped file → the import
+// chain → an import record, its markdown, a transcript and a PROPOSAL in the build package, plus one
+// `component.propose` op (epic #295 ticket #311; docs/epics/canvas-design-import.architecture.md
+// § Boundaries "The import is a recorded run", § Data model "Proposals" and "The import record";
+// .claude/plans/import-run-recorded-import-311.md, and for the live read, the binding check and Browse
+// .claude/plans/import-run-live-read-311-pr-b.md).
 //
 // INVARIANTS — each one is asserted by build-checks group 43, not assumed:
-//   1. STATICALLY SDK-FREE AND ZOD-FREE. The SDK is `await import`ed inside readBrilliant and nowhere
-//      else (record-composition.mjs's pattern), so group 43 imports this module in CI, where
-//      portal/node_modules does not exist. Its imports are node built-ins, import/, the two system/
-//      WCAG modules and three SDK-free portal siblings.
+//   1. NO SDK, NO MODEL: the live read is a direct stdio JSON-RPC client (brilliant-mcp.mjs), so an
+//      import costs $0 and nothing on this path names the Agent SDK or zod, statically or lazily. Group
+//      43 imports this module in CI, where portal/node_modules does not exist. Its imports are node
+//      built-ins, import/, the system/ modules it reads and four SDK-free portal siblings.
 //   2. NOTHING IS WRITTEN OUTSIDE THE BUILD ROOT. Every target is resolved and refused unless it lies
 //      under `<pkg>/build/` — a proposal name of `../../system/x` is refused by name, before any
 //      write. The one exception is the snap override file, whose directory is chosen below.
@@ -21,8 +22,10 @@
 //   5. FIDELITY ON A LIVE RUN IS `missing`, NEVER A PASS. The record carries WCAG (computed over the
 //      neutral pack) and no ΔE measurement, because measuring one needs a headless render the portal
 //      cannot load; report.mjs's fidelityVerdict answers `missing` for that, and the view says so.
-//   6. ONE FENCE, TWO SITES. importFenceDecision is the one predicate; a PreToolUse hook and
-//      canUseTool are its two call sites; a throw inside it DENIES. The import agent reads Brilliant
+//   6. ONE FENCE, ONE SITE: the client's `call()`. importFenceDecision is the one predicate, injected
+//      into openBridge as `decide`; it runs before a request is written, so a denied tool never leaves
+//      the portal, and a throw inside it DENIES. The denial is recorded here, through `onDeny` →
+//      deniedLine({ via: "client" }). An import reads Brilliant — init, get_selection, lookup, export —
 //      and nothing else.
 //
 // WHERE A SNAP OVERRIDE GOES. By the ROOT's provenance — the one the route resolved the package with
@@ -32,11 +35,19 @@
 // fictional package); real root → <JOBS_DIR>/_import-overrides/, because a real designer's source hash
 // is not committed. The architecture leaves this open (§ Open questions); this is the minimal answer.
 //
-// THE LIVE READ IS REACH-ONLY IN THIS VERSION. Brilliant's live response shapes (get_selection, the
-// bound project's name, a page listing, the PNG block) have not been observed, and the plan forbids
-// guessing them (R1). readBrilliant therefore starts the fenced query, classifies REACH from the SDK's
-// init message and a timeout, and then refuses by name with "the live read is not built yet — drop an
-// exported file instead". The read itself, rebind and browse follow the owner-run Phase 0 probe.
+// THE LIVE READ (#311 PR B; the owner's 2026-09-27 call for a direct client over the SDK relay, after
+// the Phase 0 probe showed the SDK hides the pairing error, strips `_meta` and costs a model call).
+// readBrilliant: openBridge → initialize → notifications/initialized → tools/list → init (the canvas
+// id) → get_selection (skipped for an `ids` read) → lookup {format:"blueprint"} → export {png}. Each
+// step is classified by brilliant-mcp.mjs's classifyBridge into at most one refusal with one action.
+// ONE OVERALL TIMER, armed before the first await: an UNPAIRED tab makes tools/list wait ~46 s before
+// its -32000 (observed 45.8 s) and opens a brilliant.design tab as a side effect, so the 150 s default
+// stays well above it — and nothing is retried (G29): one tools/list per read. ONE BRIDGE PROCESS PER
+// READ, closed in `finally`: a fresh helper binds to the most-recently-active tab on its first tools call
+// (PROTOCOL.md §5), so "Re-bind" is the next session after the owner focuses the right tab, and the
+// portal holds no connection that could go stale. bindingStatus and browse reuse the same opening
+// steps, each under withRunLock (one Brilliant session at a time); a held lock is a `busy` REFUSAL there,
+// while runImport keeps PR A's throw.
 //
 // SUGGESTIONS (#455). runImport's `suggester` is injected by the two import routes (portal/lib/
 // import-suggest.mjs's suggest); the default is none, so group 43 and every other caller never reach the
@@ -63,12 +74,13 @@ import { checkPairs } from "../../system/wcag.mjs";
 import { loadBuild, loadDecisions, positionsOf, saveConflict, saveRun } from "./canvas-store.mjs";
 import { withRunLock } from "./builder.mjs";
 import { JOBS_DIR, REPO_DIR } from "./env.mjs";
+import { bindingOf, brilliantServer, classifyBridge, failureOf, openBridge, parseExport, parseInit, parseLookup, parsePage, parseSelection, TOOLS } from "./brilliant-mcp.mjs";
 
 // --- the fence ------------------------------------------------------------------------------------
 
-export const READ_TOOLS = Object.freeze(["mcp__brilliant__get_selection", "mcp__brilliant__lookup", "mcp__brilliant__export"]);
-export const REBIND_TOOLS = Object.freeze(["mcp__brilliant__init"]);
-export const FENCE_SITES = Object.freeze(["PreToolUse", "canUseTool"]);
+// ONE list: brilliant-mcp.mjs's, bare MCP names.
+export const READ_TOOLS = TOOLS;
+export const FENCE_SITES = Object.freeze(["client"]);
 
 const CLOSED = "an import run reads Brilliant and nothing else — Write, Edit, Bash, WebSearch and WebFetch are closed";
 
@@ -82,86 +94,6 @@ export const deniedLine = ({ tool, input, error, via }) => {
   if (!FENCE_SITES.includes(via)) throw new Error(`deniedLine: via ${JSON.stringify(via)} is not one of ${FENCE_SITES.join(" · ")}`);
   return { type: "denied", ts: new Date().toISOString(), tool, input: input ?? null, error, via };
 };
-
-// ONE site's behaviour, shared by both. FAIL CLOSED: a throw in the decision denies. THE RECORD GATE
-// (discovery.mjs's #343/#349 rule, mirrored): a denial is written only for an mcp__ name or a tool the
-// run advertised (`mainTools`) — under `tools: []` the CLI's warmup subagents still call built-ins, and
-// recording those would log receipts the import agent never earned. A write failure is swallowed: a
-// recording bug must not alter the run it records.
-function site({ allowed, mainTools = [], write }) {
-  const decide = (tool) => {
-    try { return importFenceDecision(tool, allowed); }
-    catch (e) { return { allow: false, reason: `the fence could not evaluate ${String(tool)} (${e.message}) — denied, fail closed` }; }
-  };
-  const recorded = (tool) => (typeof tool === "string" && tool.startsWith("mcp__")) || (Array.isArray(mainTools) && mainTools.includes(tool));
-  const deny = (via, tool, input, reason) => {
-    if (recorded(tool)) {
-      try { write?.(deniedLine({ tool, input, error: reason, via })); } catch { /* see above */ }
-    }
-    return reason;
-  };
-  return { decide, deny };
-}
-
-export function importFenceHooks({ allowed, mainTools = [], write } = {}) {
-  const s = site({ allowed, mainTools, write });
-  return {
-    PreToolUse: [{ hooks: [async (input) => {
-      const tool = input?.tool_name;
-      const d = s.decide(tool);
-      if (d.allow) return { continue: true };
-      const reason = s.deny("PreToolUse", tool, input?.tool_input, d.reason);
-      return { hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision: "deny", permissionDecisionReason: reason } };
-    }] }],
-  };
-}
-
-export function importCanUseTool({ allowed, mainTools = [], write } = {}) {
-  const s = site({ allowed, mainTools, write });
-  return async (tool, input) => {
-    const d = s.decide(tool);
-    if (d.allow) return { behavior: "allow", updatedInput: input };
-    return { behavior: "deny", message: s.deny("canUseTool", tool, input, d.reason) };
-  };
-}
-
-// --- reach: the SDK's init message and the read's outcome → at most one refusal ------------------
-
-// Every refusal carries exactly ONE action. No retry anywhere (G29): the owner decides.
-export function classifyReach(init) {
-  const servers = Array.isArray(init?.mcp_servers) ? init.mcp_servers : [];
-  const b = servers.find((x) => x?.name === "brilliant");
-  if (!b || b.status !== "connected") {
-    return { kind: "not-running", message: `The Brilliant MCP server did not start (${b?.status ?? "absent"}).`,
-      action: { label: "Check it runs", hint: "npx -y @brilliant-hq/mcp" } };
-  }
-  const tools = Array.isArray(init?.tools) ? init.tools : [];
-  if (!tools.includes("mcp__brilliant__get_selection")) {
-    return { kind: "not-reachable", message: "Brilliant is not reachable — no workspace is open.",
-      action: { label: "Open Brilliant, then import again", href: "https://brilliant.design" } };
-  }
-  return null;
-}
-
-// A stale binding presents as a timeout, not an error (the Brilliant binding memory).
-export function classifyRead({ failures = [], selection = null, timedOut = false, project = null } = {}) {
-  const timeout = timedOut || (Array.isArray(failures) && failures.some((f) => /time(d)?\s*out/i.test(String(f?.error ?? f))));
-  if (timeout) {
-    return { kind: "stale-binding", message: project ? `Bound to project ${project} — it did not answer.` : "The binding did not answer.",
-      action: { label: "Re-bind", route: "rebind" } };
-  }
-  if (!Array.isArray(selection) || selection.length === 0) {
-    return { kind: "nothing-selected", message: "Nothing is selected in Brilliant.", action: { label: "Select a component, then Import selection" } };
-  }
-  return null;
-}
-
-// Reach succeeded, and the read's shapes are Phase 0's (plan R1): refused by name, never guessed.
-const LIVE_READ_NOT_BUILT = Object.freeze({
-  kind: "live-read-not-built",
-  message: "Brilliant is reachable, but reading the selection is not built yet — its response shapes are captured by the owner-run probe first.",
-  action: { label: "Drop an exported file instead" },
-});
 
 // --- the drop and the pipeline ------------------------------------------------------------------
 
@@ -478,7 +410,7 @@ export async function runImport({ pkgRoot, provenance = "fictional", base, entra
     if (conflict) throw new Error(conflict);
     if (mode !== 1 && mode !== 2) throw new Error(`import-run: mode ${JSON.stringify(mode)} must be 1 or 2`);
 
-    let text, tool, transcript, sourceFile, reference = null;
+    let text, tool, transcript, sourceFile, reference = null, binding = null;
     if (entrance === "drop") {
       const bytes = Buffer.isBuffer(file?.bytes) ? file.bytes : Buffer.from(file?.bytes ?? "");
       sourceFile = String(file?.name ?? "dropped file");
@@ -494,6 +426,7 @@ export async function runImport({ pkgRoot, provenance = "fictional", base, entra
       sourceFile = null;
       transcript = r.transcript ?? [];
       reference = r.reference ?? null;
+      binding = r.binding ?? null;
     } else throw new Error(`import-run: entrance ${JSON.stringify(entrance)} is not selection, ids or drop`);
 
     const inp = inputs ?? loadInputs();
@@ -512,7 +445,7 @@ export async function runImport({ pkgRoot, provenance = "fictional", base, entra
     const id = nextImportId(buildRoot);
     const takenNames = existsSync(path.join(buildRoot, "proposals")) ? readdirSync(path.join(buildRoot, "proposals")) : [];
     const name = proposalName(pipe.ir, { taken: takenNames, vocabNames: Object.keys(inp.vocab.components) });
-    const source = { tool: pipe.ir.source.tool, project: null, ids: pipe.ir.source.ids, bound: pipe.ir.source.bound, file: sourceFile, sha256: sourceHash(bytes) };
+    const source = { tool: pipe.ir.source.tool, project: binding?.project ?? null, ids: pipe.ir.source.ids, bound: pipe.ir.source.bound, file: sourceFile, sha256: sourceHash(bytes) };
     const record = recordFor({ id, source, pipe, mapping: mapping0, packTokens: inp.packTokens, mode, elapsedMs, suggestions: sug.suggestions });
     const mapping = { record: id, parts: {} };
     writeImport(buildRoot, {
@@ -528,7 +461,7 @@ export async function runImport({ pkgRoot, provenance = "fictional", base, entra
       ops: [{ op: "component.propose", params: { name, recordId: id, mode }, status: "applied" }],
       positions: positionsOf(pkg?.canvas), decisions: loadDecisions(pkgRoot),
     });
-    return { name, recordId: id, count, view: importView(pkgRoot, name) };
+    return { name, recordId: id, count, binding, view: importView(pkgRoot, name) };
   }, "an import");
 }
 
@@ -574,58 +507,137 @@ export function importView(pkgRoot, name) {
   };
 }
 
-// --- the live reader (reach only — see the header) -----------------------------------------------
+// --- the live reader (see the header's THE LIVE READ) --------------------------------------------
 
-export const IMPORT_MODEL = "claude-sonnet-5";
+const TIMEOUT_MS = () => Number(process.env.UXF_IMPORT_TIMEOUT_MS) || 150_000;
+export const BROWSE_MAX = 12;
+const sha256Of = (v) => { const b = Buffer.from(JSON.stringify(v)); return { bytes: b.length, sha256: sha256(b) }; };
 
-export function brilliantServer(env = process.env) {
-  if (env.UXF_BRILLIANT_MCP) return JSON.parse(env.UXF_BRILLIANT_MCP);
-  return { type: "stdio", command: "npx", args: ["-y", "@brilliant-hq/mcp"], env: {} };
+// One bridge session: the overall timer, the fence wired to the transcript, and `close()` in finally.
+// `step` races ONE request against the timer and hands back data — { reply } | { timedOut } |
+// { exited } — so a hung or dead bridge is classified, never thrown; a protocol error still throws.
+async function withBridge({ streams = null, server, timeoutMs = TIMEOUT_MS(), transcript = null }, body) {
+  const srv = server ?? brilliantServer();
+  let timer;
+  const deadline = new Promise((resolve) => { timer = setTimeout(() => resolve({ timedOut: true }), timeoutMs); });
+  const bridge = openBridge({ server: srv, streams, allowed: READ_TOOLS, decide: importFenceDecision,
+    onDeny: ({ tool, input, reason }) => transcript?.push(deniedLine({ tool, input, error: reason, via: "client" })) });
+  const step = async (p) => {
+    try { return await Promise.race([p.then((reply) => ({ reply })), deadline]); }
+    catch (e) { if (e && Object.hasOwn(e, "exited")) return { exited: e.exited }; throw e; }
+  };
+  try { return await body({ bridge, step, srv }); }
+  finally { clearTimeout(timer); bridge.close(); }
 }
 
-const SYSTEM_PROMPT = "You relay a read from the Brilliant design tool. Call only the Brilliant tools you are given, in the order the user names, then reply \"done\" and nothing else.";
-const READ_PROMPT = "Call get_selection, then lookup with the selected ids (format \"blueprint\", expandInstances true), then export the root id as PNG. Reply \"done\".";
+// Steps 1–3, shared by the read, the binding check and Browse: initialize → initialized → tools/list →
+// init. Answers { refused } or { canvasId, initReply, call } where `call(name, args, project)` is one
+// fenced tools/call → { reply } | { refused }, writing one `tool` line when a transcript is kept.
+async function openSession({ bridge, step }, transcript = null) {
+  const hello = await step(bridge.request("initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "ux-factory import", version: "1" } }));
+  if (!hello.reply) return { refused: classifyBridge({ phase: "initialize", ...hello }) };
+  bridge.notify("notifications/initialized");
+  const list = await step(bridge.request("tools/list", {}));
+  if (!list.reply) return { refused: classifyBridge({ phase: "tools/list", ...list }) };
+  const listed = classifyBridge({ phase: "tools/list", error: list.reply.error, tools: (list.reply.result?.tools ?? []).map((t) => t?.name) });
+  if (listed) return { refused: listed };
+  const call = async (name, args, project = null) => {
+    const t0 = Date.now();
+    const out = await step(bridge.call(name, args));
+    const reply = out.reply;
+    const failed = reply ? (reply.denied ?? failureOf(reply)) : null;
+    transcript?.push({ type: "tool", ts: new Date().toISOString(), tool: name, input: args, ok: Boolean(reply && !reply.denied && failed === null),
+      ms: Date.now() - t0, ...(reply && !reply.denied ? sha256Of(reply) : { bytes: 0, sha256: null }) });
+    if (!reply) return { refused: classifyBridge({ phase: "call", project, ...out }) };
+    if (failed !== null) return { refused: classifyBridge({ phase: "call", error: failed }) };
+    return { reply };
+  };
+  const i = await call("init", { agentName: "ux-factory import" });
+  if (i.refused) return i;
+  return { canvasId: parseInit(i.reply).canvasId, initReply: i.reply, call };
+}
 
-export async function readBrilliant({ ids = null, timeoutMs = Number(process.env.UXF_IMPORT_TIMEOUT_MS) || 150_000 } = {}) {
-  const { query } = await import("@anthropic-ai/claude-agent-sdk");
+// The read. `ids` (Browse → import) skips get_selection; the binding then comes from the lookup reply.
+// Returns { refused, transcript } or { text, transcript, reference, binding } — runImport's contract.
+export async function readBrilliant({ ids = null, timeoutMs = TIMEOUT_MS(), streams = null, server } = {}) {
   const transcript = [];
-  const write = (l) => transcript.push(l);
-  const allowed = READ_TOOLS;
-  const abortController = new AbortController();
-  let timedOut = false;
-  // Armed BEFORE the first message is awaited: a server that never answers may hold the init message
-  // until the CLI's own MCP connect timeout.
-  const timer = setTimeout(() => { timedOut = true; abortController.abort(); }, timeoutMs);
-  let refused = null, costUsd = null, sawInit = false;
-  try {
-    const q = query({
-      prompt: ids ? `${READ_PROMPT} Skip get_selection; the ids are ${JSON.stringify(ids)}.` : READ_PROMPT,
-      options: {
-        cwd: REPO_DIR, model: IMPORT_MODEL, maxTurns: 6, systemPrompt: SYSTEM_PROMPT,
-        tools: [], allowedTools: [],
-        mcpServers: { brilliant: brilliantServer() },
-        strictMcpConfig: true,
-        abortController,
-        canUseTool: importCanUseTool({ allowed, write }),
-        hooks: importFenceHooks({ allowed, write }),
-      },
-    });
-    for await (const msg of q) {
-      if (msg.type === "system" && msg.subtype === "init") {
-        sawInit = true;
-        const b = (msg.mcp_servers ?? []).find((x) => x?.name === "brilliant");
-        write({ type: "meta", ts: new Date().toISOString(), entrance: ids ? "ids" : "selection", model: IMPORT_MODEL, allowed, mcp: b?.status ?? "absent" });
-        refused = classifyReach(msg) ?? LIVE_READ_NOT_BUILT;
-        abortController.abort();
-        break;
-      }
-      if (msg.type === "result") costUsd = msg.total_cost_usd ?? null;
+  const srv = server ?? brilliantServer();
+  transcript.push({ type: "meta", ts: new Date().toISOString(), entrance: ids ? "ids" : "selection", transport: "stdio",
+    server: streams ? "in-process streams" : srv.command, allowed: READ_TOOLS });
+  const out = await withBridge({ streams, server: srv, timeoutMs, transcript }, async (b) => {
+    const s = await openSession(b, transcript);
+    if (s.refused) return s;
+    const project = bindingOf(s.initReply)?.project ?? null;
+    let bindingReply = null, read = ids;
+    if (!read) {
+      const g = await s.call("get_selection", { canvasId: s.canvasId }, project);
+      if (g.refused) return g;
+      const sel = parseSelection(g.reply);
+      const none = classifyBridge({ phase: "selection", selection: sel });
+      if (none) return { refused: none };
+      read = sel.selectedIds;
+      bindingReply = g.reply;
     }
-  } catch (e) {
-    if (!abortController.signal.aborted) throw e;
-  } finally {
-    clearTimeout(timer);
+    const l = await s.call("lookup", { scope: read, format: "blueprint", expandInstances: true }, project);
+    if (l.refused) return l;
+    const { text } = parseLookup(l.reply);
+    bindingReply ??= l.reply;
+    const x = await s.call("export", { canvasId: s.canvasId, ids: [read[0]], format: "png" }, project);
+    if (x.refused) return x;
+    const binding = bindingOf(bindingReply);
+    transcript.push({ type: "binding", ts: new Date().toISOString(), project: binding?.project ?? null, tabId: binding?.tabId ?? null,
+      surface: binding?.surface ?? null, otherTabs: binding?.otherTabs ?? 0 });
+    return { text, reference: parseExport(x.reply).bytes, binding };
+  });
+  return out.refused ? { refused: out.refused, transcript } : { ...out, transcript };
+}
+
+// A lock held by another run is the owner's to wait out: a refusal with one action, not a 500.
+async function underLock(fn, what) {
+  try { return await withRunLock(fn, what); }
+  catch (e) {
+    if (String(e?.message).includes("already in flight")) return { refused: { kind: "busy", message: e.message, action: { label: "Wait, then try again" } } };
+    throw e;
   }
-  if (!refused) refused = classifyRead({ timedOut: timedOut || !sawInit, selection: null }) ?? LIVE_READ_NOT_BUILT;
-  return { refused: { ...refused, costUsd }, transcript };
+}
+
+// Which project the read reaches, and how much is selected. An empty selection is NOT a refusal here.
+export async function bindingStatus({ streams = null, server, timeoutMs = TIMEOUT_MS() } = {}) {
+  return underLock(() => withBridge({ streams, server, timeoutMs }, async (b) => {
+    const s = await openSession(b);
+    if (s.refused) return s;
+    const g = await s.call("get_selection", { canvasId: s.canvasId }, bindingOf(s.initReply)?.project ?? null);
+    if (g.refused) return g;
+    return { binding: bindingOf(g.reply), canvasId: s.canvasId, selected: parseSelection(g.reply).selectedIds.length };
+  }), "a binding check");
+}
+
+// Browse: the page's top-level elements with a 160-px thumbnail each, the first BROWSE_MAX of them.
+// CACHED for the server process's life, keyed by the tab and canvas that init names — so a cache hit
+// still opens the bridge for steps 1–3 (the key needs them); the saving is the N exports.
+const browseCache = new Map();
+
+export async function browse({ refresh = false, streams = null, server, timeoutMs = TIMEOUT_MS() } = {}) {
+  return underLock(() => withBridge({ streams, server, timeoutMs }, async (b) => {
+    const s = await openSession(b);
+    if (s.refused) return s;
+    const binding = bindingOf(s.initReply);
+    const key = `${binding?.tabId ?? "-"}|${s.canvasId}`;
+    if (refresh) browseCache.delete(key);
+    if (browseCache.has(key)) return { ...browseCache.get(key), binding, cached: true };
+    const project = binding?.project ?? null;
+    // depth: 0, as the capture asked (import/fixtures/brilliant-live/lookup-page.json).
+    const l = await s.call("lookup", { scope: [s.canvasId], format: "summary", depth: 0 }, project);
+    if (l.refused) return l;
+    const all = parsePage(l.reply);
+    const elements = [];
+    for (const e of all.slice(0, BROWSE_MAX)) {
+      const x = await s.call("export", { canvasId: s.canvasId, ids: [e.id], format: "png", width: 160 }, project);
+      if (x.refused) return x;
+      elements.push({ ...e, thumb: `data:image/png;base64,${parseExport(x.reply).bytes.toString("base64")}` });
+    }
+    const entry = { canvasId: s.canvasId, elements, total: all.length, truncated: all.length > BROWSE_MAX };
+    browseCache.set(key, entry);
+    return { ...entry, binding, cached: false };
+  }), "a browse");
 }

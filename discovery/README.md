@@ -599,8 +599,12 @@ discovery/<slug>/
 `portal/lib/import-run.mjs` (#311), a package's only import writer, and only through the canvas page's
 Import panel. An import is a recorded run: a Brilliant read or a dropped file goes through the import
 chain (`import/`), and the program writes, in this order, `imports/<id>.transcript.jsonl` (its line types:
-`meta` — the entrance, the file or the model and its allowed tools; `denied` — a fence refusal and the
-site that caught it; and, once the live read exists, `tool` and `result`), `proposals/<name>/source.json`
+`meta` — the entrance, and the dropped file or the transport, server and allowed tools; `tool` — one per
+Brilliant call, with its input, `ok`, time and the response's size and hash (the response itself lives in
+`source.json`); `binding` — the project, tab and surface the read reached; `denied` — a fence refusal and
+the site that caught it, always `client`). A live read needs a paired tab: the first read opens a
+brilliant.design tab, the browser asks to allow a local connection (in Brave, site settings → "apps on
+device" → Allow), and Connect pairs it; until then the panel's refusal says so in the bridge's own words., `proposals/<name>/source.json`
 (`{ tool, entrance, file, sha256, text }` — the read VERBATIM, which is what every re-derivation starts
 from), `imports/<id>.json` and `.md`, the three drafts and `mapping.json`. Only then does it append one
 op line through `saveRun`: `component.propose { name, recordId, mode }`, `source: "owner"` (the owner's

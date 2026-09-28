@@ -25,23 +25,42 @@
 // `git status --porcelain -- discovery/` is compared before and after every leg.
 //
 // THE IMPORT PASS (#311). The portal child runs with UXF_BRILLIANT_MCP pointing at a server that exits
-// at once, so "Import selection" meets the real SDK and gets the not-running refusal with ONE action, and
-// no result message before the abort (costUsd null — which cannot fail on this path, since the reader
-// aborts on init; zero spend is expected, not proven); then the Brilliant fixture and the Figma
-// fixture are DROPPED through the page, each writing a record, its markdown, a transcript, a proposal
-// and one component.propose line; the two records share one shape; a mapping edit rewrites mapping.json,
-// re-derives the record and re-renders the view; and a SECOND portal child, whose Brilliant server never
-// answers, holds the run lock while a drop is refused "already in flight"; a stale drop's one action
-// reloads the page (I7), an oversize drop is a refusal and a traversal name a 400 (I8). git status over system/,
-// handoff/, discovery/ and import/overrides/ is compared across the pass (AC #4).
+// at once, so "Import selection" meets the real stdio client and gets the not-running refusal with ONE
+// action (there is no model on this path, so there is no spend to label); then the Brilliant fixture
+// and the Figma fixture are DROPPED through the page, each writing a record, its markdown, a transcript,
+// a proposal and one component.propose line; the two records share one shape; a mapping edit rewrites
+// mapping.json, re-derives the record and re-renders the view; and a SECOND portal child, whose fake
+// bridge never answers a tools/call, holds the run lock while a drop is refused "already in flight", and
+// its read resolves to stale-binding whose one action routes to the binding check (I5); a stale drop's
+// one action reloads the page (I7), an oversize drop is a refusal and a traversal name a 400 (I8).
+// Then side children over tooling/fake-brilliant-bridge.mjs (#311 PR B, Task 7.1): `paired` — Check
+// binding names "this tab's project (name not exposed) · web", Import selection writes a record whose
+// source.ids is the one selected id, a reference.png the Original pane shows, and a mapping edit
+// rewrites mapping.json (I9); Browse shows two thumbnail tiles, both picked import as one record with
+// both ids, and Browse again is served from the session cache (I11); `unpaired` — the not-paired
+// refusal with ONE action "Import again", the bridge's own words as the detail line, and the click
+// sends the import again (I10); `hang-call` — Re-bind's click posts the binding check and the line
+// updates (I10b). Every side child is on a free port, is asserted to be THIS worktree's portal before
+// use, and is killed by its own handle. git status over system/, handoff/, discovery/ and
+// import/overrides/ is compared across the pass (AC #4).
 //
-// WHAT IT CANNOT REACH: the page's pixels (no baseline — the portal is not in the VR set), a live
-// Brilliant READ (the reader is reach-only until the owner-run Phase 0 probe — #311's PR B), and two-tab
-// behaviour beyond the 409 and the reload its one action performs (I7).
+// WHAT IT CANNOT REACH: the page's pixels (no baseline — the portal is not in the VR set); a REAL
+// Brilliant tab and its pairing — only `--live-brilliant` meets the real bridge; the real ~46–60 s
+// unpaired wait, which the fake answers at once; and two-tab behaviour beyond the 409 and the reload
+// its one action performs (I7).
+//
+// --live-brilliant (#311 PR B, Task 7.2; chromium only, OWNER-RUN, $0 — no model anywhere): a portal
+// child with NO UXF_BRILLIANT_MCP override, so the read spawns the real @brilliant-hq/mcp. It never
+// waits on a keypress: it prints what to do, then polls POST /api/canvas/import/binding every 5 s until
+// a paired tab has at least one element selected, and FAILS naming "no paired selection within 180 s"
+// otherwise. Each poll spawns a fresh bridge, and an unpaired one may open a pairing tab. Then Check
+// binding, Import selection (record + reference.png + a component.propose line), one mapping edit, and
+// Browse (≥ 1 tile). It asserts SHAPES (16-hex ids, a PNG signature), never the owner's content.
 //
 // Run it:
-//   (cd portal && npm ci)                                   # server.mjs imports the Agent SDK
+//   (cd portal && npm ci)                                   # server.mjs imports the Agent SDK (chat)
 //   node tooling/canvas-journey.mjs [chromium|firefox|webkit|all]   # default: all
+//   node tooling/canvas-journey.mjs chromium --live-brilliant       # a paired brilliant.design tab
 
 import { createRequire } from "node:module";
 import { spawn, execFileSync } from "node:child_process";
@@ -60,12 +79,17 @@ const require = createRequire(`${VRDIR}${path.sep}`);
 const pw = require("@playwright/test");
 
 const ENGINES = ["chromium", "firefox", "webkit"];
-const arg = process.argv[2] || "all";
+const argv = process.argv.slice(2);
+const LIVE = argv.includes("--live-brilliant");
+const badFlag = argv.find((a) => a.startsWith("--") && a !== "--live-brilliant");
+if (badFlag) { console.error(`canvas-journey: unknown flag "${badFlag}" — the one flag is --live-brilliant`); process.exit(2); }
+const arg = argv.find((a) => !a.startsWith("--")) || (LIVE ? "chromium" : "all");
 const toRun = arg === "all" ? ENGINES : [arg];
 if (!toRun.every((e) => ENGINES.includes(e))) {
   console.error(`canvas-journey: unknown engine "${arg}" — chromium, firefox, webkit or all`);
   process.exit(2);
 }
+if (LIVE && arg !== "chromium") { console.error("canvas-journey: --live-brilliant runs on chromium only"); process.exit(2); }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const canon = (v) => (v && typeof v === "object" && !Array.isArray(v)
@@ -100,9 +124,8 @@ const freePort = () => new Promise((resolve, reject) => {
 
 // A Brilliant MCP server that exits at once: the import's reach check meets a real failed server.
 const MCP_DOWN = JSON.stringify({ type: "stdio", command: process.execPath, args: ["-e", "process.exit(1)"] });
-// One that never answers initialize — and exits on stdin EOF, as a real stdio server does, so the CLI's
-// teardown leaves no orphan.
-const MCP_HANG = JSON.stringify({ type: "stdio", command: process.execPath, args: ["-e", "process.stdin.resume();process.stdin.on('end',()=>process.exit(0))"] });
+// The fake bridge in one of its modes (tooling/fake-brilliant-bridge.mjs), by absolute path.
+const FAKE = (mode) => JSON.stringify({ type: "stdio", command: process.execPath, args: [path.join(REPO, "tooling/fake-brilliant-bridge.mjs"), mode] });
 
 async function boot(attempt = 1) {
   const port = await freePort();
@@ -130,7 +153,46 @@ async function boot(attempt = 1) {
   await bail("portal did not answer /api/health within 15 s");
 }
 
+// A SIDE portal child (I5, I9–I11, the live leg): its own free port and Brilliant server, the same
+// scratch JOBS_DIR, asserted to be THIS worktree's portal before use, killed by its own handle.
+// `mcp === null` leaves the real bridge (no override); `timeoutMs === null` keeps the reader's default.
+const sides = new Set();
+async function withPortal(mcp, fn, { timeoutMs = "8000" } = {}) {
+  const port = await freePort();
+  const fd = openSync(LOG, "a");
+  const env = { ...process.env, PORT: String(port), JOBS_DIR: scratch, UXF_IMPORT_SUGGEST: "off" };
+  if (mcp === null) delete env.UXF_BRILLIANT_MCP; else env.UXF_BRILLIANT_MCP = mcp;
+  if (timeoutMs === null) delete env.UXF_IMPORT_TIMEOUT_MS; else env.UXF_IMPORT_TIMEOUT_MS = timeoutMs;
+  const proc = spawn(process.execPath, [path.join(REPO, "portal/server.mjs")], { cwd: path.join(REPO, "portal"), env, stdio: ["ignore", fd, fd] });
+  let exit = null;
+  proc.on("exit", (code, signal) => { exit = { code, signal }; });
+  sides.add(proc);
+  const b = `http://127.0.0.1:${port}`;
+  try {
+    let health = null;
+    for (let i = 0; i < 75 && !health; i += 1) {
+      if (exit) throw new Error(`the side portal exited (code ${exit.code}) before answering /api/health`);
+      try { const r = await fetch(`${b}/api/health`); if (r.ok) health = await r.json(); } catch { /* not listening yet */ }
+      if (!health) await sleep(200);
+    }
+    if (!health) throw new Error("the side portal did not answer /api/health within 15 s");
+    if (path.resolve(health.jobsDir) !== scratch || health.bootSha !== HEAD || health.stale !== false) {
+      throw new Error(`the side portal is not this run's: jobsDir ${health.jobsDir}, bootSha ${health.bootSha} (HEAD ${HEAD}), stale ${health.stale}`);
+    }
+    return await fn(b, () => exit);
+  } finally {
+    if (exit === null) {
+      proc.kill("SIGTERM");
+      const until = Date.now() + 3000;
+      while (exit === null && Date.now() < until) await sleep(100);
+      if (exit === null) proc.kill("SIGKILL");
+    }
+    sides.delete(proc);
+  }
+}
+
 async function teardown() {
+  for (const p of sides) if (p.exitCode === null && p.signalCode === null) p.kill("SIGKILL");
   if (child && childExit === null) {
     child.kill("SIGTERM");
     const until = Date.now() + 3000;
@@ -140,6 +202,8 @@ async function teardown() {
   rmSync(scratch, { recursive: true, force: true });
 }
 for (const sig of ["SIGINT", "SIGTERM"]) process.on(sig, () => { teardown().then(() => process.exit(130)); });
+// A driver crash must not orphan a portal child or its scratch dir (it did once, before `quiet`).
+process.on("unhandledRejection", (e) => { console.error(`\ncanvas-journey ✗  unhandled rejection: ${e?.message ?? e}`); teardown().then(() => process.exit(1)); });
 
 // ---- the scratch packages ---------------------------------------------------------------------------
 // Rebuilt per engine so every leg starts identical. fp-journey is a copy of the fictional Faster
@@ -561,10 +625,7 @@ async function importPass(engine, base, page, t, step, errors) {
     await page.waitForSelector("[data-import-refusal] p", { timeout: 5000 });
     const text = await page.locator("[data-import-refusal]").textContent();
     t("I1 · the refusal names \"did not start\" with exactly ONE action", text.includes("did not start") && (await page.locator("[data-import-action]").count()) === 1, text);
-    // NOT a proof of zero spend: the reader aborts on init, so no result message can arrive on this path
-    // and costUsd is null by construction. It asserts the refusal's kind and that no result arrived
-    // before the abort; zero spend stays EXPECTED (plan A1) until the owner-run probe observes a cost.
-    t("I1 · …the refusal is not-running, and no result message arrived before the abort (costUsd null)", body.refused?.kind === "not-running" && body.refused.costUsd === null, JSON.stringify(body));
+    t("I1 · …the refusal is not-running", body.refused?.kind === "not-running", JSON.stringify(body));
     t("I1 · …and wrote nothing under build/imports/", !existsSync(importsDir()));
     const small = [];
     for (const sel of ["[data-canvas-verb=import]", "[data-import-selection]", "[data-import-action]", "[data-import-drop]"]) {
@@ -630,17 +691,7 @@ async function importPass(engine, base, page, t, step, errors) {
     t("I4 · remap to stack + rename → the Mapped pane renders data-part=\"person\"", (await page.locator('[data-import-mapped] [data-part="person"]').count()) === 1);
   });
 
-  await step("I5 · the run lock (a second portal child, Brilliant never answers)", async () => {
-    const port = await freePort();
-    const fd = openSync(LOG, "a");
-    const hang = spawn(process.execPath, [path.join(REPO, "portal/server.mjs")], {
-      cwd: path.join(REPO, "portal"),
-      env: { ...process.env, PORT: String(port), JOBS_DIR: scratch, UXF_BRILLIANT_MCP: MCP_HANG, UXF_IMPORT_TIMEOUT_MS: "8000", UXF_IMPORT_SUGGEST: "off" },
-      stdio: ["ignore", fd, fd],
-    });
-    const b2 = `http://127.0.0.1:${port}`;
-    try {
-      for (let i = 0; i < 75; i += 1) { try { if ((await fetch(`${b2}/api/health`)).ok) break; } catch { /* not yet */ } await sleep(200); }
+  await step("I5 · the run lock (a second portal child, the fake bridge never answers a tools/call)", () => withPortal(FAKE("hang-call"), async (b2) => {
       const n = ledger("fp-import").length;
       const first = fetch(`${b2}/api/canvas/import`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ provenance: "real", slug: "fp-import", base: n, entrance: "selection", mode: 1 }) }).then((r) => r.json());
       await sleep(1500);
@@ -649,12 +700,10 @@ async function importPass(engine, base, page, t, step, errors) {
       t("I5 · a drop during a pending selection read is refused \"already in flight\"", String(second.error ?? "").includes("already in flight"), JSON.stringify(second));
       const firstBody = await first;
       t("I5 · the pending read resolves to the stale-binding refusal (timeout, no retry)", firstBody.refused?.kind === "stale-binding", JSON.stringify(firstBody));
+      t("I5 · …its one action is Re-bind, routed to the binding check", firstBody.refused?.action?.route === "binding" && firstBody.refused.action.label === "Re-bind", JSON.stringify(firstBody.refused?.action));
       const third = await (await fetch(`${b2}/api/canvas/import/drop?${q}`, { method: "POST", body: readFileSync(path.join(REPO, "import/fixtures/spike-c-instance.blueprint.txt")) })).json();
       t("I5 · after it, a drop succeeds", typeof third.recordId === "string", JSON.stringify(third).slice(0, 200));
-    } finally {
-      hang.kill("SIGTERM");
-    }
-  });
+  }));
 
   // PR #462 review F1: the one action a 409 offers must RELOAD, not focus the file input. The page is
   // made stale by a drop straight to the API (a second tab), then the page's own drop meets the 409.
@@ -699,11 +748,257 @@ async function importPass(engine, base, page, t, step, errors) {
     t("I8 · a traversal name → 400 on the view and on the mapping route", view.status === 400 && map.status === 400, `${view.status} ${map.status}`);
   });
 
+  await fakeBridgePass(page, t, step);
+
   t("I6 · git status over system/, handoff/, discovery/ and import/overrides/ unchanged across the pass (AC #4)", gitImportScope() === gitBefore, gitImportScope());
+}
+
+// ---- the fake-bridge pass (#311 PR B, Task 7.1) ---------------------------------------------------------
+// Side children only. Each leaves the page on about:blank before its child dies, so a dead origin never
+// reaches step 16's error list. I7/I8 above rely on the main child's page, so this pass runs after them.
+const SELECTED = "630fe03901352c90";
+const PNG_SIG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+const isPng = (file) => existsSync(file) && readFileSync(file).subarray(0, 8).equals(PNG_SIG);
+const recordOk = (id) => { try { checkRecord(readRec(id)); return null; } catch (e) { return e.message; } };
+const importPost = (r) => r.url().endsWith("/api/canvas/import") && r.request().method() === "POST";
+// A wait created before a click that then throws must not surface as an unhandled rejection.
+const quiet = (p) => { p.catch(() => {}); return p; };
+const openPanel = async (page) => { if (await page.locator("[data-import-panel]").isHidden()) await page.locator("[data-canvas-verb=import]").click(); };
+const lineOf = (page) => page.locator("[data-import-binding]").textContent();
+const settledLine = (page) => page.waitForFunction(() => !/checking/.test(document.querySelector("[data-import-binding]")?.textContent ?? "checking"), null, { timeout: 30000 });
+async function sizes(page, sels) {
+  const small = [];
+  for (const sel of sels) {
+    const loc = page.locator(sel).first();
+    await loc.scrollIntoViewIfNeeded();
+    const b = await loc.boundingBox();
+    if (!b || b.width < 44 || b.height < 44) small.push(`${sel} ${b?.width}×${b?.height}`);
+  }
+  return small;
+}
+// Import selection (or Import N selected) → the response body; navigation awaited only on success, so a
+// refusal fails the caller's check by its own words rather than as a timeout. The body is read through a
+// route, not waitForResponse: a success reloads the page at once, and the engine drops the body with it.
+async function importVia(page, sel, timeout = 30000) {
+  const before = page.url();
+  let got;
+  const captured = new Promise((resolve) => { got = resolve; });
+  const handler = async (route) => {
+    if (route.request().method() !== "POST") return route.fallback();
+    const r = await route.fetch({ timeout });
+    got(await r.json());
+    await route.fulfill({ response: r });
+  };
+  await page.route("**/api/canvas/import", handler);
+  const nav = page.waitForURL((u) => u.toString() !== before && u.searchParams.has("import"), { timeout }).then(() => true, () => false);
+  await page.locator(sel).click();
+  const body = await Promise.race([captured, sleep(timeout).then(() => ({ error: `no response to POST /api/canvas/import within ${timeout} ms` }))]);
+  await page.unroute("**/api/canvas/import", handler);
+  if (typeof body.recordId === "string") {
+    await nav;
+    await page.waitForSelector("[data-import-view]:not([hidden]) [data-import-label]", { timeout: 20000 });
+  }
+  return body;
+}
+async function dropOnePart(page, name) {
+  const mapFile = path.join(buildDir("fp-import"), "proposals", name, "mapping.json");
+  const remap = page.locator("[data-import-remap]").first();
+  const at = await remap.getAttribute("data-import-remap");
+  const count = async () => Number((await page.locator("[data-import-drops] h3").textContent()).match(/\((\d+)\)/)?.[1]);
+  const before = readFileSync(mapFile, "utf8");
+  const dropsBefore = await count();
+  const resp = quiet(page.waitForResponse((r) => r.url().endsWith("/api/canvas/import/mapping"), { timeout: 10000 }));
+  await remap.selectOption("drop");
+  await resp;
+  await page.waitForFunction(() => /re-derived/.test(document.querySelector("[data-import-status]")?.textContent ?? ""), null, { timeout: 5000 });
+  const after = readFileSync(mapFile, "utf8");
+  return { ok: after !== before && JSON.parse(after).parts[at]?.drop === true && (await count()) === dropsBefore + 1, why: `${at}: drops ${dropsBefore} → ${await count()} · ${after}` };
+}
+
+async function fakeBridgePass(page, t, step) {
+  await step("I9 + I11 · a paired fake bridge (a third portal child)", () => withPortal(FAKE("paired"), async (b3) => {
+    await step("I9 · Check binding, Import selection, the view, one mapping edit", async () => {
+      await openCanvas(page, b3, "real", "fp-import");
+      await page.locator("[data-canvas-verb=import]").click();
+      t("I9 · the binding line waits for a click (nothing talks to Brilliant on load)", (await lineOf(page)) === "Reads: not checked yet", await lineOf(page));
+      const bresp = quiet(page.waitForResponse((r) => r.url().endsWith("/api/canvas/import/binding"), { timeout: 30000 }));
+      await page.locator("[data-import-binding-check]").click();
+      await bresp;
+      await settledLine(page);
+      const line = await lineOf(page);
+      t("I9 · Check binding → \"Reads: this tab's project (name not exposed) · web\"", line.startsWith("Reads: this tab's project (name not exposed) · web"), line);
+      const small = await sizes(page, ["[data-import-binding-check]", "[data-import-browse]", "[data-import-selection]"]);
+      t("I9 · Check binding and Browse the page measure at least 44×44", small.length === 0, small.join(", "));
+      const body = await importVia(page, "[data-import-selection]");
+      t("I9 · Import selection → a record, not a refusal", typeof body.recordId === "string", JSON.stringify(body.refused ?? body.error ?? body).slice(0, 300));
+      if (typeof body.recordId !== "string") return;
+      const rec = readRec(body.recordId);
+      const err = recordOk(body.recordId);
+      t(`I9 · ${body.recordId}.json's source.ids is exactly ["${SELECTED}"], and it passes checkRecord`, canon(rec.source.ids) === canon([SELECTED]) && err === null, `${JSON.stringify(rec.source.ids)} ${err ?? ""}`);
+      t(`I9 · imports/${body.recordId}.reference.png is on disk, a PNG`, isPng(path.join(importsDir(), `${body.recordId}.reference.png`)));
+      const last = ledger("fp-import").at(-1);
+      t("I9 · the ledger's last line is component.propose for this record", last?.op === "component.propose" && last.params?.recordId === body.recordId, JSON.stringify(last));
+      const img = page.locator(".cv-import-col img");
+      const shown = (await img.count()) === 1 && await img.evaluate((i) => i.complete && i.naturalWidth > 0);
+      t("I9 · the Original pane shows the exported <img>", shown);
+      const kept = await lineOf(page);
+      t("I9 · after the reload, the binding line is the read's (kept for the session)", kept.includes("this tab's project (name not exposed) · web") && kept.includes("at the last Brilliant read"), kept);
+      const d = await dropOnePart(page, body.name);
+      t("I9 · dropping a part rewrote mapping.json and the view re-rendered its drop list (+1)", d.ok, d.why);
+    });
+
+    await step("I11 · Browse, pick two, import them, Browse again (cached)", async () => {
+      await openPanel(page);
+      const br = quiet(page.waitForResponse((r) => r.url().includes("/api/canvas/import/browse"), { timeout: 30000 }));
+      await page.locator("[data-import-browse]").click();
+      const bb = await (await br).json();
+      await page.waitForSelector("[data-import-tile]", { timeout: 5000 }).catch(() => {});
+      const tiles = page.locator("[data-import-tile]");
+      const ids = await tiles.evaluateAll((els) => els.map((e) => e.dataset.importTile));
+      t("I11 · Browse → 2 tiles, read fresh (not from the cache)", ids.length === 2 && bb.cached === false, JSON.stringify({ ids, cached: bb.cached, refused: bb.refused }));
+      const loaded = [];
+      for (let i = 0; i < ids.length; i += 1) {
+        await tiles.nth(i).scrollIntoViewIfNeeded();
+        loaded.push(await page.waitForFunction((id) => { const im = document.querySelector(`[data-import-tile="${id}"] img`); return Boolean(im?.alt) && im.complete && im.naturalWidth > 0; }, ids[i], { timeout: 5000 }).then(() => true, () => false));
+      }
+      t("I11 · each tile shows its thumbnail <img> (complete, naturalWidth > 0, alt = its name)", loaded.length === 2 && loaded.every(Boolean), JSON.stringify(loaded));
+      const importBtn = page.locator("[data-import-browse-import]");
+      const disabledAt0 = await importBtn.isDisabled();
+      for (let i = 0; i < ids.length; i += 1) await tiles.nth(i).click();
+      const pressed = await tiles.evaluateAll((els) => els.map((e) => e.getAttribute("aria-pressed")));
+      t("I11 · Import is disabled at 0; both tiles pressed → \"Import 2 selected\"", disabledAt0 && canon(pressed) === canon(["true", "true"]) && (await importBtn.textContent()) === "Import 2 selected" && !(await importBtn.isDisabled()), `${disabledAt0} ${pressed} ${await importBtn.textContent()}`);
+      const small = await sizes(page, ["[data-import-tile]", "[data-import-browse-import]", "[data-import-browse-refresh]"]);
+      t("I11 · the tiles, Import N selected and Refresh measure at least 44×44", small.length === 0, small.join(", "));
+      const body = await importVia(page, "[data-import-browse-import]");
+      t("I11 · Import 2 selected → a record", typeof body.recordId === "string", JSON.stringify(body.refused ?? body.error ?? body).slice(0, 300));
+      if (typeof body.recordId !== "string") return;
+      const rec = readRec(body.recordId);
+      t(`I11 · ${body.recordId}.json's source.ids holds both picked ids`, canon([...rec.source.ids].sort()) === canon([...ids].sort()) && recordOk(body.recordId) === null, JSON.stringify(rec.source.ids));
+      await openPanel(page);
+      const br2 = quiet(page.waitForResponse((r) => r.url().includes("/api/canvas/import/browse"), { timeout: 30000 }));
+      await page.locator("[data-import-browse]").click();
+      const bb2 = await (await br2).json();
+      await page.waitForSelector("[data-import-tile]", { timeout: 5000 }).catch(() => {});
+      const note = await page.locator("[data-import-browse-count]").textContent().catch(() => "");
+      t("I11 · Browse again → the same 2 tiles from the session cache", bb2.cached === true && (await tiles.count()) === 2 && note.includes("cache"), JSON.stringify({ cached: bb2.cached, note }));
+    });
+    await page.goto("about:blank");
+  }));
+
+  await step("I10 · an unpaired fake bridge: one action, the bridge's words, Import again", () => withPortal(FAKE("unpaired"), async (b4) => {
+    await openCanvas(page, b4, "real", "fp-import");
+    await page.locator("[data-canvas-verb=import]").click();
+    const resp = quiet(page.waitForResponse(importPost, { timeout: 30000 }));
+    await page.locator("[data-import-selection]").click();
+    const body = await (await resp).json();
+    await page.waitForSelector("[data-import-refusal] p", { timeout: 5000 });
+    const text = await page.locator("[data-import-refusal]").textContent();
+    const label = await page.locator("[data-import-action]").textContent();
+    t("I10 · the refusal names \"not paired\" with ONE action, \"Import again\"",
+      body.refused?.kind === "not-paired" && text.includes("not paired") && (await page.locator("[data-import-action]").count()) === 1 && label === "Import again", `${text} [${label}]`);
+    const detail = await page.locator("[data-import-detail]").textContent().catch(() => "");
+    t("I10 · …and the bridge's own words as the detail line", detail.includes("No Brilliant surface is connected") && detail === body.refused?.detail, detail);
+    const small = await sizes(page, ["[data-import-action]"]);
+    t("I10 · the action measures at least 44×44", small.length === 0, small.join(", "));
+    const again = quiet(page.waitForResponse(importPost, { timeout: 10000 })).then(() => true, () => false);
+    await page.locator("[data-import-action]").click();
+    t("I10 · clicking \"Import again\" sends the import again (one click, one request)", await again, "no POST /api/canvas/import followed the click");
+    await page.goto("about:blank");
+  }));
+
+  await step("I10b · a hung fake bridge: Re-bind runs the binding check", () => withPortal(FAKE("hang-call"), async (b5) => {
+    await openCanvas(page, b5, "real", "fp-import");
+    await page.locator("[data-canvas-verb=import]").click();
+    const resp = quiet(page.waitForResponse(importPost, { timeout: 30000 }));
+    await page.locator("[data-import-selection]").click();
+    await resp;
+    await page.waitForSelector("[data-import-refusal] p", { timeout: 5000 });
+    const text = await page.locator("[data-import-refusal]").textContent();
+    const label = await page.locator("[data-import-action]").textContent();
+    t("I10b · Import selection → \"did not answer\" with ONE action, \"Re-bind\"", text.includes("did not answer") && label === "Re-bind" && (await page.locator("[data-import-action]").count()) === 1, `${text} [${label}]`);
+    const lineBefore = await lineOf(page);
+    const req = quiet(page.waitForRequest((r) => r.url().endsWith("/api/canvas/import/binding") && r.method() === "POST", { timeout: 5000 })).then(() => true, () => false);
+    const bresp = quiet(page.waitForResponse((r) => r.url().endsWith("/api/canvas/import/binding"), { timeout: 30000 }));
+    await page.locator("[data-import-action]").click();
+    t("I10b · clicking Re-bind posts the binding check", await req);
+    await bresp;
+    await settledLine(page);
+    const lineAfter = await lineOf(page);
+    t("I10b · …and the binding line updates (a hung bridge: the check is refused, and says so)", lineAfter !== lineBefore && lineAfter.includes("unknown"), `${lineBefore} → ${lineAfter}`);
+    await page.goto("about:blank");
+  }));
+}
+
+// ---- --live-brilliant (#311 PR B, Task 7.2) — owner-run, chromium, the REAL bridge ---------------------------
+async function liveLeg(results) {
+  const t = (name, cond, extra = "") => {
+    if (cond) { results.passes += 1; console.log(`  ✓ ${name}`); }
+    else { results.fails += 1; console.log(`  ✗ ${name}  ${extra}`); }
+  };
+  seed();
+  const gitBefore = gitImportScope();
+  const browser = await pw.chromium.launch();
+  try {
+    await withPortal(null, async (b) => {
+      console.log("  select one element in a PAIRED brilliant.design tab — waiting up to 180 s");
+      const deadline = Date.now() + 180_000;
+      let last = null, ready = false;
+      while (!ready && Date.now() < deadline) {
+        try {
+          const r = await fetch(`${b}/api/canvas/import/binding`, { method: "POST", signal: AbortSignal.timeout(Math.max(1, deadline - Date.now())) });
+          last = await r.json();
+        } catch (e) { last = { error: e.message }; }
+        ready = Boolean(last && !last.refused && !last.error && Object.hasOwn(last, "binding") && last.selected >= 1);
+        if (!ready && Date.now() < deadline) await sleep(Math.min(5000, deadline - Date.now()));
+      }
+      t("L0 · a paired tab answered the binding check with a selection", ready, `no paired selection within 180 s (last: ${JSON.stringify(last).slice(0, 300)})`);
+      if (!ready) return;
+      const ctx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+      const page = await ctx.newPage();
+      await openCanvas(page, b, "real", "fp-import");
+      await page.locator("[data-canvas-verb=import]").click();
+      await page.locator("[data-import-binding-check]").click();
+      await settledLine(page);
+      const line = await lineOf(page);
+      t("L1 · Check binding → a binding line", line.startsWith("Reads: ") && !line.includes("unknown") && !line.includes("not checked"), line);
+      const body = await importVia(page, "[data-import-selection]", 170_000);
+      t("L2 · Import selection → a record", typeof body.recordId === "string", JSON.stringify(body.refused ?? body.error ?? body).slice(0, 300));
+      if (typeof body.recordId === "string") {
+        const rec = readRec(body.recordId);
+        t("L2 · …its source.ids are Brilliant element ids (16-hex), and it passes checkRecord",
+          rec.source.ids.length >= 1 && rec.source.ids.every((id) => /^[0-9a-f]{16}$/.test(id)) && recordOk(body.recordId) === null, JSON.stringify(rec.source.ids));
+        t("L2 · …reference.png carries a PNG signature", isPng(path.join(importsDir(), `${body.recordId}.reference.png`)));
+        const lastOp = ledger("fp-import").at(-1);
+        t("L2 · …and one component.propose line for it", lastOp?.op === "component.propose" && lastOp.params?.recordId === body.recordId, JSON.stringify(lastOp));
+        const d = await dropOnePart(page, body.name);
+        t("L3 · one mapping edit rewrote mapping.json and re-rendered the view", d.ok, d.why);
+      }
+      await openPanel(page);
+      const br = quiet(page.waitForResponse((r) => r.url().includes("/api/canvas/import/browse"), { timeout: 170_000 }));
+      await page.locator("[data-import-browse]").click();
+      const bb = await (await br).json();
+      t("L4 · Browse → at least one tile", (await page.locator("[data-import-tile]").count()) >= 1, JSON.stringify(bb.refused ?? { n: bb.elements?.length }));
+      await ctx.close();
+    }, { timeoutMs: null });
+  } catch (e) {
+    t("live-brilliant — threw", false, e.message.split("\n")[0]);
+  } finally {
+    await browser.close();
+  }
+  t("L5 · git status over system/, handoff/, discovery/ and import/overrides/ unchanged", gitImportScope() === gitBefore, gitImportScope());
 }
 
 // ---- run -------------------------------------------------------------------------------------------------
 let totalFails = 0;
+if (LIVE) {
+  const results = { passes: 0, fails: 0 };
+  try { await liveLeg(results); } finally { await teardown(); }
+  console.log(`  ── chromium --live-brilliant: ${results.passes} passed, ${results.fails} failed`);
+  console.log(results.fails
+    ? `\ncanvas-journey ✗  ${results.fails} assertion(s) failed · live-brilliant`
+    : "\ncanvas-journey ✓  a paired selection answered the binding check · Check binding named a binding · Import selection wrote a record (16-hex ids), a PNG reference.png and one component.propose line · one mapping edit rewrote mapping.json and re-rendered · Browse showed a tile · nothing under system/, handoff/, discovery/ or import/overrides/ changed · live-brilliant");
+  process.exit(results.fails ? 1 : 0);
+}
 try {
   const { base, health } = await boot();
   const ok = (cond, what) => { if (!cond) throw new Error(what); };
@@ -727,5 +1022,5 @@ try {
 }
 console.log(totalFails
   ? `\ncanvas-journey ✗  ${totalFails} assertion(s) failed`
-  : `\ncanvas-journey ✓  the run list · the in-repo spine opened with ZERO saves and its save notice · run.json's provenance label with the root flagged · frames, the arrow and decision cards rendered from the ledger and the transcript with no overlap · a note, a decision link, a refused remove, a remove and its undo, a numeric width and a pointer resize each ONE ledger entry and ONE undo · a reload that keeps them · verifyBuild [] on disk and the disk document equal to the page's · 403 cross-origin and 409 stale · the stand-in flagged, not blocked · the inspector in the viewport on both branches · 44×44 targets · the import pass: the MCP-down refusal with one action and no result before the abort, two drops writing record + proposal + one component.propose line each with one record shape, a mapping edit re-deriving the record and the view, the run lock refusing a drop "already in flight", a stale drop's one action reloading the page, an oversize drop refused and a traversal name a 400 · no page errors · nothing under system/, handoff/, discovery/ or import/overrides/ changed (${toRun.join(", ")})`);
+  : `\ncanvas-journey ✓  the run list · the in-repo spine opened with ZERO saves and its save notice · run.json's provenance label with the root flagged · frames, the arrow and decision cards rendered from the ledger and the transcript with no overlap · a note, a decision link, a refused remove, a remove and its undo, a numeric width and a pointer resize each ONE ledger entry and ONE undo · a reload that keeps them · verifyBuild [] on disk and the disk document equal to the page's · 403 cross-origin and 409 stale · the stand-in flagged, not blocked · the inspector in the viewport on both branches · 44×44 targets · the import pass: the MCP-down refusal with one action, two drops writing record + proposal + one component.propose line each with one record shape, a mapping edit re-deriving the record and the view, the run lock refusing a drop "already in flight" and the hung read's one action routed to Re-bind, a stale drop's one action reloading the page, an oversize drop refused and a traversal name a 400 · over the fake bridge: Check binding naming the tab's project and surface, Import selection writing the one selected id + a reference.png shown in the Original pane + a mapping edit (I9), the unpaired refusal's one action and the bridge's own words with Import again re-sending (I10), Re-bind running the binding check (I10b), Browse's two thumbnail tiles importing as one two-id record and served again from the session cache (I11) · no page errors · nothing under system/, handoff/, discovery/ or import/overrides/ changed (${toRun.join(", ")})`);
 process.exit(totalFails ? 1 : 0);

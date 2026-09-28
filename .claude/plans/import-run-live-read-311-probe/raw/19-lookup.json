@@ -1,0 +1,36 @@
+{
+  "tool": "lookup",
+  "input": {
+    "scope": [
+      "630fe03901352c90"
+    ],
+    "format": "blueprint",
+    "expandInstances": true
+  },
+  "ms": 2,
+  "reply": {
+    "jsonrpc": "2.0",
+    "id": 4,
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"totalMatches\":1,\"returnedCount\":1,\"searchedCanvases\":1,\"results\":[{\"canvasId\":\"playground\",\"matchCount\":1,\"returnedCount\":1,\"elementIds\":[\"630fe03901352c90\"],\"blueprint\":\"630fe03901352c90 r p(910,351) s(395,201) f[(9df0cbadf986e307,#000000)] \\\"Rectangle 1\\\"\"}]}"
+        }
+      ],
+      "_meta": {
+        "brilliant": {
+          "project": {
+            "handle": "",
+            "name": "",
+            "title": ""
+          },
+          "tabId": "tab-222a9bd0-eade-49a3-a33b-de0c8e409d4b",
+          "viewOnly": false,
+          "surface": "web",
+          "otherTabs": []
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "mcp_servers": [
+    {
+      "name": "brilliant",
+      "status": "connected"
+    }
+  ],
+  "brilliantTools": [
+    "mcp__brilliant__get_selection",
+    "mcp__brilliant__export",
+    "mcp__brilliant__lookup",
+    "mcp__brilliant__objects_result",
+    "mcp__brilliant__list_projects",
+    "mcp__brilliant__create_modify_elements",
+    "mcp__brilliant__create_html",
+    "mcp__brilliant__execute_commands",
+    "mcp__brilliant__get_knowledge",
+    "mcp__brilliant__init",
+    "mcp__brilliant__generate_image",
+    "mcp__brilliant__generate_svg",
+    "mcp__brilliant__vectorize_image",
+    "mcp__brilliant__capture_ui",
+    "mcp__brilliant__list_capture_targets",
+    "mcp__brilliant__render_ui",
+    "mcp__brilliant__list_stagers",
+    "mcp__brilliant__send_feedback"
+  ],
+  "model": "claude-sonnet-5",
+  "toolCount": 18,
+  "ms": 2226
+}

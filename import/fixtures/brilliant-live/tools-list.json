@@ -1,0 +1,402 @@
+{
+  "names": [
+    "get_selection",
+    "export",
+    "lookup",
+    "objects_result",
+    "list_projects",
+    "create_modify_elements",
+    "create_html",
+    "execute_commands",
+    "get_knowledge",
+    "init",
+    "generate_image",
+    "generate_svg",
+    "vectorize_image",
+    "capture_ui",
+    "list_capture_targets",
+    "render_ui",
+    "list_stagers",
+    "send_feedback"
+  ],
+  "_meta": null,
+  "schemas": {
+    "get_selection": {
+      "type": "object",
+      "properties": {
+        "canvasId": {
+          "description": "Canvas ID to get selection from. REQUIRED.",
+          "type": "string"
+        },
+        "project": {
+          "description": "Optional: run THIS call against a project other than the session's bound one, a name or key from list_projects (or an unambiguous name/handle substring). Unknown/ambiguous is refused with candidates.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "canvasId"
+      ]
+    },
+    "export": {
+      "type": "object",
+      "properties": {
+        "canvasId": {
+          "description": "Canvas ID to export from. REQUIRED.",
+          "type": "string"
+        },
+        "ids": {
+          "description": "Element IDs (or #refs) to export. REQUIRED. `elementIds` is accepted as an alias.",
+          "anyOf": [
+            {
+              "description": "Element IDs (or #refs) to export. REQUIRED. `elementIds` is accepted as an alias.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "format": {
+          "description": "Export format: \"png\" (default), \"jpeg\", \"webp\", \"svg\", \"pdf\", \"html\" (snippet), \"htmlDoc\" (self-contained document), \"htmlFlex\" (snippet using semantic flexbox for auto-layout), \"react\" (JSX snippet pasteable into a .tsx file), or \"mp4\"/\"mov\" (video — writes a file, returns its path).",
+          "type": "string",
+          "enum": [
+            "png",
+            "jpeg",
+            "webp",
+            "svg",
+            "pdf",
+            "html",
+            "htmlDoc",
+            "htmlFlex",
+            "react",
+            "mp4",
+            "mov",
+            "replay"
+          ]
+        },
+        "duration": {
+          "description": "Video duration in seconds (default 3, max 30). Only used for mp4/mov.",
+          "anyOf": [
+            {
+              "description": "Video duration in seconds (default 3, max 30). Only used for mp4/mov.",
+              "type": "number"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "fps": {
+          "description": "Video frames per second (default 30, clamped 1-60). Only used for mp4/mov.",
+          "anyOf": [
+            {
+              "description": "Video frames per second (default 30, clamped 1-60). Only used for mp4/mov.",
+              "type": "integer"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "background": {
+          "description": "Background type: \"clear\" for transparent, \"window\" for window color. Defaults to \"clear\". Ignored for svg/pdf.",
+          "type": "string",
+          "enum": [
+            "clear",
+            "window"
+          ]
+        },
+        "scale": {
+          "description": "Scale factor for raster export. Defaults to 2.0. Ignored for svg/pdf. Mutually exclusive with width/height.",
+          "anyOf": [
+            {
+              "description": "Scale factor for raster export. Defaults to 2.0. Ignored for svg/pdf. Mutually exclusive with width/height.",
+              "type": "number"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "width": {
+          "description": "Target pixel width for raster export. If only width is provided, height is computed to maintain aspect ratio. Mutually exclusive with scale. Ignored for svg/pdf.",
+          "anyOf": [
+            {
+              "description": "Target pixel width for raster export. If only width is provided, height is computed to maintain aspect ratio. Mutually exclusive with scale. Ignored for svg/pdf.",
+              "type": "integer"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "height": {
+          "description": "Target pixel height for raster export. If only height is provided, width is computed to maintain aspect ratio. Mutually exclusive with scale. Ignored for svg/pdf.",
+          "anyOf": [
+            {
+              "description": "Target pixel height for raster export. If only height is provided, width is computed to maintain aspect ratio. Mutually exclusive with scale. Ignored for svg/pdf.",
+              "type": "integer"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "fitMode": {
+          "description": "How to fit content when both width and height are specified: \"fit\" (letterbox, default), \"fill\" (crop), \"stretch\" (ignore aspect ratio).",
+          "type": "string",
+          "enum": [
+            "fit",
+            "fill",
+            "stretch"
+          ]
+        },
+        "jpegQuality": {
+          "description": "JPEG quality 0-100. Defaults to 90. Only used when format is \"jpeg\".",
+          "anyOf": [
+            {
+              "description": "JPEG quality 0-100. Defaults to 90. Only used when format is \"jpeg\".",
+              "type": "number"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "webpQuality": {
+          "description": "WebP quality 0-100. Defaults to 90. Only used when format is \"webp\" and webpLossless is false.",
+          "anyOf": [
+            {
+              "description": "WebP quality 0-100. Defaults to 90. Only used when format is \"webp\" and webpLossless is false.",
+              "type": "number"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "webpLossless": {
+          "description": "When true, uses WebP lossless encoding (quality is ignored). Defaults to false. Only used when format is \"webp\".",
+          "anyOf": [
+            {
+              "description": "When true, uses WebP lossless encoding (quality is ignored). Defaults to false. Only used when format is \"webp\".",
+              "type": "boolean"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "videoQuality": {
+          "description": "mp4/mov: \"low\", \"medium\" or \"high\" (default high), the encoder bits per pixel per frame 0.04, 0.08 or 0.16 (VideoBitrate: 5, 10 or 20 Mbps at 1080p60, bounded 1 to 120 Mbps): a 29 s 1440x1440x60 clip asks about 20 Mbps at high, about 72 MB, half at medium, a quarter at low. The answer names the applied bitrate.",
+          "type": "string"
+        },
+        "videoMaxBytes": {
+          "description": "mp4/mov: a size target in bytes (a 16 MB cap is 16000000). The encoder takes the bitrate that fits it over the clip when that is under the quality's ask, so one export lands under it, no second pass. Subtract the audio you will mux yourself. The answer names the applied bitrate and notes an overshoot.",
+          "anyOf": [
+            {
+              "description": "mp4/mov: a size target in bytes (a 16 MB cap is 16000000). The encoder takes the bitrate that fits it over the clip when that is under the quality's ask, so one export lands under it, no second pass. Subtract the audio you will mux yourself. The answer names the applied bitrate and notes an overshoot.",
+              "type": "integer"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "outputPath": {
+          "description": "File path to write the exported data to. When provided, writes the file and returns a confirmation instead of inline data. Works with all formats.",
+          "type": "string"
+        },
+        "sequence": {
+          "description": "mp4/mov only: render a MOTION clip that tweens between STATE frames (Smart Animate: elements match across states by name). {states: [\"<frameId>\", ...] (2+ top-level frames on canvasId, in order), transitions: [{from: 0, to: 1, duration: 1.2, ease: \"out-expo\", delays: {\"<element name>\": 0.15}, hold: 0.5, trim: {\"<element name>\": [[0, 0], [0, 1]]}, clampToBeat: false} | {state: 1, hold: 0.8}, ...], hold: 2.0 (optional seconds after the last state), patches: [[t, [\"<blueprint modify line>\", ...]], ...] (optional, per frame time, by element id or #ref: modify lines, CREATE lines for transient elements (a trailing #ref names one for later lines, drawn above the state) and delete(#ref), each applied from its time on), frames: [a, b] (optional: render only frames a..b-1 of the timeline), camera: [{state: 0, rect: [x, y, w, h]} | {state: 1, fit: \"<element name>\", padding: 40}] (optional, the readback region follows the transition), motionBlur: 1..8 (optional sub-frames averaged per frame)}. Eases: linear, in, out, in-out, out-expo, spring, spring(damping, stiffness). A duration of 0 is a hard cut, a {state, hold} entry rests on that state, a delay shifts the element's run past the beat (clampToBeat: true compresses it), a spring keeps its velocity into the next transition, matched vectors of different node counts morph, rotation interpolates the angle, trim draws the stroke along the path (0..1). The length derives from the transitions plus the holds (cap 3600 frames), the size is the states' frame (`width` scales it). Writes the mp4, `<name>.contact.png` (24 sampled frames, 6x4, time-stamped) and `<name>.timing.json`, and answers with the paths, the frame count and the per-frame timing summary. The engine evaluates it (the table is spelled as a .bm, motion L3). frameHashes: true stamps every frame with a 64-bit hash in the timing JSON, dumpFrames: {dir, frames: [i, ...]} writes the exact PNG of those frames.",
+          "anyOf": [
+            {
+              "description": "mp4/mov only: render a MOTION clip that tweens between STATE frames (Smart Animate: elements match across states by name). {states: [\"<frameId>\", ...] (2+ top-level frames on canvasId, in order), transitions: [{from: 0, to: 1, duration: 1.2, ease: \"out-expo\", delays: {\"<element name>\": 0.15}, hold: 0.5, trim: {\"<element name>\": [[0, 0], [0, 1]]}, clampToBeat: false} | {state: 1, hold: 0.8}, ...], hold: 2.0 (optional seconds after the last state), patches: [[t, [\"<blueprint modify line>\", ...]], ...] (optional, per frame time, by element id or #ref: modify lines, CREATE lines for transient elements (a trailing #ref names one for later lines, drawn above the state) and delete(#ref), each applied from its time on), frames: [a, b] (optional: render only frames a..b-1 of the timeline), camera: [{state: 0, rect: [x, y, w, h]} | {state: 1, fit: \"<element name>\", padding: 40}] (optional, the readback region follows the transition), motionBlur: 1..8 (optional sub-frames averaged per frame)}. Eases: linear, in, out, in-out, out-expo, spring, spring(damping, stiffness). A duration of 0 is a hard cut, a {state, hold} entry rests on that state, a delay shifts the element's run past the beat (clampToBeat: true compresses it), a spring keeps its velocity into the next transition, matched vectors of different node counts morph, rotation interpolates the angle, trim draws the stroke along the path (0..1). The length derives from the transitions plus the holds (cap 3600 frames), the size is the states' frame (`width` scales it). Writes the mp4, `<name>.contact.png` (24 sampled frames, 6x4, time-stamped) and `<name>.timing.json`, and answers with the paths, the frame count and the per-frame timing summary. The engine evaluates it (the table is spelled as a .bm, motion L3). frameHashes: true stamps every frame with a 64-bit hash in the timing JSON, dumpFrames: {dir, frames: [i, ...]} writes the exact PNG of those frames.",
+              "type": "object"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "motion": {
+          "description": "mp4/mov only: render a `.bm` motion document through the engine evaluator (knowledge `motion/authoring`). Pass the .bm text as a string, `true` for the canvas's own `<name>.bm` beside it (written by bm_file), or an object {bm: \"<text>\" | file: true, patches: [[t, [lines]], ...], frames: [a, b], motionBlur: 1..8, frameHashes: true, dumpFrames: {dir, frames}}. `fps` defaults to the file's header. One of `motion` and `sequence`.",
+          "anyOf": [
+            {
+              "type": "object"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "sessionId": {
+          "description": "Session ID for per-session visual feedback. Optional.",
+          "type": "string"
+        },
+        "project": {
+          "description": "Optional: run THIS call against a project other than the session's bound one, a name or key from list_projects (or an unambiguous name/handle substring). Unknown/ambiguous is refused with candidates.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "canvasId"
+      ]
+    },
+    "lookup": {
+      "type": "object",
+      "properties": {
+        "scope": {
+          "description": "Where to look: list of canvas paths (e.g. \"Projects/Dashboard\"), element IDs (16-hex), and/or session refs (`#card`). Omit to search all canvases. A canvas path beside element IDs on that canvas locates them, so the scope is those subtrees; a canvas path alone is the whole canvas.",
+          "anyOf": [
+            {
+              "description": "Where to look: list of canvas paths (e.g. \"Projects/Dashboard\"), element IDs (16-hex), and/or session refs (`#card`). Omit to search all canvases. A canvas path beside element IDs on that canvas locates them, so the scope is those subtrees; a canvas path alone is the whole canvas.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "ids": {
+          "description": "Element IDs (or #refs) to read, the same as listing them in `scope`. `elementIds` is accepted as an alias.",
+          "anyOf": [
+            {
+              "description": "Element IDs (or #refs) to read, the same as listing them in `scope`. `elementIds` is accepted as an alias.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "query": {
+          "description": "Case-insensitive substring match on element name AND canvas path. Element matches land in `results`; canvas matches land in `canvases` (path + topLevelCount when loaded). Canvas matching only runs when no explicit `scope` is given.",
+          "type": "string"
+        },
+        "textContent": {
+          "description": "Case-insensitive substring match on text element content.",
+          "type": "string"
+        },
+        "type": {
+          "description": "Filter by element type. One of: vector, line, circle, rectangle, text, parent. Note: a cold-reload `type:text` lookup can undercount text derived inside compressed component instances (their children materialize only after sync); this is a read artifact, the blueprint and stored bytes are authoritative.",
+          "type": "string"
+        },
+        "fillColor": {
+          "description": "Find elements with a fill matching this hex color (e.g. \"#FFCC00\" for yellow). Perceptual color matching — close shades are included.",
+          "type": "string"
+        },
+        "componentName": {
+          "description": "Find instances of a component whose master name contains this substring (case-insensitive).",
+          "type": "string"
+        },
+        "format": {
+          "description": "Output shape per match. \"summary\" (default) returns compact metadata (id, name, type, parentId, parentName, childCount, text snippet). \"skeleton\" adds the design-system tokenRefs the element uses and OMITS geometry (position/size/vector nodes); the cheap shape for a tiny property edit (find the id + which token to change). \"blueprint\" returns the full blueprint text (with geometry) including descendants up to `depth`.",
+          "type": "string",
+          "enum": [
+            "summary",
+            "skeleton",
+            "blueprint"
+          ]
+        },
+        "depth": {
+          "description": "Subtree depth to include in blueprint output. 0 = matched element only, 1 = + immediate children, etc. Omit for unlimited. Only meaningful when format=\"blueprint\".",
+          "anyOf": [
+            {
+              "description": "Subtree depth to include in blueprint output. 0 = matched element only, 1 = + immediate children, etc. Omit for unlimited. Only meaningful when format=\"blueprint\".",
+              "type": "integer"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "expandInstances": {
+          "description": "READ-ONLY. When true (with format=\"blueprint\"), a component instance is not collapsed to its compact inst() line: its derived children are shown as full lines with their REAL ids so you can inspect and target them (via lookup/execute_commands). Those children are managed by the master and are read-only: do not re-create them; edit them with override(...) on the instance. Default false (the compact inst() form). Bounded by `depth` like any subtree.",
+          "anyOf": [
+            {
+              "description": "READ-ONLY. When true (with format=\"blueprint\"), a component instance is not collapsed to its compact inst() line: its derived children are shown as full lines with their REAL ids so you can inspect and target them (via lookup/execute_commands). Those children are managed by the master and are read-only: do not re-create them; edit them with override(...) on the instance. Default false (the compact inst() form). Bounded by `depth` like any subtree.",
+              "type": "boolean"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "full": {
+          "description": "READ-ONLY. When true (with format=\"blueprint\"), return the COMPLETE vector geometry even for a large path. Default false: a vector whose blueprint would blow the per-readback token budget is summarized to node count + bounds + this flag as its continuation door (a one-line note names what was elided). Set true to inspect the full node/edge graph of one big vector; scope it to that element to keep the readback bounded.",
+          "anyOf": [
+            {
+              "description": "READ-ONLY. When true (with format=\"blueprint\"), return the COMPLETE vector geometry even for a large path. Default false: a vector whose blueprint would blow the per-readback token budget is summarized to node count + bounds + this flag as its continuation door (a one-line note names what was elided). Set true to inspect the full node/edge graph of one big vector; scope it to that element to keep the readback bounded.",
+              "type": "boolean"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "limit": {
+          "description": "Max top-level matches across all canvases. Defaults to 50. Always applies — even with explicit element IDs in scope.",
+          "anyOf": [
+            {
+              "description": "Max top-level matches across all canvases. Defaults to 50. Always applies — even with explicit element IDs in scope.",
+              "type": "integer"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "sessionId": {
+          "description": "Session ID for ref resolution. Optional.",
+          "type": "string"
+        },
+        "project": {
+          "description": "Optional: run THIS call against a project other than the session's bound one, a name or key from list_projects (or an unambiguous name/handle substring). Unknown/ambiguous is refused with candidates.",
+          "type": "string"
+        }
+      }
+    },
+    "list_projects": {
+      "type": "object",
+      "properties": {}
+    },
+    "init": {
+      "type": "object",
+      "properties": {
+        "agentName": {
+          "description": "Optional short display name (2-3 words) for this agent's canvas cursor. Clipped to 32 characters.",
+          "type": "string"
+        },
+        "vision": {
+          "description": "Whether this client can READ inline images (default true). Set false if you cannot see images: preview requests (`previewRows` / `previewIds`) then return a compact TEXTUAL render summary: each element's bounds in parent and world space, layout/overflow checks, and a fill/text one-liner, in place of the inline PNG, so you can verify your write landed without seeing it.",
+          "anyOf": [
+            {
+              "description": "Whether this client can READ inline images (default true). Set false if you cannot see images: preview requests (`previewRows` / `previewIds`) then return a compact TEXTUAL render summary: each element's bounds in parent and world space, layout/overflow checks, and a fill/text one-liner, in place of the inline PNG, so you can verify your write landed without seeing it.",
+              "type": "boolean"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "project": {
+          "description": "Optional project to bind this session to: an exact name or key from `list_projects`, or an unambiguous name/handle substring. Defaults to the project currently on screen. An ambiguous or unknown value is refused with the candidates listed.",
+          "type": "string"
+        }
+      }
+    }
+  }
+}

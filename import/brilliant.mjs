@@ -567,8 +567,9 @@ const readLine = (line) => {
   });
 };
 
-// Indentation → depth → parent. Two spaces per level; the `lookup { … }` provenance line and any
-// whole-line `#` comment (fixture 1 line 3 is a read-only note Brilliant emits) are not nodes.
+// Indentation → depth → parent. Two spaces per level; the `lookup { … }` provenance line, any
+// whole-line `#` comment (fixture 1 line 3 is a read-only note Brilliant emits) and an indented
+// annotation line with no element id (`  spans[…]`, #311 PR B) are not nodes.
 const parseTree = (blueprintText) => {
   const roots = [];
   const stack = [];                                           // stack[d] = the node at depth d
@@ -588,6 +589,18 @@ const parseTree = (blueprintText) => {
     if (depth > stack.length) throw new Error(stack.length === 0
       ? `line ${i + 1}: the first content line is indented to depth ${depth} — a blueprint's first node sits at depth 0 — in: ${raw.trim()}`
       : `line ${i + 1}: indent jumps from depth ${stack.length - 1} to ${depth} — in: ${raw.trim()}`);
+    // AN INDENTED LINE THAT DOES NOT START WITH AN ELEMENT ID IS AN ANNOTATION of the node it sits
+    // under, not a child (#311 PR B): the live read's `  spans[(0,3,#CFD5E1)]` (import/fixtures/
+    // brilliant-live/lookup-blueprint-two.json) otherwise became a phantom frame whose "id" reached
+    // source.ids. It is recorded on that parent as a never-read row, and `stack` is left alone so the
+    // next element line's depth arithmetic is unaffected. The id rule is sniffDrop's (16 hex).
+    // KNOWN, OUT OF SCOPE: a depth-0 non-id line still reads as a node.
+    const head = raw.trim().split(/\s+/)[0];
+    if (depth > 0 && !/^[0-9a-f]{16}$/.test(head)) {
+      const slot = head.split(/[[(]/)[0] || head;
+      stack[depth - 1].drops.push(drop({ kind: "unread-atom", slot, value: raw.trim(), reason: `annotation line "${slot}" has no reader — read but not understood` }));
+      continue;
+    }
     const node = readLine(raw);
     if (depth === 0) roots.push(node); else stack[depth - 1].children.push(node);
     stack.length = depth;

@@ -1,0 +1,27 @@
+{
+  "tool": "mcp__brilliant__lookup",
+  "input": {
+    "scope": "[\"630fe03901352c90\"]",
+    "format": "blueprint",
+    "expandInstances": "true"
+  },
+  "ms": 8756,
+  "hookKeys": [
+    "session_id",
+    "transcript_path",
+    "cwd",
+    "permission_mode",
+    "hook_event_name",
+    "tool_name",
+    "tool_input",
+    "tool_response",
+    "tool_use_id"
+  ],
+  "responseType": "array",
+  "response": [
+    {
+      "type": "text",
+      "text": "{\"totalMatches\":1,\"returnedCount\":1,\"searchedCanvases\":1,\"results\":[{\"canvasId\":\"playground\",\"matchCount\":1,\"returnedCount\":1,\"elementIds\":[\"630fe03901352c90\"],\"blueprint\":\"630fe03901352c90 r p(910,351) s(395,201) f[(9df0cbadf986e307,#000000)] \\\"Rectangle 1\\\"\"}]}"
+    }
+  ]
+}

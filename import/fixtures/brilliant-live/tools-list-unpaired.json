@@ -1,0 +1,8 @@
+{
+  "jsonrpc": "2.0",
+  "id": 2,
+  "error": {
+    "code": -32000,
+    "message": "No Brilliant surface is connected yet. A browser tab to brilliant.design should have opened — grant the one-time local-connection prompt and click Connect, or open the Brilliant desktop app. Then retry."
+  }
+}

@@ -58,7 +58,7 @@ The live canvas is a portal page, `portal/public/canvas.html`: a module page tha
 server already has. The SPA lists runs and links to it; `portal.js` stays a classic script. Agents run
 server-side through the SDK. The compose loop is discovery's approach C one layer up (the server
 sequences, one screen per turn, the op is the only write path); the import run reads Brilliant through
-`mcpServers`, converts in Node, and lands a proposal, never a component.
+a direct stdio client (no model; Addendum 2026-09-27), converts in Node, and lands a proposal, never a component.
 
 The run package is `discovery/<slug>/build/`: `ops.jsonl` is the truth, `canvas.json` is the arrangement,
 and `groups/`, `proposals/`, `imports/` and the generated handoff sit beside them.
@@ -183,9 +183,9 @@ variant  {key, overrides: {frameId: override}}
 - **The bus stays the only drive contract.** Pointer, keyboard and the agent all reach the applier through
   it; the replay driver still emits `agent.*`, the owner's verbs `ui.*`, with honest `source` values.
 - **The op is the agent's only write path**, discovery's posture carried over. `Write` and `Edit` are
-  denied; `Read` is the run package, `vocabulary.json` and the brief; the Brilliant MCP is allowed on
-  import runs only, through `mcpServers` passed explicitly (spike C: the SDK does not read
-  `~/.claude.json`); `WebSearch`/`WebFetch` are closed here, since nothing in a build turn needs the
+  denied; `Read` is the run package, `vocabulary.json` and the brief; the import run is not an agent
+  run: `portal/lib/brilliant-mcp.mjs` speaks the MCP stdio protocol directly and its `call()` allows the
+  four read tools by name (Addendum 2026-09-27); `WebSearch`/`WebFetch` are closed here, since nothing in a build turn needs the
   internet. One fence predicate, called from `canUseTool` and a fail-closed `PreToolUse` hook.
 - **The compose loop is server-sequenced, resume-per-turn.** One turn proposes one screen (G13): the
   agent emits a `screen.compose` validated against the vocabulary, recorded with `status: proposed`, and
@@ -206,7 +206,7 @@ variant  {key, overrides: {frameId: override}}
   under `system/` or `handoff/`, so the diff it shows is exactly its own writes. Nothing is committed on
   the owner's behalf. `withRunLock` applies: one ratify, one compose turn or one import at a time.
 - **The import is a recorded run, server-side.** "Import selection" asks Brilliant for `get_selection`
-  through the SDK run and reads the ids; "Browse the page" loads the canvas's elements on demand and
+  through a direct stdio client, with no model, and reads the ids; "Browse the page" loads the canvas's elements on demand and
   caches them for the session; both hand the same ids to `import/brilliant.mjs`. Not reachable → the
   visible refusal naming what failed and the one fixing action, with the drop zone beneath it that accepts
   a hand-exported blueprint file (G29). The Figma entrance is a file from the house plugin, dropped on the
@@ -401,3 +401,14 @@ board-first vs a second canvas), one on the four calls that change the slicing (
 mount, the override shape, the Figma source), with T1–T16 taken as named calls and T10 deferred on
 evidence. Next: slice with `piv-slice-epic` (feed this doc + the PRD), running S1 before the swap PR and
 S6 before the compose loop is planned.*
+
+## Addendum 2026-09-27: the import read is a direct stdio client
+
+The owner's call on #311 PR B (`.claude/plans/import-run-live-read-311-pr-b.md`), after the Phase 0 probe
+(`.claude/plans/import-run-live-read-311-probe/README.md`). Three SDK observations decided it: an unpaired tab
+is indistinguishable from "no workspace" (init ~62 s, zero tools); the hook strips `_meta`, so the binding line
+can never name the project; and the tool list is frozen at init, so a tab paired mid-run needs a new run. The
+Brilliant MCP is a local stdio router that needs no model, so `portal/lib/brilliant-mcp.mjs` speaks
+newline-delimited JSON-RPC to it with node built-ins, for $0 per import, and the fence moves from two SDK sites
+to the client's one `call()` site. What it does not change: every other agent run (compose, discovery,
+proposals, composition) stays on the SDK, and the op is still the only write path.

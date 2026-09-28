@@ -1,0 +1,15 @@
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "protocolVersion": "2025-06-18",
+    "capabilities": {
+      "tools": {}
+    },
+    "serverInfo": {
+      "name": "brilliant",
+      "version": "2025-06-18"
+    },
+    "instructions": "Brilliant is not connected yet. To drive a design, open your workspace at https://brilliant.design in Chrome, Edge or Firefox (a tab will open on your first tool call), or launch the Brilliant desktop app. Then call tools/list again."
+  }
+}

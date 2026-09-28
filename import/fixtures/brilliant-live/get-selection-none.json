@@ -1,0 +1,25 @@
+{
+  "jsonrpc": "2.0",
+  "id": 4,
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"canvasId\":\"playground\",\"count\":0,\"selectedIds\":[],\"blueprint\":\"\"}"
+      }
+    ],
+    "_meta": {
+      "brilliant": {
+        "project": {
+          "handle": "",
+          "name": "",
+          "title": ""
+        },
+        "tabId": "tab-222a9bd0-eade-49a3-a33b-de0c8e409d4b",
+        "viewOnly": false,
+        "surface": "web",
+        "otherTabs": []
+      }
+    }
+  }
+}
