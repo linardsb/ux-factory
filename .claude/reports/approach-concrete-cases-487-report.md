@@ -10,7 +10,7 @@ as links at rest. The three approach VR baselines are regenerated. No term, id o
 
 ## Tasks completed
 - Task 1 → branch `docs/approach-concrete-cases-487` from `origin/main` @ `944ad01`, in a sibling worktree (see Deviations)
-- Task 2 → `approach.html` (UPDATE, +13 lines) — commit `4675642`
+- Task 2 → `approach.html` (UPDATE, +13 lines in `4675642`; +19 in total after `be6f6c0`, observed via `git diff --stat origin/main -- approach.html`)
 - Task 3 → `system/loc-summary.json` verified unchanged (no file touched)
 - Task 4 → `tooling/visual-regression/baselines/approach-{neutral,saulera,verdant}.png` (UPDATE) — commit `bf76825`, regenerated again in `8e10822` after the link rule
 - (added) link underline rule in `approach.html`'s page `<style>` — commit `be6f6c0` (see Deviations)
