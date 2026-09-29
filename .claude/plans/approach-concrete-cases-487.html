@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Concrete cases brief</title>
+<style>
+  :root { --bg:#fbfaf8; --fg:#1d1d1b; --muted:#66625b; --line:#e3dfd8; --accent:#2f6b57; --card:#fff; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#161615; --fg:#ecebe7; --muted:#a39f97; --line:#34322e; --accent:#7fc0a6; --card:#1f1f1d; } }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, sans-serif; }
+  main { max-width:720px; margin:0 auto; padding:32px 16px 64px; }
+  h1 { font-size:26px; margin:0 0 8px; } h2 { font-size:18px; margin:36px 0 10px; }
+  .kicker, .muted { color:var(--muted); } .kicker { font-size:14px; }
+  .concept { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:14px 16px; margin:12px 0; }
+  .concept h3 { margin:0 0 6px; font-size:16px; }
+  pre { background:var(--card); border:1px solid var(--line); border-radius:6px; padding:12px; overflow-x:auto; font-size:13px; }
+  .flow { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  .box { border:1px solid var(--accent); border-radius:6px; padding:8px 10px; font-size:14px; background:var(--card); }
+  .arrow { color:var(--muted); }
+  ul.plain { list-style:none; padding:0; } ul.plain li { padding:6px 0; border-bottom:1px solid var(--line); }
+  ul.prompts { list-style:none; padding:0; }
+  ul.prompts li { display:flex; justify-content:space-between; gap:12px; padding:8px 0; border-bottom:1px solid var(--line); }
+  a { color:var(--accent); }
+  .copy { opacity:.35; border:0; background:none; color:inherit; cursor:pointer; font-size:15px; line-height:1 }
+  .copy:hover, .copy:focus-visible { opacity:1 }
+  .copy::before { content:'⧉' } .copy.copied::before { content:'✓' }
+</style>
+</head>
+<body>
+<main>
+<p class="kicker">Build brief for #487. Full plan: <a href="approach-concrete-cases-487.md">approach-concrete-cases-487.md</a></p>
+<h1>Why the demos are narrow</h1>
+
+<h2>What we're building and why</h2>
+<p>The approach page never says why each demo covers one person and one screen. After this, one paragraph gives the reason and says what each demo leaves out.</p>
+
+<h2>The concepts</h2>
+<div class="concept">
+  <h3>Start with concrete cases</h3>
+  <p>Build for a few real situations first, and generalise later. Every extra "what if" multiplies the work. The paragraph names this idea, from Ryan Singer, as the reason.</p>
+  <pre>v1:  one owner, one screen      → works
+v2:  generalise from what worked</pre>
+</div>
+<div class="concept">
+  <h3>Citing without borrowing authority</h3>
+  <p>We say the site follows his advice. We never say he approves of the site. The first is honest attribution; the second would be an endorsement nobody gave.</p>
+</div>
+<div class="concept">
+  <h3>Visual regression baselines</h3>
+  <p>Saved screenshots (baselines) of each page that CI compares against every change. New words change the picture, so the three approach screenshots must be retaken in the same change.</p>
+</div>
+
+<h2>How the pieces fit</h2>
+<div class="flow">
+  <span class="box">Scenario records</span><span class="arrow">→</span>
+  <span class="box">One paragraph on approach</span><span class="arrow">→</span>
+  <span class="box">Line-count check</span><span class="arrow">→</span>
+  <span class="box">New screenshots</span><span class="arrow">→</span>
+  <span class="box">CI green</span>
+</div>
+
+<h2>The plan at a glance</h2>
+<ul class="plain">
+  <li>1. Branch from main.</li>
+  <li>2. Add the paragraph, every fact copied from a scenario file (after 1).</li>
+  <li>3. Confirm the line counts don't move (after 2).</li>
+  <li>4. Retake the three approach screenshots (after 2).</li>
+  <li>5. Run the CI checks (after 3 and 4).</li>
+</ul>
+<pre>approach.html                         # + one paragraph under the method cards
+tooling/visual-regression/baselines/
+  approach-neutral.png                # retaken
+  approach-saulera.png                # retaken
+  approach-verdant.png                # retaken</pre>
+<ul class="plain">
+  <li>The paragraph gives the reason and names the source.</li>
+  <li>The three approach screenshots are retaken in the same PR.</li>
+  <li>The line-count summary still matches.</li>
+  <li>CI checks pass; the PR closes #487.</li>
+</ul>
+
+<h2>Go deeper</h2>
+<ul class="prompts">
+  <li data-prompt="/learn start with concrete cases before generalising"><span><b>/learn start with concrete cases before generalising</b></span><button class="copy" aria-label="Copy prompt"></button></li>
+  <li data-prompt="/learn attribution versus endorsement in portfolio copy"><span><b>/learn attribution versus endorsement in portfolio copy</b></span><button class="copy" aria-label="Copy prompt"></button></li>
+  <li data-prompt="/learn visual regression baselines"><span><b>/learn visual regression baselines</b></span><button class="copy" aria-label="Copy prompt"></button></li>
+</ul>
+</main>
+<script>
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.copy')
+  if (!btn) return
+  const text = btn.closest('[data-prompt]').dataset.prompt
+  try {
+    await navigator.clipboard.writeText(text)
+  } catch {
+    const ta = Object.assign(document.createElement('textarea'), { value: text })
+    ta.style.cssText = 'position:fixed;opacity:0'
+    document.body.append(ta)
+    ta.select()
+    document.execCommand('copy')
+    ta.remove()
+  }
+  btn.classList.add('copied')
+  setTimeout(() => btn.classList.remove('copied'), 1200)
+})
+</script>
+</body>
+</html>
