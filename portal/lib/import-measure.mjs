@@ -5,7 +5,7 @@
 // import/fidelity.mjs's rung 6 (epic #295 ticket #474; docs/epics/canvas-design-import.architecture.md
 // § Data model "The import record"; .claude/plans/import-live-fidelity-474.md D1–D8).
 //
-// INVARIANTS — each one is asserted by build-checks group 43 (43.1, 43.15), not assumed:
+// INVARIANTS — each one is asserted by build-checks group 43 (43.1, 43.16), not assumed:
 //   1. THE CHILD RENDERS, THIS MODULE MEASURES AND WRITES (D8). Playwright is never imported here,
 //      statically or lazily — the renderer is a spawned `node` process, so the portal's dependencies stay
 //      the Agent SDK and zod, and group 43 imports this module in CI with no portal/node_modules (D1).
