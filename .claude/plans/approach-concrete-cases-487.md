@@ -303,3 +303,7 @@ the method grid reads as the method's footnote on scope.
 - **2026-09-29 (implementation) — Task 2 sources, Faster Payment.** Seq 23 (`prd.md:363-366`) supports only the
   international/business refusal. "New payee ... from the app" traces to `prd.md:13`; "UK" to `prd.md:66` and
   `:150-152` (Confirmation of Payee, Pay.UK, UK data centres).
+- **2026-09-29 (implementation) — "No new CSS", plan error.** The global `a` reset (`system/components.css:38`)
+  leaves the paragraph's links with no at-rest signal, which fails the portfolio-design CHECKLIST MUST on
+  colour/hover-only information. Added one page-scoped rule, `#method .max-prose a` underline, and regenerated the
+  three approach baselines again.
