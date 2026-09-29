@@ -367,8 +367,12 @@ const ledgerLength = (buildRoot) => (existsSync(join(buildRoot, OPS_FILE)) ? rea
 export function saveConflict(buildRoot, base) {
   const have = ledgerLength(buildRoot);
   return base === have ? null
-    : `the ledger holds ${have} lines and this page last saw ${JSON.stringify(base)} — another tab or process saved in between. Reload to continue.`;
+    : `the ledger holds ${have} lines and this page last saw ${JSON.stringify(base)} — ${CONFLICT_MARK}. Reload to continue.`;
 }
+const CONFLICT_MARK = "another tab or process saved in between";
+// isSaveConflict(message) — true for saveConflict's own message, so a caller that meets it as a thrown
+// Error (the compose turn's in-lock check) answers the same 409 the route's own check does.
+export const isSaveConflict = (message) => String(message ?? "").includes(CONFLICT_MARK);
 
 // ---- #312: the compose loop's lines ---------------------------------------------------------------
 
@@ -401,6 +405,9 @@ function checkVerdict(existing, batch, i) {
 // writer of ops.jsonl. Synchronous, like saveRun; no base: the session holds the run lock for the
 // whole turn and the page holds its saves during its own turn, so the line lands at the current length
 // and the page adopts the returned count. Neither status enters the fold, so canvas.json is untouched.
+// A REFUSED line carries no params (PR #485 review F2): they are model-written and failed a check, so
+// verifyBuild could redden on them (a prop named x) with no repair, since the ledger is append-only. The
+// transcript's op line at the same seq keeps the args verbatim.
 export function appendAgentLine(pkgRoot, { op, params, status } = {}, { now = () => new Date().toISOString() } = {}) {
   const buildRoot = join(pkgRoot, "build");
   const opsPath = join(buildRoot, OPS_FILE);
@@ -417,7 +424,7 @@ export function appendAgentLine(pkgRoot, { op, params, status } = {}, { now = ()
     try { applyOp(foldLedger(existing).doc, { op, params }); }
     catch (e) { throw new Error(`appendAgentLine: ${e.message}`); }
   }
-  const line = { seq: existing.length + 1, at: now(), source: "agent", op, params, status };
+  const line = { seq: existing.length + 1, at: now(), source: "agent", op, ...(status === "proposed" && { params }), status };
   mkdirSync(buildRoot, { recursive: true });
   appendFileSync(opsPath, `${JSON.stringify(line)}\n`);
   return { seq: line.seq, count: line.seq };

@@ -28,7 +28,7 @@ import { checkProposalLines, projectProposals, proposalsView, readProposalPackag
 import { BOOT_SHA, headSha, isStale } from './lib/version.mjs';
 // The build package (#306): the run list, one run, and the append-only save. Node built-ins plus the
 // SDK-free canvas-ops.mjs, pinned by build-checks group 36.6.
-import { foldLedger, listBuilds, loadBuild, loadDecisions, loadExhibits, provenanceLabel, saveConflict, saveRun } from './lib/canvas-store.mjs';
+import { foldLedger, isSaveConflict, listBuilds, loadBuild, loadDecisions, loadExhibits, provenanceLabel, saveConflict, saveRun } from './lib/canvas-store.mjs';
 // The compose loop (#312). SDK-free and zod-free (build-checks 47.1): the transport is a lazy import
 // inside runComposeTurn, after every guard and inside the run lock.
 import { checkComposeRequest, composeRefusal, composeView, runComposeTurn } from './lib/canvas-session.mjs';
@@ -476,6 +476,9 @@ const server = createServer(async (req, res) => {
       try {
         return json(res, 200, await runComposeTurn({ pkgRoot: root, base: b.base, ask: b.ask, brief: b.brief ?? null }));
       } catch (e) {
+        // A save that lands between this route's check and the turn's lock is the same 409, never a 500
+        // the page would read as "The turn failed" (PR #485 review F8).
+        if (isSaveConflict(e.message)) return json(res, 409, { error: e.message });
         const refused = composeRefusal(e.message);
         if (refused) return json(res, 200, { refused });
         throw e;
@@ -576,4 +579,6 @@ server.listen(PORT, '127.0.0.1', () => {
   console.log(`kb: ${JOBS_DIR}`);
   console.log(`chat auth: ${HAS_TOKEN ? 'token from .env' : 'no token — falling back to the CLI login on this Mac'}`);
   console.log(`booted from: ${BOOT_SHA ? BOOT_SHA.slice(0, 7) : 'unknown (not a git checkout)'}`);
+  // PR #485 review F7: the env seam loads any module it names, so its use is never silent.
+  if (process.env.UXF_COMPOSE_TRANSPORT) console.log(`compose transport: OVERRIDDEN by UXF_COMPOSE_TRANSPORT → ${process.env.UXF_COMPOSE_TRANSPORT} (the journey's fake; never set this for a real run)`);
 });

@@ -620,6 +620,10 @@ async function askTurn(ask) {
       composeNote = `The turn failed: ${body.error || res.statusText}`;
     } else if (body.refused) {
       composeNote = `Refused: ${body.refused.message}`;
+    } else if (body.count !== count + body.added) {
+      // PR #485 review F4: another tab saved during the turn, so this page never saw every line.
+      broken = true;
+      setSave(`Not saved — the ledger holds ${body.count} lines and this page saw ${count} plus the turn's ${body.added}; another tab or process saved in between. Reload to continue.`);
     } else {
       count = body.count;
       compose = body.view;

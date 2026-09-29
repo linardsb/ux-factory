@@ -14,7 +14,8 @@
 //      second one. Build-checks 47.1 pins both halves.
 //   2. DISK IS AUTHORITATIVE. The document is folded from build/ops.jsonl at every handler call, and
 //      the session id is the LAST `init` line's in build/transcript.jsonl — never run.json's, which is
-//      the discovery session's. A portal restart between turns resumes the same SDK session.
+//      the discovery session's. A portal restart between turns resumes the same SDK session; a
+//      `session-reset` line after that init (a resume that failed before its init) starts a fresh one.
 //   3. ONE OPEN PROPOSAL AND ONE CALL PER TURN, IN CODE. LOOP tells the agent "one screen per turn";
 //      openProposals refuses a turn while one waits for a verdict, and fileProposal refuses a second
 //      call in the same turn. The sentence is made true by the handler, never trusted.
@@ -81,13 +82,14 @@ export const VOCAB_PATH = path.join(REPO_DIR, "handoff/verdant/vocabulary.json")
 const sha16 = (s) => createHash("sha256").update(s).digest("hex").slice(0, 16);
 
 // The env the CLI child runs under (canvas-transport.mjs passes it as query()'s `env`): this process's,
-// minus ANTHROPIC_API_KEY. The SDK builds the child's env as `{ ...options.env ?? process.env }`, so a
-// key exported in the shell sent probe run 1 to an unfunded API account; without it the CLI's own
-// subscription login applies (CLAUDE_CODE_OAUTH_TOKEN passes through when set). Here rather than in the
-// transport so group 47 can drive it in CI. A copy; process.env is never mutated.
+// minus every ANTHROPIC_* and CLAUDE_CODE_USE_* name. The SDK builds the child's env as
+// `{ ...options.env ?? process.env }`, so a key exported in the shell sent probe run 1 to an unfunded API
+// account; ANTHROPIC_AUTH_TOKEN, ANTHROPIC_BASE_URL and CLAUDE_CODE_USE_BEDROCK/VERTEX/FOUNDRY redirect
+// billing the same way (PR #485 review F1). Without them the CLI's own subscription login applies
+// (CLAUDE_CODE_OAUTH_TOKEN passes through when set). Here rather than in the transport so group 47 can
+// drive it in CI. A copy; process.env is never mutated.
 export function subscriptionEnv(env = process.env) {
-  const { ANTHROPIC_API_KEY, ...rest } = env;
-  return rest;
+  return Object.fromEntries(Object.entries(env).filter(([k]) => !k.startsWith("ANTHROPIC_") && !k.startsWith("CLAUDE_CODE_USE_")));
 }
 
 // driver.txt:69-87, verbatim: one block per component in the file's key order. Generated at every
@@ -176,9 +178,11 @@ export const refusedLine = ({ turn, kind, seq = null, error = null, text = null 
   return { type: "refused", turn, kind, ...(seq !== null && { seq }), ...(error !== null && { error }), ...(text !== null && { text }) };
 };
 export const statsLine = ({ turn, ...stats }) => ({ type: "stats", turn, ...stats });
+export const sessionResetLine = ({ turn, sessionId, error }) => ({ type: "session-reset", turn, sessionId, error: error ?? null });
 
 const nextTurnId = (lines) => `c${1 + lines.filter((l) => l?.type === "turn").length}`;
-const lastSessionId = (lines) => lines.filter((l) => l?.type === "init" && typeof l.sessionId === "string").at(-1)?.sessionId ?? null;
+// The last `init` line's session id, unless a `session-reset` line came after it (PR #485 review F5).
+export const lastSessionId = (lines) => lines.reduce((id, l) => (l?.type === "init" && typeof l.sessionId === "string" ? l.sessionId : l?.type === "session-reset" ? null : id), null);
 
 // ---- the fence -------------------------------------------------------------------------------------
 
@@ -428,6 +432,15 @@ export async function runComposeTurn({ pkgRoot, base, ask, brief = null, transpo
       if (!miss?.missing.includes(ask.stateKey)) throw new Error(`canvas-session: ${ask.baseId} is not missing its ${ask.stateKey} state — the ask names a base screen and a state missingStates lists for it`);
     }
 
+    // Loaded BEFORE the first append (PR #485 review F6): a transport that refuses this package (the fake's
+    // scratch-only guard, `assertCwd`) refuses before the turn's owner lines are on disk.
+    let composeQuery = transport;
+    if (!composeQuery) {
+      const mod = await loadTransport();
+      mod.assertCwd?.(buildRoot);
+      composeQuery = mod.composeQuery;
+    }
+
     const before = readComposeTranscript(pkgRoot);
     const turn = nextTurnId(before);
     const resume = lastSessionId(before);
@@ -445,7 +458,6 @@ export async function runComposeTurn({ pkgRoot, base, ask, brief = null, transpo
     let stats = null;
     let error = null;
     try {
-      const composeQuery = transport ?? (await loadTransport()).composeQuery;
       const out = await composeQuery({
         systemPrompt: buildSystemPrompt({ vocab, vocabSha, prd }),
         prompt: turnPrompt({ doc, ask, brief }),
@@ -465,6 +477,13 @@ export async function runComposeTurn({ pkgRoot, base, ask, brief = null, transpo
     }
     const lines = readComposeTranscript(pkgRoot).filter((l) => l.turn === turn);
     const outcome = classifyComposeTurn(lines, stats ?? { ok: false });
+    // A resumed turn that failed before any init line: the SDK session is taken to be gone (expected, not
+    // observed: a resume the CLI cannot find fails before its init message). The next turn starts a
+    // fresh session rather than failing on the same id forever (PR #485 review F5). A reset costs the
+    // agent its conversation memory, never the document: every prompt carries the folded doc.
+    if (resume && outcome === "failed" && !lines.some((l) => l.type === "init")) {
+      appendComposeLine(pkgRoot, sessionResetLine({ turn, sessionId: resume, error }));
+    }
     if (outcome === "escape") {
       const text = lines.find((l) => l.type === "text" && l.source === "agent" && ESCAPE_RE.test(l.text)).text;
       appendComposeLine(pkgRoot, refusedLine({ turn, kind: "not-covered", text }));
@@ -473,7 +492,10 @@ export async function runComposeTurn({ pkgRoot, base, ask, brief = null, transpo
       turn, ...(stats ?? {}), maxTurns: MAX_TURNS, outcome, ...(error !== null && { error }),
       promptFingerprint: promptFingerprint(), vocabSha, model: MODEL,
     }));
-    return { count: loadBuild(buildRoot)?.ops.length ?? 0, outcome, view: composeView(pkgRoot) };
+    // `added` is the ledger lines THIS turn wrote (each op line with a seq). The page checks
+    // count === its base + added; anything else means another tab saved during the turn (PR #485 review F4).
+    const added = lines.filter((l) => l.type === "op" && l.seq !== null).length;
+    return { count: loadBuild(buildRoot)?.ops.length ?? 0, added, outcome, view: composeView(pkgRoot) };
   }, "a compose turn");
 }
 

@@ -48,13 +48,19 @@ const briefOf = (prompt) => {
   return end < 0 ? rest : rest.slice(0, end);
 };
 
-export async function composeQuery(opts) {
+// The session calls this before the turn writes its first line (PR #485 review F6), so a tripped guard
+// leaves nothing on disk; composeQuery calls it again for a caller that skips the session.
+export function assertCwd(dir) {
   const real = (p) => { try { return realpathSync(p); } catch { return path.resolve(p); } };
-  const cwd = real(opts.cwd);
+  const cwd = real(dir);
   const tmp = real(tmpdir());
   if (cwd === REPO || cwd.startsWith(REPO + path.sep) || !cwd.startsWith(tmp + path.sep)) {
     throw new Error("fake-compose-agent: the fake agent writes source: \"agent\" lines and must never touch a committed package — its cwd must be a scratch package under the OS temp directory");
   }
+}
+
+export async function composeQuery(opts) {
+  assertCwd(opts.cwd);
   const sessionId = opts.resume ?? `fake-${++sessions}`;
   opts.onInit?.({ sessionId, model: "fake", tools: [opts.tool.fullName] });
   const brief = briefOf(opts.prompt) ?? "";

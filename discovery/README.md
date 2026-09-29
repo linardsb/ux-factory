@@ -633,7 +633,9 @@ the package's transcript does not record, and writes nothing if any of that thro
 `appendAgentLine(pkgRoot, { op, params, status })` (#312) is the SERVER's writer of the agent's lines, called
 only by the compose session's handler: `proposed` or `refused`, `source: "agent"`, appended at the current
 length, and refused while another proposal waits for its verdict. Neither status enters the fold, so it
-never rewrites `canvas.json`.
+never rewrites `canvas.json`. A `refused` agent line carries no `params` (PR #485 review F2): they failed a
+check and are model-written, so they could carry a key `verifyBuild` refuses; the transcript's `op` line at
+the same `seq` keeps them verbatim.
 `saveBuild(root, canvas, opLines)` writes a NEW package whole (the spine, the round trip). Beside them:
 `loadBuild`, `listBuilds` (the run list), `loadDecisions` (the transcript's `record_decision` lines),
 `foldLedger`, `arrangement` (the `canvas.json` derivation) and `verifyBuild` (the gate predicate). It
@@ -690,7 +692,7 @@ a `PARAMS` entry, a switch case and a group 35 case, together.
 
 One agent turn on the canvas proposes ONE screen (or one missing state) and yields
 (`portal/lib/canvas-session.mjs`; the SDK is `portal/lib/canvas-transport.mjs` alone). Every turn appends
-its lines here, in order; `ts` is stamped on every line. Seven types:
+its lines here, in order; `ts` is stamped on every line. Eight types:
 
 ```jsonl
 { "type": "turn", "turn": "c1", "ask": { "kind": "screen" }, "briefed": true }
@@ -701,10 +703,13 @@ its lines here, in order; `ts` is stamped on every line. Seven types:
 { "type": "denied", "turn": "c2", "tool": "Write", "input": { … }, "error": "…", "via": "PreToolUse" }
 { "type": "refused", "turn": "c3", "kind": "ids", "seq": 9, "error": "composition.children[2] (text) has no id — …" }
 { "type": "stats", "turn": "c1", "numTurns": 2, "costUsd": 0.08, "ok": true, "transport": "sdk", "maxTurns": 4, "outcome": "proposed", "promptFingerprint": "9690d4c955be652c", "vocabSha": "…", "model": "claude-sonnet-5" }
+{ "type": "session-reset", "turn": "c5", "sessionId": "…", "error": "…" }
 ```
 
 - **The turn id** is `c<n>`, n = 1 + the turn lines already in the file. The SDK session id is the LAST
   `init` line's, never `run.json`'s (that one is the discovery session's), so a portal restart resumes.
+  A resumed turn that fails before any `init` line writes `session-reset` (PR #485 review F5): the id is
+  taken to be gone, and the next turn starts a fresh session instead of failing on it forever.
 - **The brief is the owner's words, verbatim, never an op.** It is the `source: "owner"` text line, written
   before the turn's `init`; an un-briefed turn has `briefed: false` and no owner line.
 - **A state proposal's reason** lives on its `op` line's `args.why` — `state.add` has no `why` param, and

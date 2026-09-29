@@ -15996,13 +15996,15 @@ const synthPng = (w, h, ct, px) => {
 
     // --- 47.16 auth is the subscription ----------------------------------------------------------------
     {
-      const env = { ANTHROPIC_API_KEY: "k", CLAUDE_CODE_OAUTH_TOKEN: "t", PATH: "p" };
+      // PR #485 review F1: every name that redirects billing, not only the API key.
+      const env = { ANTHROPIC_API_KEY: "k", ANTHROPIC_AUTH_TOKEN: "a", ANTHROPIC_BASE_URL: "u", CLAUDE_CODE_USE_BEDROCK: "1", CLAUDE_CODE_USE_VERTEX: "1", CLAUDE_CODE_USE_FOUNDRY: "1",
+        CLAUDE_CODE_OAUTH_TOKEN: "t", CLAUDE_CODE_MAX_OUTPUT_TOKENS: "m", PATH: "p" };
       const had = Object.hasOwn(process.env, "ANTHROPIC_API_KEY");
       const out = S.subscriptionEnv(env);
-      ok(deep(out) === deep({ CLAUDE_CODE_OAUTH_TOKEN: "t", PATH: "p" }) && env.ANTHROPIC_API_KEY === "k" && Object.hasOwn(process.env, "ANTHROPIC_API_KEY") === had
+      ok(deep(out) === deep({ CLAUDE_CODE_OAUTH_TOKEN: "t", CLAUDE_CODE_MAX_OUTPUT_TOKENS: "m", PATH: "p" }) && env.ANTHROPIC_API_KEY === "k" && Object.hasOwn(process.env, "ANTHROPIC_API_KEY") === had
         && !Object.hasOwn(S.subscriptionEnv(), "ANTHROPIC_API_KEY"),
         // Key NAMES only in the message: a failure must never print an env value (a mutation once echoed the real key).
-        `47.16: subscriptionEnv answered the keys ${JSON.stringify(Object.keys(out).sort())} (the live env ${Object.hasOwn(S.subscriptionEnv(), "ANTHROPIC_API_KEY") ? "KEPT" : "dropped"} ANTHROPIC_API_KEY) — the env minus ANTHROPIC_API_KEY, a copy, process.env untouched`);
+        `47.16: subscriptionEnv answered the keys ${JSON.stringify(Object.keys(out).sort())} (the live env ${Object.hasOwn(S.subscriptionEnv(), "ANTHROPIC_API_KEY") ? "KEPT" : "dropped"} ANTHROPIC_API_KEY) — the env minus every ANTHROPIC_* and CLAUDE_CODE_USE_* name, a copy, process.env untouched`);
     }
 
     // --- 47.12 the AC #1 ledger: proposed → accepted → proposed → refused → undone ---------------------
@@ -16055,6 +16057,16 @@ const synthPng = (w, h, ct, px) => {
       const v2 = St.verifyBuild({ ops: m2, canvas: St.loadBuild(join(p, "build")).canvas });
       ok(v1.some((x) => x.includes("fromStep 1 names a applied line, not an agent's proposal")) && v2.some((x) => x.includes("an accepted line names the proposal it answers")),
         `47.12: verifyBuild passed a hand-mutated ledger (${deep(v1)} · ${deep(v2)})`);
+      // PR #485 review F3: the gate's OWN duplicate-verdict and forward-reference clauses. saveRun's
+      // checkVerdict refuses both first, so only a ledger handed straight to verifyBuild reaches them.
+      const cv = St.loadBuild(join(p, "build")).canvas;
+      const m3 = [...L, { seq: L.length + 1, at: L.at(-1).at, source: "owner", op: prop.op, params: prop.params, status: "refused", fromStep: prop.seq }];
+      const v3 = St.verifyBuild({ ops: m3, canvas: cv });
+      ok(v3.some((x) => x.includes(`seq ${prop.seq} already has a verdict`)), `47.12: verifyBuild passed a second verdict on seq ${prop.seq} (${deep(v3)})`);
+      // The accepted line moved ABOVE its proposal, fromStep following it: every other clause is satisfied.
+      const m4 = [...L.slice(0, n0), { ...L[n0 + 1], fromStep: n0 + 2 }, L[n0]].map((l, i) => ({ ...l, seq: i + 1 }));
+      const v4 = St.verifyBuild({ ops: m4, canvas: cv });
+      ok(v4.some((x) => x.includes(`fromStep ${n0 + 2} names no earlier line`)), `47.12: verifyBuild passed a verdict naming a LATER line (${deep(v4)})`);
     }
 
     // --- 47.13 THE lock, both ways (ratify's leg is #313's) --------------------------------------------
@@ -16103,13 +16115,112 @@ const synthPng = (w, h, ct, px) => {
       const runAt = srv.indexOf("'/api/canvas/run'");
       ok(srv.slice(runAt, srv.indexOf("if (p ===", runAt + 10)).includes("compose: composeView(root)"), "47.14: GET /api/canvas/run does not carry compose: composeView(root)");
     }
+
+    // --- 47.17 PR #485 review F2–F8, each RUN ---------------------------------------------------------
+    {
+      const screenTurn = (args) => (p, b) => S.runComposeTurn({ pkgRoot: p, base: b, ask: { kind: "screen" }, transport: inline([args]) });
+      const stateTurn = (args, stateKey = "empty") => (p, b) => S.runComposeTurn({ pkgRoot: p, base: b, ask: { kind: "state", baseId: "f1", stateKey }, transport: inline([{ baseId: "f1", stateKey, why: "Seq 7.", ...args }]) });
+      // F2: a refused proposal whose params carry an x key leaves a package that still passes its own gate.
+      for (const [label, run, kind] of [
+        ["a prop named x", screenTurn({ screenId: "x", why: "Seq 7.", composition: { name: "avatar", props: { x: 1 } }, decisionRefs: [] }), "vocabulary"],
+        ["an override naming part x", stateTurn({ override: { set: { x: { content: "y" } } } }), "applier"],
+      ]) {
+        const p = pkgCopy("f2");
+        const b = ledger(p).length;
+        await afold(`${label} (47.17)`, () => run(p, b));
+        const l = ledger(p).at(-1);
+        const op = tx(p).find((x) => x.type === "op");
+        const v = St.verifyBuild(St.loadBuild(join(p, "build")));
+        ok(ledger(p).length === b + 1 && l.status === "refused" && l.source === "agent" && !Object.hasOwn(l, "params") && tx(p).find((x) => x.type === "refused")?.kind === kind
+          && op?.seq === l.seq && /"x"\s*:/.test(JSON.stringify(op.args)) && v.length === 0,
+          `47.17 F2: ${label} left ${deep(l).slice(0, 160)} (op line ${deep(op?.args).slice(0, 120)}) and verifyBuild ${deep(v)} — want a params-less refused ledger line, the args on the transcript, and a clean gate`);
+      }
+      // F3: the state tree's own vocabulary check (the applier and the dangling check both pass this one).
+      {
+        const p = pkgCopy("f3-vocab");
+        const b = ledger(p).length;
+        await afold("a state tree with an unknown prop (47.17)", () => stateTurn({ override: { set: { continue: { notAProp: "y" } } } })(p, b));
+        const r = tx(p).find((x) => x.type === "refused");
+        ok(ledger(p).length === b + 1 && ledger(p).at(-1).status === "refused" && r?.kind === "vocabulary" && String(r.error).includes("notAProp"),
+          `47.17 F3: a state override setting an unknown prop gave ${deep(r)} — want a vocabulary refusal naming notAProp`);
+      }
+      // F3: a state ask for a state the base is not missing is refused before anything is written.
+      {
+        const p = pkgCopy("f3-miss");
+        const b = ledger(p).length;
+        const m = await athrew(() => S.runComposeTurn({ pkgRoot: p, base: b, ask: { kind: "state", baseId: "f1", stateKey: "error" }, transport: inline([]) }));
+        ok(m?.includes("is not missing its error state") && ledger(p).length === b && tx(p).length === 0,
+          `47.17 F3: a state ask for a state f1 is not missing answered ${m ?? "NO REFUSAL"} with ${ledger(p).length - b} ops and ${tx(p).length} transcript lines`);
+      }
+      // F3: the fake's cwd guard, called directly (nothing reaches a committed package even if it fails).
+      {
+        const inRepo = join(ROOT, "discovery/faster-payment/build");
+        const stub = { cwd: inRepo, prompt: "", tool: { name: S.SCREEN_TOOL, fullName: SCREEN_FULL, handler: () => ({}) } };
+        const m1 = threw(() => F.assertCwd(inRepo));
+        const m2 = await athrew(() => F.composeQuery(stub));
+        ok(m1?.includes("must never touch a committed package") && m2?.includes("must never touch a committed package") && threw(() => F.assertCwd(scratch("f3-cwd"))) === null,
+          `47.17 F3: the fake's guard answered ${m1 ?? "NOTHING"} · ${m2 ?? "NOTHING"} for a path in the repo, or refused a scratch path`);
+      }
+      // F6: a transport that refuses the package refuses before the turn's owner lines are on disk.
+      {
+        const p = pkgCopy("f6");
+        const b = ledger(p).length;
+        const mod = join(scratch("f6-mod"), "refusing-transport.mjs");
+        writeFileSync(mod, 'export function assertCwd() { throw new Error("g47-refusing-transport: not this package"); }\nexport async function composeQuery() { throw new Error("g47: composeQuery must not be reached"); }\n');
+        const had = process.env.UXF_COMPOSE_TRANSPORT;
+        process.env.UXF_COMPOSE_TRANSPORT = mod;
+        let m = null;
+        try { m = await athrew(() => S.runComposeTurn({ pkgRoot: p, base: b, ask: { kind: "screen" }, brief: "an owner brief" })); }
+        finally { if (had === undefined) delete process.env.UXF_COMPOSE_TRANSPORT; else process.env.UXF_COMPOSE_TRANSPORT = had; }
+        ok(m?.includes("g47-refusing-transport") && tx(p).length === 0 && ledger(p).length === b,
+          `47.17 F6: a refusing transport answered ${m ?? "NOTHING"} and left ${tx(p).length} transcript lines — want its refusal and none`);
+      }
+      // F5: a resumed turn that fails before init writes session-reset; the next turn does not resume.
+      {
+        const p = pkgCopy("f5");
+        await afold("a turn with an init (47.17)", () => S.runComposeTurn({ pkgRoot: p, base: ledger(p).length, ask: { kind: "screen" }, transport: inline([]) }));
+        const resumes = [];
+        const dead = async (o) => { resumes.push(o.resume); throw new Error("No conversation found with session ID inline-1"); };
+        await afold("a resume that fails before init (47.17)", () => S.runComposeTurn({ pkgRoot: p, base: ledger(p).length, ask: { kind: "screen" }, transport: dead }));
+        const reset = tx(p).find((x) => x.type === "session-reset");
+        await afold("the turn after a reset (47.17)", () => S.runComposeTurn({ pkgRoot: p, base: ledger(p).length, ask: { kind: "screen" }, transport: dead }));
+        ok(deep(resumes) === deep(["inline-1", undefined]) && reset?.sessionId === "inline-1" && reset.turn === "c2" && tx(p).filter((x) => x.type === "session-reset").length === 1,
+          `47.17 F5: resumes ${deep(resumes)} and reset ${deep(reset)} — want inline-1 then a fresh session, one reset on c2, and none for an un-resumed failure`);
+        // The control: a failure AFTER init (is_error) is not a dead session.
+        const pc = pkgCopy("f5-control");
+        await afold("a turn with an init (47.17 control)", () => S.runComposeTurn({ pkgRoot: pc, base: ledger(pc).length, ask: { kind: "screen" }, transport: inline([]) }));
+        await afold("an is_error turn (47.17 control)", () => S.runComposeTurn({ pkgRoot: pc, base: ledger(pc).length, ask: { kind: "screen" },
+          transport: inline([], { stats: { ...OK_STATS, isError: true, ok: false } }) }));
+        ok(!tx(pc).some((x) => x.type === "session-reset") && S.lastSessionId(tx(pc)) === "inline-1", "47.17 F5: a failure after init wrote a session-reset");
+      }
+      // F8: the in-lock conflict is recognisable as the route's 409, not a composeRefusal and not a 500.
+      {
+        const p = pkgCopy("f8");
+        const b = ledger(p).length;
+        const m = await athrew(() => S.runComposeTurn({ pkgRoot: p, base: b - 1, ask: { kind: "screen" }, transport: inline([]) }));
+        ok(St.isSaveConflict(m) && S.composeRefusal(m) === null && St.isSaveConflict(St.saveConflict(join(p, "build"), b - 1)) && !St.isSaveConflict("canvas-session: seq 3 is waiting for your verdict"),
+          `47.17 F8: a stale compose threw ${m ?? "NOTHING"} — isSaveConflict must know it, composeRefusal must not`);
+      }
+      // F4: `added` is the turn's own ledger lines, so a line another writer lands mid-turn shows as a gap.
+      {
+        const p = pkgCopy("f4");
+        const b = ledger(p).length;
+        const r = await afold("a proposing turn (47.17)", () => S.runComposeTurn({ pkgRoot: p, base: b, ask: { kind: "screen" }, transport: inline([{ screenId: "y", why: "Seq 7.", composition: STACK(TWO()), decisionRefs: [] }]) }), {});
+        const q = pkgCopy("f4-tab");
+        const bq = ledger(q).length;
+        const other = (o) => { St.appendAgentLine(q, { op: "annotate", params: { text: "t" }, status: "refused" }); return inline([{ screenId: "y", why: "Seq 7.", composition: STACK(TWO()), decisionRefs: [] }])(o); };
+        const rq = await afold("a turn with a second writer (47.17)", () => S.runComposeTurn({ pkgRoot: q, base: bq, ask: { kind: "screen" }, transport: other }), {});
+        ok(r.added === 1 && r.count === b + r.added && rq.added === 1 && rq.count === bq + rq.added + 1,
+          `47.17 F4: a turn answered count ${r.count}/added ${r.added} over base ${b}, and with a second writer ${rq.count}/${rq.added} over ${bq}`);
+      }
+    }
   }
 
   // --- 47.15 nothing tracked moved -------------------------------------------------------------------
   for (const d of temps) rmSync(d, { recursive: true, force: true });
   ok(gitSnap() === GIT_BEFORE, `47.15: the group moved a tracked path — git status for discovery portal/lib system handoff went from ${JSON.stringify(GIT_BEFORE)} to ${JSON.stringify(gitSnap())}`);
 
-  group("compose session", `portal/lib/canvas-session.mjs + the store's verdict lines (#312): IMPORTED in CI with no portal/node_modules, statically SDK- and zod-free with ONE dynamic import naming ./canvas-transport.mjs, the only canvas-*.mjs naming the SDK · S6's four constants reproduce c903170484396973 and the whole prompt surface probe run 4's 9690d4c955be652c, FORK_ASK and YIELD_CONTRACT unshipped · the vocabulary context generated from vocabulary.json (a synthetic entry in, a removed one out) · ESCAPE_RE after numbering and markup, never mid-sentence, the old regex's miss as the control · the fence: one predicate, two sites, Write/WebFetch/MCP each denied with a denied line at both, a warmup Glob denied with none, a hostile allow-set denied · a fake turn's lines in order (turn → owner brief → init → op → stats), maxTurns on the stats line, no second turn while a proposal waits, one call per turn, every refusal kind by the ledger-or-transcript list, the root exempt from the id rule, the outcome from the lines never the words, subtype success + is_error as failed · subscriptionEnv drops ANTHROPIC_API_KEY · the AC #1 ledger proposed → accepted → proposed → refused → undone, agent/owner sourced, verifyBuild [] and a mutated ledger refused · the run lock both ways with an import (ratify's leg is #313's) · the transport's option block and the route pinned as source. Every agent line here is the fake's or an inline script's, in a scratch copy. CANNOT REACH: a model's behaviour (whether it yields, names the brief in its why, or escapes), the SDK's option handling, hook delivery by the CLI, and the page — those are the preflight's, the journey compose pass's and --live-compose's`);
+  group("compose session", `portal/lib/canvas-session.mjs + the store's verdict lines (#312): IMPORTED in CI with no portal/node_modules, statically SDK- and zod-free with ONE dynamic import naming ./canvas-transport.mjs, the only canvas-*.mjs naming the SDK · S6's four constants reproduce c903170484396973 and the whole prompt surface probe run 4's 9690d4c955be652c, FORK_ASK and YIELD_CONTRACT unshipped · the vocabulary context generated from vocabulary.json (a synthetic entry in, a removed one out) · ESCAPE_RE after numbering and markup, never mid-sentence, the old regex's miss as the control · the fence: one predicate, two sites, Write/WebFetch/MCP each denied with a denied line at both, a warmup Glob denied with none, a hostile allow-set denied · a fake turn's lines in order (turn → owner brief → init → op → stats), maxTurns on the stats line, no second turn while a proposal waits, one call per turn, every refusal kind by the ledger-or-transcript list, the root exempt from the id rule, the outcome from the lines never the words, subtype success + is_error as failed · subscriptionEnv drops every ANTHROPIC_* and CLAUDE_CODE_USE_* name (the API key, an auth token, a base URL, Bedrock/Vertex/Foundry) and keeps CLAUDE_CODE_OAUTH_TOKEN · the AC #1 ledger proposed → accepted → proposed → refused → undone, agent/owner sourced, verifyBuild [] and a mutated ledger refused, the gate's own duplicate-verdict and forward-fromStep clauses included · PR #485's review cases (47.17): a refused x-keyed proposal leaves a params-less line and a clean gate, the state tree's vocabulary check, the not-missing guard, the fake's cwd guard, a refusing transport before any transcript line, session-reset after a resume that fails before init, isSaveConflict on the in-lock conflict, added exposing a second writer · the run lock both ways with an import (ratify's leg is #313's) · the transport's option block and the route pinned as source. Every agent line here is the fake's or an inline script's, in a scratch copy. CANNOT REACH: a model's behaviour (whether it yields, names the brief in its why, or escapes), the SDK's option handling, hook delivery by the CLI, and the page — those are the preflight's, the journey compose pass's and --live-compose's`);
 }
 
   if (failures) {

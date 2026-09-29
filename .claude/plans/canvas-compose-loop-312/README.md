@@ -1,5 +1,9 @@
 # #312 `--live-compose` receipt
 
+**The three verdict lines in `raw/live-1/ops.jsonl` (seq 8, 10 and 12) say `source: "owner"`, but no owner judged
+anything: they are the journey script's clicks, by rule.** The ledger has only two sources, so the line cannot say
+so itself; this README is where it is said. See "What is whose" below.
+
 **A real, paid run, on 2026-09-29.** Ticket [#312](https://github.com/linardsb/ux-factory/issues/312), plan
 `../canvas-compose-loop-312.md` Task 6.2, and the implementation report
 `../../reports/canvas-compose-loop-312-report.md`. It was produced by one invocation of:
