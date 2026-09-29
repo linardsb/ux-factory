@@ -12,7 +12,8 @@ crops the candidate to the reference's size and measures it with `fidelity.mjs`'
 record through `buildRecord` and writes the candidate PNG, a `measure` transcript line, the record and its markdown.
 A mapping edit returns the record to `missing` and deletes the candidate. The owner's live pair is committed verbatim
 under `import/fixtures/measure-live/`: faithful worst ΔE **1.3379**, wrong **29.7584**, against THRESHOLD 5.0
-(AC 10 met). 43.16 replays the pair in CI, and I12 re-renders it for real on all three page engines, reproducing 1.3379.
+(AC 10 met). 43.16 replays the pair in CI. I12 passes on all three page engines; the candidate is always rendered by Chromium
+(`measure-render.mjs` launches it), and each run measured 1.3379.
 
 ## Tasks completed
 
@@ -111,8 +112,8 @@ never committed. It proves the wiring from the page through the spawn to the rec
 - `node tooling/canvas-journey.mjs chromium`, SYNTHETIC stand-in → `101 passed, 1 failed`. The failure is I4, which
   fails identically with every change stashed (`94 passed, 1 failed`, base `1b43cee`) (observed).
 - `node tooling/canvas-journey.mjs all`, real fixture → chromium `101 passed, 1 failed`, firefox `100/1`, webkit
-  `100/1`. The failure is I4 in each engine; I12 and I12b are ✓ in all three, and the page's render measured
-  `1.3379 at text:Amara Okafor` in each (observed).
+  `100/1`. The failure is I4 in each engine; I12 and I12b are ✓ in all three, and each run's render (Chromium
+  every time) measured `1.3379 at text:Amara Okafor` (observed).
 - Final tree (`fb179c4` + report): build-checks `all 46 groups pass`, records `no drift`, drift-check ✓,
   `gen-loc-summary --check` `3 groups — no drift` after commit (observed).
 - CodeQL 2.27.0 locally, with the repo's `codeql-config.yml` and the code-scanning suite: **0 results**.
@@ -121,7 +122,8 @@ never committed. It proves the wiring from the page through the spawn to the rec
 - **After merging origin/main at `9398860` (#475, #481), observed:**
   - `build-checks` → `all 46 groups pass`, 0 ✗.
   - Import records → no drift; `drift-check` ✓; loc summary → no drift.
-  - `canvas-journey all` → chromium 125/0, firefox 124/0, webkit 124/0, with I12's render reading 1.3379 in each.
+  - `canvas-journey all` → chromium 125/0, firefox 124/0, webkit 124/0, with I12's render (Chromium every time) reading 1.3379
+    in each run.
   - #475 had taken case id 43.15, so this ticket's case is **43.16**.
 
 ## Not run
