@@ -377,7 +377,7 @@ VR gate in Docker (Task 6). `node tooling/canvas-journey.mjs chromium` for I12's
 - **R2 — no fresh live render has read green.** Addressed by Task 8: canvas-journey I12 gets a literal `green`
   assertion, run on chromium, with its reddening mutation, and the fresh worst ΔE goes into the report. AC 7 is not
   met without that run.
-- Assumption: the 2-unit darkening is acceptable under the calm-colour constraint (it is the smallest passing step).
+- Assumption: the 2-unit darkening is acceptable under the calm-colour constraint (it is the smallest hue-preserving passing step; an unconstrained search finds #6a7080 at 4.504, with less headroom).
 
 ## NOTES (open canvas)
 

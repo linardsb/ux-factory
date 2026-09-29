@@ -1174,8 +1174,8 @@ async function measurePass(base, page, t, step) {
     console.log(`    · measured worst ΔE ${worst?.value} at ${worst?.region} (the committed replay: see faithful.measure.json)`);
     let err = null;
     try { checkRecord(r); } catch (e) { err = e.message; }
-    t("I12 · the record passes checkRecord, and the page's verdict word is the DERIVED one", err === null && (await page.locator("[data-import-fidelity]").getAttribute("data-import-fidelity")) === fidelityVerdict(r.fidelity), err ?? line);
     const word = await page.locator("[data-import-fidelity]").getAttribute("data-import-fidelity");
+    t("I12 · the record passes checkRecord, and the page's verdict word is the DERIVED one", err === null && word === fidelityVerdict(r.fidelity), err ?? line);
     t("I12 · the faithful frame reads GREEN, every WCAG pair passing (#482)", word === "green" && r.fidelity.wcag?.pass === r.fidelity.wcag?.total,
       `${word} at WCAG ${r.fidelity.wcag?.pass}/${r.fidelity.wcag?.total} (failing ${JSON.stringify(r.fidelity.wcag?.failing)}), worst ${JSON.stringify(worst)}`);
     const ref = path.join(measureDir(), `${seeded.id}.reference.png`);
