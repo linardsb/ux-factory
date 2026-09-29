@@ -305,6 +305,10 @@ import {
   PROPOSAL_ID_RE, PROPOSAL_KEYS, PROPOSAL_SECTIONS, PROPOSED_BY_MODEL, projectProposals,
   proposalsView, readProposalPackage, STATUSES, statusCounts, statusOf, VERDICT_KEYS, VERDICTS,
 } from "../discovery/proposals.mjs";
+// #486's as-is record — the same zero-portal-dependency shape (it imports bank.mjs, prd-projection.mjs
+// and node built-ins, nothing else), so group 48 loads with no portal/node_modules. writeAsIs is
+// deliberately NOT imported: group 48 stays in memory, and its 48.7 reads the committed file.
+import { CASE_QUESTION, caseOf, flagSentence, projectAsIs, splitSentences, WANT_RULES } from "../discovery/as-is.mjs";
 // #348's graded answer fixture — the sealed draw, the key's validator and the scorer. Zero-portal
 // dependency for the same reason as the projection above: it imports only node built-ins plus
 // discovery/bank.mjs and discovery/ops.mjs, both import-free. The FENCED author harness
@@ -16223,9 +16227,185 @@ const synthPng = (w, h, ct, px) => {
   group("compose session", `portal/lib/canvas-session.mjs + the store's verdict lines (#312): IMPORTED in CI with no portal/node_modules, statically SDK- and zod-free with ONE dynamic import naming ./canvas-transport.mjs, the only canvas-*.mjs naming the SDK · S6's four constants reproduce c903170484396973 and the whole prompt surface probe run 4's 9690d4c955be652c, FORK_ASK and YIELD_CONTRACT unshipped · the vocabulary context generated from vocabulary.json (a synthetic entry in, a removed one out) · ESCAPE_RE after numbering and markup, never mid-sentence, the old regex's miss as the control · the fence: one predicate, two sites, Write/WebFetch/MCP each denied with a denied line at both, a warmup Glob denied with none, a hostile allow-set denied · a fake turn's lines in order (turn → owner brief → init → op → stats), maxTurns on the stats line, no second turn while a proposal waits, one call per turn, every refusal kind by the ledger-or-transcript list, the root exempt from the id rule, the outcome from the lines never the words, subtype success + is_error as failed · subscriptionEnv drops every ANTHROPIC_* and CLAUDE_CODE_USE_* name (the API key, an auth token, a base URL, Bedrock/Vertex/Foundry) and keeps CLAUDE_CODE_OAUTH_TOKEN · the AC #1 ledger proposed → accepted → proposed → refused → undone, agent/owner sourced, verifyBuild [] and a mutated ledger refused, the gate's own duplicate-verdict and forward-fromStep clauses included · PR #485's review cases (47.17): a refused x-keyed proposal leaves a params-less line and a clean gate, the state tree's vocabulary check, the not-missing guard, the fake's cwd guard, a refusing transport before any transcript line, session-reset after a resume that fails before init, isSaveConflict on the in-lock conflict, added exposing a second writer · the run lock both ways with an import (ratify's leg is #313's) · the transport's option block and the route pinned as source. Every agent line here is the fake's or an inline script's, in a scratch copy. CANNOT REACH: a model's behaviour (whether it yields, names the brief in its why, or escapes), the SDK's option handling, hook delivery by the CLI, and the page — those are the preflight's, the journey compose pass's and --live-compose's`);
 }
 
+// ===================================================================================================
+// Group 48 — the as-is record (#486): discovery/as-is.mjs, a pure fold over ONE answer line — the
+// latest `banked` line on s2-last-time-show-me — and run.json's head, with every sentence phrased as a
+// want or in the conditional flagged and kept. CANNOT REACH (the module header and gates.md carry the
+// same clause): whether an answer names a REAL instance (a habitual answer such as graded-opus-a a10
+// passes as a case — the owner reads that), the five elements (the page names them as the reading lens
+// and sorts nothing), a want phrased without any of the seven rules' words, a fact flagged as
+// conditional because it reports a past or quoted modal (couldn't find, said she would, a person named
+// Will — the modal rule is lexical and over-flags; 48.4 pins one such sentence), and the drawer button's
+// click (portal.js has no CI runner; 48.8 is a source pin).
+// Every case RUNS the function; 48.1 and 48.8 alone read source as text, and say so.
+{
+  const threw = (fn) => { try { fn(); return null; } catch (e) { return e.message; } };
+  const decomment = (file) => readFileSync(join(ROOT, file), "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  const gitSnap = () => execFileSync("git", ["status", "--porcelain", "--", "discovery", "portal/lib", "portal/public"], { cwd: ROOT, encoding: "utf8" });
+  const GIT_BEFORE = gitSnap();
+  const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  const pkgOf = (slug) => readPackage(join(ROOT, "discovery", slug));
+  const caseText = (pkg) => caseOf(pkg.answers).anchor?.text ?? "";
+
+  // --- 48.1 the source pin, one direction (SOURCE, read as text) -------------------------------------
+  {
+    const SPEC_RE = /^\s*import\b[^\n]*from\s+["']([^"']+)["']/gm;
+    const specs = [...new Set([...readFileSync(join(ROOT, "discovery/as-is.mjs"), "utf8").matchAll(SPEC_RE)].map((m) => m[1]))].sort();
+    ok(eq(specs, ["./bank.mjs", "./prd-projection.mjs", "node:fs", "node:path", "node:url"]),
+      `48.1: as-is.mjs's import specifiers are ${JSON.stringify(specs)} — it reads the bank and three containment helpers from prd-projection.mjs, and nothing else (no ops.mjs: a projection is not a verb)`);
+    ok(eq([...`import { x } from "./ops.mjs";`.matchAll(SPEC_RE)].map((m) => m[1]), ["./ops.mjs"]), "48.1: the specifier regex does not read ./ops.mjs off an import line — the pin above is broken");
+    const prdSrc = decomment("discovery/prd-projection.mjs");
+    ok(!/as-is|asIs|AS_IS/.test(prdSrc), "48.1: discovery/prd-projection.mjs names as-is in code — the import runs in ONE direction and prd.md never carries the case");
+    ok(/readPackage/.test(prdSrc), "48.1: the pin above is vacuous — prd-projection.mjs's decommented source must still hold its code");
+    const asIsSrc = decomment("discovery/as-is.mjs");
+    ok(!/\bOPS\b|\bPARAMS\b|applyOps?\b|ops\.mjs/.test(asIsSrc), "48.1: as-is.mjs's code names OPS, PARAMS, the applier or ops.mjs — a projection takes no op-verb lock only while it touches none of them (AC #3)");
+    ok(/\bOPS\b/.test(`${asIsSrc}\nOPS;`), "48.1: the OPS pattern does not match even when the name IS present — the pin is broken");
+  }
+
+  // --- 48.2 the anchor --------------------------------------------------------------------------------
+  {
+    const q = questionById(CASE_QUESTION);
+    ok(CASE_QUESTION === "s2-last-time-show-me", `48.2: CASE_QUESTION is ${JSON.stringify(CASE_QUESTION)} — the record is the answer to the one question that asks for a named past case`);
+    ok(q != null, `48.2: questionById(${JSON.stringify(CASE_QUESTION)}) is not in the bank`);
+    ok(typeof q?.weakAnswer === "string" && q.weakAnswer.startsWith("any sentence in the conditional"),
+      "48.2: the anchor's weakAnswer no longer opens \"any sentence in the conditional\" — WANT_RULES cites it as their source, so a reworded rubric re-opens the rules");
+  }
+
+  // --- 48.3 the splitter ------------------------------------------------------------------------------
+  {
+    const a16 = splitSentences(caseText(pkgOf("allergen-matrix-1")));
+    ok(a16.length === 8, `48.3: allergen-matrix-1 a16 split into ${a16.length} sentence(s), expected 8`);
+    ok(a16.some((s) => s.includes("7.40")) && a16.some((s) => s.includes("v7 FINAL (2).xlsx")), "48.3: a16's \"7.40\" or \"v7 FINAL (2).xlsx\" was split mid-sentence");
+    const a19 = splitSentences(caseText(pkgOf("later-not-never-1")));
+    ok(a19.length === 11, `48.3: later-not-never-1 a19 (blank-line paragraphs) split into ${a19.length} sentence(s), expected 11`);
+    const syn = splitSentences("A.\r\n\r\nB is here. C 7.40 done. D v7 FINAL (2).xlsx is it.");
+    ok(syn.length === 4, `48.3: the CRLF-paragraph control split into ${syn.length}, expected 4 — ${JSON.stringify(syn)}`);
+    // The boundary RULE, not just the counts above: a naive `.split(/\.\s+/)` gives the same 8, 11 and 4,
+    // so these two tell it apart — a lower-case continuation is not a boundary, and `?` is one.
+    const rule = splitSentences("It cost 3.50 a tub, e.g. the pesto. Why? Because the list was old.");
+    ok(eq(rule, ["It cost 3.50 a tub, e.g. the pesto.", "Why?", "Because the list was old."]), `48.3: the boundary rule split the control into ${JSON.stringify(rule)} — a capital after [.!?] ends a sentence, a lower-case word does not`);
+    ok(eq(splitSentences(""), []) && eq(splitSentences("   "), []), "48.3: blank text did not split to []");
+    ok(threw(() => splitSentences(undefined)) === null, "48.3: splitSentences(undefined) threw — it is total");
+  }
+
+  // --- 48.4 the detector: a positive control per rule, and the id literal -----------------------------
+  {
+    const IDS = ["want-verb", "would-like", "should", "need-present", "would-be-nice", "modal", "expect"];
+    ok(eq(WANT_RULES.map((r) => r.id), IDS), `48.4: WANT_RULES ids are ${JSON.stringify(WANT_RULES.map((r) => r.id))} — a rule was added, dropped or renamed without the literal pin`);
+    const CONTROLS = {
+      "want-verb": "I wish the EPOS field were kept current.",
+      "would-like": "We'd like a way to see the matrix on a tablet.",
+      "should": "Someone should own the spec sheets.",
+      "need-present": "We need one list for all sites.",
+      "would-be-nice": "It would be nice to have a timestamp.",
+      "modal": "The photo will scroll off the group.",
+      "expect": "I expect the buyer to open Outlook.",
+    };
+    for (const [id, s] of Object.entries(CONTROLS)) {
+      ok(WANT_RULES.some((r) => r.id === id), `48.4: control row "${id}" names no rule`);
+      ok(flagSentence(s).includes(id), `48.4: flagSentence did not fire ${id} on its control ${JSON.stringify(s)} — got ${JSON.stringify(flagSentence(s))}`);
+    }
+    for (const s of ["The sous chef posted a photo at 7.40.", "The head chef wanted a new sheet in March.", "The porter signed the note."])
+      ok(eq(flagSentence(s), []), `48.4: flagSentence flagged the fact ${JSON.stringify(s)} as ${JSON.stringify(flagSentence(s))}`);
+    // A KNOWN OVER-FLAG, pinned so a narrowing of the modal rule shows up here as a deliberate change:
+    // a past-tense fact of the case reads as conditional (PR #488 review F1; the CANNOT REACH clause).
+    const OVER = "We couldn't find the spec sheet.";
+    ok(eq(flagSentence(OVER), ["modal"]), `48.4: the known over-flag ${JSON.stringify(OVER)} is now ${JSON.stringify(flagSentence(OVER))}, not ["modal"] — the modal rule changed; update this pin and the CANNOT REACH clause (module header, this group, gates.md, README) together`);
+    ok(Object.isFrozen(WANT_RULES) && WANT_RULES.every((r) => Object.isFrozen(r)), "48.4: WANT_RULES or one of its rules is not frozen");
+  }
+
+  // --- 48.5 real-data controls ------------------------------------------------------------------------
+  {
+    const vec = (slug) => Object.fromEntries(caseOf(pkgOf(slug).answers).sentences.filter((s) => s.flags.length).map((s) => [s.n, s.flags]));
+    const a16 = vec("allergen-matrix-1");
+    ok(Object.keys(a16).length === 1, `48.5: allergen-matrix-1 a16 flagged ${Object.keys(a16).length}, expected 1 — ${JSON.stringify(a16)}`);
+    ok(eq(a16, { 8: ["modal"] }), `48.5: allergen-matrix-1 a16's flags are ${JSON.stringify(a16)}, expected {"8":["modal"]}`);
+    const a19 = vec("later-not-never-1");
+    const A19 = { 2: ["modal", "expect"], 3: ["expect"], 4: ["modal"], 6: ["expect"], 7: ["modal"], 8: ["expect"], 9: ["modal"] };
+    ok(eq(a19, A19), `48.5: later-not-never-1 a19's flags are ${JSON.stringify(a19)}, expected ${JSON.stringify(A19)}`);
+  }
+
+  // --- 48.6 the projection ----------------------------------------------------------------------------
+  {
+    const pkg = pkgOf("allergen-matrix-1");
+    const page = projectAsIs(pkg);
+    const lines = page.split("\n");
+    for (const s of caseOf(pkg.answers).sentences)
+      ok(lines.includes(`> ${s.text}`), `48.6: sentence ${s.n} of allergen-matrix-1's case is not on the page inside a "> " line — flagged is kept, never dropped`);
+    ok(lines.filter((l) => l === "**8 · flagged: conditional (modal)**").length === 1, "48.6: the page does not carry exactly one \"**8 · flagged: conditional (modal)**\" line");
+    const table = page.slice(page.indexOf("## Flagged lines"));
+    ok(table.split("\n").filter((l) => /^\| \d+ \|/.test(l)).length === 1, "48.6: the Flagged lines table does not have exactly one data row");
+
+    // A SYNTHETIC package: two banked case lines, an off-script and a document line that also name the
+    // question and carry want words.
+    const run = { slug: "synthetic", provenance: "fictional", label: "synthetic", depth: "full-discovery", startedAt: "2026-01-02T03:04:05.000Z", root: "discovery/synthetic" };
+    const answers = [
+      { ref: "a1", kind: "banked", question_id: CASE_QUESTION, text: "The EARLIER-MARKER last time was a Monday." },
+      { ref: "a2", kind: "off-script", intent: "aside", question_id: CASE_QUESTION, text: "I wish OFFSCRIPT-MARKER were different." },
+      { ref: "a3", kind: "banked", question_id: CASE_QUESTION, text: "We'd like a way to check.\r\r## Injected" },
+      { ref: "a4", kind: "document", question_id: CASE_QUESTION, text: "Someone should DOCUMENT-MARKER this." },
+    ];
+    const syn = { run, answers, ops: [{ op: "junk" }] };
+    const snap = JSON.stringify(syn);
+    const c = caseOf(answers);
+    const sp = projectAsIs(syn);
+    ok(c.anchor?.ref === "a3" && eq(c.earlier, ["a1"]), `48.6: the synthetic package anchored on ${c.anchor?.ref} with earlier ${JSON.stringify(c.earlier)} — expected a3 over a1, latest in FILE order`);
+    ok(sp.includes("superseded by this one: `a1`."), "48.6: the synthetic page does not list a1 as an earlier answer");
+    ok(!sp.includes("OFFSCRIPT-MARKER") && !sp.includes("DOCUMENT-MARKER") && !sp.includes("EARLIER-MARKER"), "48.6: an off-script, document or superseded line's text reached the page — the record is the latest banked case line only");
+    ok(!sp.split("\n").some((l) => l.startsWith("## Injected")), "48.6: \"## Injected\" escaped the blockquote on a bare-CR answer");
+    ok(sp.includes("**1 · flagged: want (would-like)**"), "48.6: the synthetic want sentence is not flagged want (would-like)");
+    const fp = projectAsIs(pkgOf("faster-payment"));
+    ok(fp.includes("No past case in this run") && fp.includes("_Nothing to flag._"), "48.6: faster-payment (no case asked) does not render the empty state");
+    for (const junk of ["junk", null, [null, 3]]) {
+      const t = threw(() => caseOf(junk));
+      ok(t === null && caseOf(junk).anchor === null, `48.6: caseOf(${JSON.stringify(junk)}) ${t ? `threw ${t}` : "found an anchor"} — it is total over junk`);
+    }
+    ok(projectAsIs(syn) === sp && JSON.stringify(syn) === snap, "48.6: projectAsIs is not deterministic, or it mutated its input");
+    const stamps = [...page.matchAll(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z/g)].map((m) => m[0]);
+    ok(stamps.length >= 1 && stamps.every((s) => s === pkg.run.startedAt), `48.6: the page's ISO stamps are ${JSON.stringify(stamps)} — the only one allowed is run.startedAt (no clock)`);
+  }
+
+  // --- 48.7 the committed artefacts -------------------------------------------------------------------
+  {
+    const committed = join(ROOT, "discovery/allergen-matrix-1/as-is.md");
+    ok(existsSync(committed), "48.7: discovery/allergen-matrix-1/as-is.md does not exist — AC #1's committed record");
+    let swept = 0;
+    for (const slug of readdirSync(join(ROOT, "discovery"), { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name).sort()) {
+      const dir = join(ROOT, "discovery", slug);
+      if (!existsSync(join(dir, "run.json")) || !existsSync(join(dir, "as-is.md"))) continue;
+      swept += 1;
+      const want = projectAsIs(readPackage(dir));
+      ok(readFileSync(join(dir, "as-is.md"), "utf8") === want, `48.7: discovery/${slug}/as-is.md is not the projection's bytes — regenerate with node discovery/as-is.mjs ${slug}`);
+      ok(want !== `${want}x`, "48.7: the byte compare cannot tell a page from itself plus one character");
+    }
+    ok(swept >= 1, `48.7: ${swept} committed as-is.md swept — the compare is proving nothing`);
+  }
+
+  // --- 48.8 the route, as SOURCE pins (server.mjs reaches the SDK through chat.mjs; case 21's reason) -
+  {
+    const ssrc = readFileSync(join(ROOT, "portal/server.mjs"), "utf8");
+    ok(/^\s*import\b[^\n]*\bprojectAsIs\b[^\n]*from\s+'\.\.\/discovery\/as-is\.mjs'/m.test(ssrc), "48.8: server.mjs does not import projectAsIs from ../discovery/as-is.mjs");
+    ok(!/^\s*import\b[^\n]*\bwriteAsIs\b/m.test(ssrc) && !/\bwriteAsIs\s*\(/.test(ssrc), "48.8: server.mjs imports or calls writeAsIs — no HTTP request may write into a run package");
+    const at = ssrc.indexOf("'/api/discovery/as-is.md'");
+    ok(at !== -1, "48.8: the as-is route is not where this pin expects — re-pin before trusting it");
+    const route = ssrc.slice(at, at + 900);
+    ok(route.includes("resolveRunRoot(") && route.includes("assertProvenanceRoot("), "48.8: the as-is route skips the provenance guard pair every other discovery route runs");
+    ok(route.includes('attachment; filename="${slug}-as-is.md"'), "48.8: the as-is route does not download as <slug>-as-is.md");
+    const html = readFileSync(join(ROOT, "portal/public/index.html"), "utf8");
+    ok(html.indexOf('id="discovery-as-is"') !== -1, "48.8: portal/public/index.html has no #discovery-as-is button");
+    const js = readFileSync(join(ROOT, "portal/public/portal.js"), "utf8");
+    ok(js.indexOf("/api/discovery/as-is.md?slug=") !== -1, "48.8: portal/public/portal.js does not fetch /api/discovery/as-is.md");
+  }
+
+  // --- 48.9 nothing tracked moved ---------------------------------------------------------------------
+  ok(gitSnap() === GIT_BEFORE, `48.9: the group moved a tracked path — git status for discovery portal/lib portal/public went from ${JSON.stringify(GIT_BEFORE)} to ${JSON.stringify(gitSnap())}`);
+
+  group("as-is", `discovery/as-is.mjs (#486): the as-is record, a pure fold over the latest banked answer to s2-last-time-show-me and run.json's head · 48.1 its imports exactly the bank, prd-projection.mjs and three node built-ins, prd-projection.mjs never naming it, and no OPS, PARAMS, applier or ops.mjs in its code, so it takes no op-verb lock · 48.2 the anchor question in the bank with the weakAnswer the rules cite · 48.3 the splitter on a16 (8, keeping 7.40 and the xlsx name), a19's paragraphs (11), a CRLF control, a boundary-rule control a naive split fails, and blank input · 48.4 the seven rule ids pinned as a literal and each fired on its own control, three facts (past-tense wanted included) unflagged, one known over-flag (a past-tense couldn't) pinned, the rules frozen · 48.5 the real flag vectors, a16 1 of 8 and a19 7 of 11 · 48.6 every sentence on the page with the flagged one kept, the latest-in-file-order anchor over a synthetic re-ask, off-script, document and superseded text absent, a bare-CR heading held inside the quote, the empty state on faster-payment, caseOf total over junk, determinism and no clock · 48.7 the committed allergen-matrix-1/as-is.md equal to the projection's bytes · 48.8 the read-only route and the drawer button pinned as source, writeAsIs unreachable from HTTP · 48.9 nothing tracked moved. CANNOT REACH: whether an answer names a REAL instance (a habitual answer such as graded-opus-a a10 passes as a case — the owner reads that), the five elements (the page names them as the reading lens and sorts nothing), a want phrased without any of the seven rules' words, a fact flagged as conditional because it reports a past or quoted modal (couldn't find, said she would, a person named Will — the modal rule is lexical and over-flags; 48.4 pins one such sentence), and the drawer button's click (portal.js has no CI runner; 48.8 is a source pin)`);
+}
+
   if (failures) {
     console.error(`\nbuild ✗  ${failures} failure(s)`);
     process.exit(1);
   }
-  console.log("\nbuild ✓  all 47 groups pass");
+  console.log("\nbuild ✓  all 48 groups pass");
 }

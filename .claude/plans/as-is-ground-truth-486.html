@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>As-is record brief</title>
+<style>
+  :root { --bg:#fbfaf7; --fg:#1f2328; --muted:#5b6470; --line:#e2ded5; --card:#fff; --accent:#2f6f5e; --flag:#9a5b13; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#16181b; --fg:#e7e5e0; --muted:#a2a9b2; --line:#30343a; --card:#1d2024; --accent:#7cc4ad; --flag:#e0a35a; } }
+  * { box-sizing:border-box }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui,-apple-system,Segoe UI,sans-serif; }
+  main { max-width:760px; margin:0 auto; padding:32px 16px 64px; }
+  h1 { font-size:26px; margin:0 0 4px } h2 { font-size:18px; margin:36px 0 10px; }
+  .src { color:var(--muted); font-size:14px } a { color:var(--accent) }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; margin:10px 0; }
+  .card h3 { margin:0 0 6px; font-size:16px }
+  pre { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:12px; overflow-x:auto; font-size:13px; margin:8px 0 0; }
+  .flag { color:var(--flag); font-weight:600 }
+  .flow { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+  .box { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:8px 12px; font-size:14px; }
+  .arrow { color:var(--muted) }
+  ul.plain { padding-left:18px } ul.plain li { margin:4px 0 }
+  ul.prompts { list-style:none; padding:0 }
+  ul.prompts li { display:flex; justify-content:space-between; gap:12px; align-items:center; border-bottom:1px solid var(--line); padding:8px 0; }
+  .copy { opacity:.35; border:0; background:none; color:inherit; cursor:pointer; font-size:15px; line-height:1 }
+  .copy:hover, .copy:focus-visible { opacity:1 }
+  .copy::before { content:'⧉' } .copy.copied::before { content:'✓' }
+</style>
+</head>
+<body>
+<main>
+  <h1>The as-is record</h1>
+  <p class="src">Brief for ticket #486. The full plan: <a href="as-is-ground-truth-486.md">as-is-ground-truth-486.md</a></p>
+
+  <h2>What we're building and why</h2>
+  <p>Today a discovery run ends with a PRD: the product someone wants to build. After this ticket, it also ends with a short record of how the work really went the last time it happened, with every wish marked.</p>
+
+  <h2>The concepts this plan rests on</h2>
+
+  <div class="card">
+    <h3>1. As-is versus to-be</h3>
+    <p>"As-is" is how things work today. "To-be" is the planned product. Builders need both kept apart, because a plan can look like the truth when it is only a guess.</p>
+    <pre>as-is.md  → what happened (facts)
+prd.md    → what we want (concept)</pre>
+  </div>
+
+  <div class="card">
+    <h3>2. One named past case</h3>
+    <p>"Tell me about last Tuesday" gets facts. "How do you usually do it?" gets a tidy story. The record uses the answer to the question that already asks for one real, recent instance.</p>
+  </div>
+
+  <div class="card">
+    <h3>3. A projection (a fold)</h3>
+    <p>A projection is a page computed from saved data by fixed rules, with no judgement. The same input always gives the same page, so a check can compare it byte for byte. It is like a spreadsheet formula: it reads cells and never edits them.</p>
+  </div>
+
+  <div class="card">
+    <h3>4. Flag, don't delete</h3>
+    <p>A sentence that sounds like a wish or a guess ("we'd like…", "it will…") gets a visible mark and stays on the page. Deleting it would hide what the person said.</p>
+    <pre>&gt; The sous chef posted a photo at 7.40.
+<span class="flag">8 · flagged: conditional</span>
+&gt; …which will scroll off the group in a fortnight.</pre>
+  </div>
+
+  <h2>How the pieces fit</h2>
+  <div class="flow">
+    <span class="box">The person's saved answer</span><span class="arrow">→</span>
+    <span class="box">Split into sentences</span><span class="arrow">→</span>
+    <span class="box">Mark wishes and guesses</span><span class="arrow">→</span>
+    <span class="box">as-is.md page</span><span class="arrow">→</span>
+    <span class="box">Check compares bytes</span><span class="arrow">·</span>
+    <span class="box">Download button</span>
+  </div>
+
+  <h2>The plan at a glance</h2>
+  <ul class="plain">
+    <li><b>Phase 1:</b> the module and one committed page. Nothing before it.</li>
+    <li><b>Phase 2:</b> the automated check. Needs phase 1.</li>
+    <li><b>Phase 3:</b> a read-only download in the portal. Needs phase 1.</li>
+    <li><b>Phase 4:</b> docs. Needs phases 1 to 3.</li>
+  </ul>
+<pre>discovery/
+├── as-is.mjs                      # new: the fold, the flag rules, the CLI
+└── allergen-matrix-1/as-is.md     # new: the first generated record
+tooling/build-checks.mjs           # group 48 checks it
+portal/server.mjs                  # read-only download route
+portal/public/index.html, portal.js  # "Download as-is" button
+discovery/README.md, gates.md, CLAUDE.md  # docs</pre>
+  <ul class="plain">
+    <li>One committed fictional package carries the record, built from one named past case.</li>
+    <li>A sentence phrased as a want is flagged, never silently kept or dropped.</li>
+    <li>It is a projection, so the rules for adding new record types don't apply.</li>
+    <li>The automated checks cover the new file.</li>
+  </ul>
+
+  <h2>Go deeper</h2>
+  <ul class="prompts">
+    <li data-prompt="/learn as-is versus to-be process mapping"><span><b>/learn as-is versus to-be process mapping</b></span><button class="copy" aria-label="Copy prompt"></button></li>
+    <li data-prompt="/learn past-case interviewing (asking about the last time)"><span><b>/learn past-case interviewing (asking about the last time)</b></span><button class="copy" aria-label="Copy prompt"></button></li>
+    <li data-prompt="/learn pure projections and byte-compare gates"><span><b>/learn pure projections and byte-compare gates</b></span><button class="copy" aria-label="Copy prompt"></button></li>
+    <li data-prompt="/learn flagging versus filtering in honest records"><span><b>/learn flagging versus filtering in honest records</b></span><button class="copy" aria-label="Copy prompt"></button></li>
+  </ul>
+</main>
+<script>
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.copy')
+  if (!btn) return
+  const text = btn.closest('[data-prompt]').dataset.prompt
+  try {
+    await navigator.clipboard.writeText(text)
+  } catch {
+    const ta = Object.assign(document.createElement('textarea'), { value: text })
+    ta.style.cssText = 'position:fixed;opacity:0'
+    document.body.append(ta)
+    ta.select()
+    document.execCommand('copy')
+    ta.remove()
+  }
+  btn.classList.add('copied')
+  setTimeout(() => btn.classList.remove('copied'), 1200)
+})
+</script>
+</body>
+</html>
