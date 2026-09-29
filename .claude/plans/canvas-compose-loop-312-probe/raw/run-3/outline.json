@@ -1,0 +1,114 @@
+{
+  "frames": [
+    {
+      "id": "f1",
+      "screenId": "add-payee-form",
+      "stateKey": "ideal",
+      "preset": "phone",
+      "width": 390,
+      "decisionRefs": [],
+      "composition": {
+        "name": "stack",
+        "props": {
+          "direction": "column",
+          "gap": "lg",
+          "pad": "lg",
+          "align": "stretch"
+        },
+        "children": [
+          {
+            "name": "screen-header",
+            "props": {
+              "title": "Add new payee",
+              "showBack": true
+            },
+            "id": "header"
+          },
+          {
+            "name": "text-field",
+            "props": {
+              "label": "Payee name",
+              "placeholder": "As shown on their bank statement"
+            },
+            "id": "payee-name"
+          },
+          {
+            "name": "text-field",
+            "props": {
+              "label": "Sort code",
+              "placeholder": "00-00-00"
+            },
+            "id": "sort-code"
+          },
+          {
+            "name": "text-field",
+            "props": {
+              "label": "Account number",
+              "placeholder": "8 digits"
+            },
+            "id": "account-number"
+          },
+          {
+            "name": "text",
+            "props": {
+              "role": "caption",
+              "content": "Close match: the name on the account is 'J SMITH TRADING LTD', not what you typed. Check before you continue."
+            },
+            "id": "cop-inline-error"
+          },
+          {
+            "name": "select-field",
+            "props": {
+              "label": "Pay from",
+              "value": "Everyday account"
+            },
+            "id": "pay-from"
+          },
+          {
+            "name": "primary-button",
+            "props": {
+              "label": "Continue"
+            },
+            "id": "submit"
+          }
+        ]
+      },
+      "why": "Serves seq 7 (customer must complete payee creation alone, including resolving a non-match Confirmation of Payee result unaided) and seq 23 (close-match/no-match is in-scope, and the customer must see the result, not be blocked or silently passed) — the CoP mismatch is surfaced as an inline message under the fields per the brief's 'no dialog, error state inline', so modal-dialog is deliberately omitted this turn."
+    },
+    {
+      "id": "f2",
+      "baseId": "f1",
+      "stateKey": "error",
+      "preset": "phone",
+      "width": 390,
+      "overrides": {
+        "set": {
+          "sort-code": {
+            "hint": "Check this — we couldn't find an account with this sort code and number"
+          },
+          "account-number": {
+            "hint": "Check this — we couldn't find an account with this sort code and number"
+          },
+          "cop-inline-error": {
+            "content": "No match: we could not verify a name for these details. Check the sort code and account number are right, or continue if you're sure they are — it's your money and your call."
+          },
+          "submit": {
+            "label": "Continue anyway"
+          }
+        },
+        "hide": []
+      }
+    }
+  ],
+  "missing": [
+    {
+      "frameId": "f1",
+      "screenId": "add-payee-form",
+      "missing": [
+        "empty",
+        "partial",
+        "loading"
+      ]
+    }
+  ]
+}

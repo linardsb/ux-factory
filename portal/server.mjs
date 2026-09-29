@@ -28,7 +28,10 @@ import { checkProposalLines, projectProposals, proposalsView, readProposalPackag
 import { BOOT_SHA, headSha, isStale } from './lib/version.mjs';
 // The build package (#306): the run list, one run, and the append-only save. Node built-ins plus the
 // SDK-free canvas-ops.mjs, pinned by build-checks group 36.6.
-import { foldLedger, listBuilds, loadBuild, loadDecisions, loadExhibits, provenanceLabel, saveConflict, saveRun } from './lib/canvas-store.mjs';
+import { foldLedger, isSaveConflict, listBuilds, loadBuild, loadDecisions, loadExhibits, provenanceLabel, saveConflict, saveRun } from './lib/canvas-store.mjs';
+// The compose loop (#312). SDK-free and zod-free (build-checks 47.1): the transport is a lazy import
+// inside runComposeTurn, after every guard and inside the run lock.
+import { checkComposeRequest, composeRefusal, composeView, runComposeTurn } from './lib/canvas-session.mjs';
 import { questionById } from '../discovery/bank.mjs';
 // The answer-box guard (#454): Jev's pre-submit check. Writes nothing; fails open inside the module.
 import { checkAnswer } from './lib/discovery-guard.mjs';
@@ -444,6 +447,7 @@ const server = createServer(async (req, res) => {
         provenance, slug, label: provenanceLabel({ declared, root: provenance }),
         doc, effective: effective.map(({ op, params }) => ({ op, params })),
         count: pkg.ops.length, canvas: pkg.canvas, decisions, exhibits: loadExhibits(root, doc),
+        compose: composeView(root),
       });
     }
     // APPEND-ONLY AND CONFLICT-CHECKED (D10). saveConflict and saveRun are synchronous, and nothing
@@ -456,6 +460,29 @@ const server = createServer(async (req, res) => {
       const conflict = saveConflict(path.join(root, 'build'), b.base);
       if (conflict) return json(res, 409, { error: conflict });
       return json(res, 200, saveRun(root, { base: b.base, ops: b.ops, positions: b.positions, decisions: loadDecisions(root) }));
+    }
+    // ONE AGENT TURN (#312): one proposal, recorded as `proposed`, then the agent yields. The 409 comes
+    // before any token, as the save and the import do; the session checks it again inside the lock. A
+    // refusal the owner reads (busy, a proposal still waiting, no prd.md) is DATA — 200 { refused }.
+    // Every body parameter is named; `transport` is not one, so only the env seam reaches the fake.
+    if (p === '/api/canvas/compose' && req.method === 'POST') {
+      const b = await readBody(req);
+      const root = resolveRunRoot({ provenance: b.provenance, slug: b.slug });
+      assertProvenanceRoot(b.provenance, root);
+      const conflict = saveConflict(path.join(root, 'build'), b.base);
+      if (conflict) return json(res, 409, { error: conflict });
+      try { checkComposeRequest({ ask: b.ask, brief: b.brief ?? null }); }
+      catch (e) { return json(res, 400, { error: e.message }); }
+      try {
+        return json(res, 200, await runComposeTurn({ pkgRoot: root, base: b.base, ask: b.ask, brief: b.brief ?? null }));
+      } catch (e) {
+        // A save that lands between this route's check and the turn's lock is the same 409, never a 500
+        // the page would read as "The turn failed" (PR #485 review F8).
+        if (isSaveConflict(e.message)) return json(res, 409, { error: e.message });
+        const refused = composeRefusal(e.message);
+        if (refused) return json(res, 200, { refused });
+        throw e;
+      }
     }
 
     // --- the recorded import (#311) ---
@@ -552,4 +579,6 @@ server.listen(PORT, '127.0.0.1', () => {
   console.log(`kb: ${JOBS_DIR}`);
   console.log(`chat auth: ${HAS_TOKEN ? 'token from .env' : 'no token — falling back to the CLI login on this Mac'}`);
   console.log(`booted from: ${BOOT_SHA ? BOOT_SHA.slice(0, 7) : 'unknown (not a git checkout)'}`);
+  // PR #485 review F7: the env seam loads any module it names, so its use is never silent.
+  if (process.env.UXF_COMPOSE_TRANSPORT) console.log(`compose transport: OVERRIDDEN by UXF_COMPOSE_TRANSPORT → ${process.env.UXF_COMPOSE_TRANSPORT} (the journey's fake; never set this for a real run)`);
 });

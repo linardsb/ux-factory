@@ -593,6 +593,7 @@ discovery/<slug>/
     proposals/<name>/    a proposed component (#311): spec.md · block.css · template.txt · source.json · mapping.json
     imports/<id>.json    the import record (#311), + <id>.md (its projection, which the handoff carries),
                          <id>.transcript.jsonl and, from a live read, <id>.reference.png
+    transcript.jsonl     the compose loop's record (#312) — append-only; NOT the package's transcript.jsonl
 ```
 
 **`groups/` is still LATER** (#315); nothing writes it yet. `imports/` and `proposals/` are written by
@@ -629,6 +630,12 @@ different kinds (#306).
 `base` against the ledger's length (a mismatch is a 409, so two tabs cannot interleave), stamps each op
 `owner` with the next seq, folds the whole ledger through the real applier, refuses a `frame.link` ref
 the package's transcript does not record, and writes nothing if any of that throws.
+`appendAgentLine(pkgRoot, { op, params, status })` (#312) is the SERVER's writer of the agent's lines, called
+only by the compose session's handler: `proposed` or `refused`, `source: "agent"`, appended at the current
+length, and refused while another proposal waits for its verdict. Neither status enters the fold, so it
+never rewrites `canvas.json`. A `refused` agent line carries no `params` (PR #485 review F2): they failed a
+check and are model-written, so they could carry a key `verifyBuild` refuses; the transcript's `op` line at
+the same `seq` keeps them verbatim.
 `saveBuild(root, canvas, opLines)` writes a NEW package whole (the spine, the round trip). Beside them:
 `loadBuild`, `listBuilds` (the run list), `loadDecisions` (the transcript's `record_decision` lines),
 `foldLedger`, `arrangement` (the `canvas.json` derivation) and `verifyBuild` (the gate predicate). It
@@ -649,8 +656,17 @@ One line per op, append-only, in the shape the architecture pins:
 - **`source`** is `owner` or `agent`, and it is the one field no gate can infer. The spine's six
   lines all say `owner` because no agent ran; the honesty contract forbids saying one did.
 - **`status`** is `applied | proposed | accepted | refused | undone`.
-- **`fromStep`** is optional and names the proposal step an accepted op came from. No committed line
-  carries one yet.
+- **`fromStep` is the verdict's link (#312).** The agent's lines are `proposed | refused` (`source:
+  "agent"`, written by `appendAgentLine`). The owner's verdict on the canvas page is `accepted | refused`
+  (`source: "owner"`, written by `saveRun`) and carries `fromStep`: the seq of the agent's `proposed` line
+  it answers. A verdict RESTATES that proposal's `op` and `params` exactly, and a proposal has at most one
+  verdict. `accepted` folds like `applied`; both `refused` kinds fold like `proposed` (skipped). An
+  `undone` line after an accepted one restates the op and carries NO `fromStep` (the rule below), and a
+  redo is an `applied` line — from then on the agent's authorship reads only through the earlier
+  `proposed` line. `saveRun` refuses a verdict that names no agent proposal, restates another op, or
+  answers one already answered, and `verifyBuild` checks the same on every committed package (and refuses
+  an `accepted` line with no `fromStep`). No committed line carries one yet: the paid receipt lives under
+  `.claude/plans/`, not here.
 - **`seq`** is gapless and 1-based, and it is the applier's, never a writer's.
 - **Positions are never on a line.** Where a thing sits is `canvas.json`'s business; an op carrying
   an `x` would make the two files two sources for one fact, and group 36 refuses it by name.
@@ -671,6 +687,41 @@ its arrows with it. `annotate` creates a note (`n<k>`, minted) or edits one by `
 being ignored, `discovery/ops.mjs`'s rule and its reason: an op whose recorded text says more than
 the op that was applied is a record of something that did not happen. A new verb is an `OPS` entry,
 a `PARAMS` entry, a switch case and a group 35 case, together.
+
+### `build/transcript.jsonl` — the compose loop (#312)
+
+One agent turn on the canvas proposes ONE screen (or one missing state) and yields
+(`portal/lib/canvas-session.mjs`; the SDK is `portal/lib/canvas-transport.mjs` alone). Every turn appends
+its lines here, in order; `ts` is stamped on every line. Eight types:
+
+```jsonl
+{ "type": "turn", "turn": "c1", "ask": { "kind": "screen" }, "briefed": true }
+{ "type": "text", "source": "owner", "turn": "c1", "text": "payee form, no dialog, error state inline" }
+{ "type": "init", "turn": "c1", "sessionId": "…", "model": "claude-sonnet-5", "tools": ["mcp__canvas__screen_compose"] }
+{ "type": "op", "turn": "c1", "seq": 7, "tool": "screen_compose", "args": { "screenId": "…", "why": "…", "composition": { … }, "decisionRefs": ["7"] }, "status": "proposed" }
+{ "type": "text", "source": "agent", "turn": "c1", "text": "…" }
+{ "type": "denied", "turn": "c2", "tool": "Write", "input": { … }, "error": "…", "via": "PreToolUse" }
+{ "type": "refused", "turn": "c3", "kind": "ids", "seq": 9, "error": "composition.children[2] (text) has no id — …" }
+{ "type": "stats", "turn": "c1", "numTurns": 2, "costUsd": 0.08, "ok": true, "transport": "sdk", "maxTurns": 4, "outcome": "proposed", "promptFingerprint": "9690d4c955be652c", "vocabSha": "…", "model": "claude-sonnet-5" }
+{ "type": "session-reset", "turn": "c5", "sessionId": "…", "error": "…" }
+```
+
+- **The turn id** is `c<n>`, n = 1 + the turn lines already in the file. The SDK session id is the LAST
+  `init` line's, never `run.json`'s (that one is the discovery session's), so a portal restart resumes.
+  A resumed turn that fails before any `init` line writes `session-reset` (PR #485 review F5): the id is
+  taken to be gone, and the next turn starts a fresh session instead of failing on it forever.
+- **The brief is the owner's words, verbatim, never an op.** It is the `source: "owner"` text line, written
+  before the turn's `init`; an un-briefed turn has `briefed: false` and no owner line.
+- **A state proposal's reason** lives on its `op` line's `args.why` — `state.add` has no `why` param, and
+  the op grammar is unchanged.
+- **`refused` kinds:** `vocabulary · applier · ids` also write an agent `refused` line to `ops.jsonl` and
+  carry its `seq`; `one-per-turn · wrong-target · schema · not-covered` are transcript-only, because
+  nothing was proposed that the ledger could restate. A refusal is a line, never a retry: the turn is spent.
+- **The outcome** (`proposed · refused · escape · empty-yield · failed`, on the stats line) is taken from
+  the lines, never from the agent's words.
+- **Why not the package's `transcript.jsonl`.** That file is the discovery session's; a line written there
+  would give a stand-in a transcript, `loadDecisions` would stop answering null, and the canvas page would
+  stop flagging the stand-in (the owner's call, 2026-09-29).
 
 ### `canvas.json` — the arrangement
 

@@ -34,7 +34,7 @@
 
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { applyOps, EXHIBIT_SIZE, exhibitClashes, exhibitsOf } from "../../system/canvas-ops.mjs";
+import { applyOp, applyOps, EXHIBIT_SIZE, exhibitClashes, exhibitsOf } from "../../system/canvas-ops.mjs";
 
 export const OPS_FILE = "ops.jsonl";
 export const CANVAS_FILE = "canvas.json";
@@ -111,7 +111,8 @@ const canon = (v) => (v && typeof v === "object" && !Array.isArray(v)
 // the same op and params as the line it cancels and no new key, so the pinned line shape is
 // unchanged; the fold checks it against the TOP of the stack and refuses a mismatch naming both seqs,
 // which is what makes a wrong undo fail loudly. Redo is the same op appended again as `applied`.
-// `proposed` and `refused` lines are skipped: they are a proposal's statuses, and no page writes them.
+// `proposed` and `refused` lines are skipped: they are a proposal's statuses (#312). An `accepted` line —
+// the owner's verdict, carrying `fromStep` — folds like `applied`.
 export function foldLedger(lines) {
   if (!Array.isArray(lines)) throw new Error("foldLedger: lines must be an array");
   const effective = [];
@@ -235,6 +236,19 @@ export function verifyBuild({ ops, canvas } = {}) {
     if (l?.source !== "owner" && l?.source !== "agent") out.push(`${at}: source ${JSON.stringify(l?.source)} is not owner or agent`);
     if (!STATUSES.includes(l?.status)) out.push(`${at}: status ${JSON.stringify(l?.status)} is not in ${STATUSES.join(" · ")}`);
     if (/"x"\s*:|"y"\s*:/.test(JSON.stringify(l))) out.push(`${at}: carries an x or a y — positions live in canvas.json alone`);
+    // #312: a verdict names the agent's proposal it answers, restating it, and is that proposal's only one.
+    if (l?.fromStep !== undefined) {
+      const p = ops[l.fromStep - 1];
+      if (l.source === "agent") out.push(`${at}: an agent line never answers a proposal`);
+      else if (l.status !== "accepted" && l.status !== "refused") out.push(`${at}: carries fromStep but is ${l.status} — only a verdict (accepted, refused) names the proposal it answers`);
+      else if (!Number.isInteger(l.fromStep) || l.fromStep < 1 || l.fromStep > i) out.push(`${at}: fromStep ${JSON.stringify(l.fromStep)} names no earlier line`);
+      else if (p?.status !== "proposed" || p?.source !== "agent") out.push(`${at}: fromStep ${l.fromStep} names a ${p?.status} line, not an agent's proposal`);
+      else if (canon({ op: p.op, params: p.params }) !== canon({ op: l.op, params: l.params })) out.push(`${at}: restates ${l.op} but seq ${l.fromStep} proposed ${p.op} — a verdict restates exactly what it answers`);
+      else {
+        const twin = ops.findIndex((x, j) => j !== i && x?.fromStep === l.fromStep);
+        if (twin >= 0) out.push(`${at}: seq ${l.fromStep} already has a verdict (line ${twin + 1})`);
+      }
+    } else if (l?.status === "accepted") out.push(`${at}: an accepted line names the proposal it answers (fromStep)`);
   });
   let derived;
   try { derived = arrangement(foldLedger(ops).doc, positionsOf(canvas)); }
@@ -353,7 +367,67 @@ const ledgerLength = (buildRoot) => (existsSync(join(buildRoot, OPS_FILE)) ? rea
 export function saveConflict(buildRoot, base) {
   const have = ledgerLength(buildRoot);
   return base === have ? null
-    : `the ledger holds ${have} lines and this page last saw ${JSON.stringify(base)} — another tab or process saved in between. Reload to continue.`;
+    : `the ledger holds ${have} lines and this page last saw ${JSON.stringify(base)} — ${CONFLICT_MARK}. Reload to continue.`;
+}
+const CONFLICT_MARK = "another tab or process saved in between";
+// isSaveConflict(message) — true for saveConflict's own message, so a caller that meets it as a thrown
+// Error (the compose turn's in-lock check) answers the same 409 the route's own check does.
+export const isSaveConflict = (message) => String(message ?? "").includes(CONFLICT_MARK);
+
+// ---- #312: the compose loop's lines ---------------------------------------------------------------
+
+// openProposals(lines) → the agent's `proposed` lines no later line answers (by fromStep), in ledger
+// order. A read, so total over junk.
+export function openProposals(lines) {
+  const list = Array.isArray(lines) ? lines : [];
+  const answered = new Set(list.map((l) => l?.fromStep).filter((n) => n !== undefined));
+  return list.filter((l) => l?.status === "proposed" && l?.source === "agent" && !answered.has(l.seq));
+}
+
+// The owner's verdict on the page (accepted | refused) must name an agent proposal by fromStep, restate
+// it exactly, and be the only verdict on it — in the ledger or earlier in this batch.
+function checkVerdict(existing, batch, i) {
+  const o = batch[i];
+  const n = o.fromStep;
+  if (!Number.isInteger(n)) throw new Error(`saveRun: op ${i} is ${o.status} with no integer fromStep — a verdict names the proposal it answers`);
+  const p = existing[n - 1];
+  if (!p || p.status !== "proposed" || p.source !== "agent") throw new Error(`saveRun: op ${i} answers seq ${n}, which is not an agent's proposal`);
+  if (canon({ op: p.op, params: p.params }) !== canon({ op: o.op, params: o.params })) {
+    throw new Error(`saveRun: op ${i} restates ${o.op} but seq ${n} proposed ${p.op} — a verdict restates exactly what it answers`);
+  }
+  const prior = existing.find((l) => l?.fromStep === n);
+  if (prior) throw new Error(`saveRun: op ${i} answers seq ${n}, but seq ${n} already has a verdict (seq ${prior.seq})`);
+  if (batch.slice(0, i).some((x) => x?.fromStep === n)) throw new Error(`saveRun: op ${i} answers seq ${n}, but seq ${n} already has a verdict (op ${batch.findIndex((x) => x?.fromStep === n)} of this save)`);
+}
+
+// appendAgentLine(pkgRoot, { op, params, status }, { now }) → { seq, count } — THE SERVER'S WRITER of
+// the agent's lines (portal/lib/canvas-session.mjs's handler is its caller). This module stays the only
+// writer of ops.jsonl. Synchronous, like saveRun; no base: the session holds the run lock for the
+// whole turn and the page holds its saves during its own turn, so the line lands at the current length
+// and the page adopts the returned count. Neither status enters the fold, so canvas.json is untouched.
+// A REFUSED line carries no params (PR #485 review F2): they are model-written and failed a check, so
+// verifyBuild could redden on them (a prop named x) with no repair, since the ledger is append-only. The
+// transcript's op line at the same seq keeps the args verbatim.
+export function appendAgentLine(pkgRoot, { op, params, status } = {}, { now = () => new Date().toISOString() } = {}) {
+  const buildRoot = join(pkgRoot, "build");
+  const opsPath = join(buildRoot, OPS_FILE);
+  const existing = existsSync(opsPath) ? readJsonl(opsPath) : [];
+  if (status !== "proposed" && status !== "refused") {
+    throw new Error(`appendAgentLine: status ${JSON.stringify(status)} — an agent line is proposed or refused; accepted, applied and undone are the owner's`);
+  }
+  if (status === "proposed") {
+    const open = openProposals(existing)[0];
+    if (open) {
+      const what = open.op === "state.add" ? `${open.params?.stateKey} of ${open.params?.baseId}` : open.params?.screenId;
+      throw new Error(`appendAgentLine: seq ${open.seq} (${open.op} ${what}) is still waiting for the owner's verdict — one open proposal at a time (LOOP)`);
+    }
+    try { applyOp(foldLedger(existing).doc, { op, params }); }
+    catch (e) { throw new Error(`appendAgentLine: ${e.message}`); }
+  }
+  const line = { seq: existing.length + 1, at: now(), source: "agent", op, ...(status === "proposed" && { params }), status };
+  mkdirSync(buildRoot, { recursive: true });
+  appendFileSync(opsPath, `${JSON.stringify(line)}\n`);
+  return { seq: line.seq, count: line.seq };
 }
 
 // saveRun(pkgRoot, { base, ops, positions, decisions }, { now }) → { count }.
@@ -373,10 +447,15 @@ export function saveRun(pkgRoot, { base, ops, positions, decisions } = {}, { now
   if (!Array.isArray(ops)) throw new Error("saveRun: ops must be an array");
   const at = now();
   const lines = ops.map((o, i) => {
-    if (o?.status !== "applied" && o?.status !== "undone") {
-      throw new Error(`saveRun: op ${i} has status ${JSON.stringify(o?.status)} — the page writes applied and undone only; proposed and refused are a proposal's`);
+    const status = o?.status;
+    if (status === "applied" || status === "undone") {
+      if (o.fromStep !== undefined) throw new Error(`saveRun: op ${i} is ${status} and carries fromStep — only a verdict (accepted, refused) names the proposal it answers`);
+    } else if (status === "accepted" || status === "refused") {
+      checkVerdict(existing, ops, i);
+    } else {
+      throw new Error(`saveRun: op ${i} has status ${JSON.stringify(status)} — the page writes applied, undone and the owner's verdicts (accepted, refused, with fromStep); proposed and refused-by-the-agent are a proposal's, written by appendAgentLine`);
     }
-    return { seq: base + i + 1, at, source: "owner", op: o.op, params: o.params, status: o.status };
+    return { seq: base + i + 1, at, source: "owner", op: o.op, params: o.params, status, ...(o.fromStep !== undefined && { fromStep: o.fromStep }) };
   });
   const { doc } = foldLedger([...existing, ...lines]);
   if (Array.isArray(decisions)) {

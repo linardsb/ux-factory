@@ -1,0 +1,4 @@
+{"k":"turn","ask":{"kind":"screen"},"briefed":true,"brief":"payee form, no dialog, error state inline","prompt":"The canvas holds:\nnothing yet\n\nThe owner's brief for this turn, in their words:\n\"payee form, no dialog, error state inline\"\n\nPropose the next screen.","ts":"2026-09-29T11:45:45.467Z"}
+{"k":"init","sessionId":"19778d48-c621-4ab0-a125-5334d781ea96","tools":["mcp__canvas__screen_compose"],"model":"claude-sonnet-5","ts":"2026-09-29T11:45:47.172Z"}
+{"k":"text","text":"Credit balance is too low","ts":"2026-09-29T11:45:47.920Z"}
+{"k":"stats","sessionId":"19778d48-c621-4ab0-a125-5334d781ea96","numTurns":1,"maxTurns":4,"costUsd":0,"durationMs":781,"subtype":"success","isError":true,"inputTokens":0,"outputTokens":0,"cacheRead":0,"cacheWrite":0,"promptFingerprint":"91b07131e9aa171d","vocabSha":"a2bfea9494d879de","model":"claude-sonnet-5","result":"Credit balance is too low","ts":"2026-09-29T11:45:47.921Z"}

@@ -1,0 +1,15 @@
+  L1 (attempt 1) · c1 · proposed · $0.2202 · numTurns 2
+  L1 accepted seq 7 as f3
+  L2 · c2 · proposed · $0.1538 · numTurns 2
+  L3 · c3 · escape · $0.0161 · numTurns 1
+  L4 · c4 · proposed · $0.0910 · numTurns 2
+  ✓ live-compose · every stats line ok, transport sdk, maxTurns 4 (4 turns)
+  ✓ live-compose · each init advertises exactly its turn's tool
+  ✓ live-compose · one sessionId across every turn
+  ✓ live-compose · L1's owner line comes before its init
+  ✓ live-compose · verifyBuild []
+  ✓ live-compose · nothing under discovery/ changed
+  REPORTED, not asserted — L1's why: "Seq 7 requires the customer to resolve a non-match Confirmation of Payee result unaided, and seq 23 requires the customer see that result and not be blocked from paying — so the mismatch has to surface as inline field-level text on the same form, not a modal interruption." · L2's outcome: proposed · L3's outcome: escape · spent $0.4810
+  ── chromium --live-compose: 6 passed, 0 failed
+
+canvas-journey ✓  real compose turns on the subscription: every stats line ok with transport sdk and maxTurns 4 · each init advertising exactly its turn's tool · one session id across the turns · the owner's brief before L1's init · verifyBuild [] · nothing under discovery/ changed · the receipt committed under .claude/plans/canvas-compose-loop-312/raw/live-1/ · live-compose
