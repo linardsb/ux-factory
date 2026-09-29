@@ -101,7 +101,7 @@
     "primitives": {
       "$description": "1. PRIMITIVES — neutral palette (raw values, no brand)",
       "color-ink":      { "$value": "#1a1a1a", "$type": "color", "$description": "near-black — content base" },
-      "color-slate":    { "$value": "#6b7280", "$type": "color", "$description": "mid grey — secondary text" },
+      "color-slate":    { "$value": "#69707e", "$type": "color", "$description": "mid grey — secondary text" },
       "color-blue":     { "$value": "#2563eb", "$type": "color", "$description": "plain accent blue — signal" },
       "color-blue-hov": { "$value": "#1d4ed8", "$type": "color" },
       "color-blue-act": { "$value": "#1e40af", "$type": "color" },

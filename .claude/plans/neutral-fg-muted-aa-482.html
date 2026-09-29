@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Muted grey fix</title>
+<style>
+  :root { --bg:#fbfbfa; --fg:#1a1a1a; --muted:#5f6571; --line:#e3e3df; --card:#fff; --accent:#2f5d8a; --good:#2e7d4f; --bad:#b3403a; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#161616; --fg:#ececec; --muted:#a3a3a3; --line:#2e2e2e; --card:#1e1e1e; --accent:#7fa8d1; --good:#6cc08f; --bad:#e07a73; } }
+  :root[data-theme="dark"] { --bg:#161616; --fg:#ececec; --muted:#a3a3a3; --line:#2e2e2e; --card:#1e1e1e; --accent:#7fa8d1; --good:#6cc08f; --bad:#e07a73; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 ui-sans-serif, system-ui, sans-serif; }
+  main { max-width:760px; margin:0 auto; padding:32px 16px 64px; }
+  h1 { font-size:26px; margin:0 0 4px; } h2 { font-size:18px; margin:36px 0 10px; }
+  .src { color:var(--muted); font-size:14px; } a { color:var(--accent); }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:14px 16px; margin:10px 0; }
+  .card h3 { margin:0 0 6px; font-size:16px; }
+  pre { background:var(--card); border:1px solid var(--line); border-radius:6px; padding:10px 12px; overflow-x:auto; font-size:13px; margin:8px 0 0; }
+  .sw { display:flex; gap:10px; flex-wrap:wrap; margin-top:8px; }
+  .sw div { background:#f4f4f5; border-radius:6px; padding:8px 12px; font-size:13px; min-width:0; }
+  .flow { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  .box { border:1px solid var(--line); background:var(--card); border-radius:6px; padding:8px 10px; font-size:14px; }
+  .arr { color:var(--muted); }
+  table { border-collapse:collapse; width:100%; font-size:14px; } td { border-top:1px solid var(--line); padding:6px 4px; vertical-align:top; }
+  ul.go { list-style:none; padding:0; } ul.go li { display:flex; justify-content:space-between; gap:12px; border-top:1px solid var(--line); padding:8px 0; }
+  .copy { opacity:.35; border:0; background:none; color:inherit; cursor:pointer; font-size:15px; line-height:1 }
+  .copy:hover, .copy:focus-visible { opacity:1 } .copy::before { content:'⧉' } .copy.copied::before { content:'✓' }
+</style>
+</head>
+<body>
+<main>
+<h1>Muted grey fix</h1>
+<p class="src">Full plan: <a href="neutral-fg-muted-aa-482.md">neutral-fg-muted-aa-482.md</a></p>
+
+<h2>What we're building and why</h2>
+<p>Today the site's grey caption text is slightly too faint on light-grey cards, so every design import is marked as failing. After this change the grey is a touch darker, passes the readability rule, and a faithful import can finally show green.</p>
+
+<h2>The concepts this plan rests on</h2>
+<div class="card">
+  <h3>Contrast ratio</h3>
+  <p>A number for how much text stands out from its background. The accessibility standard (WCAG) asks for at least 4.5 for normal text. Our grey scores 4.40 on cards; the new one scores 4.53.</p>
+  <div class="sw">
+    <div><span style="color:#6b7280">Last seen 2 min ago</span> · #6b7280 · 4.40</div>
+    <div><span style="color:#69707e">Last seen 2 min ago</span> · #69707e · 4.53</div>
+  </div>
+</div>
+<div class="card">
+  <h3>Design tokens</h3>
+  <p>Named colours the whole site uses instead of raw values, like a paint catalogue. Change one entry and every page, export and download that reads it follows. This plan edits one entry, then regenerates the files built from it.</p>
+<pre>color-slate  #6b7280 → #69707e
+  ├─ color-fg-muted          (captions)
+  └─ color-accent-secondary  (quiet dots)</pre>
+</div>
+<div class="card">
+  <h3>A verdict built from two measurements</h3>
+  <p>An import reads green only if its colours match the drawing (a ΔE colour-difference score under 5) and every contrast pair passes. One failing pair makes everything red, however good the match.</p>
+<pre>green = colours match AND all 12 pairs pass</pre>
+</div>
+<div class="card">
+  <h3>A check that can fail</h3>
+  <p>A test that recomputes the answer it is checking can never go red. The new check compares against the expected word, green or red, and was shown to fail on the old grey.</p>
+</div>
+
+<h2>How the pieces fit</h2>
+<div class="flow">
+  <span class="box">one token value</span><span class="arr">→</span>
+  <span class="box">generated CSS + handoff pack</span><span class="arr">→</span>
+  <span class="box">12/12 contrast pairs</span><span class="arr">→</span>
+  <span class="box">import verdict green</span><span class="arr">→</span>
+  <span class="box">CI check pins it</span><span class="arr">→</span>
+  <span class="box">one screenshot updated</span>
+</div>
+
+<h2>The plan at a glance</h2>
+<table>
+  <tr><td>1</td><td>Change the grey and regenerate its copies</td><td>first</td></tr>
+  <tr><td>2</td><td>Add the check that the live pair reads green / red</td><td>after 1</td></tr>
+  <tr><td>3</td><td>Refresh the one screenshot that prints the hex</td><td>after 1, beside 2</td></tr>
+  <tr><td>4</td><td>Run the CI gates</td><td>after 1–3</td></tr>
+  <tr><td>5</td><td>Render the frame fresh and check it reads green</td><td>last</td></tr>
+</table>
+<pre>system/tokens.source.json            # the one colour value
+system/tokens.neutral.css            # regenerated
+system/build-card.mjs                # hand-copied fallback colour
+handoff/verdant/…                    # regenerated export pack (5 files)
+tooling/build-checks.mjs             # the new check + its description
+tooling/canvas-journey.mjs           # the same check on a fresh render
+.claude/references/gates.md          # description, second copy
+import/fixtures/measure-live/README.md  # note on what changed
+tooling/visual-regression/baselines/components-neutral.png  # screenshot</pre>
+<table>
+  <tr><td>AC 1</td><td>The neutral pack passes all 12 contrast pairs.</td></tr>
+  <tr><td>AC 2</td><td>The faithful live frame reads green, the wrong one red.</td></tr>
+  <tr><td>AC 3</td><td>Every copy of the colour moves; import fixtures don't.</td></tr>
+  <tr><td>AC 4</td><td>The new check fails on the old grey; its descriptions say so.</td></tr>
+  <tr><td>AC 5</td><td>One screenshot regenerated; all 33 pass.</td></tr>
+  <tr><td>AC 6</td><td>CI gates green; PR closes #482.</td></tr>
+  <tr><td>AC 7</td><td>A fresh render of the faithful frame reads green.</td></tr>
+</table>
+
+<h2>Go deeper</h2>
+<ul class="go">
+  <li data-prompt="/learn WCAG contrast ratio and relative luminance"><span><b>/learn WCAG contrast ratio and relative luminance</b> — how 4.40 and 4.53 are computed.</span><button class="copy" aria-label="Copy prompt"></button></li>
+  <li data-prompt="/learn design tokens: primitives vs semantic tokens"><span><b>/learn design tokens: primitives vs semantic tokens</b> — why one edit moves two roles.</span><button class="copy" aria-label="Copy prompt"></button></li>
+  <li data-prompt="/learn CIEDE2000 colour difference (ΔE)"><span><b>/learn CIEDE2000 colour difference (ΔE)</b> — the colour-match half of the verdict.</span><button class="copy" aria-label="Copy prompt"></button></li>
+  <li data-prompt="/learn mutation testing: proving a check can fail"><span><b>/learn mutation testing: proving a check can fail</b> — why the check compares to a literal.</span><button class="copy" aria-label="Copy prompt"></button></li>
+</ul>
+</main>
+<script>
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.copy')
+  if (!btn) return
+  const text = btn.closest('[data-prompt]').dataset.prompt
+  try {
+    await navigator.clipboard.writeText(text)
+  } catch {
+    const ta = Object.assign(document.createElement('textarea'), { value: text })
+    ta.style.cssText = 'position:fixed;opacity:0'
+    document.body.append(ta)
+    ta.select()
+    document.execCommand('copy')
+    ta.remove()
+  }
+  btn.classList.add('copied')
+  setTimeout(() => btn.classList.remove('copied'), 1200)
+})
+</script>
+</body>
+</html>
