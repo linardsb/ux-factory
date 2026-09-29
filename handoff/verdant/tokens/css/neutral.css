@@ -4,7 +4,7 @@
 
 :root {
   --color-ink: #1a1a1a; /** near-black — content base */
-  --color-slate: #6b7280; /** mid grey — secondary text */
+  --color-slate: #69707e; /** mid grey — secondary text */
   --color-blue: #2563eb; /** plain accent blue — signal */
   --color-blue-hov: #1d4ed8;
   --color-blue-act: #1e40af;

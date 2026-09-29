@@ -35,7 +35,7 @@ const ROLE_TOKEN = {
 const NEUTRAL = {
   accent: "#2563eb",
   fg: "#1a1a1a",
-  fgMuted: "#6b7280",
+  fgMuted: "#69707e",
   surface: "#ffffff",
   surfaceSubtle: "#f4f4f5",
   border: "#d4d4d8",

@@ -34,3 +34,5 @@ multiple of the size, not px.
 Measured: faithful worst ΔE **1.3379** (text:Amara Okafor; root 0.7267, subtitle 1.0001), wrong **29.7584**
 (text:Amara Okafor), against THRESHOLD 5.0. Both verdicts read `red` because the neutral pack fails one WCAG pair
 (11/12); the ΔE is what separates them.
+
+Since #482 (2026-09-29) the neutral pack passes 12/12: the replay in 43.16 derives faithful **green** and wrong **red**, and the wrong record now carries the wrong-but-green line. The committed `measure.json` lines still say `red` — the verdict at capture, verbatim.

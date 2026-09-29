@@ -19,7 +19,7 @@ public class FactoryTokens {
     public static let neutralPrimitivesColorCloud = UIColor(red: 0.957, green: 0.957, blue: 0.961, alpha: 1) /** light surface */
     public static let neutralPrimitivesColorInk = UIColor(red: 0.102, green: 0.102, blue: 0.102, alpha: 1) /** near-black — content base */
     public static let neutralPrimitivesColorLine = UIColor(red: 0.831, green: 0.831, blue: 0.847, alpha: 1) /** border grey */
-    public static let neutralPrimitivesColorSlate = UIColor(red: 0.420, green: 0.447, blue: 0.502, alpha: 1) /** mid grey — secondary text */
+    public static let neutralPrimitivesColorSlate = UIColor(red: 0.412, green: 0.439, blue: 0.494, alpha: 1) /** mid grey — secondary text */
     public static let neutralPrimitivesColorWhite = UIColor(red: 1.000, green: 1.000, blue: 1.000, alpha: 1)
     public static let neutralRadiusRadiusLg = CGFloat(16.00)
     public static let neutralRadiusRadiusMd = CGFloat(8.00)
@@ -29,13 +29,13 @@ public class FactoryTokens {
     public static let neutralSemanticAccentColorAccentFg = UIColor(red: 1.000, green: 1.000, blue: 1.000, alpha: 1) /** text/icon on an accent fill */
     public static let neutralSemanticAccentColorAccentHover = UIColor(red: 0.114, green: 0.306, blue: 0.847, alpha: 1)
     public static let neutralSemanticAccentColorAccentOnInverse = UIColor(red: 0.239, green: 0.482, blue: 1.000, alpha: 1) /** accent as text on the dark ground (footer link hovers, feature-band numeral) */
-    public static let neutralSemanticAccentColorAccentSecondary = UIColor(red: 0.420, green: 0.447, blue: 0.502, alpha: 1) /** quiet accent, live dots */
+    public static let neutralSemanticAccentColorAccentSecondary = UIColor(red: 0.412, green: 0.439, blue: 0.494, alpha: 1) /** quiet accent, live dots */
     public static let neutralSemanticFgSurfaceColorBg = UIColor(red: 1.000, green: 1.000, blue: 1.000, alpha: 1) /** page ground */
     public static let neutralSemanticFgSurfaceColorBgSurface = UIColor(red: 0.957, green: 0.957, blue: 0.961, alpha: 1) /** cards, alt sections */
     public static let neutralSemanticFgSurfaceColorBorder = UIColor(red: 0.831, green: 0.831, blue: 0.847, alpha: 1) /** 1px lines, dividers */
     public static let neutralSemanticFgSurfaceColorBorderStrong = UIColor(red: 0.102, green: 0.102, blue: 0.102, alpha: 1) /** emphasis / hover borders, thick rules */
     public static let neutralSemanticFgSurfaceColorFg = UIColor(red: 0.102, green: 0.102, blue: 0.102, alpha: 1) /** primary text */
-    public static let neutralSemanticFgSurfaceColorFgMuted = UIColor(red: 0.420, green: 0.447, blue: 0.502, alpha: 1) /** labels, captions, secondary text */
+    public static let neutralSemanticFgSurfaceColorFgMuted = UIColor(red: 0.412, green: 0.439, blue: 0.494, alpha: 1) /** labels, captions, secondary text */
     public static let neutralSemanticInverseColorBgInverse = UIColor(red: 0.102, green: 0.102, blue: 0.102, alpha: 1) /** dark sections, footer */
     public static let neutralSemanticInverseColorFgOnInverse = UIColor(red: 0.957, green: 0.957, blue: 0.961, alpha: 1) /** soft light text on dark (chrome) */
     public static let neutralSemanticInverseColorFgOnInverseStrong = UIColor(red: 1.000, green: 1.000, blue: 1.000, alpha: 1) /** high-contrast light (buttons on dark) */
