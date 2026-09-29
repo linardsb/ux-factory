@@ -17,7 +17,8 @@
 // project or a longer page than the scratch canvas had — the caller says so in its own message.
 //
 // WHAT IT CANNOT REACH: the real router, pairing, the browser tab the real bridge opens, Brilliant's
-// own validation (it answers any `lookup` by id count), and TIME — the real unpaired tools/list waits
+// own validation (it answers any `lookup` by id count), the export's `scale` (it serves the one 790×402
+// capture for every non-thumbnail export, whatever scale the read asks — #474's EXPORT_SCALE is 1), and TIME — the real unpaired tools/list waits
 // ~46 s before erroring (observed 45.8 s); this answers at once. Only canvas-journey's
 // --live-brilliant leg meets the real bridge.
 

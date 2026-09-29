@@ -19,9 +19,11 @@
 //   4. THE DRAFTS ARE THE IMPORTER'S OUTPUT, NEVER AN AGENT'S. spec.md, block.css and template.txt
 //      are deterministic strings built from the record; each says so in its first line. Props,
 //      states, behaviour and the accessibility model are the owner's at ratify (#313).
-//   5. FIDELITY ON A LIVE RUN IS `missing`, NEVER A PASS. The record carries WCAG (computed over the
-//      neutral pack) and no ΔE measurement, because measuring one needs a headless render the portal
-//      cannot load; report.mjs's fidelityVerdict answers `missing` for that, and the view says so.
+//   5. FIDELITY ON A LIVE RUN IS `missing` UNTIL THE OWNER MEASURES IT, AND NEVER A PASS WITHOUT A
+//      MEASUREMENT. runImport writes WCAG only; import-measure.mjs's measureImport adds the ΔE block on the
+//      owner's click (a spawned renderer — this module still loads no browser); any mapping edit rebuilds
+//      the record without it and deletes the candidate PNG, because a candidate of the previous mapping
+//      is not a measurement of this one (#474).
 //   6. ONE FENCE, ONE SITE: the client's `call()`. importFenceDecision is the one predicate, injected
 //      into openBridge as `decide`; it runs before a request is written, so a denied tool never leaves
 //      the portal, and a throw inside it DENIES. The denial is recorded here, through `onDeny` →
@@ -64,12 +66,13 @@
 // the import and this program wrote the op deterministically; an agent only relayed the read.
 
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 import { convert as convertBrilliant } from "../../import/brilliant.mjs";
 import { convert as convertFigma, readExport } from "../../import/figma.mjs";
 import { BUILDERS, build, recognise } from "../../import/recognise.mjs";
+import { THRESHOLD } from "../../import/fidelity.mjs";
 import { buildRecord, projectRecord } from "../../import/report.mjs";
 import { readOverrides, snap, sourceHash, SLOT_FAMILY, targetsFrom } from "../../import/snap-rules.mjs";
 import { walk } from "../../import/ir.mjs";
@@ -308,10 +311,10 @@ export function draftProposal({ name, record, compositions }) {
   return { "spec.md": spec, "block.css": css, "template.txt": template };
 }
 
-const sortKeys = (v) => (Array.isArray(v)
+export const sortKeys = (v) => (Array.isArray(v)
   ? v.map(sortKeys)
   : (v && typeof v === "object" ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, sortKeys(v[k])])) : v));
-const jsonText = (v) => `${JSON.stringify(v, null, 2)}\n`;
+export const jsonText = (v) => `${JSON.stringify(v, null, 2)}\n`;
 
 // Resolve `rel` under `root` and refuse anything that escapes it (invariant 2).
 export function underRoot(root, rel) {
@@ -397,6 +400,8 @@ export function editMapping({ pkgRoot, provenance, name, edit, inputs = loadInpu
     writeFileSync(path.join(overridesDir, `${overrides.source}.json`), jsonText(overrides));
   }
   writeImport(buildRoot, { id: prior.id, record, name, mapping: nextMapping, drafts: draftProposal({ name, record, compositions: pipe.compositions }) });
+  // Invariant 5 (#474 D6): recordFor wrote no ΔE, so the verdict is `missing` again; the candidate goes too.
+  rmSync(underRoot(buildRoot, `imports/${prior.id}.candidate.png`), { force: true });
   return importView(pkgRoot, name);
 }
 
@@ -504,11 +509,15 @@ export function importView(pkgRoot, name) {
       snaps: (n.snaps ?? []).map((s) => ({ slot: s.slot, family: s.family, outcome: s.outcome, ref: s.ref, value: s.value })) });
   });
   const targets = targetsFrom(loadInputs().contract);
-  const fidelity = record.fidelity.verdict === "missing" ? "fidelity: missing — not measured, never a pass" : `fidelity: ${record.fidelity.verdict}`;
+  const worst = record.fidelity.deltaEMin?.worst;
+  const fidelity = record.fidelity.verdict === "missing" ? "fidelity: missing — not measured, never a pass"
+    : worst ? `fidelity: ${record.fidelity.verdict} (worst ΔE ${worst.value} at ${worst.region}, threshold ${THRESHOLD})` : `fidelity: ${record.fidelity.verdict}`;
   return {
     name, recordId: record.id, record, md, mapping, outline,
     compositions: template.compositions,
     reference: existsSync(png) ? `data:image/png;base64,${readFileSync(png).toString("base64")}` : null,
+    // A reference is what a measurement needs (#474); a drop has none, so the view offers no Measure.
+    measurable: existsSync(png),
     unbound: unboundCount(records),
     // What the editor may offer: only a name with a builder, only a token of the slot's own family.
     builders: Object.keys(BUILDERS),
@@ -520,6 +529,11 @@ export function importView(pkgRoot, name) {
 // --- the live reader (see the header's THE LIVE READ) --------------------------------------------
 
 const TIMEOUT_MS = () => Number(process.env.UXF_IMPORT_TIMEOUT_MS) || 150_000;
+// The read's export scale, OURS and explicit (#474 D4): Brilliant's `scale` "Defaults to 2.0"
+// (import/fixtures/brilliant-live/tools-list.json), and 1 is where fidelity.mjs's THRESHOLD was
+// calibrated (S3, DSF 1). import-measure.mjs reads the scale back from the transcript's export line,
+// so a record read before this constant existed (no `scale`) still measures, at Brilliant's 2.
+export const EXPORT_SCALE = 1;
 export const BROWSE_MAX = 12;
 const sha256Of = (v) => { const b = Buffer.from(JSON.stringify(v)); return { bytes: b.length, sha256: sha256(b) }; };
 
@@ -592,7 +606,7 @@ export async function readBrilliant({ ids = null, timeoutMs = TIMEOUT_MS(), stre
     if (l.refused) return l;
     const { text } = parseLookup(l.reply);
     bindingReply ??= l.reply;
-    const x = await s.call("export", { canvasId: s.canvasId, ids: [read[0]], format: "png" }, project);
+    const x = await s.call("export", { canvasId: s.canvasId, ids: [read[0]], format: "png", scale: EXPORT_SCALE }, project);
     if (x.refused) return x;
     const binding = bindingOf(bindingReply);
     transcript.push({ type: "binding", ts: new Date().toISOString(), project: binding?.project ?? null, tabId: binding?.tabId ?? null,
@@ -603,7 +617,7 @@ export async function readBrilliant({ ids = null, timeoutMs = TIMEOUT_MS(), stre
 }
 
 // A lock held by another run is the owner's to wait out: a refusal with one action, not a 500.
-async function underLock(fn, what) {
+export async function underLock(fn, what) {
   try { return await withRunLock(fn, what); }
   catch (e) {
     if (String(e?.message).includes("already in flight")) return { refused: { kind: "busy", message: e.message, action: { label: "Wait, then try again" } } };

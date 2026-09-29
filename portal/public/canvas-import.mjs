@@ -56,6 +56,11 @@ const api = async (url, init) => {
 
 const refusalBox = el("div", { class: "cv-import-refusal", role: "alert", "data-import-refusal": true });
 const statusLine = el("p", { class: "cv-import-status", role: "status", "data-import-status": true });
+// The measurement's messages live IN THE VIEW (#474): the panel is hidden independently of the view, so
+// a refusal written into refusalBox is invisible to an owner who opened the import by ?import=.
+const measureRefusal = el("div", { class: "cv-import-refusal", role: "alert", "data-import-measure-refusal": true });
+const measureStatus = el("p", { class: "cv-import-status", role: "status", "data-import-measure-status": true });
+let currentName = null;
 const modeValue = () => Number(panel.querySelector("input[name=cv-import-mode]:checked")?.value ?? 1);
 const bindingLine = el("p", { class: "cv-import-binding", "data-import-binding": true, text: "Reads: not checked yet" });
 const browseBox = el("div", { class: "cv-import-browse", "data-import-browse-box": true, hidden: true });
@@ -71,11 +76,11 @@ function showBinding(binding, { selected = null, suffix = "" } = {}) {
   bindingLine.textContent = parts.join(" · ");
 }
 
-function showRefusal(refused) {
-  refusalBox.replaceChildren();
+function showRefusal(refused, box = refusalBox) {
+  box.replaceChildren();
   if (!refused) return;
-  refusalBox.appendChild(el("p", { text: refused.message }));
-  if (refused.detail) refusalBox.appendChild(el("p", { class: "cv-import-hint", "data-import-detail": true, text: refused.detail }));
+  box.appendChild(el("p", { text: refused.message }));
+  if (refused.detail) box.appendChild(el("p", { class: "cv-import-hint", "data-import-detail": true, text: refused.detail }));
   const a = refused.action ?? {};
   const act = a.href
     ? el("a", { class: "btn btn-secondary cv-btn", href: a.href, target: "_blank", rel: "noopener", "data-import-action": true, text: a.label })
@@ -84,11 +89,13 @@ function showRefusal(refused) {
     if (a.reload) location.reload();
     else if (a.route === "binding") checkBinding();
     else if (a.retry) importSelection();
-    else if (a.hint) statusLine.textContent = `Run: ${a.hint}`;
+    else if (a.measure) measureFidelity(currentName);
+    else if (a.hint) (box === refusalBox ? statusLine : measureStatus).textContent = `Run: ${a.hint}`;
+    else if (box === measureRefusal) measureFidelity(currentName);
     else dropInput.focus();
   });
-  refusalBox.appendChild(act);
-  if (a.hint) refusalBox.appendChild(el("p", { class: "cv-import-hint", text: a.hint }));
+  box.appendChild(act);
+  if (a.hint) box.appendChild(el("p", { class: "cv-import-hint", text: a.hint }));
 }
 
 const httpRefusal = (status, body) => ({ message: body.error ?? `HTTP ${status}`, action: { label: "Reload the page", reload: true } });
@@ -228,6 +235,26 @@ function buildPanel() {
 
 // ---- the view and the editor -------------------------------------------------------------------
 
+// #474: render the importer's composition, measure it against the reference, and show the verdict.
+async function measureFidelity(name) {
+  const btn = viewBox.querySelector("[data-import-measure]");
+  if (btn) btn.disabled = true;
+  showRefusal(null, measureRefusal);
+  measureStatus.textContent = "Rendering the candidate and measuring…";
+  try {
+    const { status, body } = await api("/api/canvas/import/measure", {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ provenance, slug, name }),
+    });
+    if (status !== 200) { measureStatus.textContent = ""; showRefusal(httpRefusal(status, body), measureRefusal); return; }
+    if (body.refused) { measureStatus.textContent = ""; showRefusal(body.refused, measureRefusal); return; }
+    renderView(body.view);
+    measureStatus.textContent = `Measured: ${body.verdict}, worst ΔE ${body.worst?.value ?? "—"}`;
+  } finally {
+    const b = viewBox.querySelector("[data-import-measure]");
+    if (b) b.disabled = false;
+  }
+}
+
 async function edit(name, e) {
   statusLine.textContent = "Re-deriving…";
   const { status, body } = await api("/api/canvas/import/mapping", {
@@ -235,6 +262,9 @@ async function edit(name, e) {
   });
   if (status !== 200) { statusLine.textContent = `Refused: ${body.error}`; return; }
   statusLine.textContent = "Mapping saved; the record, markdown and drafts were re-derived.";
+  // An edit clears any measurement (#474 D6), so the last one's words go too.
+  measureStatus.textContent = "";
+  showRefusal(null, measureRefusal);
   renderView(body);
 }
 
@@ -307,13 +337,20 @@ function renderView(view) {
     if (rows.length) drops.appendChild(el("ul", {}, ...rows.map((d) => el("li", { text: `${d.path} ${d.slot}: ${d.reason}` }))));
   }
   const f = r.fidelity;
+  const worst = f.deltaEMin?.worst;
   const fidelity = el("p", { class: "cv-import-fidelity", "data-import-fidelity": f.verdict,
-    text: `Fidelity: ${f.verdict === "missing" ? "missing — not measured, never a pass" : f.verdict}${f.wcag ? ` · WCAG ${f.wcag.pass}/${f.wcag.total} pairs pass` : ""}` });
+    text: `Fidelity: ${f.verdict === "missing" ? "missing — not measured, never a pass" : f.verdict}${worst ? ` · worst ΔE ${worst.value} at ${worst.region} (threshold ${f.deltaEMin.threshold})` : ""}${f.wcag ? ` · WCAG ${f.wcag.pass}/${f.wcag.total} pairs pass` : ""}` });
+  currentName = view.name;
+  let measure = null;
+  if (view.measurable) {
+    measure = el("button", { type: "button", class: "btn btn-secondary cv-btn", "data-import-measure": true, text: f.deltaEMin ? "Measure again" : "Measure fidelity" });
+    measure.addEventListener("click", () => measureFidelity(view.name));
+  }
   viewBox.replaceChildren(
     el("h2", { class: "cv-import-title", text: `Import ${view.recordId} → proposal ${view.name}` }),
     el("p", { class: "cv-where", "data-import-label": true, text: view.label }),
     el("div", { class: "cv-import-cols" }, original, mapped),
-    fidelity,
+    fidelity, ...(measure ? [measure] : []), measureStatus, measureRefusal,
     el("p", { class: "cv-where", "data-import-unbound": true, text: `${view.unbound.unbound} of ${view.unbound.total} imports in this build arrived unbound` }),
     drops,
     el("p", { class: "cv-where", "data-import-suggest-status": true, text: r.suggestions?.length

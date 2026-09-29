@@ -36,6 +36,8 @@ import { checkAnswer } from './lib/discovery-guard.mjs';
 // client, portal/lib/brilliant-mcp.mjs, and bindingStatus/browse open the same client.
 import { BROWSE_MAX, bindingStatus, browse, dropTooLarge, editMapping, importView, isProposalName, readUpload, runImport } from './lib/import-run.mjs';
 import { suggest as suggestImport, SUGGEST_PROVENANCES } from './lib/import-suggest.mjs';
+// The live fidelity measurement (#474): the renderer is a spawned tooling/ child, so no browser loads here.
+import { measureImport } from './lib/import-measure.mjs';
 
 const PUBLIC_DIR = path.join(PORTAL_DIR, 'public');
 const MIME = {
@@ -514,6 +516,16 @@ const server = createServer(async (req, res) => {
       assertProvenanceRoot(b.provenance, root);
       if (!isProposalName(b.name)) return json(res, 400, { error: `name ${JSON.stringify(b.name ?? null)} is not a component name` });
       return json(res, 200, editMapping({ pkgRoot: root, provenance: b.provenance, name: b.name, edit: b.edit }));
+    }
+    // Measure fidelity (#474): only on the owner's click. It spawns tooling/measure-render.mjs and writes
+    // only under the build root. No saveConflict 409 here, deliberately: a measurement never touches
+    // ops.jsonl, and a mapping edit while it renders is its own `stale` refusal.
+    if (p === '/api/canvas/import/measure' && req.method === 'POST') {
+      const b = await readBody(req);
+      const root = resolveRunRoot({ provenance: b.provenance, slug: b.slug });
+      assertProvenanceRoot(b.provenance, root);
+      if (!isProposalName(b.name)) return json(res, 400, { error: `name ${JSON.stringify(b.name ?? null)} is not a component name` });
+      return json(res, 200, await measureImport({ pkgRoot: root, name: b.name }));
     }
 
     // --- embedded site previews: /sites/<slug>/... → the card's site_root on disk ---

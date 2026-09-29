@@ -1,0 +1,7 @@
+{"type":"meta","ts":"2026-09-28T15:22:41.270Z","entrance":"selection","transport":"stdio","server":"npx","allowed":["init","get_selection","lookup","export"]}
+{"type":"tool","ts":"2026-09-28T15:22:42.052Z","tool":"init","input":{"agentName":"ux-factory import"},"ok":true,"ms":3,"bytes":24730,"sha256":"1221af79ed6be73a63f5fcac3f324408254d70629cb1b4de8b754392e393c5d1"}
+{"type":"tool","ts":"2026-09-28T15:22:42.055Z","tool":"get_selection","input":{"canvasId":"main.bl"},"ok":true,"ms":2,"bytes":908,"sha256":"0f97e2fa304692e697c4f20dc484a06bd1ee624a16f6a761002525e832fa29ab"}
+{"type":"tool","ts":"2026-09-28T15:22:42.056Z","tool":"lookup","input":{"scope":["44fbd0ed1a60d5a5"],"format":"blueprint","expandInstances":true},"ok":true,"ms":1,"bytes":1010,"sha256":"d060f34284ae55e09167fabfc9258d343de35976b26602aed6e7c78375734746"}
+{"type":"tool","ts":"2026-09-28T15:22:42.073Z","tool":"export","input":{"canvasId":"main.bl","ids":["44fbd0ed1a60d5a5"],"format":"png","scale":1},"ok":true,"ms":17,"bytes":5576,"sha256":"145c7999eecadba2b28fd992014d2cf3dec75cb992dd9ff15e85c7c38305bdf7"}
+{"type":"binding","ts":"2026-09-28T15:22:42.073Z","project":"playground","tabId":"tab-222a9bd0-eade-49a3-a33b-de0c8e409d4b","surface":"web","otherTabs":0}
+{"type":"suggest","ts":"2026-09-28T15:22:57.078Z","ran":false,"reason":"The operation was aborted due to timeout","nodes":0,"requests":1,"usage":null}

@@ -1,0 +1,4 @@
+44fbd0ed1a60d5a5 al(v,g(4:$spacing.xs),pad(8:$spacing.sm)) p(1082,364) s(320,82) f[(6aa294d9c647500b,solid(#FFFFFF,o(0)))] "wrong"
+  113a136185f43f37 t("Amara Okafor",Inter,16:$font.size.md,r,align(l),lh(1.63:$font.lineHeight.relaxed)) s(156.93,29) f[(35c30d0211f2e60d,#1A7F37)] "Amara Okafor"
+  2bba02767e86090b t("Last seen 2 min ago",Inter,12:$font.size.xs,r,align(l),lh(1.5:$font.lineHeight.normal)) s(hug:113.82,hug:18) f[(55889d1be41dbbef,#6B7280)] "Last seen 2 min ago"
+    spans[(0,19,#6B7280)]

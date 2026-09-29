@@ -1,0 +1,4 @@
+dcbd44e13e90cdd7 al(v,g(4:$spacing.xs),pad(8:$spacing.sm)) p(1442,364) s(320,82) f[(2be53e8a76f5ad62,solid(#FFFFFF,o(0)))] "faithful"
+  66878f1ec822a793 t("Amara Okafor",Inter,16:$font.size.md,r,align(l),lh(1.63:$font.lineHeight.relaxed)) s(156.93,29) f[(ca0bdb3f1cd7d688,#1A1A1A)] "Amara Okafor"
+  8e3fcfbef4654bf0 t("Last seen 2 min ago",Inter,12:$font.size.xs,r,align(l),lh(1.5:$font.lineHeight.normal)) s(hug:113.82,hug:18) f[(fd8db62c1ec255ce,#6B7280)] "Last seen 2 min ago"
+    spans[(0,19,#6B7280)]

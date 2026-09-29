@@ -22,11 +22,18 @@
 // region rule. This departs from the predicate, so it is the owner's call (the plan's Q1); switching
 // back is this module plus a records regen.
 //
-// ─── ONE STATED FIX TO THE LIFT (D2) ─────────────────────────────────────────────────────────────
-// S3's regionStats returned 0 when EITHER side had no ink, so a candidate that dropped a text
-// entirely scored 0 — green. Here a side with no ink falls back to its region's MODAL colour (its
+// ─── TWO STATED CHANGES TO THE LIFT ──────────────────────────────────────────────────────────────
+// D2 (#307). S3's regionStats returned 0 when EITHER side had no ink, so a candidate that dropped a
+// text entirely scored 0 — green. Here a side with no ink falls back to its region's MODAL colour (its
 // paper): a vanished text is compared as paper against ink, and reads high (a blanked `subtitle`:
 // 0 → 25.278, build-checks 42.3). Every committed fixture number is unchanged to 4 dp.
+//
+// D5 (#474, .claude/plans/import-live-fidelity-474.md). Brilliant's export is RGBA with `background:
+// "clear"` by default, so a live reference carries partial alpha around every glyph and decodePng's
+// opaque-only rule throws on it. decodePng and measure take an OPT-IN `{ over: [r, g, b] }` that
+// composites alpha onto that backdrop (Porter–Duff over, integer math, Math.round). The throw stays
+// the DEFAULT, so the committed fixtures cannot move; a caller that flattens names its backdrop in the
+// record's source strings (portal/lib/import-measure.mjs). The sha256s stay those of the raw bytes.
 //
 // ─── RUNG 6'S PRICE, CARRIED AND NOT FIXED ───────────────────────────────────────────────────────
 // A PAPER change moves the ink average on a region whose ink did not change: ink is "far from the
@@ -50,7 +57,11 @@ export const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex"
 // a silently mis-decoded image is the failure mode that would make every number below wrong
 // while looking plausible (the repo's `check-that-cannot-fail` class). `label` names the input in
 // every throw, since the bytes carry no path.
-export function decodePng(buf, label = "png") {
+export function decodePng(buf, label = "png", { over = null } = {}) {
+  // Validated at entry, not in the RGBA branch: a bad backdrop is refused on an RGB input too.
+  if (over !== null && !(Array.isArray(over) && over.length === 3 && over.every((c) => Number.isInteger(c) && c >= 0 && c <= 255))) {
+    throw new Error(`png: ${label}: over must be [r, g, b] integers 0-255, got ${JSON.stringify(over)}`);
+  }
   const SIG = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
   for (let i = 0; i < 8; i++) {
     if (buf[i] !== SIG[i]) throw new Error(`png: ${label}: not a PNG (bad signature at byte ${i})`);
@@ -120,6 +131,11 @@ export function decodePng(buf, label = "png") {
   if (bpp === 3) return { w, h, data: raw4 };
   const out = Buffer.alloc(w * h * 3);
   for (let i = 0, j = 0; i < w * h; i++, j += 4) {
+    if (over) {                                 // D5: over an opaque backdrop, per channel
+      const a = raw4[j + 3];
+      for (let k = 0; k < 3; k++) out[i * 3 + k] = Math.round((raw4[j + k] * a + over[k] * (255 - a)) / 255);
+      continue;
+    }
     if (raw4[j + 3] !== 255) {
       throw new Error(`png: ${label}: alpha ${raw4[j + 3]} at pixel ${i} is not opaque — the RGB under it is not a colour`);
     }
@@ -289,7 +305,8 @@ export function measureImages(A, B, regions) {
 
 // PNG bytes → the measurement plus both images' sha256. The hashes are what build-checks 42.7's
 // independence check (O3b) compares: a reference that is some record's candidate output is refused.
-export function measure(refBytes, candBytes, regions) {
-  const A = decodePng(refBytes, "reference"), B = decodePng(candBytes, "candidate");
+// `over` (D5) is the FOURTH argument: regen-import-records.mjs calls this with three.
+export function measure(refBytes, candBytes, regions, { over = null } = {}) {
+  const A = decodePng(refBytes, "reference", { over }), B = decodePng(candBytes, "candidate", { over });
   return { ...measureImages(A, B, regions), reference: { sha256: sha256(refBytes) }, candidate: { sha256: sha256(candBytes) } };
 }
