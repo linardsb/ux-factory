@@ -29,6 +29,9 @@ import { BOOT_SHA, headSha, isStale } from './lib/version.mjs';
 // The build package (#306): the run list, one run, and the append-only save. Node built-ins plus the
 // SDK-free canvas-ops.mjs, pinned by build-checks group 36.6.
 import { foldLedger, listBuilds, loadBuild, loadDecisions, loadExhibits, provenanceLabel, saveConflict, saveRun } from './lib/canvas-store.mjs';
+// The compose loop (#312). SDK-free and zod-free (build-checks 47.1): the transport is a lazy import
+// inside runComposeTurn, after every guard and inside the run lock.
+import { checkComposeRequest, composeRefusal, composeView, runComposeTurn } from './lib/canvas-session.mjs';
 import { questionById } from '../discovery/bank.mjs';
 // The answer-box guard (#454): Jev's pre-submit check. Writes nothing; fails open inside the module.
 import { checkAnswer } from './lib/discovery-guard.mjs';
@@ -444,6 +447,7 @@ const server = createServer(async (req, res) => {
         provenance, slug, label: provenanceLabel({ declared, root: provenance }),
         doc, effective: effective.map(({ op, params }) => ({ op, params })),
         count: pkg.ops.length, canvas: pkg.canvas, decisions, exhibits: loadExhibits(root, doc),
+        compose: composeView(root),
       });
     }
     // APPEND-ONLY AND CONFLICT-CHECKED (D10). saveConflict and saveRun are synchronous, and nothing
@@ -456,6 +460,26 @@ const server = createServer(async (req, res) => {
       const conflict = saveConflict(path.join(root, 'build'), b.base);
       if (conflict) return json(res, 409, { error: conflict });
       return json(res, 200, saveRun(root, { base: b.base, ops: b.ops, positions: b.positions, decisions: loadDecisions(root) }));
+    }
+    // ONE AGENT TURN (#312): one proposal, recorded as `proposed`, then the agent yields. The 409 comes
+    // before any token, as the save and the import do; the session checks it again inside the lock. A
+    // refusal the owner reads (busy, a proposal still waiting, no prd.md) is DATA — 200 { refused }.
+    // Every body parameter is named; `transport` is not one, so only the env seam reaches the fake.
+    if (p === '/api/canvas/compose' && req.method === 'POST') {
+      const b = await readBody(req);
+      const root = resolveRunRoot({ provenance: b.provenance, slug: b.slug });
+      assertProvenanceRoot(b.provenance, root);
+      const conflict = saveConflict(path.join(root, 'build'), b.base);
+      if (conflict) return json(res, 409, { error: conflict });
+      try { checkComposeRequest({ ask: b.ask, brief: b.brief ?? null }); }
+      catch (e) { return json(res, 400, { error: e.message }); }
+      try {
+        return json(res, 200, await runComposeTurn({ pkgRoot: root, base: b.base, ask: b.ask, brief: b.brief ?? null }));
+      } catch (e) {
+        const refused = composeRefusal(e.message);
+        if (refused) return json(res, 200, { refused });
+        throw e;
+      }
     }
 
     // --- the recorded import (#311) ---

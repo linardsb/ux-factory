@@ -1,0 +1,81 @@
+{
+  "frames": [
+    {
+      "id": "f1",
+      "screenId": "payments-home",
+      "stateKey": "ideal",
+      "preset": "phone",
+      "width": 390,
+      "decisionRefs": [],
+      "composition": {
+        "name": "stack",
+        "id": "payments-home-stack",
+        "props": {
+          "direction": "column",
+          "gap": "md",
+          "pad": "lg",
+          "align": "stretch"
+        },
+        "children": [
+          {
+            "name": "screen-header",
+            "id": "header",
+            "props": {
+              "title": "Pay someone",
+              "showBack": false,
+              "showSettings": true
+            }
+          },
+          {
+            "name": "list",
+            "id": "payee-list",
+            "props": {
+              "header": "Your payees",
+              "empty": "You haven't added anyone yet."
+            },
+            "children": [
+              {
+                "name": "list-row",
+                "id": "payee-1",
+                "props": {
+                  "label": "J Smith Trading",
+                  "value": "Last paid 3 days ago",
+                  "meta": "Sort code 20-00-00"
+                }
+              },
+              {
+                "name": "list-row",
+                "id": "payee-2",
+                "props": {
+                  "label": "R Okafor",
+                  "value": "Last paid 2 weeks ago",
+                  "meta": "Sort code 40-12-09"
+                }
+              }
+            ]
+          },
+          {
+            "name": "primary-button",
+            "id": "add-payee-btn",
+            "props": {
+              "label": "Add a payee"
+            }
+          }
+        ]
+      },
+      "why": "Serves seq 3/seq 4 (customers need to pay someone new inside the app instead of phoning the contact centre) and sets the seq 12 scope boundary — a personal customer paying an existing or new UK payee, once, from their own account — by giving the payee list and the one action (\"Add a payee\") that starts that journey."
+    }
+  ],
+  "missing": [
+    {
+      "frameId": "f1",
+      "screenId": "payments-home",
+      "missing": [
+        "empty",
+        "error",
+        "partial",
+        "loading"
+      ]
+    }
+  ]
+}

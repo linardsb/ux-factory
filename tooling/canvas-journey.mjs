@@ -54,6 +54,19 @@
 // use, and is killed by its own handle. git status over system/, handoff/, discovery/ and
 // import/overrides/ is compared across the pass (AC #4).
 //
+// THE COMPOSE PASS (#312). A side portal whose UXF_COMPOSE_TRANSPORT names tooling/fake-compose-agent.mjs —
+// a SCRIPTED stand-in for the model driving the REAL handler and fence; the main portal child never gets
+// it — over fp-compose, the stand-in shape (no transcript.jsonl). Through the page: a briefed turn's card
+// shows the brief and its why quotes it, the owner's line before the turn's init (C2); Accept lands an
+// accepted line with fromStep and flags f3's missing states (C3); the error: missing button asks for
+// exactly that state (C4); Refuse records the verdict and places nothing (C5); the four lines read
+// proposed, accepted, proposed, refused from agent, owner, agent, owner (C6); Cmd+Z writes an undone line
+// restating the accepted op, f3 leaves the stage and the disk fold, and the proposal stays byte-identical
+// (C7); an un-briefed turn records briefed:false (C8); an impossible screen is a not-covered line and
+// "Not covered: …" (C9); the fence fed through a turn writes six denied lines (C10); verifyBuild [] and the
+// page's document equal to the disk fold (C11); 44×44 compose controls (C12). WHAT IT CANNOT REACH: a
+// model — whether one yields, names the brief or escapes is --live-compose's, never the fake's.
+//
 // WHAT IT CANNOT REACH: the page's pixels (no baseline — the portal is not in the VR set); a REAL
 // Brilliant tab and its pairing — only `--live-brilliant` meets the real bridge; the real ~46–60 s
 // unpaired wait, which the fake answers at once; and two-tab behaviour beyond the 409 and the reload
@@ -67,15 +80,23 @@
 // binding, Import selection (record + reference.png + a component.propose line), one mapping edit, and
 // Browse (≥ 1 tile). It asserts SHAPES (16-hex ids, a PNG signature), never the owner's content.
 //
+// --live-compose (#312, Task 6.2; chromium only, OWNER-RUN, PAID ~$0.40–0.60, capped at $1.00): a side
+// portal with the REAL transport over a fresh fp-compose — L1 a briefed screen (accepted; a refused turn is
+// re-asked as a fresh turn at most twice), L2 its error state (refused), L3 an impossible screen, L4 an
+// un-briefed screen (refused). Asserts SHAPES (ok, transport sdk, maxTurns 4, one session id, each init
+// advertising exactly its turn's tool, the owner line before L1's init, verifyBuild []), REPORTS the rest,
+// and writes the receipt to .claude/plans/canvas-compose-loop-312/raw/live-1/, which must not exist yet.
+//
 // Run it:
 //   (cd portal && npm ci)                                   # server.mjs imports the Agent SDK (chat)
 //   node tooling/canvas-journey.mjs [chromium|firefox|webkit|all]   # default: all
 //   node tooling/canvas-journey.mjs chromium --live-brilliant       # a paired brilliant.design tab
+//   node tooling/canvas-journey.mjs chromium --live-compose         # PAID: four real compose turns
 
 import { createRequire } from "node:module";
 import { spawn, execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { cpSync, existsSync, mkdirSync, mkdtempSync, openSync, readdirSync, readFileSync, realpathSync, rmSync } from "node:fs";
+import { appendFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, openSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
@@ -94,15 +115,18 @@ const pw = require("@playwright/test");
 const ENGINES = ["chromium", "firefox", "webkit"];
 const argv = process.argv.slice(2);
 const LIVE = argv.includes("--live-brilliant");
-const badFlag = argv.find((a) => a.startsWith("--") && a !== "--live-brilliant");
-if (badFlag) { console.error(`canvas-journey: unknown flag "${badFlag}" — the one flag is --live-brilliant`); process.exit(2); }
-const arg = argv.find((a) => !a.startsWith("--")) || (LIVE ? "chromium" : "all");
+const LIVE_COMPOSE = argv.includes("--live-compose");
+const badFlag = argv.find((a) => a.startsWith("--") && a !== "--live-brilliant" && a !== "--live-compose");
+if (badFlag) { console.error(`canvas-journey: unknown flag "${badFlag}" — the flags are --live-brilliant and --live-compose`); process.exit(2); }
+if (LIVE && LIVE_COMPOSE) { console.error("canvas-journey: --live-brilliant and --live-compose are separate legs — run one"); process.exit(2); }
+const arg = argv.find((a) => !a.startsWith("--")) || (LIVE || LIVE_COMPOSE ? "chromium" : "all");
 const toRun = arg === "all" ? ENGINES : [arg];
 if (!toRun.every((e) => ENGINES.includes(e))) {
   console.error(`canvas-journey: unknown engine "${arg}" — chromium, firefox, webkit or all`);
   process.exit(2);
 }
 if (LIVE && arg !== "chromium") { console.error("canvas-journey: --live-brilliant runs on chromium only"); process.exit(2); }
+if (LIVE_COMPOSE && arg !== "chromium") { console.error("canvas-journey: --live-compose runs on chromium only"); process.exit(2); }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const canon = (v) => (v && typeof v === "object" && !Array.isArray(v)
@@ -240,6 +264,11 @@ function seed() {
   mkdirSync(imp);
   for (const f of ["run.json", "answers.jsonl", "transcript.jsonl"]) cpSync(path.join(src, f), path.join(imp, f));
   cpSync(path.join(src, "build"), path.join(imp, "build"), { recursive: true });
+  // #312's compose pass: the stand-in shape — run.json, prd.md and build/, no transcript.jsonl.
+  const cmp = path.join(DISC(), "fp-compose");
+  mkdirSync(cmp);
+  for (const f of ["run.json", "prd.md"]) cpSync(path.join(src, f), path.join(cmp, f));
+  cpSync(path.join(src, "build"), path.join(cmp, "build"), { recursive: true });
   // #474's measurement pass, likewise on its own copy.
   const mea = path.join(DISC(), "fp-measure");
   mkdirSync(mea);
@@ -607,6 +636,7 @@ async function leg(engine, base, results) {
 
     await importPass(engine, base, page, t, step, errors);
     await measurePass(base, page, t, step);
+    await composePass(base, page, t, step);
 
     t("16 · no page errors or console errors across the leg", errors.length === 0, errors.slice(0, 3).join(" | "));
     const gitAfter = gitDiscovery();
@@ -1206,6 +1236,246 @@ async function measurePass(base, page, t, step) {
   }, { extraEnv: { UXF_MEASURE_VRDIR: "/nonexistent" } }));
 }
 
+// ---- the compose pass (#312) --------------------------------------------------------------------------
+// A side portal whose UXF_COMPOSE_TRANSPORT names tooling/fake-compose-agent.mjs — the main portal child
+// never gets the fake — over fp-compose, the stand-in shape (run.json, prd.md and build/, no transcript).
+const FAKE_COMPOSE = path.join(REPO, "tooling/fake-compose-agent.mjs");
+const composeTx = (slug) => {
+  const f = path.join(buildDir(slug), "transcript.jsonl");
+  return existsSync(f) ? readFileSync(f, "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l)) : [];
+};
+const rawLine = (slug, seq) => readFileSync(path.join(buildDir(slug), "ops.jsonl"), "utf8").split("\n")[seq - 1];
+
+// One turn through the page: type the brief (or clear it), press the ask, wait for the answer.
+async function askThrough(page, sel, brief) {
+  if (brief !== undefined) await page.locator("#cv-brief").fill(brief);
+  const resp = page.waitForResponse((r) => r.url().endsWith("/api/canvas/compose") && r.request().method() === "POST", { timeout: 120000 });
+  const btn = page.locator(sel);
+  await btn.scrollIntoViewIfNeeded();
+  await settleScroll(page);
+  await btn.click();
+  const body = await (await resp).json();
+  await page.waitForFunction(() => !(document.querySelector("[data-compose-status]")?.textContent ?? "").startsWith("Asking"), null, { timeout: 10000 });
+  return body;
+}
+
+async function composePass(base, page, t, step) {
+  const slug = "fp-compose";
+  const gitBefore = gitDiscovery();
+  await withPortal(MCP_DOWN, async (b2) => {
+    let c2 = null;
+    await step("C1 · the compose panel on a stand-in", async () => {
+      await openCanvas(page, b2, "real", slug);
+      const ask = page.locator("[data-compose-ask]");
+      t("C1 · the compose panel shows with Ask enabled", (await page.locator("[data-compose-panel]").isVisible()) && (await ask.isEnabled()));
+      t("C1 · …and the package carries the stand-in flag", ((await page.locator(".cv-card .cv-flag").allTextContents()).join(" ")).includes("a stand-in"));
+    });
+
+    await step("C2 · a briefed turn proposes one screen", async () => {
+      const n = ledger(slug).length;
+      const brief = "payee form, no dialog, error state inline";
+      await askThrough(page, "[data-compose-ask]", brief);
+      await page.waitForSelector("[data-compose-card]", { timeout: 10000 });
+      const card = await page.locator("[data-compose-card]").textContent();
+      const last = ledger(slug).at(-1);
+      t("C2 · one proposed agent screen.compose line", ledger(slug).length === n + 1 && last.status === "proposed" && last.source === "agent" && last.op === "screen.compose", JSON.stringify(last).slice(0, 200));
+      t("C2 · the card shows the brief, and its why quotes it", card.includes(`Your brief: "${brief}"`) && card.includes(`Why: Serves the owner's brief: "${brief}"`), card.slice(0, 300));
+      const tx = composeTx(slug);
+      const owner = tx.findIndex((l) => l.type === "text" && l.source === "owner" && l.turn === "c1");
+      const init = tx.findIndex((l) => l.type === "init" && l.turn === "c1");
+      t("C2 · the owner's line precedes the turn's init", owner >= 0 && init > owner && tx[owner].text === brief, JSON.stringify(tx.map((l) => l.type)));
+      const small = [];
+      for (const sel of ["[data-compose-ask]", "[data-compose-accept]", "[data-compose-refuse]"]) {
+        const bb = await page.locator(sel).boundingBox();
+        if (!bb || bb.width < 44 || bb.height < 44) small.push(`${sel} ${bb?.width}×${bb?.height}`);
+      }
+      t("C12 · the compose buttons measure at least 44×44", small.length === 0, small.join(", "));
+      c2 = { seq: last.seq, raw: rawLine(slug, last.seq), op: { op: last.op, params: last.params } };
+    });
+
+    await step("C3 · Accept places the frame and flags its missing states", async () => {
+      if (!c2) throw new Error("C2 filed nothing");
+      const n = ledger(slug).length;
+      await page.locator("[data-compose-accept]").click();
+      await page.waitForSelector('[data-stx-id="f3"]', { timeout: 5000 });
+      const last = (await waitLines(slug, n + 1)).at(-1);
+      t("C3 · f3 appears and the last line is accepted/owner with fromStep", last.status === "accepted" && last.source === "owner" && last.fromStep === c2.seq, JSON.stringify(last).slice(0, 200));
+      const miss = page.locator('[data-cv-ask-state="f3:error"]');
+      t("C3 · the error: missing button shows on f3", (await miss.count()) === 1 && (await miss.textContent()) === "error: missing");
+      const bb = await miss.boundingBox();
+      t("C12 · the missing-state button measures at least 44×44", bb && bb.width >= 44 && bb.height >= 44, `${bb?.width}×${bb?.height}`);
+    });
+
+    await step("C4 · the missing-state ask asks for exactly that state", async () => {
+      const n = ledger(slug).length;
+      await askThrough(page, '[data-cv-ask-state="f3:error"]');
+      await page.waitForSelector("[data-compose-card]", { timeout: 10000 });
+      const last = ledger(slug).at(-1);
+      t("C4 · the last line is a proposed agent state.add of f3/error", ledger(slug).length === n + 1 && last.status === "proposed" && last.source === "agent" && last.op === "state.add"
+        && last.params.baseId === "f3" && last.params.stateKey === "error", JSON.stringify(last).slice(0, 200));
+    });
+
+    await step("C5 · Refuse records the verdict and places nothing", async () => {
+      const n = ledger(slug).length;
+      const seq = ledger(slug).at(-1).seq;
+      await page.locator("[data-compose-refuse]").click();
+      const last = (await waitLines(slug, n + 1)).at(-1);
+      t("C5 · the last line is refused/owner with fromStep, and no new frame", last.status === "refused" && last.source === "owner" && last.fromStep === seq && (await node(page, "f4").count()) === 0, JSON.stringify(last).slice(0, 200));
+    });
+
+    await step("C6 · the four lines", async () => {
+      const four = ledger(slug).slice(-4);
+      t("C6 · proposed, accepted, proposed, refused from agent, owner, agent, owner",
+        canon(four.map((l) => `${l.status}/${l.source}`)) === canon(["proposed/agent", "accepted/owner", "proposed/agent", "refused/owner"]), JSON.stringify(four.map((l) => `${l.status}/${l.source}`)));
+    });
+
+    await step("C7 · undo takes the accepted frame away", async () => {
+      const n = ledger(slug).length;
+      await undo(page);
+      const last = (await waitLines(slug, n + 1)).at(-1);
+      await page.waitForFunction(() => !document.querySelector('[data-stx-id="f3"]'), null, { timeout: 4000 }).catch(() => {});
+      t("C7 · an undone line restating C2's op", last.status === "undone" && canon({ op: last.op, params: last.params }) === canon(c2?.op) && last.fromStep === undefined, JSON.stringify(last).slice(0, 200));
+      t("C7 · f3 is gone from the stage and the disk fold", (await node(page, "f3").count()) === 0 && !foldLedger(ledger(slug)).doc.frames.some((f) => f.id === "f3"), "undo did not remove f3");
+      t("C7 · C2's proposed line is byte-identical on disk", rawLine(slug, c2.seq) === c2.raw);
+    });
+
+    await step("C8 · an un-briefed turn", async () => {
+      await askThrough(page, "[data-compose-ask]", "");
+      const tx = composeTx(slug);
+      const turn = tx.filter((l) => l.type === "turn").at(-1);
+      t("C8 · briefed:false and no owner line", turn?.briefed === false && !tx.some((l) => l.turn === turn.turn && l.source === "owner"), JSON.stringify(turn));
+      const n = ledger(slug).length;
+      await page.locator("[data-compose-refuse]").click();
+      t("C8 · …then Refuse", (await waitLines(slug, n + 1)).at(-1).status === "refused");
+    });
+
+    await step("C9 · an impossible screen escapes", async () => {
+      const n = ledger(slug).length;
+      await askThrough(page, "[data-compose-ask]", "impossible: a live map of nearby branches");
+      const tx = composeTx(slug);
+      const turn = tx.filter((l) => l.type === "turn").at(-1).turn;
+      const last = (await page.locator("[data-compose-last]").textContent().catch(() => "")) ?? "";
+      t("C9 · the ledger does not move, the transcript has a not-covered line, and the page says Not covered",
+        ledger(slug).length === n && tx.some((l) => l.turn === turn && l.type === "refused" && l.kind === "not-covered") && last.startsWith("Not covered: a live map"), last);
+    });
+
+    await step("C10 · the fence, fed through a turn", async () => {
+      const n = ledger(slug).length;
+      await askThrough(page, "[data-compose-ask]", "fence: probe");
+      const tx = composeTx(slug);
+      const turn = tx.filter((l) => l.type === "turn").at(-1).turn;
+      const denied = tx.filter((l) => l.turn === turn && l.type === "denied");
+      t("C10 · six denied lines and the ledger does not move", denied.length === 6 && ledger(slug).length === n, `${denied.length} denied · ${ledger(slug).length - n} ops`);
+    });
+
+    await step("C11 · the disk agrees with the page", async () => {
+      await sleep(300);
+      const pkg = loadBuild(buildDir(slug));
+      const v = verifyBuild(pkg);
+      t("C11 · verifyBuild [] on the compose package", v.length === 0, v.join(" | "));
+      t("C11 · the page's document equals the disk fold", canon(await pageDoc(page)) === canon(foldLedger(pkg.ops).doc));
+    });
+    await page.goto("about:blank");
+  }, { extraEnv: { UXF_COMPOSE_TRANSPORT: FAKE_COMPOSE } });
+  t("C12 · the compose pass changed nothing under discovery/", gitDiscovery() === gitBefore, gitDiscovery());
+}
+
+// ---- --live-compose (#312, Task 6.2) — owner-run, chromium, PAID: the real Agent SDK turn ------------------
+// A side portal with NO transport override (UXF_COMPOSE_TRANSPORT emptied), over a fresh fp-compose. Four
+// turns back to back (the prompt cache's 5-minute TTL), capped at $1.00 summed from the stats lines. The
+// operator's clicks on Accept and Refuse are SCRIPTED verdicts for a receipt, not the owner's design
+// judgement. Asserted: SHAPES only. Reported, never asserted: whether L1's why names the brief, L3's
+// outcome, L2's validity. The receipt lands in a directory that must not exist yet, and is never edited.
+const LIVE_RECEIPT = path.join(REPO, ".claude/plans/canvas-compose-loop-312/raw/live-1");
+const LIVE_CAP_USD = 1.0;
+async function liveComposeLeg(results) {
+  const out = [];
+  const log = (s) => { out.push(s); console.log(s); };
+  const t = (name, cond, extra = "") => {
+    if (cond) { results.passes += 1; log(`  ✓ ${name}`); }
+    else { results.fails += 1; log(`  ✗ ${name}  ${extra}`); }
+  };
+  if (existsSync(LIVE_RECEIPT)) { t("live-compose · the receipt directory is new", false, `${LIVE_RECEIPT} already exists — a receipt is never overwritten`); return; }
+  seed();
+  const slug = "fp-compose";
+  const gitBefore = gitDiscovery();
+  const spent = () => composeTx(slug).filter((l) => l.type === "stats").reduce((a, l) => a + (l.costUsd ?? 0), 0);
+  const browser = await pw.chromium.launch();
+  const report = {};
+  try {
+    await withPortal(MCP_DOWN, async (b) => {
+      const ctx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+      const page = await ctx.newPage();
+      await openCanvas(page, b, "real", slug);
+      const turnOf = () => composeTx(slug).filter((l) => l.type === "turn").at(-1)?.turn;
+      const statsOf = (turn) => composeTx(slug).find((l) => l.type === "stats" && l.turn === turn);
+      const verdict = async (sel) => { const n = ledger(slug).length; await page.locator(sel).click(); await waitLines(slug, n + 1); };
+      const turn = async (label, sel, brief) => {
+        if (spent() > LIVE_CAP_USD) { log(`  budget stop before ${label}: $${spent().toFixed(4)} > $${LIVE_CAP_USD}`); return null; }
+        const body = await askThrough(page, sel, brief);
+        const id = turnOf();
+        const s = statsOf(id);
+        log(`  ${label} · ${id} · ${s?.outcome ?? body.refused?.kind ?? body.error} · $${(s?.costUsd ?? 0).toFixed(4)} · numTurns ${s?.numTurns}`);
+        return { id, stats: s, open: (await page.locator("[data-compose-card]").count()) === 1 };
+      };
+      const BRIEF = "payee form, no dialog, error state inline";
+      // L1: a briefed screen turn; a refused first call is re-asked as a FRESH turn, at most twice.
+      let l1 = null;
+      for (let attempt = 1; attempt <= 3 && !l1?.open; attempt += 1) {
+        l1 = await turn(`L1 (attempt ${attempt})`, "[data-compose-ask]", BRIEF);
+        if (!l1 || l1.stats?.outcome === "failed") break;
+      }
+      report.l1 = composeTx(slug).find((l) => l.type === "op" && l.status === "proposed" && l.turn === l1?.id)?.args?.why ?? null;
+      let accepted = null;
+      if (l1?.open) {
+        const seq = ledger(slug).at(-1).seq;
+        await verdict("[data-compose-accept]");
+        accepted = foldLedger(ledger(slug)).doc.frames.at(-1)?.id;
+        log(`  L1 accepted seq ${seq} as ${accepted}`);
+      } else log("  L1 proposed nothing after three turns — Q6 evidence, not a code failure; L2 skipped");
+      // L2: the error state of the accepted frame.
+      if (accepted) {
+        const l2 = await turn("L2", `[data-cv-ask-state="${accepted}:error"]`);
+        report.l2 = l2?.stats?.outcome ?? null;
+        if (l2?.open) await verdict("[data-compose-refuse]");
+      }
+      // L3: an impossible screen. An escape is expected, not guaranteed.
+      const l3 = await turn("L3", "[data-compose-ask]", "a live map of the customer's nearby branches with walking directions");
+      report.l3 = l3?.stats?.outcome ?? null;
+      if (l3?.open) await verdict("[data-compose-refuse]");
+      // L4: an un-briefed screen turn, then Refuse.
+      const l4 = await turn("L4", "[data-compose-ask]", "");
+      if (l4?.open) await verdict("[data-compose-refuse]");
+      await ctx.close();
+    }, { extraEnv: { UXF_COMPOSE_TRANSPORT: "" } });
+  } catch (e) {
+    t("live-compose — threw", false, e.message.split("\n")[0]);
+  } finally {
+    await browser.close();
+  }
+  const tx = composeTx(slug);
+  const stats = tx.filter((l) => l.type === "stats");
+  const inits = tx.filter((l) => l.type === "init");
+  const turns = tx.filter((l) => l.type === "turn");
+  t(`live-compose · every stats line ok, transport sdk, maxTurns 4 (${stats.length} turns)`, stats.length >= 1 && stats.every((s) => s.ok === true && s.transport === "sdk" && s.maxTurns === 4),
+    JSON.stringify(stats.map((s) => ({ ok: s.ok, transport: s.transport, maxTurns: s.maxTurns, error: s.error }))));
+  t("live-compose · each init advertises exactly its turn's tool", inits.length === turns.length && inits.every((i) => {
+    const want = turns.find((x) => x.turn === i.turn)?.ask?.kind === "state" ? "mcp__canvas__state_add" : "mcp__canvas__screen_compose";
+    return canon((i.tools ?? []).filter((x) => x.startsWith("mcp__"))) === canon([want]);
+  }), JSON.stringify(inits.map((i) => (i.tools ?? []).filter((x) => x.startsWith("mcp__")))));
+  t("live-compose · one sessionId across every turn", new Set(inits.map((i) => i.sessionId)).size === 1, JSON.stringify([...new Set(inits.map((i) => i.sessionId))]));
+  const o1 = tx.findIndex((l) => l.type === "text" && l.source === "owner" && l.turn === "c1");
+  t("live-compose · L1's owner line comes before its init", o1 >= 0 && tx.findIndex((l) => l.type === "init" && l.turn === "c1") > o1);
+  const v = existsSync(path.join(buildDir(slug), "ops.jsonl")) ? verifyBuild(loadBuild(buildDir(slug))) : ["no ledger"];
+  t("live-compose · verifyBuild []", v.length === 0, v.join(" | "));
+  t("live-compose · nothing under discovery/ changed", gitDiscovery() === gitBefore, gitDiscovery());
+  log(`  REPORTED, not asserted — L1's why: ${JSON.stringify(report.l1)} · L2's outcome: ${report.l2 ?? "not run"} · L3's outcome: ${report.l3 ?? "not run"} · spent $${spent().toFixed(4)}`);
+  mkdirSync(LIVE_RECEIPT, { recursive: true });
+  for (const f of ["ops.jsonl", "transcript.jsonl"]) if (existsSync(path.join(buildDir(slug), f))) cpSync(path.join(buildDir(slug), f), path.join(LIVE_RECEIPT, f));
+  writeFileSync(path.join(LIVE_RECEIPT, "stdout.txt"), `${out.join("\n")}\n`);
+  log(`  receipt → ${path.relative(REPO, LIVE_RECEIPT)}/`);
+}
+
 // ---- --live-brilliant (#311 PR B, Task 7.2) — owner-run, chromium, the REAL bridge ---------------------------
 async function liveLeg(results) {
   const t = (name, cond, extra = "") => {
@@ -1267,6 +1537,18 @@ async function liveLeg(results) {
 
 // ---- run -------------------------------------------------------------------------------------------------
 let totalFails = 0;
+if (LIVE_COMPOSE) {
+  const results = { passes: 0, fails: 0 };
+  try { await liveComposeLeg(results); } finally { await teardown(); }
+  const tally = `  ── chromium --live-compose: ${results.passes} passed, ${results.fails} failed`;
+  const verdict = results.fails
+    ? `\ncanvas-journey ✗  ${results.fails} assertion(s) failed · live-compose`
+    : "\ncanvas-journey ✓  real compose turns on the subscription: every stats line ok with transport sdk and maxTurns 4 · each init advertising exactly its turn's tool · one session id across the turns · the owner's brief before L1's init · verifyBuild [] · nothing under discovery/ changed · the receipt committed under .claude/plans/canvas-compose-loop-312/raw/live-1/ · live-compose";
+  console.log(tally);
+  console.log(verdict);
+  if (existsSync(path.join(LIVE_RECEIPT, "stdout.txt"))) appendFileSync(path.join(LIVE_RECEIPT, "stdout.txt"), `${tally}\n${verdict}\n`);
+  process.exit(results.fails ? 1 : 0);
+}
 if (LIVE) {
   const results = { passes: 0, fails: 0 };
   try { await liveLeg(results); } finally { await teardown(); }
@@ -1299,5 +1581,5 @@ try {
 }
 console.log(totalFails
   ? `\ncanvas-journey ✗  ${totalFails} assertion(s) failed`
-  : `\ncanvas-journey ✓  the run list · the in-repo spine opened with ZERO saves and its save notice · run.json's provenance label with the root flagged · frames, the arrow and decision cards rendered from the ledger and the transcript with no overlap · a note, a decision link, a refused remove, a remove and its undo, a numeric width and a pointer resize each ONE ledger entry and ONE undo · a reload that keeps them · verifyBuild [] on disk and the disk document equal to the page's · 403 cross-origin and 409 stale · the stand-in flagged, not blocked · the inspector in the viewport on both branches · 44×44 targets · the import pass: the MCP-down refusal with one action, two drops writing record + proposal + one component.propose line each with one record shape, a mapping edit re-deriving the record and the view, the run lock refusing a drop "already in flight" and the hung read's one action routed to Re-bind, a stale drop's one action reloading the page, an oversize drop refused and a traversal name a 400 · over the fake bridge: Check binding naming the tab's project and surface, Import selection writing the one selected id + a reference.png shown in the Original pane + a mapping edit (I9), the unpaired refusal's one action and the bridge's own words with Import again re-sending (I10), Re-bind running the binding check (I10b), Browse's two thumbnail tiles importing as one two-id record and served again from the session cache (I11) · a Mode 2 import as an exhibit beside the flow — placed by rule, its PNG shown, a drag, a redo, a preset change and a pointer resize into a frame each refused and put back with no ledger line, an authored height letting it sit below a screen, a drop flagged as having no image (X1–X7, #475) · the owner's faithful frame measured through the page by the spawned renderer, worst ΔE under THRESHOLD with the derived verdict reading green at 12/12 WCAG (#482), a rename returning it to missing and deleting the candidate (I12), and the no-renderer refusal visible in the view with the panel closed (I12b) · no page errors · nothing under system/, handoff/, discovery/ or import/overrides/ changed (${toRun.join(", ")})`);
+  : `\ncanvas-journey ✓  the run list · the in-repo spine opened with ZERO saves and its save notice · run.json's provenance label with the root flagged · frames, the arrow and decision cards rendered from the ledger and the transcript with no overlap · a note, a decision link, a refused remove, a remove and its undo, a numeric width and a pointer resize each ONE ledger entry and ONE undo · a reload that keeps them · verifyBuild [] on disk and the disk document equal to the page's · 403 cross-origin and 409 stale · the stand-in flagged, not blocked · the inspector in the viewport on both branches · 44×44 targets · the import pass: the MCP-down refusal with one action, two drops writing record + proposal + one component.propose line each with one record shape, a mapping edit re-deriving the record and the view, the run lock refusing a drop "already in flight" and the hung read's one action routed to Re-bind, a stale drop's one action reloading the page, an oversize drop refused and a traversal name a 400 · over the fake bridge: Check binding naming the tab's project and surface, Import selection writing the one selected id + a reference.png shown in the Original pane + a mapping edit (I9), the unpaired refusal's one action and the bridge's own words with Import again re-sending (I10), Re-bind running the binding check (I10b), Browse's two thumbnail tiles importing as one two-id record and served again from the session cache (I11) · a Mode 2 import as an exhibit beside the flow — placed by rule, its PNG shown, a drag, a redo, a preset change and a pointer resize into a frame each refused and put back with no ledger line, an authored height letting it sit below a screen, a drop flagged as having no image (X1–X7, #475) · the owner's faithful frame measured through the page by the spawned renderer, worst ΔE under THRESHOLD with the derived verdict reading green at 12/12 WCAG (#482), a rename returning it to missing and deleting the candidate (I12), and the no-renderer refusal visible in the view with the panel closed (I12b) · the compose pass over the fake agent: a briefed proposal whose card shows the brief, Accept with fromStep, the missing-state ask for exactly that state, Refuse, the four lines agent/owner/agent/owner, undo removing the frame with the proposal intact, an un-briefed turn, an escape and six fence denials, verifyBuild [] and the page equal to the disk (C1–C12, #312) · no page errors · nothing under system/, handoff/, discovery/ or import/overrides/ changed (${toRun.join(", ")})`);
 process.exit(totalFails ? 1 : 0);

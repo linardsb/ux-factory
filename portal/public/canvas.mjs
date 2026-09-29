@@ -28,6 +28,12 @@
 //      every pending line the refused gesture added is dropped (call 3: it recorded nothing), and the
 //      refusal is said aloud. flush() is the backstop: a clash that reaches it is not sent, and the
 //      page does NOT go broken — the next clean gesture saves everything pending.
+//   6. THE AGENT PROPOSES, THE OWNER DISPOSES (#312). A proposal is never in `doc`: the server writes
+//      it as a `proposed` agent line, which enters no fold. Accept is the owner's own op on THIS page's
+//      one undo stack (an `accepted` line carrying `fromStep`), so Cmd+Z takes the frame away with an
+//      `undone` line like any other op; Refuse is a `refused` line with `fromStep`, off the stack. A
+//      turn never reloads the page, unlike canvas-import.mjs call 1: nothing the page's history has
+//      not seen entered the fold, so adopting the returned `count` is enough and the history survives.
 //
 // The driver seam is getCanvasPage() (studio-verbs.mjs's getVerbs idiom): page globals are not this
 // repo's test surface.
@@ -39,7 +45,7 @@ import { mountCanvasVerbs } from "/system/studio-verbs.mjs";
 import { mountCanvasSelect } from "/system/studio-select.mjs";
 import { mountStudioLayers } from "/system/studio-layers.mjs";
 import { mountStudioMinimap } from "/system/studio-minimap.mjs";
-import { applyOp, EXHIBIT_SIZE, exhibitClashes, exhibitsOf, frameTree, placeDecision } from "/system/canvas-ops.mjs";
+import { applyOp, EXHIBIT_SIZE, exhibitClashes, exhibitsOf, frameTree, missingStates, placeDecision } from "/system/canvas-ops.mjs";
 import { PRESET_NAMES, WIDTH_MAX, WIDTH_MIN, presetWidth } from "/system/device-presets.mjs";
 
 const el = (tag, attrs, ...kids) => {
@@ -90,8 +96,13 @@ let lastSavedKey = null;
 let saving = false;
 let again = false;
 let broken = false;
+// #312: the compose view (/api/canvas/run's `compose`), whether a turn is in flight, and the last
+// thing the panel has to say that the view does not (a refusal the server answered as data).
+let compose = null;
+let composing = false;
+let composeNote = "";
 
-export const getCanvasPage = () => ({ doc, effective, count, pending });
+export const getCanvasPage = () => ({ doc, effective, count, pending, compose });
 
 // ---- names and sentences ---------------------------------------------------------------------------
 
@@ -116,6 +127,8 @@ const describeOp = (o) => {
     case "frame.remove": return `removed ${p.frameId}`;
     case "frame.size": return `resized ${p.frameId} to ${p.preset ?? `${p.width} px`}`;
     case "component.propose": return `proposed ${p.name} from import ${p.recordId}`;
+    case "screen.compose": return `composed ${p.screenId}`;
+    case "state.add": return `added the ${p.stateKey} state of ${p.baseId}`;
     default: return o.op;
   }
 };
@@ -165,16 +178,22 @@ function frameParts(f) {
   const chips = el("span", { class: "cv-chips" });
   if (!(f.decisionRefs ?? []).length) chips.appendChild(el("span", { class: "cv-chip cv-chip-none", text: "No decision linked" }));
   for (const r of f.decisionRefs ?? []) chips.appendChild(el("span", { class: "cv-chip", text: `Decision ${r}` }));
-  return { screen, name: el("span", { class: "cv-name", text: frameName(f) }), chips };
+  // G27 (#312): each state the completeness check says this base screen lacks is one ask for a proposal.
+  const missing = el("span", { class: "cv-missing" });
+  for (const key of missingOf(f)) {
+    missing.appendChild(el("button", { type: "button", class: "btn btn-secondary cv-btn cv-missing-btn", "data-cv-ask-state": `${f.id}:${key}`, "aria-label": `Ask for a proposal: the ${key} state of ${frameName(f)}`, text: `${key}: missing` }));
+  }
+  return { screen, name: el("span", { class: "cv-name", text: frameName(f) }), chips, missing };
 }
 
-const frameSig = (f) => canon({ tree: frameTree(doc, f.id), w: f.width, name: frameName(f), refs: f.decisionRefs ?? [] });
+const missingOf = (f) => (f.baseId ? [] : missingStates(doc).find((m) => m.frameId === f.id)?.missing ?? []);
+const frameSig = (f) => canon({ tree: frameTree(doc, f.id), w: f.width, name: frameName(f), refs: f.decisionRefs ?? [], missing: missingOf(f) });
 
 function fillFrame(entry, f) {
-  const { screen, name, chips } = frameParts(f);
+  const { screen, name, chips, missing } = frameParts(f);
   // Re-inserting a focused button blurs it, so the Details button keeps its focus across a re-render.
   const hadFocus = document.activeElement === entry.details;
-  const cap = el("p", { class: "stx-frame-cap cv-cap" }, name, chips, entry.details);
+  const cap = el("p", { class: "stx-frame-cap cv-cap" }, name, chips, missing, entry.details);
   entry.node.replaceChildren(screen, cap);
   if (hadFocus) entry.details.focus();
   entry.node.dataset.stxName = frameName(f);
@@ -403,13 +422,14 @@ function reconcile() {
 
 // ---- applying the owner's ops -----------------------------------------------------------------------
 
-function applyOwnerOp(op, { commit = true } = {}) {
+// `line` overrides the pending line's status (and adds fromStep) for an accepted proposal (#312).
+function applyOwnerOp(op, { commit = true, line = null } = {}) {
   let next;
   try { next = applyOp(doc, op); }
   catch (e) { canvas.say(`Refused: ${e.message}`); return false; }
   doc = next;
   effective.push(op);
-  pending.push({ ...op, status: "applied" });
+  pending.push({ ...op, status: "applied", ...line });
   reconcile();
   if (commit) verbs.commit();
   return true;
@@ -459,6 +479,8 @@ function scheduleSave() {
 
 async function flush() {
   if (broken) return;
+  // A compose turn appends a line the page has not counted yet: hold saves until it answers (#312).
+  if (composing) { again = true; return; }
   if (saving) { again = true; return; }
   const positions = gatherPositions();
   // THE BACKSTOP (call 5): a clash the guard missed is not sent, and the session stays alive.
@@ -489,6 +511,175 @@ async function flush() {
     saving = false;
     if (again && !broken) { again = false; flush(); }
   }
+}
+
+// ---- the compose loop (#312) -------------------------------------------------------------------------
+
+const whatOf = (o) => (o.op === "state.add" ? `the ${o.params?.stateKey} state of ${o.params?.baseId}` : o.params?.screenId);
+
+// Everything the page has queued is on disk, and nothing is in flight — or false after 20 ticks.
+async function flushSettled() {
+  for (let i = 0; i < 20; i += 1) {
+    if (broken) return false;
+    if (!saving && !pending.length && canon(gatherPositions()) === lastSavedKey) return true;
+    if (!saving) flush();
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  return false;
+}
+
+function lastSentence(last) {
+  if (!last) return "";
+  if (last.outcome === "refused") return `Refused: ${last.error ?? "the handler refused the proposal"}`;
+  if (last.outcome === "escape") {
+    const m = String(last.text ?? "").match(/^[^A-Za-z\n]*NOT COVERED:\s*(.*)$/m);
+    return `Not covered: ${m?.[1] ?? last.text ?? ""}`;
+  }
+  if (last.outcome === "empty-yield") return "The agent proposed nothing this turn.";
+  if (last.outcome === "failed") return `The turn failed: ${last.error ?? "no reason recorded"}`;
+  return "";
+}
+
+function proposalCard(o) {
+  const shown = el("div", { class: "cv-compose-screen" });
+  try {
+    const tree = o.op === "state.add"
+      ? (() => { const next = applyOp(doc, { op: o.op, params: o.params }); return frameTree(next, next.frames.at(-1).id).tree; })()
+      : o.params.composition;
+    shown.appendChild(renderComposition(vocab, tree));
+  } catch (e) { shown.appendChild(el("p", { class: "cv-flag", text: `Refused: ${e.message}` })); }
+  const refs = o.op === "screen.compose" ? (o.params.decisionRefs ?? []) : null;
+  const accept = el("button", { type: "button", class: "btn btn-secondary cv-btn", "data-compose-accept": "", text: "Accept" });
+  const refuse = el("button", { type: "button", class: "btn btn-secondary cv-btn", "data-compose-refuse": "", text: "Refuse" });
+  const emit = (type) => (e) => bus.emit({ type, source: e && e.detail === 0 ? "keyboard" : "pointer", target: { component: "proposal", id: String(o.seq) } });
+  accept.addEventListener("click", emit("ui.proposal-accept"));
+  refuse.addEventListener("click", emit("ui.proposal-refuse"));
+  return el("div", { class: "cv-compose-card", "data-compose-card": String(o.seq) },
+    el("p", { class: "cv-compose-by", text: `Proposed by the agent · turn ${o.turn ?? "?"} · ${whatOf(o)}` }),
+    shown,
+    el("p", { class: "cv-compose-why", text: `Why: ${o.why ?? "no reason given"}` }),
+    el("p", { class: "cv-compose-brief", "data-compose-brief": "", text: o.brief !== null && o.brief !== undefined ? `Your brief: "${o.brief}"` : "No brief this turn." }),
+    refs === null ? null : el("p", { class: "cv-compose-refs", text: refs.length ? `Decisions proposed: ${refs.join(", ")}` : "No decision named — it will be flagged" }),
+    el("div", { class: "cv-compose-actions" }, accept, refuse));
+}
+
+// The static half (heading, brief, Ask) is built once, so a re-render never loses the brief being typed.
+function renderCompose() {
+  const panel = $("[data-compose-panel]");
+  if (!panel) return;
+  if (!panel.querySelector("#cv-brief")) {
+    const ask = el("button", { type: "button", class: "btn btn-secondary cv-btn", "data-compose-ask": "", text: "Ask for a screen" });
+    ask.addEventListener("click", () => askTurn({ kind: "screen" }));
+    panel.replaceChildren(
+      el("h2", { text: "Compose" }),
+      el("label", { for: "cv-brief", text: "Your brief for the next turn (optional)" }),
+      el("textarea", { id: "cv-brief", maxlength: 500, rows: 3 }),
+      ask,
+      el("p", { class: "cv-compose-status", role: "status", "data-compose-status": "" }),
+      el("div", { "data-compose-body": "" }));
+  }
+  const open = compose?.open ?? null;
+  const ask = panel.querySelector("[data-compose-ask]");
+  ask.disabled = Boolean(composing || open || broken);
+  panel.querySelector("[data-compose-status]").textContent = composing ? "Asking — one turn, one proposal…"
+    : broken ? "The page could not save — reload to continue."
+      : open ? "Accept or refuse the proposal below before the next turn."
+        : composeNote;
+  const body = panel.querySelector("[data-compose-body]");
+  const last = lastSentence(compose?.last);
+  body.replaceChildren(...[
+    open ? proposalCard(open) : null,
+    !open && last ? el("p", { class: "cv-compose-last", "data-compose-last": "", text: last }) : null,
+  ].filter(Boolean));
+}
+
+async function askTurn(ask) {
+  if (broken || composing) return;
+  composeNote = "";
+  if (!(await flushSettled())) {
+    composeNote = "Not asked — the page could not save first.";
+    renderCompose();
+    return;
+  }
+  const briefEl = $("#cv-brief");
+  const raw = briefEl?.value ?? "";
+  const brief = raw.trim() ? raw : null;
+  composing = true;
+  renderCompose();
+  try {
+    const res = await fetch("/api/canvas/compose", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ provenance, slug, base: count, ask, brief }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (res.status === 409) {
+      broken = true;
+      setSave(`Not saved — ${body.error || res.statusText}. Reload to continue.`);
+    } else if (!res.ok) {
+      composeNote = `The turn failed: ${body.error || res.statusText}`;
+    } else if (body.refused) {
+      composeNote = `Refused: ${body.refused.message}`;
+    } else {
+      count = body.count;
+      compose = body.view;
+      if (briefEl) briefEl.value = "";
+    }
+  } catch (e) {
+    composeNote = `The turn failed: ${e.message}`;
+  } finally {
+    composing = false;
+    renderCompose();
+    const said = composeNote || lastSentence(compose?.last) || (compose?.open ? `The agent proposed ${whatOf(compose.open)} — accept or refuse it.` : "");
+    if (said) canvas.say(said);
+    if (again && !broken) { again = false; flush(); }
+  }
+}
+
+// The accepted frame's box: in its anchor's row, right of everything there (placeDecision). The anchor
+// is the base frame for a state, and the rightmost base frame for a screen.
+function acceptedBox(o, frame) {
+  const boxOf = (f) => { const b = boxes.get(f.id); return b ? { x: b.x, y: b.y, w: f.width, ...(b.h != null && authoredH.has(f.id) && { h: b.h }) } : null; };
+  let anchor = null;
+  if (o.op === "state.add") { const base = frameOf(o.params.baseId); anchor = base && boxOf(base); }
+  else {
+    for (const f of doc.frames.filter((x) => !x.baseId)) {
+      const b = boxOf(f);
+      if (b && (!anchor || b.x + b.w > anchor.x + anchor.w)) anchor = b;
+    }
+  }
+  return placeDecision(anchor, takenBoxes(), { w: frame.width, h: NODE_H });
+}
+
+function registerComposeConsumers() {
+  bus.on("ui.proposal-accept", (a) => {
+    const o = compose?.open;
+    if (!o || a?.target?.id !== String(o.seq)) return;
+    const op = { op: o.op, params: o.params };
+    let next;
+    try { next = applyOp(doc, op); }
+    catch (e) { canvas.say(`Refused: ${e.message}`); return; }
+    const frame = next.frames.at(-1);
+    boxes.set(frame.id, acceptedBox(o, frame));
+    if (!applyOwnerOp(op, { line: { status: "accepted", fromStep: o.seq } })) { boxes.delete(frame.id); return; }
+    compose.open = null;
+    renderCompose();
+    canvas.say(`Accepted ${whatOf(o)} as ${frame.id}.`);
+  });
+  bus.on("ui.proposal-refuse", (a) => {
+    const o = compose?.open;
+    if (!o || a?.target?.id !== String(o.seq)) return;
+    pending.push({ op: o.op, params: o.params, status: "refused", fromStep: o.seq });
+    compose.open = null;
+    renderCompose();
+    canvas.say(`Refused ${whatOf(o)} — recorded, and nothing placed.`);
+  });
+  document.addEventListener("click", (e) => {
+    const b = e.target?.closest?.("[data-cv-ask-state]");
+    if (!b) return;
+    const [baseId, stateKey] = b.dataset.cvAskState.split(":");
+    askTurn({ kind: "state", baseId, stateKey });
+  });
 }
 
 // ---- the inspector (Popover + anchor positioning, with a clamped fallback) ------------------------
@@ -683,6 +874,7 @@ async function boot() {
     effective = run.effective;
     count = run.count;
     decisions = run.decisions;
+    compose = run.compose ?? null;
     exhibitMeta = new Map((run.exhibits ?? []).map((e) => [e.id, e]));
     renderLabel(run);
     for (const n of run.canvas?.nodes ?? []) {
@@ -698,6 +890,7 @@ async function boot() {
     // FIRST, before every consumer: where pending stood when this gesture began (call 5).
     for (const t of GEOMETRY_VERBS) bus.on(t, () => { gestureMark = pending.length; });
     registerConsumers();
+    registerComposeConsumers();
     verbs = mountCanvasVerbs(canvas, { bus, docHook: adapter });
     // AFTER the verbs, so the guard judges the box they produced (setPos's clamp included), and
     // before the save below.
@@ -707,6 +900,7 @@ async function boot() {
     mountStudioMinimap(document.body, { canvas });
     wireInspector();
     $("[data-canvas-verb=annotate]").addEventListener("click", addNote);
+    renderCompose();
     lastSavedKey = canon(gatherPositions());
     // LAST, so it runs after every exact consumer (action-bus.mjs: exact handlers, then "*").
     bus.on("*", scheduleSave);

@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Compose loop brief</title>
+<style>
+:root { --bg:#fbfaf7; --fg:#1d1d1b; --muted:#5f5d57; --line:#dcd8cf; --card:#fff; --accent:#3d6b5a; }
+@media (prefers-color-scheme: dark) { :root { --bg:#161614; --fg:#ecebe6; --muted:#a3a19a; --line:#34332f; --card:#1f1f1c; --accent:#8fc2ad; } }
+* { box-sizing: border-box }
+body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+main { max-width:860px; margin:0 auto; padding:32px 16px 64px; }
+h1 { font-size:1.6rem; margin:0 0 4px } h2 { font-size:1.15rem; margin:40px 0 12px }
+.src { color:var(--muted); font-size:.9rem } a { color:var(--accent) }
+.grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:12px }
+.card { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:14px 16px }
+.card h3 { margin:0 0 6px; font-size:1rem }
+.card p { margin:0 0 8px } .card p:last-child { margin:0 }
+pre { background:var(--card); border:1px solid var(--line); border-radius:6px; padding:10px 12px; font-size:.85rem; overflow-x:auto; margin:8px 0 0 }
+.flow { display:flex; flex-wrap:wrap; gap:8px; align-items:center }
+.box { border:1px solid var(--accent); border-radius:6px; padding:8px 10px; background:var(--card); font-size:.92rem }
+.arr { color:var(--muted) }
+ul.plain { padding-left:18px } ul.plain li { margin:4px 0 }
+ul.learn { list-style:none; padding:0 }
+ul.learn li { display:flex; justify-content:space-between; align-items:center; gap:12px; border-bottom:1px solid var(--line); padding:8px 0 }
+.copy { opacity:.35; border:0; background:none; color:inherit; cursor:pointer; font-size:15px; line-height:1; min-width:32px; min-height:32px }
+.copy:hover, .copy:focus-visible { opacity:1 }
+.copy::before { content:'⧉' } .copy.copied::before { content:'✓' }
+</style>
+</head>
+<body>
+<main>
+<h1>The compose loop</h1>
+<p class="src">Build brief for <a href="canvas-compose-loop-312.md">canvas-compose-loop-312.md</a>.</p>
+
+<h2>What we're building and why</h2>
+<p>Today, the owner arranges every screen on the build canvas by hand. After this change, an AI agent proposes one screen at a time, with its reason. The owner accepts or refuses each one, and every step is written down.</p>
+
+<h2>The concepts this rests on</h2>
+<div class="grid">
+  <div class="card">
+    <h3>Propose, then decide</h3>
+    <p>The agent can only suggest. A suggestion becomes part of the design only when the owner says yes.</p>
+    <p>That keeps the design the owner's own. Nothing the agent drafts slips in unseen.</p>
+    <pre>agent:  proposed  (seq 7)
+owner:  accepted  answers seq 7</pre>
+  </div>
+  <div class="card">
+    <h3>An append-only ledger</h3>
+    <p>The ledger is a file where lines can be added, never changed or removed. Undo adds an "undone" line rather than deleting one.</p>
+    <p>So "proposed, accepted, then undone" stays readable forever.</p>
+  </div>
+  <div class="card">
+    <h3>A fence</h3>
+    <p>A fence is a rule that checks every tool the agent tries to use. Anything but the one proposal tool is refused, and each refusal is written down.</p>
+    <p>Like a guard with one name on the list, who logs everyone turned away.</p>
+  </div>
+  <div class="card">
+    <h3>A fake agent for testing</h3>
+    <p>A fake agent is a script that plays the model's part for free. The real parts run around it.</p>
+    <p>It proves the wiring works. Only one short paid run shows how the real model behaves.</p>
+  </div>
+</div>
+
+<h2>How the pieces fit</h2>
+<div class="flow">
+  <span class="box">Owner's brief<br><small>optional, one line</small></span><span class="arr">→</span>
+  <span class="box">Agent turn<br><small>behind the fence</small></span><span class="arr">→</span>
+  <span class="box">"proposed" line<br><small>in the ledger</small></span><span class="arr">→</span>
+  <span class="box">Proposal card<br><small>Accept / Refuse</small></span><span class="arr">→</span>
+  <span class="box">Frame on canvas<br><small>undoable</small></span><span class="arr">→</span>
+  <span class="box">"error: missing"<br><small>asks the next turn</small></span>
+</div>
+
+<h2>The plan at a glance</h2>
+<ul class="plain">
+  <li><b>Phase 1:</b> the ledger learns proposals and verdicts.</li>
+  <li><b>Phase 2:</b> the session module and the fake agent (needs 1).</li>
+  <li><b>Phase 3:</b> the real SDK transport (needs 2; runs alongside 4).</li>
+  <li><b>Phase 4:</b> the route and the canvas panel (needs 2).</li>
+  <li><b>Phase 5:</b> the build checks and the browser journey (needs 1, 2 and 4).</li>
+  <li><b>Phase 6:</b> the docs, then one paid live run (needs everything).</li>
+</ul>
+<pre>portal/lib/canvas-session.mjs     # the loop: prompt, fence, one proposal per turn  (new)
+portal/lib/canvas-transport.mjs   # the only file that talks to the Agent SDK      (new)
+portal/lib/canvas-store.mjs       # ledger gains agent lines and verdicts
+portal/server.mjs                 # POST /api/canvas/compose
+portal/public/canvas.mjs/.html    # proposal card, Accept/Refuse, missing-state buttons
+tooling/fake-compose-agent.mjs    # scripted agent for free tests                  (new)
+tooling/build-checks.mjs          # the new check group
+tooling/canvas-journey.mjs        # compose pass + --live-compose</pre>
+<ul class="plain">
+  <li>Propose, accept, ask for a missing state, refuse, undo: the ledger reads correctly.</li>
+  <li>Write, web fetch and other MCP tools are each refused, and each refusal is logged.</li>
+  <li>The owner's brief is recorded first, and a turn with no brief says so.</li>
+  <li>The vocabulary list is generated at run time. "Not covered" is recorded as a refusal.</li>
+  <li>One run lock covers both composing and importing.</li>
+  <li>Every turn records its turn cap.</li>
+  <li>The escape marker is detected even after "1.".</li>
+</ul>
+
+<h2>Go deeper</h2>
+<ul class="learn">
+  <li data-prompt="/learn append-only ledgers and undo as a new line"><span><b>/learn append-only ledgers and undo as a new line</b></span><button class="copy" aria-label="Copy prompt"></button></li>
+  <li data-prompt="/learn human-in-the-loop proposal and verdict flows"><span><b>/learn human-in-the-loop proposal and verdict flows</b></span><button class="copy" aria-label="Copy prompt"></button></li>
+  <li data-prompt="/learn permission fences for AI agent tools (canUseTool and PreToolUse hooks)"><span><b>/learn permission fences for AI agent tools</b></span><button class="copy" aria-label="Copy prompt"></button></li>
+  <li data-prompt="/learn fakes versus real runs when testing agent code"><span><b>/learn fakes versus real runs when testing agent code</b></span><button class="copy" aria-label="Copy prompt"></button></li>
+</ul>
+</main>
+<script>
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.copy')
+  if (!btn) return
+  const text = btn.closest('[data-prompt]').dataset.prompt
+  try {
+    await navigator.clipboard.writeText(text)
+  } catch {
+    const ta = Object.assign(document.createElement('textarea'), { value: text })
+    ta.style.cssText = 'position:fixed;opacity:0'
+    document.body.append(ta)
+    ta.select()
+    document.execCommand('copy')
+    ta.remove()
+  }
+  btn.classList.add('copied')
+  setTimeout(() => btn.classList.remove('copied'), 1200)
+})
+</script>
+</body>
+</html>

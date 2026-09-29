@@ -1,0 +1,86 @@
+{
+  "frames": [
+    {
+      "id": "f1",
+      "screenId": "add-payee-form",
+      "stateKey": "ideal",
+      "preset": "phone",
+      "width": 390,
+      "decisionRefs": [
+        "7",
+        "23"
+      ],
+      "composition": {
+        "name": "stack",
+        "props": {
+          "direction": "column",
+          "pad": "lg",
+          "gap": "md"
+        },
+        "id": "payee-form",
+        "children": [
+          {
+            "name": "screen-header",
+            "props": {
+              "title": "Add a new payee",
+              "showBack": true
+            },
+            "id": "header"
+          },
+          {
+            "name": "text-field",
+            "props": {
+              "label": "Name on their account",
+              "placeholder": "e.g. J Smith"
+            },
+            "id": "nameField"
+          },
+          {
+            "name": "text-field",
+            "props": {
+              "label": "Sort code",
+              "placeholder": "00-00-00"
+            },
+            "id": "sortField"
+          },
+          {
+            "name": "text-field",
+            "props": {
+              "label": "Account number",
+              "placeholder": "12345678",
+              "hint": "Confirmation of Payee: no match for this name — check the details, or continue if you're sure it's right."
+            },
+            "id": "accountField"
+          },
+          {
+            "name": "primary-button",
+            "props": {
+              "label": "Continue"
+            },
+            "id": "continueBtn"
+          },
+          {
+            "name": "ghost-button",
+            "props": {
+              "label": "Cancel"
+            },
+            "id": "cancelBtn"
+          }
+        ]
+      },
+      "why": "Serves seq 7 (customer must complete payee creation alone, including resolving a non-match Confirmation of Payee result, without calling in) and seq 23 (CoP result shown, never skippable, and no modal — refusal/warning must sit inline in the form, not on a dialog)."
+    }
+  ],
+  "missing": [
+    {
+      "frameId": "f1",
+      "screenId": "add-payee-form",
+      "missing": [
+        "empty",
+        "error",
+        "partial",
+        "loading"
+      ]
+    }
+  ]
+}

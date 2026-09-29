@@ -15747,9 +15747,374 @@ const synthPng = (w, h, ct, px) => {
   group("import suggest", `portal/lib/import-suggest.mjs + tooling/import-suggest/spike-c-run.json (#455): IMPORTED in CI with no portal/node_modules, importing exactly the Jev client and the IR walk and exporting no threshold · the trigger is code — spike C's 2 + 6 unnamed paths by via, never "scored", and an all-scored SYNTHETIC verdict making no call · the state filter keeping only its seven keys, no IR id and no colour, 5 texts of 80 at most · the criteria being every vocabulary slug's usage verbatim, stack included, then none · the committed run bound to today — model, templateSha, both fixtures' sha256, one node per request under 38,875 tokens, every node state sent equal to today's builder, and the committed answers reparsing to the committed suggestions · parseAnswer refusing six broken copies by field after its positive control · failing open through the real askJev on no key, a 429, a timeout and another model, and a failing first wave stopping at 4 calls where the replay makes 6 · runImport's record, mapping.json, template.txt, spec.md and block.css identical with and without suggestions · checkRecord's placement and shape refusals, a legacy record passing and its markdown unmoved, and the projection rendering through the real renderMarkdown · an edit carrying the list forward while each node is unnamed and pruning one on a scored node · the owner's labels file checked in both states · the two routes and the journey's off switch pinned from source. What it cannot reach: the live API today, whether Jev's ranking is right (the owner's labels.json and --report are the observation), the canvas page (no CI runner — the owner-run walk), and the route wiring beyond the source pin`);
 }
 
+// ===================================================================================================
+// Group 47 — the compose session (#312): portal/lib/canvas-session.mjs, the store's verdict lines and
+// the fake agent. HONESTY RULE: every `source: "agent"` line this group causes comes from
+// tooling/fake-compose-agent.mjs or an inline scripted transport, inside a scratch copy — never a model,
+// never a committed package. CANNOT REACH (the fake's header and gates.md carry the same clause):
+// a model's behaviour (whether it yields, names the brief in its why, or escapes), the SDK's option handling, hook delivery by the CLI, and the page — those are the preflight's, the journey compose pass's and --live-compose's.
+// Every case RUNS the function; 47.14 alone is a source pin, and says so.
+{
+  const { cpSync } = await import("node:fs");
+  const deep = (v) => (v && typeof v === "object" && !Array.isArray(v)
+    ? `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${deep(v[k])}`).join(",")}}`
+    : (Array.isArray(v) ? `[${v.map(deep).join(",")}]` : JSON.stringify(v)));
+  const threw = (fn) => { try { fn(); return null; } catch (e) { return e.message; } };
+  const athrew = async (fn) => { try { await fn(); return null; } catch (e) { return e.message; } };
+  const fold = (what, fn, fallback = null) => {
+    try { return fn(); } catch (e) { ok(false, `${what} threw instead of answering: ${e.message}`); return fallback; }
+  };
+  const afold = async (what, fn, fallback = null) => {
+    try { return await fn(); } catch (e) { ok(false, `${what} threw instead of answering: ${e.message}`); return fallback; }
+  };
+  const sha16 = (s) => createHash("sha256").update(s).digest("hex").slice(0, 16);
+  const decomment = (file) => readFileSync(join(ROOT, file), "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  const temps = [];
+  const scratch = (tag) => { const d = mkdtempSync(join(tmpdir(), `uxf-g47-${tag}-`)); temps.push(d); return d; };
+  // THE STAND-IN SHAPE: run.json, prd.md and build/ — no transcript.jsonl, so loadDecisions is null.
+  const pkgCopy = (tag) => {
+    const d = join(scratch(tag), "pkg");
+    mkdirSync(d);
+    for (const f of ["run.json", "prd.md"]) cpSync(join(ROOT, "discovery/faster-payment", f), join(d, f));
+    cpSync(join(ROOT, "discovery/faster-payment/build"), join(d, "build"), { recursive: true });
+    return d;
+  };
+  // The whole spine, for the import half of 47.13.
+  const fullCopy = (tag) => { const d = join(scratch(tag), "pkg"); cpSync(join(ROOT, "discovery/faster-payment"), d, { recursive: true }); return d; };
+  const ledger = (pkg) => readFileSync(join(pkg, "build/ops.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
+  const tx = (pkg) => (existsSync(join(pkg, "build/transcript.jsonl"))
+    ? readFileSync(join(pkg, "build/transcript.jsonl"), "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l)) : []);
+  const gitSnap = () => execFileSync("git", ["status", "--porcelain", "--", "discovery", "portal/lib", "system", "handoff"], { cwd: ROOT, encoding: "utf8" });
+  const GIT_BEFORE = gitSnap();
+  const OK_STATS = { numTurns: 2, durationMs: 0, costUsd: 0, subtype: "success", isError: false, ok: true, transport: "inline" };
+  // An inline scripted transport: calls the REAL handler with each args object, then says `text`.
+  const inline = (argsList = [], { text = null, stats = OK_STATS, gate = null } = {}) => async (o) => {
+    o.onInit?.({ sessionId: "inline-1", model: "inline", tools: [o.tool.fullName] });
+    if (gate) await gate;
+    for (const a of argsList) await o.tool.handler(a);
+    if (text !== null) o.onText?.(text);
+    return { sessionId: "inline-1", stats, advertised: [o.tool.fullName] };
+  };
+  const STACK = (children, rootId) => ({ name: "stack", ...(rootId && { id: rootId }), props: { direction: "column" }, children });
+  const TWO = () => [{ name: "text", id: "lead", props: { role: "heading", content: "Pay" } }, { name: "primary-button", id: "go", props: { label: "Send" } }];
+
+  // --- 47.1 the import graph: SDK-free and zod-free, ONE dynamic import naming the transport -----------
+  let S = null;
+  try { S = await import("../portal/lib/canvas-session.mjs"); }
+  catch (e) { ok(false, `47.1: portal/lib/canvas-session.mjs did not import (${e.message}) — a static SDK or zod import slipped in, and CI has no portal/node_modules`); }
+  let F = null;
+  try { F = await import("./fake-compose-agent.mjs"); }
+  catch (e) { ok(false, `47.1: tooling/fake-compose-agent.mjs did not import (${e.message}) — it must reach nothing in portal/node_modules`); }
+  const sessCode = decomment("portal/lib/canvas-session.mjs");
+  const sessFrom = [...sessCode.matchAll(/^\s*import\s+(?:[^'"]*?from\s+)?["']([^"']+)["']/gm)].map((m) => m[1]);
+  const SESS_ALLOWED = ["../../system/canvas-ops.mjs", "../../system/agentic-renderer.mjs", "./canvas-store.mjs", "./builder.mjs", "./discovery.mjs", "./env.mjs"];
+  ok(sessFrom.every((s) => s.startsWith("node:") || SESS_ALLOWED.includes(s)) && SESS_ALLOWED.every((s) => sessFrom.includes(s)),
+    `47.1: canvas-session.mjs imports ${JSON.stringify(sessFrom)} — node: built-ins plus exactly ${SESS_ALLOWED.join(", ")}`);
+  const dyn = [...sessCode.matchAll(/\bimport\s*\(/g)].length;
+  ok(!/claude-agent-sdk|\bzod\b/.test(sessCode) && dyn === 1 && /import\([^;]*"\.\/canvas-transport\.mjs"\)/.test(sessCode),
+    `47.1: canvas-session.mjs names the SDK or zod, or has ${dyn} dynamic import(s) — exactly one, whose argument names ./canvas-transport.mjs (the env seam picks between the two inside that one call)`);
+  const sdkNamers = readdirSync(join(ROOT, "portal/lib")).filter((f) => /^canvas-.*\.mjs$/.test(f)).filter((f) => /claude-agent-sdk/.test(decomment(`portal/lib/${f}`)));
+  ok(deep(sdkNamers) === deep(["canvas-transport.mjs"]), `47.1: the portal/lib/canvas-*.mjs files naming the SDK are ${JSON.stringify(sdkNamers)} — the transport alone`);
+  const storeFrom = [...readFileSync(join(ROOT, "portal/lib/canvas-store.mjs"), "utf8").matchAll(/^import\s+(?:.*?\s+from\s+)?"([^"]+)";/gm)].map((m) => m[1]);
+  ok(storeFrom.every((i) => i.startsWith("node:") || i === "../../system/canvas-ops.mjs"), `47.1: 36.6 re-asserted — canvas-store.mjs imports ${JSON.stringify(storeFrom)}`);
+
+  if (S && F) {
+    const St = await import("../portal/lib/canvas-store.mjs");
+    const IR = await import("../portal/lib/import-run.mjs");
+    const SCREEN_FULL = S.toolNameFor(S.SCREEN_TOOL);
+
+    // --- 47.2 S6's four constants reproduce S6's fingerprint; FORK_ASK and YIELD_CONTRACT do not ship --
+    const driver = readFileSync(join(ROOT, ".claude/plans/canvas-spike-s6/driver.txt"), "utf8");
+    const FORK = driver.match(/^const FORK_ASK = '([^']*)';$/m)?.[1];
+    const s6 = sha16([S.ROLE, S.LOOP, S.ESCAPE, S.TURN_ASK, FORK].join("\n"));
+    ok(FORK && s6 === "c903170484396973", `47.2: the four S6 constants no longer reproduce S6's fingerprint c903170484396973 (got ${s6}) — a change to LOOP or ESCAPE re-opens S6`);
+    ok(S.FORK_ASK === undefined && S.YIELD_CONTRACT === undefined, "47.2: canvas-session.mjs exports FORK_ASK or YIELD_CONTRACT — the first is #320's, the second branch 1 did not need");
+    // --- 47.2b the whole prompt surface is probe run 4's ------------------------------------------------
+    const fp = S.promptFingerprint();
+    ok(fp === "9690d4c955be652c", `47.2b: the prompt surface's fingerprint is ${fp}, not probe run 4's 9690d4c955be652c (canvas-compose-loop-312-probe/raw/run-4/T1.jsonl) — a change to BRIEF_LEAD, STATE_ASK, either tool description or the four S6 constants re-opens the probe`);
+
+    // --- 47.3 the vocabulary context is GENERATED from vocabulary.json -------------------------------
+    const ctx = S.vocabContext(VOCAB, "x");
+    const keys = Object.keys(VOCAB.components);
+    const blocks = (ctx.match(/^### /gm) || []).length;
+    ok(keys.every((n) => ctx.includes(`### ${n}\n`)) && blocks === keys.length, `47.3: the context carries ${blocks} component blocks for ${keys.length} vocabulary entries, or misses one`);
+    const plus = structuredClone(VOCAB);
+    plus.components["zz-probe"] = { props: { label: { type: "string", required: true } }, children: [], usage: "A synthetic probe." };
+    const minus = structuredClone(VOCAB);
+    delete minus.components[keys[0]];
+    ok(S.buildSystemPrompt({ vocab: plus, vocabSha: "x", prd: "P" }).includes("### zz-probe\n  label!: string")
+      && !S.buildSystemPrompt({ vocab: minus, vocabSha: "x", prd: "P" }).includes(`### ${keys[0]}\n`),
+      "47.3: a component added to the vocabulary does not reach the system prompt, or a removed one stays — the context is not generated from the file");
+
+    // --- 47.4 the escape marker (F2) --------------------------------------------------------------------
+    const esc = (t) => S.ESCAPE_RE.test(t);
+    ok(["NOT COVERED: x", "**NOT COVERED:** x", "1. NOT COVERED: x", "- NOT COVERED: x"].every(esc) && !esc("This is NOT COVERED: x") && !esc("Proposed a screen."),
+      "47.4: ESCAPE_RE misjudges a marker after numbering or markup, or a mid-sentence NOT COVERED:");
+    ok(/^[^\w\n]*NOT COVERED:/m.test("1. NOT COVERED: x") === false, "47.4: the control failed — the OLD regex is expected to MISS \"1. NOT COVERED:\", which is F2");
+
+    // --- 47.5 the fence's predicate ---------------------------------------------------------------------
+    {
+      const pkg = pkgCopy("fence5");
+      const set = S.composeAllowSet(pkg);
+      const d = (tool, input) => S.composeFenceDecision(set, tool, input, [SCREEN_FULL]).allow;
+      ok(d(SCREEN_FULL, {}) === true, "47.5: the turn's own tool was denied");
+      const named = ["Write", "Edit", "WebSearch", "WebFetch", "Bash", "mcp__brilliant__get_selection", "mcp__discovery__record_decision"].filter((t) => d(t, { file_path: join(pkg, "x") }));
+      ok(named.length === 0, `47.5: ${named.join(", ")} allowed — a compose turn has no write, web or other MCP tool`);
+      ok(d("Read", { file_path: join(pkg, "prd.md") }) && d("Read", { file_path: S.VOCAB_PATH }), "47.5: a Read of the package's prd.md or vocabulary.json was denied");
+      ok(!d("Read", { file_path: join(ROOT, "CLAUDE.md") }) && !d("Read", { file_path: `${pkg}-evil/x` }), "47.5: a Read of CLAUDE.md or <pkg>-evil/x was allowed");
+      const junk = [undefined, null, 42, {}, "", S.toolNameFor(S.STATE_TOOL)].filter((t) => fold(`composeFenceDecision(${String(t)})`, () => d(t, null), true));
+      ok(junk.length === 0, `47.5: junk tools were allowed: ${JSON.stringify(junk)}`);
+      const hostile = { get root() { return pkg; }, get paths() { throw new Error("hostile"); } };
+      const hf = S.composeFence({ pkgRoot: pkg, turn: "c0", ownTools: [SCREEN_FULL], allowSet: hostile });
+      const cu = await afold("canUseTool over a hostile allow-set", () => hf.canUseTool("Read", { file_path: join(pkg, "prd.md") }), {});
+      const pre = await afold("PreToolUse over a hostile allow-set", () => hf.hooks.PreToolUse[0].hooks[0]({ tool_name: "Read", tool_input: { file_path: join(pkg, "prd.md") } }), {});
+      ok(cu.behavior === "deny" && pre.hookSpecificOutput?.permissionDecision === "deny", `47.5: a hostile allow-set was not denied at both sites (${deep(cu)} · ${deep(pre)})`);
+    }
+
+    // --- 47.6 the two sites write the denial's receipt; a warmup Glob writes none --------------------
+    {
+      const pkg = pkgCopy("fence6");
+      const f6 = S.composeFence({ pkgRoot: pkg, turn: "c9", ownTools: [SCREEN_FULL] });
+      for (const tool of ["Write", "WebFetch", "mcp__brilliant__get_selection"]) {
+        const pre = await f6.hooks.PreToolUse[0].hooks[0]({ tool_name: tool, tool_input: {} });
+        const cu = await f6.canUseTool(tool, {});
+        ok(pre.hookSpecificOutput?.permissionDecision === "deny" && cu.behavior === "deny", `47.6: ${tool} was not denied at both sites`);
+        const lines = tx(pkg).filter((l) => l.type === "denied" && l.tool === tool);
+        ok(deep(lines.map((l) => l.via).sort()) === deep(["PreToolUse", "canUseTool"]), `${tool} was denied at PreToolUse but wrote no denied line — AC #2 watches the line (47.6: got ${JSON.stringify(lines.map((l) => l.via))})`);
+      }
+      const n = tx(pkg).length;
+      ok(n === 6, `47.6: the three tools at two sites wrote ${n} lines, not six`);
+      const own = await f6.hooks.PreToolUse[0].hooks[0]({ tool_name: SCREEN_FULL, tool_input: {} });
+      const glob = await f6.hooks.PreToolUse[0].hooks[0]({ tool_name: "Glob", tool_input: { path: "/etc" } });
+      ok(own.continue === true && glob.hookSpecificOutput?.permissionDecision === "deny" && tx(pkg).length === 6,
+        `47.6: the own tool must be allowed with no line and a warmup Glob denied with no line (the control) — the transcript went ${n} → ${tx(pkg).length}`);
+    }
+
+    // --- 47.7 a fake screen turn, briefed and un-briefed ---------------------------------------------
+    const pk7 = pkgCopy("turn7");
+    const b7 = ledger(pk7).length;
+    const r7 = await afold("a briefed fake turn (47.7)", () => S.runComposeTurn({ pkgRoot: pk7, base: b7, ask: { kind: "screen" }, brief: "payee form, no dialog", transport: F.composeQuery }), {});
+    {
+      const l7 = ledger(pk7);
+      const last = l7.at(-1);
+      ok(l7.length === b7 + 1 && last.status === "proposed" && last.source === "agent" && last.op === "screen.compose", `47.7: the turn appended ${l7.length - b7} lines, the last ${deep(last)}`);
+      const t7 = tx(pk7);
+      const at = (pred) => t7.findIndex(pred);
+      const order = [at((l) => l.type === "turn"), at((l) => l.type === "text" && l.source === "owner"), at((l) => l.type === "init"), at((l) => l.type === "op"), at((l) => l.type === "stats")];
+      ok(order.every((x, i) => x >= 0 && (i === 0 || x > order[i - 1])), `47.7: the briefed turn's lines are not turn → owner text → init → op → stats (${JSON.stringify(t7.map((l) => l.type))})`);
+      const owner = t7.find((l) => l.type === "text" && l.source === "owner");
+      const stats = t7.find((l) => l.type === "stats");
+      ok(owner?.text === "payee form, no dialog" && t7[0].briefed === true && t7[0].turn === "c1", `47.7: the owner's brief was not recorded verbatim on turn c1: ${deep(owner)}`);
+      ok(stats?.maxTurns === S.MAX_TURNS && stats.promptFingerprint === S.promptFingerprint() && stats.transport === "fake" && stats.outcome === "proposed" && r7.outcome === "proposed",
+        `47.7: the stats line is ${deep(stats)} — maxTurns ${S.MAX_TURNS}, the fingerprint, transport fake and outcome proposed`);
+      const v = S.composeView(pk7);
+      ok(v.open?.seq === last.seq && v.open.brief === "payee form, no dialog" && v.open.turn === "c1" && v.turns === 1 && deep(r7.view) === deep(v),
+        `47.7: composeView does not show the open proposal with its brief: ${String(deep(v)).slice(0, 200)}`);
+      const pu = pkgCopy("turn7u");
+      await afold("an un-briefed fake turn (47.7)", () => S.runComposeTurn({ pkgRoot: pu, base: ledger(pu).length, ask: { kind: "screen" }, transport: F.composeQuery }));
+      const tu = tx(pu);
+      ok(tu[0]?.briefed === false && !tu.some((l) => l.source === "owner") && S.composeView(pu).open?.brief === null, `47.7: an un-briefed turn recorded ${deep(tu.slice(0, 2))}`);
+    }
+
+    // --- 47.8 no second turn while a proposal is open --------------------------------------------------
+    {
+      const before = [readFileSync(join(pk7, "build/ops.jsonl"), "utf8"), tx(pk7).length];
+      const m = await athrew(() => S.runComposeTurn({ pkgRoot: pk7, base: ledger(pk7).length, ask: { kind: "screen" }, transport: F.composeQuery }));
+      ok(m !== null && m.includes("is waiting for your verdict") && S.composeRefusal(m)?.kind === "open-proposal"
+        && readFileSync(join(pk7, "build/ops.jsonl"), "utf8") === before[0] && tx(pk7).length === before[1],
+        `a second turn ran while seq ${ledger(pk7).at(-1).seq} was open (47.8: ${m ?? "no refusal"})`);
+    }
+
+    // --- 47.9 one call per turn -----------------------------------------------------------------------
+    {
+      const p = pkgCopy("twice");
+      const b = ledger(p).length;
+      await afold("a twice: turn (47.9)", () => S.runComposeTurn({ pkgRoot: p, base: b, ask: { kind: "screen" }, brief: "twice: please", transport: F.composeQuery }));
+      const ref = tx(p).filter((l) => l.type === "refused");
+      ok(ledger(p).length === b + 1 && ledger(p).at(-1).status === "proposed" && ref.length === 1 && ref[0].kind === "one-per-turn" && ref[0].seq === undefined,
+        `47.9: a second call in one turn gave ${ledger(p).length - b} ops lines and refusals ${deep(ref)} — one proposed line and one transcript-only one-per-turn refusal`);
+    }
+
+    // --- 47.10 the refusals, by Task 2.4 step 5's list -------------------------------------------------
+    {
+      const ledgerRefusal = async (label, kind, run, must = "") => {
+        const p = pkgCopy(`r-${kind}`);
+        const b = ledger(p).length;
+        await afold(`${label} (47.10)`, () => run(p, b));
+        const l = ledger(p);
+        const r = tx(p).find((x) => x.type === "refused");
+        const op = tx(p).find((x) => x.type === "op");
+        ok(l.length === b + 1 && l.at(-1).status === "refused" && l.at(-1).source === "agent" && r?.kind === kind && r.seq === l.at(-1).seq
+          && op?.status === "refused" && op.seq === r.seq && String(r.error).includes(must),
+          `47.10: ${label} gave ${l.length - b} ops lines (last ${String(deep(l.at(-1))).slice(0, 120)}) and refusal ${String(deep(r)).slice(0, 200)} — want one agent refused line, a ${kind} refusal naming "${must}" and a refused op line`);
+        return p;
+      };
+      const screenTurn = (args) => (p, b) => S.runComposeTurn({ pkgRoot: p, base: b, ask: { kind: "screen" }, transport: inline([args]) });
+      const stateTurn = (args) => (p, b) => S.runComposeTurn({ pkgRoot: p, base: b, ask: { kind: "state", baseId: "f1", stateKey: "empty" }, transport: inline([{ baseId: "f1", stateKey: "empty", why: "Seq 7.", ...args }]) });
+      await ledgerRefusal("invalid:", "vocabulary", (p, b) => S.runComposeTurn({ pkgRoot: p, base: b, ask: { kind: "screen" }, brief: "invalid: please", transport: F.composeQuery }), "hero-banner");
+      await ledgerRefusal("why \"\"", "applier", screenTurn({ screenId: "x", why: "", composition: STACK(TWO()), decisionRefs: [] }), "(D4)");
+      await ledgerRefusal("an id-less child", "ids", screenTurn({ screenId: "x", why: "Seq 7.", composition: STACK([{ name: "text", props: { role: "body", content: "no id" } }], "root"), decisionRefs: [] }), "composition.children[0]");
+      {
+        const p = pkgCopy("root-exempt");
+        const b = ledger(p).length;
+        await afold("the root-only id-less composition (47.10)", () => screenTurn({ screenId: "x", why: "Seq 7.", composition: STACK(TWO()), decisionRefs: [] })(p, b));
+        ok(ledger(p).length === b + 1 && ledger(p).at(-1).status === "proposed", "47.10: the root-only id-less composition was refused — the root is exempt from the id rule");
+      }
+      await ledgerRefusal("an unknown part", "applier", stateTurn({ override: { set: { nope: { hint: "x" } } } }), "nope");
+      await ledgerRefusal("override.add", "applier", stateTurn({ override: { add: { name: "text", props: { role: "body", content: "x" } } } }), "G19");
+      {
+        const p = pkgCopy("wrong-target");
+        const b = ledger(p).length;
+        await afold("a wrong stateKey (47.10)", () => S.runComposeTurn({ pkgRoot: p, base: b, ask: { kind: "state", baseId: "f1", stateKey: "empty" },
+          transport: inline([{ baseId: "f1", stateKey: "loading", why: "Seq 7.", override: { set: { account: { hint: "x" } } } }]) }));
+        const r = tx(p).find((x) => x.type === "refused");
+        ok(ledger(p).length === b && r?.kind === "wrong-target" && r.seq === undefined && !tx(p).some((x) => x.type === "op"),
+          `47.10: a wrong stateKey wrote ${ledger(p).length - b} ops lines and ${deep(r)} — wrong-target is transcript-only`);
+      }
+    }
+
+    // --- 47.11 the outcome comes from the lines, never the words --------------------------------------
+    {
+      const p = pkgCopy("escape");
+      const b = ledger(p).length;
+      const r = await afold("an impossible: turn (47.11)", () => S.runComposeTurn({ pkgRoot: p, base: b, ask: { kind: "screen" }, brief: "impossible: a live map of nearby branches", transport: F.composeQuery }), {});
+      const nc = tx(p).find((x) => x.type === "refused" && x.kind === "not-covered");
+      ok(ledger(p).length === b && nc?.text?.startsWith("NOT COVERED: a live map") && r.outcome === "escape" && S.composeView(p).last?.outcome === "escape",
+        `47.11: an escape gave ${ledger(p).length - b} ops lines, not-covered ${deep(nc)}, outcome ${r.outcome}`);
+      const pe = pkgCopy("empty");
+      const re = await afold("a text-only turn (47.11)", () => S.runComposeTurn({ pkgRoot: pe, base: ledger(pe).length, ask: { kind: "screen" }, transport: inline([], { text: "I think the next screen is the amount." }) }), {});
+      ok(re.outcome === "empty-yield", `47.11: a reply with no marker and no call classified ${re.outcome}, not empty-yield`);
+      const pw = pkgCopy("words");
+      const rw = await afold("a refused call with a claiming sentence (47.11)", () => S.runComposeTurn({ pkgRoot: pw, base: ledger(pw).length, ask: { kind: "screen" },
+        transport: inline([{ screenId: "payee-form", why: "Seq 7.", composition: STACK([{ name: "text", props: { role: "body", content: "no id" } }]), decisionRefs: [] }], { text: "I've proposed the payee-form screen." }) }), {});
+      ok(rw.outcome === "refused" && S.composeView(pw).last?.outcome === "refused", `47.11: a refused call followed by "I've proposed the payee-form screen" classified ${rw.outcome} — the outcome is the lines', never the words (probe run 2 T1)`);
+      const pf = pkgCopy("failed");
+      const rf = await afold("an is_error result (47.11)", () => S.runComposeTurn({ pkgRoot: pf, base: ledger(pf).length, ask: { kind: "screen" },
+        transport: inline([], { text: "Credit balance is too low", stats: { ...OK_STATS, subtype: "success", isError: true, ok: false } }) }), {});
+      ok(rf.outcome === "failed" && tx(pf).find((x) => x.type === "stats")?.ok === false, `47.11: subtype success + is_error classified ${rf.outcome}, not failed (probe run 1's shape)`);
+    }
+
+    // --- 47.16 auth is the subscription ----------------------------------------------------------------
+    {
+      const env = { ANTHROPIC_API_KEY: "k", CLAUDE_CODE_OAUTH_TOKEN: "t", PATH: "p" };
+      const had = Object.hasOwn(process.env, "ANTHROPIC_API_KEY");
+      const out = S.subscriptionEnv(env);
+      ok(deep(out) === deep({ CLAUDE_CODE_OAUTH_TOKEN: "t", PATH: "p" }) && env.ANTHROPIC_API_KEY === "k" && Object.hasOwn(process.env, "ANTHROPIC_API_KEY") === had
+        && !Object.hasOwn(S.subscriptionEnv(), "ANTHROPIC_API_KEY"),
+        // Key NAMES only in the message: a failure must never print an env value (a mutation once echoed the real key).
+        `47.16: subscriptionEnv answered the keys ${JSON.stringify(Object.keys(out).sort())} (the live env ${Object.hasOwn(S.subscriptionEnv(), "ANTHROPIC_API_KEY") ? "KEPT" : "dropped"} ANTHROPIC_API_KEY) — the env minus ANTHROPIC_API_KEY, a copy, process.env untouched`);
+    }
+
+    // --- 47.12 the AC #1 ledger: proposed → accepted → proposed → refused → undone ---------------------
+    {
+      const p = pkgCopy("ac1");
+      const posOf = () => St.positionsOf(St.loadBuild(join(p, "build")).canvas);
+      const n0 = ledger(p).length;
+      await afold("the AC #1 screen turn (47.12)", () => S.runComposeTurn({ pkgRoot: p, base: n0, ask: { kind: "screen" }, brief: "choose the amount", transport: F.composeQuery }));
+      const prop = ledger(p).at(-1);
+      const proposedBytes = readFileSync(join(p, "build/ops.jsonl"), "utf8").split("\n")[n0];
+      const accept = { op: prop.op, params: prop.params, status: "accepted", fromStep: prop.seq };
+      const pos = { ...posOf(), f3: { x: 900, y: 0 }, d7: { x: 1400, y: 0, w: 280 } };
+      fold("saveRun accepted (47.12)", () => St.saveRun(p, { base: n0 + 1, ops: [accept], positions: pos, decisions: St.loadDecisions(p) }));
+      ok(fold("the fold after accept", () => St.foldLedger(ledger(p)).doc.frames.some((f) => f.id === "f3"), false), "47.12: the accepted frame f3 is not in the fold");
+      await afold("the AC #1 state turn (47.12)", () => S.runComposeTurn({ pkgRoot: p, base: ledger(p).length, ask: { kind: "state", baseId: "f3", stateKey: "error" }, transport: F.composeQuery }));
+      const sp = ledger(p).at(-1);
+      ok(sp.op === "state.add" && sp.status === "proposed" && sp.params.baseId === "f3" && sp.params.stateKey === "error", `47.12: the state turn filed ${String(deep(sp)).slice(0, 160)}`);
+      const nb = ledger(p).length;
+      // The refused cases, while seq sp is open. Each leaves the ledger byte-identical.
+      const bytes = () => readFileSync(join(p, "build/ops.jsonl"), "utf8");
+      const b0 = bytes();
+      const bad = [
+        ["a second verdict", { ...accept, status: "refused" }, "already has a verdict", `a second verdict on seq ${prop.seq} was accepted`],
+        ["a verdict restating other params", { op: sp.op, params: { ...sp.params, stateKey: "empty" }, status: "refused", fromStep: sp.seq }, "restates", "a verdict restating other params was accepted"],
+        ["fromStep on an applied line", { op: "annotate", params: { text: "x" }, status: "applied", fromStep: sp.seq }, "carries fromStep", "fromStep on an applied line was accepted"],
+        ["fromStep naming an owner line", { op: "frame.size", params: { frameId: "f1", preset: "phone" }, status: "refused", fromStep: 2 }, "not an agent's proposal", "a verdict naming an owner line was accepted"],
+      ];
+      for (const [, o, must, msg] of bad) {
+        const m = threw(() => St.saveRun(p, { base: nb, ops: [o], positions: posOf(), decisions: null }));
+        ok(m !== null && m.includes(must) && bytes() === b0, `47.12: ${msg} (${m ?? "no refusal"})`);
+      }
+      const second = threw(() => St.appendAgentLine(p, { op: "screen.compose", params: { screenId: "y", why: "Seq 7.", composition: STACK(TWO()) }, status: "proposed" }));
+      ok(second !== null && second.includes("still waiting") && bytes() === b0, `appended a second proposal while seq ${sp.seq} was open (47.12: ${second ?? "no refusal"})`);
+      ok(threw(() => St.appendAgentLine(p, { op: "annotate", params: { text: "x" }, status: "accepted" }))?.includes("an agent line is proposed or refused"), "47.12: appendAgentLine wrote an agent line with an owner's status");
+      fold("saveRun refused (47.12)", () => St.saveRun(p, { base: nb, ops: [{ op: sp.op, params: sp.params, status: "refused", fromStep: sp.seq }], positions: posOf(), decisions: null }));
+      fold("saveRun undone (47.12)", () => St.saveRun(p, { base: nb + 1, ops: [{ op: prop.op, params: prop.params, status: "undone" }], positions: posOf(), decisions: null }));
+      const tail = ledger(p).slice(n0);
+      ok(deep(tail.map((l) => l.status)) === deep(["proposed", "accepted", "proposed", "refused", "undone"]) && deep(tail.map((l) => l.source)) === deep(["agent", "owner", "agent", "owner", "owner"]),
+        `47.12: the ledger reads ${deep(tail.map((l) => `${l.status}/${l.source}`))} — proposed, accepted, proposed, refused, undone from agent, owner, agent, owner, owner`);
+      const doc = fold("the fold after undo", () => St.foldLedger(ledger(p)).doc, { frames: [] });
+      ok(!doc.frames.some((f) => f.id === "f3") && readFileSync(join(p, "build/ops.jsonl"), "utf8").split("\n")[n0] === proposedBytes,
+        "47.12: after undo the frame is still in the fold, or the proposed line changed");
+      const vb = St.verifyBuild(St.loadBuild(join(p, "build")));
+      ok(vb.length === 0, `47.12: verifyBuild over the AC #1 ledger: ${vb.join(" | ")}`);
+      // A hand-mutated ledger fails the gate: a verdict naming an applied line, an accepted line with no fromStep.
+      const L = ledger(p);
+      const m1 = L.map((l) => (l.status === "accepted" ? { ...l, fromStep: 1 } : l));
+      const m2 = L.map((l) => { if (l.status !== "accepted") return l; const { fromStep, ...rest } = l; return rest; });
+      const v1 = St.verifyBuild({ ops: m1, canvas: St.loadBuild(join(p, "build")).canvas });
+      const v2 = St.verifyBuild({ ops: m2, canvas: St.loadBuild(join(p, "build")).canvas });
+      ok(v1.some((x) => x.includes("fromStep 1 names a applied line, not an agent's proposal")) && v2.some((x) => x.includes("an accepted line names the proposal it answers")),
+        `47.12: verifyBuild passed a hand-mutated ledger (${deep(v1)} · ${deep(v2)})`);
+    }
+
+    // --- 47.13 THE lock, both ways (ratify's leg is #313's) --------------------------------------------
+    {
+      const BLUEPRINT = readFileSync(join(ROOT, "import/fixtures/spike-c-instance.blueprint.txt"));
+      let release;
+      const gate = new Promise((r) => { release = r; });
+      const pa = pkgCopy("lock-a");
+      const first = S.runComposeTurn({ pkgRoot: pa, base: ledger(pa).length, ask: { kind: "screen" }, transport: inline([], { gate }) });
+      let m1 = null;
+      let r1 = null;
+      try {
+        const pb = fullCopy("lock-b");
+        m1 = await athrew(() => IR.runImport({ pkgRoot: pb, provenance: "real", base: ledger(pb).length, entrance: "drop", file: { name: "b.txt", bytes: BLUEPRINT } }));
+      } finally { release(); r1 = await afold("the gated compose turn (47.13)", () => first, {}); }
+      ok(m1?.includes("a compose turn is already in flight") && r1.outcome === "empty-yield", `47.13: an import during a compose turn answered ${m1 ?? "NO REFUSAL"}; the turn returned ${deep(r1?.outcome)}`);
+      let release2;
+      const gate2 = new Promise((r) => { release2 = r; });
+      const pc = fullCopy("lock-c");
+      const imp = IR.runImport({ pkgRoot: pc, provenance: "real", base: ledger(pc).length, entrance: "selection", overridesDir: scratch("ov47"),
+        reader: async () => { await gate2; return { text: BLUEPRINT.toString("utf8"), transcript: [] }; } });
+      let m2 = null;
+      let r2 = null;
+      try {
+        const pd = pkgCopy("lock-d");
+        m2 = await athrew(() => S.runComposeTurn({ pkgRoot: pd, base: ledger(pd).length, ask: { kind: "screen" }, transport: F.composeQuery }));
+      } finally { release2(); r2 = await afold("the gated import (47.13)", () => imp, {}); }
+      ok(m2?.includes("an import is already in flight") && S.composeRefusal(m2)?.kind === "busy" && r2.recordId === "i1",
+        `47.13: a compose turn during an import answered ${m2 ?? "NO REFUSAL"}; the import returned ${deep(r2?.recordId)}`);
+    }
+
+    // --- 47.14 SOURCE PINS (the one case that reads text rather than running code) --------------------
+    {
+      const tr = decomment("portal/lib/canvas-transport.mjs");
+      const q = tr.match(/const q = query\(\{[\s\S]*?\n {2}\}\);/)?.[0] ?? "";
+      const need = ["strictMcpConfig: true", "tools: []", "allowedTools: []", "maxTurns", "canUseTool", "hooks", "resume: resume || undefined", "env: subscriptionEnv()"];
+      const missing = need.filter((x) => !q.includes(x));
+      ok(q && missing.length === 0 && !/\bStop\b/.test(q), `47.14: the transport's query( block lacks ${JSON.stringify(missing)} or registers a Stop hook`);
+      ok(/decisionRefs: z\.array\(z\.string\(\)\)(?!\.optional)/.test(tr) && !/decisionRefs: z\.array\(z\.string\(\)\)\.optional\(\)/.test(tr), "47.14: decisionRefs is optional at the tool — probe run 4 needed it required");
+      const srv = decomment("portal/server.mjs");
+      const at = srv.indexOf("'/api/canvas/compose'");
+      const route = at >= 0 ? srv.slice(at, srv.indexOf("if (p ===", at + 10)) : "";
+      ok(route.includes("saveConflict(") && route.indexOf("saveConflict(") < route.indexOf("runComposeTurn(")
+        && route.includes("runComposeTurn({ pkgRoot: root, base: b.base, ask: b.ask, brief: b.brief ?? null })") && !route.includes("...b") && !route.includes("transport"),
+        "47.14: the compose route does not check saveConflict before runComposeTurn, does not name every field, or reaches `transport`");
+      const runAt = srv.indexOf("'/api/canvas/run'");
+      ok(srv.slice(runAt, srv.indexOf("if (p ===", runAt + 10)).includes("compose: composeView(root)"), "47.14: GET /api/canvas/run does not carry compose: composeView(root)");
+    }
+  }
+
+  // --- 47.15 nothing tracked moved -------------------------------------------------------------------
+  for (const d of temps) rmSync(d, { recursive: true, force: true });
+  ok(gitSnap() === GIT_BEFORE, `47.15: the group moved a tracked path — git status for discovery portal/lib system handoff went from ${JSON.stringify(GIT_BEFORE)} to ${JSON.stringify(gitSnap())}`);
+
+  group("compose session", `portal/lib/canvas-session.mjs + the store's verdict lines (#312): IMPORTED in CI with no portal/node_modules, statically SDK- and zod-free with ONE dynamic import naming ./canvas-transport.mjs, the only canvas-*.mjs naming the SDK · S6's four constants reproduce c903170484396973 and the whole prompt surface probe run 4's 9690d4c955be652c, FORK_ASK and YIELD_CONTRACT unshipped · the vocabulary context generated from vocabulary.json (a synthetic entry in, a removed one out) · ESCAPE_RE after numbering and markup, never mid-sentence, the old regex's miss as the control · the fence: one predicate, two sites, Write/WebFetch/MCP each denied with a denied line at both, a warmup Glob denied with none, a hostile allow-set denied · a fake turn's lines in order (turn → owner brief → init → op → stats), maxTurns on the stats line, no second turn while a proposal waits, one call per turn, every refusal kind by the ledger-or-transcript list, the root exempt from the id rule, the outcome from the lines never the words, subtype success + is_error as failed · subscriptionEnv drops ANTHROPIC_API_KEY · the AC #1 ledger proposed → accepted → proposed → refused → undone, agent/owner sourced, verifyBuild [] and a mutated ledger refused · the run lock both ways with an import (ratify's leg is #313's) · the transport's option block and the route pinned as source. Every agent line here is the fake's or an inline script's, in a scratch copy. CANNOT REACH: a model's behaviour (whether it yields, names the brief in its why, or escapes), the SDK's option handling, hook delivery by the CLI, and the page — those are the preflight's, the journey compose pass's and --live-compose's`);
+}
+
   if (failures) {
     console.error(`\nbuild ✗  ${failures} failure(s)`);
     process.exit(1);
   }
-  console.log("\nbuild ✓  all 46 groups pass");
+  console.log("\nbuild ✓  all 47 groups pass");
 }

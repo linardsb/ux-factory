@@ -1,0 +1,13 @@
+probe312 · S6 fp c903170484396973 ✓ · plan fp 91b07131e9aa171d · vocab a2bfea9494d879de · system prompt 44203 chars · dry false
+file:///private/tmp/claude-501/-Users-Berzins-Desktop-Linards-current-ux-factory/1a5120aa-5755-48ad-a631-60c14ce9fab0/scratchpad/uxf/portal/node_modules/@anthropic-ai/claude-agent-sdk/sdk.mjs:7850
+      return new Error(`Claude Code process exited with code ${code}`);
+             ^
+
+Error: Claude Code process exited with code 1
+    at ProcessTransport.getProcessExitError (file:///private/tmp/claude-501/-Users-Berzins-Desktop-Linards-current-ux-factory/1a5120aa-5755-48ad-a631-60c14ce9fab0/scratchpad/uxf/portal/node_modules/@anthropic-ai/claude-agent-sdk/sdk.mjs:7850:14)
+    at ChildProcess.exitHandler (file:///private/tmp/claude-501/-Users-Berzins-Desktop-Linards-current-ux-factory/1a5120aa-5755-48ad-a631-60c14ce9fab0/scratchpad/uxf/portal/node_modules/@anthropic-ai/claude-agent-sdk/sdk.mjs:7975:28)
+    at Object.onceWrapper (node:events:639:26)
+    at ChildProcess.emit (node:events:536:35)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+
+Node.js v20.20.2
