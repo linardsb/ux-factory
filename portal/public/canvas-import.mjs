@@ -91,6 +91,7 @@ function showRefusal(refused, box = refusalBox) {
     else if (a.retry) importSelection();
     else if (a.measure) measureFidelity(currentName);
     else if (a.hint) (box === refusalBox ? statusLine : measureStatus).textContent = `Run: ${a.hint}`;
+    else if (box === measureRefusal) measureFidelity(currentName);
     else dropInput.focus();
   });
   box.appendChild(act);
