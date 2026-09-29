@@ -32,6 +32,12 @@
        at the mobile breakpoint, where .grid-2 is already 1fr and the column is far narrower
        than the cap (components.css). Layout call recorded in the PR — st-ux-fusion T1. */
     #sources .sources-wide { grid-column: 1 / -1; max-width: 76ch; }
+
+    /* The scope note under the method cards (#487) links to the three worked examples.
+       components.css resets every <a> to inherit colour with no underline, which leaves these
+       links with no at-rest signal; an underline in the text's own colour marks them without
+       adding a colour. Page-scoped: the site-wide link treatment is a separate decision. */
+    #method .max-prose a { text-decoration: underline; text-underline-offset: 0.2em; }
   </style>
 </head>
 <body data-page="approach">
