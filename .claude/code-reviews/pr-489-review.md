@@ -19,7 +19,7 @@
 - **F3 (Low, fixed this round)** the report said `approach.html` grew "+13 lines". That was true of `4675642` only; after `be6f6c0` the total is +19 (observed, `git diff --stat origin/main -- approach.html`). Report corrected.
 
 ## Numbers pass
-Every figure in the PR body and the report was traced to a run. One mislabel remains: the contrast figure (~4.97:1) is labelled derived, and its background colour was read from a screenshot. The PR body's "local, on `0a59d87`" is now observed, because the gates were re-run on that head during this review.
+Every figure in the PR body and the report was traced to a run. The one figure no run produced, the ~4.97:1 contrast, is correctly labelled derived, and the report says its background was read from a screenshot. The PR body's "local, on `0a59d87`" is now observed, because the gates were re-run on that head during this review.
 
 ## What's good
 - Every factual clause traces to a committed source line, and the report's table makes each one re-derivable.
