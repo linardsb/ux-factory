@@ -1586,6 +1586,31 @@ $('#discovery-prd').addEventListener('click', async () => {
   }
 });
 
+// The as-is record, without a terminal (#486) — the PRD control above, line for line. Not disabled
+// until the session is finished: an open session's case answer is still a fold, and nothing is written.
+$('#discovery-as-is').addEventListener('click', async () => {
+  const { slug, provenance } = discoveryEls();
+  if (!slug || !provenance) { $('#discovery-status').textContent = 'A slug and a provenance are needed to find the package.'; return; }
+  $('#discovery-status').textContent = 'Projecting the as-is record…';
+  try {
+    const res = await fetch(`/api/discovery/as-is.md?slug=${encodeURIComponent(slug)}&provenance=${encodeURIComponent(provenance)}`);
+    if (!res.ok) {
+      let msg = res.statusText;
+      try { msg = (await res.json()).error ?? msg; } catch { /* not JSON — keep the status text */ }
+      throw new Error(msg);
+    }
+    const md = await res.text();
+    const url = URL.createObjectURL(new Blob([md], { type: 'text/markdown' }));
+    const a = document.createElement('a');
+    a.href = url; a.download = `${slug}-as-is.md`;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    $('#discovery-status').textContent = `As-is projected — ${md.split('\n').length} lines. The package on disk is unchanged; this route only reads it.`;
+  } catch (err) {
+    $('#discovery-status').textContent = `Could not project the as-is record: ${err.message}`;
+  }
+});
+
 // AC #11 — endedAt lands through a control rather than a direct call, so a real session can be
 // ended the way it was started.
 $('#discovery-finish').addEventListener('click', async () => {

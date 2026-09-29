@@ -24,6 +24,8 @@ import { projectPrd, readPackage } from '../discovery/prd-projection.mjs';
 // ./lib/discovery-proposer.mjs, after every guard — the shape runTurn already uses. `proposalsView` is
 // the exported WHITELIST the routes serve, so no route below holds a shape opinion of its own.
 import { checkProposalLines, projectProposals, proposalsView, readProposalPackage, VERDICTS, writeProposalsMd } from '../discovery/proposals.mjs';
+// The as-is fold (#486). Pure, and the route below writes nothing: writeAsIs is deliberately not imported.
+import { projectAsIs } from '../discovery/as-is.mjs';
 // Which commit this process booted from, against where the tree is now (#338 F2).
 import { BOOT_SHA, headSha, isStale } from './lib/version.mjs';
 // The build package (#306): the run list, one run, and the append-only save. Node built-ins plus the
@@ -289,6 +291,21 @@ const server = createServer(async (req, res) => {
       res.writeHead(200, {
         'content-type': 'text/markdown; charset=utf-8',
         'content-disposition': `attachment; filename="${slug}-proposals.md"`,
+      });
+      return res.end(md);
+    }
+    // The as-is record, for the same reason the PRD route exists (#338 F1): an operator who never opens
+    // a terminal must still get the artefact (#486). Read-only — projectAsIs over readPackage returns a
+    // string, and writeAsIs is not imported here, so no request can write into a run package.
+    if (p === '/api/discovery/as-is.md' && req.method === 'GET') {
+      const slug = url.searchParams.get('slug');
+      const provenance = url.searchParams.get('provenance');
+      const root = resolveRunRoot({ provenance, slug });
+      assertProvenanceRoot(provenance, root);
+      const md = projectAsIs(readPackage(root));
+      res.writeHead(200, {
+        'content-type': 'text/markdown; charset=utf-8',
+        'content-disposition': `attachment; filename="${slug}-as-is.md"`,
       });
       return res.end(md);
     }
