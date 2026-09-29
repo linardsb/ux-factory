@@ -1,0 +1,14 @@
+import { readFileSync } from "node:fs";
+import { JSDOM } from "jsdom";
+const dom = new JSDOM("<!doctype html><body></body>");
+globalThis.window = dom.window; globalThis.document = dom.window.document;
+Object.defineProperty(globalThis, "navigator", { value: dom.window.navigator, configurable: true });
+globalThis.DOMParser = dom.window.DOMParser; globalThis.Element = dom.window.Element;
+const { default: mermaid } = await import("mermaid");
+let bad = 0;
+try { await mermaid.parse("stateDiagram-v2\n  f1 -->"); console.log("CONTROL NOT REFUSED"); bad++; } catch { console.log("control refused ✓"); }
+for (const f of process.argv.slice(2)) {
+  const fences = [...readFileSync(f, "utf8").matchAll(/```mermaid\n([\s\S]*?)\n```/g)].map((m) => m[1]);
+  for (const [i, t] of fences.entries()) { try { await mermaid.parse(t); console.log(f.split("/").slice(-4).join("/"), i, "parsed"); } catch (e) { bad++; console.log(f, i, "REFUSED"); } }
+}
+process.exit(bad ? 1 : 0);

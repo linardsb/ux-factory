@@ -97,6 +97,10 @@ const OPTIONAL = Object.freeze({
 // A variant's key: short, lowercase, a slug. It names a lane on the canvas and in the handoff, so it
 // is refused rather than normalised — a key the author did not type is a lane they cannot find.
 const VARIANT_KEY_RE = /^[a-z0-9][a-z0-9-]{0,23}$/;
+// "a" is RESERVED: lane A is the document itself, which every other lane is its differences on (#314).
+// A lane's override takes exactly these keys. `omit: true`, alone, leaves the frame out of the lane (#314, owner
+// 2026-09-29); omitting a BASE leaves its states out too (laneDoc's rule).
+export const LANE_OVERRIDE_KEYS = Object.freeze(["set", "hide", "add", "omit"]);
 // A proposal's name is a component name to be: refused, never normalised, by the same rule.
 export const PROPOSAL_NAME_RE = /^[a-z][a-z0-9-]{1,39}$/;
 
@@ -413,6 +417,9 @@ export function applyOp(doc, op) {
       if (typeof p.key !== "string" || !VARIANT_KEY_RE.test(p.key)) {
         throw new Error(`variant.add: key ${JSON.stringify(p.key)} is not a lane key — lowercase letters, digits and hyphens, 1–24, starting with a letter or digit`);
       }
+      if (p.key === "a") {
+        throw new Error(`variant.add: "a" is lane A — the base document itself, which every other lane is its differences on; name the new lane b, c, …`);
+      }
       if (next.variants.some((v) => v && v.key === p.key)) {
         throw new Error(`variant.add: variant "${p.key}" already exists — one lane per key`);
       }
@@ -423,6 +430,17 @@ export function applyOp(doc, op) {
         frame(fid, "overrides key");
         if (!plainObject(ov)) {
           throw new Error(`variant.add: the override for "${fid}" must be an object — this op carried ${JSON.stringify(ov)}`);
+        }
+        for (const k of Object.keys(ov)) {
+          if (!LANE_OVERRIDE_KEYS.includes(k)) {
+            throw new Error(`variant.add: unknown key "${k}" in the override for "${fid}" — a lane override takes ${LANE_OVERRIDE_KEYS.join(", ")}`);
+          }
+        }
+        if (ov.omit !== undefined && ov.omit !== true) {
+          throw new Error(`variant.add: "omit" on "${fid}" must be true — a frame is either left out of the lane or not`);
+        }
+        if (ov.omit === true && Object.keys(ov).length > 1) {
+          throw new Error(`variant.add: "${fid}" is left out of lane "${p.key}" and also carries ${Object.keys(ov).filter((k) => k !== "omit").join(", ")} — a frame left out has nothing to set`);
         }
         if (ov.add !== undefined) refuseFrozen("variant.add", ov.add, next);
       }
@@ -472,7 +490,7 @@ export function applyOps(ops, doc = emptyDoc()) {
 // epic's op-verb lock and may not touch OPS, PARAMS or the switch. Reads are also TOTAL OVER JUNK —
 // they skip a malformed item rather than throwing — which is the opposite of the applier's posture
 // and deliberate: a view that throws takes a page down over a record the applier already accepted.
-//
+// The lane reads below (#314: laneKeys, laneDoc, flowEdges, stateDiagram) keep both rules.
 // canDeleteBasePart below is the exception that proves the split: it is a REFUSAL, so it throws, and
 // it is named as a question rather than as a read.
 
@@ -499,20 +517,19 @@ export function resolve(base, override) {
   return { resolved: out, flags };
 }
 
-// missingStates(doc, variantKey?) → [{ frameId, screenId, missing: [...] }] — for every BASE frame,
+// missingStates(doc, lane?) → [{ frameId, screenId, missing: [...] }] — for every BASE frame,
 // which of the required minimum states has no sibling.
 //
 // THE POINT IS THE LIST, NOT A COUNT. "Three states missing" is a number; "error and empty are
 // missing from the payment screen" is something an author can act on. Bases with nothing missing are
 // omitted, so an empty answer means the floor is met rather than that nothing was checked.
 //
-// `variantKey` narrows to one variant when the document has them. Absent, every base is considered.
-export function missingStates(doc, variantKey) {
-  const frames = Array.isArray(doc?.frames) ? doc.frames.filter((f) => f && typeof f === "object") : [];
+// Resolves the lane first (G33, #314): the page, build-checks and the handoff generator call this one function.
+export function missingStates(doc, lane = null) {
+  const frames = laneDoc(doc, lane).doc.frames;
   const out = [];
   for (const base of frames) {
     if (base.baseId != null || base.id == null) continue; // a state is not a base
-    if (variantKey !== undefined && base.variantKey !== variantKey) continue;
     const have = new Set(frames.filter((f) => f.baseId === base.id).map((f) => f.stateKey));
     have.add(base.stateKey ?? "ideal"); // the base IS its own ideal
     const missing = STATE_KEYS.filter((k) => !have.has(k));
@@ -536,6 +553,39 @@ export function canDeleteBasePart(doc, baseId, partId) {
   return true;
 }
 
+// ---- #314: lanes ----------------------------------------------------------------------------------
+// Lane A is the document itself (key null); doc.variants holds only the other lanes, each its differences on A (G33).
+export const BASE_LANE = null;
+
+const variantOf = (doc, lane) => (Array.isArray(doc?.variants) ? doc.variants : []).find((v) => plainObject(v) && v.key === lane) ?? null;
+
+// laneKeys(doc) → [null, "b", …] — lane A first, then every lane in document order. Total over junk.
+export function laneKeys(doc) {
+  const keys = (Array.isArray(doc?.variants) ? doc.variants : []).filter((v) => plainObject(v) && typeof v.key === "string").map((v) => v.key);
+  return [BASE_LANE, ...keys];
+}
+
+// laneDoc(doc, lane) → { doc, flags } — which frames and arrows EXIST in a lane. A frame the lane omits is gone, a
+// state of an omitted base is gone with it, and so is every arrow touching either. Parts are NOT resolved here —
+// frameTree does that, so there is one merge rule. A lane that does not exist holds no frames, so nothing in it
+// is missing: the answer stays true of what was checked. Total over junk; never mutates its argument.
+export function laneDoc(doc, lane = null) {
+  const frames = Array.isArray(doc?.frames) ? doc.frames.filter((f) => plainObject(f)) : [];
+  const arrows = Array.isArray(doc?.arrows) ? doc.arrows.filter((a) => plainObject(a)) : [];
+  const base = { ...(plainObject(doc) ? doc : {}), frames, arrows };
+  if (lane == null) return { doc: base, flags: [] };
+  const v = variantOf(doc, lane);
+  if (!v) return { doc: { ...base, frames: [], arrows: [] }, flags: [{ kind: "unknown-lane", lane }] };
+  const ov = plainObject(v.overrides) ? v.overrides : {};
+  const out = new Set(frames.filter((f) => ov[f.id]?.omit === true).map((f) => f.id));
+  for (const f of frames) if (f.baseId != null && out.has(f.baseId)) out.add(f.id);
+  const kept = frames.filter((f) => !out.has(f.id));
+  return {
+    doc: { ...base, frames: kept, arrows: arrows.filter((a) => !out.has(a?.from?.frameId) && !out.has(a?.to?.frameId)) },
+    flags: frames.filter((f) => out.has(f.id)).map((f) => ({ kind: "omitted", frameId: f.id, lane })),
+  };
+}
+
 // frameTree(doc, frameId) → { tree, flags } — the renderable composition for one frame (#306).
 //
 // A base frame is its composition with its own sets applied; a state is the SAME, then the state's
@@ -549,10 +599,17 @@ export function canDeleteBasePart(doc, baseId, partId) {
 // a tree carrying it would be refused whole. A hidden ROOT is flagged and kept — dropping it would
 // leave nothing to render and nothing to say why. `overrides.add` (G19's dialogs, later) is flagged
 // and ignored. Total over junk: an unknown frame answers tree: null with a flag, never a throw.
-export function frameTree(doc, frameId) {
+export function frameTree(doc, frameId, lane = null) {
   const frames = Array.isArray(doc?.frames) ? doc.frames.filter((f) => f && typeof f === "object") : [];
   const f = frames.find((x) => x.id === frameId);
   if (!f) return { tree: null, flags: [{ kind: "unknown-frame", frameId }] };
+  let laneOv = () => null;
+  if (lane != null) {
+    const v = variantOf(doc, lane);
+    if (!v) return { tree: null, flags: [{ kind: "unknown-lane", lane }] };
+    if (laneDoc(doc, lane).flags.some((fl) => fl.frameId === frameId)) return { tree: null, flags: [{ kind: "omitted", frameId, lane }] };
+    laneOv = (id) => (plainObject(v.overrides?.[id]) ? v.overrides[id] : null);
+  }
   const state = f.baseId != null ? f : null;
   const base = state ? frames.find((x) => x.id === state.baseId) : f;
   if (!base) return { tree: null, flags: [{ kind: "unknown-frame", frameId: state.baseId }] };
@@ -569,7 +626,11 @@ export function frameTree(doc, frameId) {
 
   const flags = [];
   let acc = { parts };
-  const layers = [{ set: base.sets }, state?.overrides, state ? { set: state.sets } : null];
+  // THE ORDER IS THE DECISION (#314): the lane's change to a base reaches every state of it (a state IS its base
+  // except where it says), the state's own override still wins over it, and the lane's override of the state is last.
+  const layers = state
+    ? [{ set: base.sets }, laneOv(base.id), state.overrides, { set: state.sets }, laneOv(state.id)]
+    : [{ set: base.sets }, laneOv(base.id)];
   for (const layer of layers) {
     if (!plainObject(layer)) continue;
     if (layer.add !== undefined) flags.push({ kind: "unsupported-add", frameId: f.id });
@@ -675,4 +736,55 @@ export function exhibitClashes(doc, positions) {
     if (frameId !== null) out.push({ exhibitId: e.id, frameId });
   }
   return out;
+}
+
+// ---- #314: the flow, per lane ---------------------------------------------------------------------
+
+// frameLabel(doc, frameId) → "add-payee" for a base, "error of add-payee" for a state, the id when unknown.
+export function frameLabel(doc, frameId) {
+  const frames = Array.isArray(doc?.frames) ? doc.frames.filter((f) => plainObject(f)) : [];
+  const f = frames.find((x) => x.id === frameId);
+  if (!f) return String(frameId);
+  if (f.baseId == null) return f.screenId ?? f.id;
+  const base = frames.find((x) => x.id === f.baseId);
+  return `${f.stateKey} of ${base?.screenId ?? f.baseId}`;
+}
+
+// flowEdges(doc, lane) → one entry per arrow that exists in the lane, with the part's text AS THE LANE RESOLVES IT
+// (G5: "tapping Continue goes to …"). Total over junk.
+export function flowEdges(doc, lane = null) {
+  const { doc: ld } = laneDoc(doc, lane);
+  return ld.arrows.map((a) => {
+    const from = a.from?.frameId ?? null;
+    const partId = a.from?.partId ?? null;
+    let partText = null;
+    if (partId != null) {
+      const walk = (n) => {
+        if (!plainObject(n) || partText !== null) return;
+        if (n.id === partId && plainObject(n.props)) partText = n.props.label ?? n.props.content ?? null;
+        for (const c of Array.isArray(n.children) ? n.children : []) walk(c);
+      };
+      walk(frameTree(doc, from, lane).tree);
+    }
+    return { id: a.id ?? null, from, to: a.to?.frameId ?? null, fromLabel: frameLabel(doc, from), toLabel: frameLabel(doc, a.to?.frameId),
+      partId, partText: typeof partText === "string" ? partText : null, trigger: typeof a.trigger === "string" && a.trigger.trim() ? a.trigger : null };
+  });
+}
+
+// edgePhrase(e) → "tapping Continue", "from continue" or "on load" — the one wording flow.md and the diagram share.
+export const edgePhrase = (e) => (e.partText ? `tapping ${e.partText}` : e.partId ? `from ${e.partId}` : "on load");
+
+// Mermaid-unsafe characters out of a label; the prose keeps them verbatim.
+const mm = (s) => String(s).replace(/[\r\n]+/g, " ").replace(/[:;#{}<>"]/g, "").replace(/\s+/g, " ").trim();
+
+// stateDiagram(doc, lane) → Mermaid stateDiagram-v2 text for the frames and arrows that exist in the lane.
+export function stateDiagram(doc, lane = null) {
+  const { doc: ld } = laneDoc(doc, lane);
+  const lines = ["stateDiagram-v2"];
+  for (const f of ld.frames) if (typeof f.id === "string") lines.push(`  ${f.id} : ${mm(frameLabel(doc, f.id))}`);
+  for (const e of flowEdges(doc, lane)) {
+    if (e.from == null || e.to == null) continue;
+    lines.push(`  ${e.from} --> ${e.to} : ${mm(edgePhrase(e) + (e.trigger ? `, when ${e.trigger}` : ""))}`);
+  }
+  return lines.join("\n");
 }

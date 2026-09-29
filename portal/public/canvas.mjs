@@ -35,6 +35,11 @@
 //      turn never reloads the page, unlike canvas-import.mjs call 1: nothing the page's history has
 //      not seen entered the fold, so adopting the returned `count` is enough and the history survives.
 //
+//   7. A LANE IS DRAFTED, THEN KEPT AS ONE OP (#314, owner 2026-09-29). Edits in a draft change nothing on disk;
+//      Keep lane writes one variant.add with the whole override map; a kept lane is read-only until a lane edit
+//      verb exists. Switching lanes is view state and saves nothing. The draft is previewed through the REAL
+//      applier (viewDoc), so a bad draft is refused at the gesture, never at Keep.
+//
 // The driver seam is getCanvasPage() (studio-verbs.mjs's getVerbs idiom): page globals are not this
 // repo's test surface.
 
@@ -45,7 +50,7 @@ import { mountCanvasVerbs } from "/system/studio-verbs.mjs";
 import { mountCanvasSelect } from "/system/studio-select.mjs";
 import { mountStudioLayers } from "/system/studio-layers.mjs";
 import { mountStudioMinimap } from "/system/studio-minimap.mjs";
-import { applyOp, EXHIBIT_SIZE, exhibitClashes, exhibitsOf, frameTree, missingStates, placeDecision } from "/system/canvas-ops.mjs";
+import { applyOp, EXHIBIT_SIZE, exhibitClashes, exhibitsOf, frameTree, laneDoc, laneKeys, missingStates, placeDecision, stateDiagram } from "/system/canvas-ops.mjs";
 import { PRESET_NAMES, WIDTH_MAX, WIDTH_MIN, presetWidth } from "/system/device-presets.mjs";
 
 const el = (tag, attrs, ...kids) => {
@@ -102,7 +107,14 @@ let compose = null;
 let composing = false;
 let composeNote = "";
 
-export const getCanvasPage = () => ({ doc, effective, count, pending, compose });
+// #314: the active lane (null = lane A) and the lane being drafted ({ key, overrides }), if any.
+let lane = null;
+let laneDraft = null;
+// The document the stage shows: the saved one, plus the draft lane previewed through the real applier.
+const viewDoc = () => (laneDraft ? applyOp(doc, { op: "variant.add", params: { key: laneDraft.key, overrides: laneDraft.overrides } }) : doc);
+let view = null; // viewDoc(), computed once per reconcile
+
+export const getCanvasPage = () => ({ doc, effective, count, pending, compose, lane, laneDraft });
 
 // ---- names and sentences ---------------------------------------------------------------------------
 
@@ -129,6 +141,7 @@ const describeOp = (o) => {
     case "component.propose": return `proposed ${p.name} from import ${p.recordId}`;
     case "screen.compose": return `composed ${p.screenId}`;
     case "state.add": return `added the ${p.stateKey} state of ${p.baseId}`;
+    case "variant.add": return `kept lane ${p.key}`;
     default: return o.op;
   }
 };
@@ -166,9 +179,10 @@ const takenBoxes = () => [...boxes.entries()].map(([id, b]) => {
 // ---- building nodes -------------------------------------------------------------------------------
 
 function frameParts(f) {
-  const tree = frameTree(doc, f.id);
+  const tree = frameTree(view, f.id, lane);
   const screen = el("div", { class: "cv-screen" });
-  if (tree.tree) {
+  if (tree.flags.some((fl) => fl.kind === "omitted")) screen.appendChild(el("p", { class: "cv-flag cv-omitted", text: `Not in lane ${lane}` }));
+  else if (tree.tree) {
     try { screen.appendChild(renderComposition(vocab, tree.tree)); }
     catch (e) { screen.appendChild(el("p", { class: "cv-flag", text: `Refused: ${e.message}` })); }
   }
@@ -181,13 +195,15 @@ function frameParts(f) {
   // G27 (#312): each state the completeness check says this base screen lacks is one ask for a proposal.
   const missing = el("span", { class: "cv-missing" });
   for (const key of missingOf(f)) {
+    // In a lane other than A the check is shown, never asked: a compose state proposal is an A-lane state.add.
+    if (lane !== null) { missing.appendChild(el("span", { class: "cv-chip", text: `${key}: missing in lane ${lane}` })); continue; }
     missing.appendChild(el("button", { type: "button", class: "btn btn-secondary cv-btn cv-missing-btn", "data-cv-ask-state": `${f.id}:${key}`, "aria-label": `Ask for a proposal: the ${key} state of ${frameName(f)}`, text: `${key}: missing` }));
   }
   return { screen, name: el("span", { class: "cv-name", text: frameName(f) }), chips, missing };
 }
 
-const missingOf = (f) => (f.baseId ? [] : missingStates(doc).find((m) => m.frameId === f.id)?.missing ?? []);
-const frameSig = (f) => canon({ tree: frameTree(doc, f.id), w: f.width, name: frameName(f), refs: f.decisionRefs ?? [], missing: missingOf(f) });
+const missingOf = (f) => (f.baseId ? [] : missingStates(view, lane).find((m) => m.frameId === f.id)?.missing ?? []);
+const frameSig = (f) => canon({ lane, tree: frameTree(view, f.id, lane), w: f.width, name: frameName(f), refs: f.decisionRefs ?? [], missing: missingOf(f) });
 
 function fillFrame(entry, f) {
   const { screen, name, chips, missing } = frameParts(f);
@@ -385,6 +401,7 @@ const GEOMETRY_VERBS = Object.freeze(["ui.move", "ui.move-group", "ui.resize", "
 // ---- reconcile: make the stage say what the document says ----------------------------------------
 
 function reconcile() {
+  view = viewDoc();
   const want = new Set([...doc.frames.map((f) => f.id), ...(doc.notes ?? []).map((n) => n.id), ...refsInOrder().map((r) => `d${r}`), ...exhibitsOf(doc).map((e) => e.id)]);
   for (const [id, entry] of [...onStage]) {
     if (want.has(id) || drafts.has(id)) continue;
@@ -417,7 +434,71 @@ function reconcile() {
     if (sig !== entry.sig) { entry.node.replaceChildren(...parts); entry.sig = sig; }
   }
   for (const ex of exhibitsOf(doc)) if (!onStage.has(ex.id)) placeExhibitNode(ex);
-  canvas.setArrows(doc.arrows);
+  canvas.setArrows(laneDoc(view, lane).doc.arrows);
+  renderFlow();
+}
+
+// ---- lanes (#314) ------------------------------------------------------------------------------------
+
+function renderFlow() {
+  $("[data-canvas-flow-text]").textContent = stateDiagram(view, lane);
+  const list = $("[data-canvas-flow-missing]");
+  const miss = missingStates(view, lane);
+  list.replaceChildren(...(miss.length ? miss.map((m) => el("li", { text: `${frameName(frameOf(m.frameId))}: ${m.missing.join(", ")} missing` }))
+    : [el("li", { text: "Every screen in this lane meets the floor." })]));
+  const sel = $("[data-canvas-lane]");
+  const keys = laneKeys(view);
+  sel.replaceChildren(...keys.map((k) => el("option", { value: k ?? "", text: k === null ? "A (base)" : laneDraft?.key === k ? `${k} (draft)` : k })));
+  sel.value = lane ?? "";
+  $("[data-canvas-verb=lane-keep]").hidden = !laneDraft;
+  $("[data-canvas-verb=lane-discard]").hidden = !laneDraft;
+  $("[data-canvas-verb=lane-new]").hidden = Boolean(laneDraft);
+}
+
+// A draft edit: applied to a copy, previewed through the applier, kept only if the applier accepts it.
+function editDraft(fid, next) {
+  const before = laneDraft.overrides;
+  laneDraft = { ...laneDraft, overrides: { ...before, [fid]: next } };
+  try { viewDoc(); } catch (e) { laneDraft = { ...laneDraft, overrides: before }; canvas.say(`Refused: ${e.message}`); return false; }
+  reconcile();
+  return true;
+}
+
+function wireLanes() {
+  $("[data-canvas-lane]").addEventListener("change", (e) => { lane = e.target.value || null; reconcile(); });
+  $("[data-canvas-verb=lane-new]").addEventListener("click", () => {
+    $("[data-canvas-lane-form]").hidden = false;
+    $("[data-canvas-lane-key]").focus();
+  });
+  $("[data-canvas-verb=lane-create]").addEventListener("click", () => {
+    const key = $("[data-canvas-lane-key]").value.trim();
+    try { applyOp(doc, { op: "variant.add", params: { key, overrides: {} } }); }
+    catch (e) { canvas.say(`Refused: ${e.message}`); return; }
+    laneDraft = { key, overrides: {} };
+    lane = key;
+    $("[data-canvas-lane-form]").hidden = true;
+    reconcile();
+    canvas.say(`Lane ${key} is a draft — edit frames through Details, then Keep lane.`);
+  });
+  $("[data-canvas-verb=lane-keep]").addEventListener("click", (e) => {
+    bus.emit({ type: "ui.variant-add", source: e.detail === 0 ? "keyboard" : "pointer", params: { key: laneDraft.key, overrides: laneDraft.overrides } });
+  });
+  $("[data-canvas-verb=lane-discard]").addEventListener("click", () => {
+    const key = laneDraft?.key;
+    laneDraft = null;
+    lane = null;
+    reconcile();
+    canvas.say(`Lane ${key} discarded — nothing was written.`);
+  });
+  $("[data-canvas-verb=pack]").addEventListener("click", async () => {
+    if (!(await flushSettled())) { setSave("Pack not written — the page has unsaved changes."); return; }
+    try {
+      const res = await fetch("/api/canvas/pack", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ provenance, slug }) });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || res.statusText);
+      setSave(`Handoff pack written — ${body.files.length} files in build/handoff/`);
+    } catch (e) { setSave(`Pack not written — ${e.message}`); }
+  });
 }
 
 // ---- applying the owner's ops -----------------------------------------------------------------------
@@ -449,6 +530,7 @@ const adapter = {
     for (const o of redone) pending.push({ op: o.op, params: o.params, status: "applied" });
     doc = structuredClone(value.doc);
     effective = structuredClone(value.ops);
+    if (lane !== null && lane !== laneDraft?.key && !laneKeys(doc).includes(lane)) lane = null;
     reconcile();
     const said = [];
     if (undone.length) said.push(`Undone: ${undone.map(describeOp).join("; ")}.`);
@@ -503,7 +585,7 @@ async function flush() {
     pending.splice(0, ops.length);
     lastSavedKey = key;
     for (const [id, p] of Object.entries(positions)) boxes.set(id, { ...boxes.get(id), ...p });
-    setSave("Saved");
+    setSave(body.packError ? `Saved — pack not written: ${body.packError}` : "Saved");
   } catch (e) {
     broken = true;
     setSave(`Not saved — ${e.message}. Reload to continue.`);
@@ -761,7 +843,56 @@ function openInspector(frameId, trigger) {
   const closeBtn = el("button", { type: "button", class: "btn btn-secondary cv-btn", text: "Close" });
   closeBtn.addEventListener("click", closeInspector);
 
-  pop.replaceChildren(el("p", { class: "cv-inspector-title", text: `Details — ${spoken(f)}` }), device, decisionsSet,
+  // #314: the active lane. A draft is editable; a kept lane is read-only.
+  let laneSet = null;
+  if (lane !== null && laneDraft?.key !== lane) {
+    laneSet = el("fieldset", { class: "cv-fieldset" }, el("legend", { text: `In lane ${lane}` }),
+      el("p", { class: "cv-flag", text: `Lane ${lane} is kept — its overrides are read-only.` }));
+  } else if (lane !== null) {
+    const tree = frameTree(view, frameId, lane).tree;
+    const parts = [];
+    const walkParts = (n) => {
+      if (!n || typeof n !== "object") return;
+      if (typeof n.id === "string" && n.props) {
+        const props = ["label", "content", "hint", "placeholder"].filter((k) => typeof n.props[k] === "string");
+        if (props.length) parts.push({ id: n.id, props: Object.fromEntries(props.map((k) => [k, n.props[k]])) });
+      }
+      for (const c of Array.isArray(n.children) ? n.children : []) walkParts(c);
+    };
+    walkParts(tree);
+    const partSel = el("select", { id: "cv-lane-part" });
+    const propSel = el("select", { id: "cv-lane-prop" });
+    const valueIn = el("input", { id: "cv-lane-value" });
+    for (const p of parts) partSel.appendChild(el("option", { value: p.id, text: p.id }));
+    const fillProps = () => {
+      const p = parts.find((x) => x.id === partSel.value);
+      propSel.replaceChildren(...Object.keys(p?.props ?? {}).map((k) => el("option", { value: k, text: k })));
+      valueIn.value = p?.props[propSel.value] ?? "";
+    };
+    partSel.addEventListener("change", fillProps);
+    propSel.addEventListener("change", () => { valueIn.value = parts.find((x) => x.id === partSel.value)?.props[propSel.value] ?? ""; });
+    fillProps();
+    const setBtn = el("button", { type: "button", class: "btn btn-secondary cv-btn", text: "Set in lane" });
+    setBtn.addEventListener("click", () => {
+      const o = laneDraft.overrides[frameId] ?? {};
+      const set = { ...(o.set ?? {}), [partSel.value]: { ...(o.set?.[partSel.value] ?? {}), [propSel.value]: valueIn.value } };
+      const { omit, ...rest } = o;
+      closeInspector();
+      if (editDraft(frameId, { ...rest, set })) canvas.say(`Lane ${lane}: ${partSel.value}.${propSel.value} on ${spoken(f)} is now "${valueIn.value}".`);
+    });
+    const omitBtn = el("button", { type: "button", class: "btn btn-secondary cv-btn", text: "Leave out of lane" });
+    omitBtn.addEventListener("click", () => {
+      closeInspector();
+      if (editDraft(frameId, { omit: true })) canvas.say(`${spoken(f)} is left out of lane ${lane}.`);
+    });
+    laneSet = el("fieldset", { class: "cv-fieldset" }, el("legend", { text: `In lane ${lane}` }),
+      ...(parts.length ? [el("label", { class: "cv-field", for: "cv-lane-part" }, "Part"), partSel,
+        el("label", { class: "cv-field", for: "cv-lane-prop" }, "Text"), propSel,
+        el("label", { class: "cv-field", for: "cv-lane-value" }, "Value"), valueIn, setBtn] : []),
+      omitBtn);
+  }
+
+  pop.replaceChildren(el("p", { class: "cv-inspector-title", text: `Details — ${spoken(f)}` }), ...(laneSet ? [laneSet] : []), device, decisionsSet,
     el("div", { class: "cv-inspector-actions" }, removeBtn, closeBtn));
   pop.setAttribute("role", "dialog");
   pop.setAttribute("aria-label", `Details for ${frameName(f)}`);
@@ -823,6 +954,14 @@ function registerConsumers() {
     if (!applyOwnerOp({ op: "frame.remove", params: { frameId: a?.target?.id } })) return;
     canvas.say(`Removed ${spoken(f)} and ${arrows} arrow${arrows === 1 ? "" : "s"}.`);
   });
+  bus.on("ui.variant-add", (a) => {
+    const key = a?.params?.key;
+    // The draft leaves BEFORE the op applies: reconcile() previews the draft over doc, and doc is about to hold it.
+    const draft = laneDraft;
+    laneDraft = null;
+    if (!applyOwnerOp({ op: "variant.add", params: { key, overrides: a?.params?.overrides } })) { laneDraft = draft; reconcile(); return; }
+    canvas.say(`Lane ${key} kept.`);
+  });
   bus.on("ui.frame-size", (a) => {
     const id = a?.target?.id;
     const p = a?.params ?? {};
@@ -859,7 +998,7 @@ function renderLabel(run) {
       : " Stored in this repo, but run.json says real." }));
   }
   $("[data-canvas-where]").textContent = run.provenance === "fictional"
-    ? `Saves into this repo at discovery/${run.slug}/build/ — commit to keep it, or git checkout the folder to discard.`
+    ? `Saves into this repo at discovery/${run.slug}/build/, the handoff pack with it — commit to keep it, or git checkout the folder to discard.`
     : "Saves into the jobs folder, never committed.";
 }
 
@@ -903,6 +1042,7 @@ async function boot() {
     mountStudioLayers(document.body, { canvas, select });
     mountStudioMinimap(document.body, { canvas });
     wireInspector();
+    wireLanes();
     $("[data-canvas-verb=annotate]").addEventListener("click", addNote);
     renderCompose();
     lastSavedKey = canon(gatherPositions());

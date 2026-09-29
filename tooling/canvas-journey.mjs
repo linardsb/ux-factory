@@ -54,6 +54,16 @@
 // use, and is killed by its own handle. git status over system/, handoff/, discovery/ and
 // import/overrides/ is compared across the pass (AC #4).
 //
+// THE LANES PASS (#314, L1–L9) over its own copy, fp-lanes: the lane select holds A only with Keep and Discard
+// display:none; New lane refuses key a naming lane A and drafts b while writing nothing; f1's Continue relabelled
+// and f2 left out IN THE DRAFT (still six lines), f1's missing error a plain chip, never an ask, and the flow panel
+// without f2; Keep lane writes ONE variant.add carrying the whole override map, and that save regenerates the
+// scratch package's pack (## Lane b); switching to A and back swaps f1's text, the asks, the diagram and the
+// missing list and writes nothing; Write handoff pack rewrites a removed flow.md equal to renderPack, and a
+// cross-origin POST is a 403 that writes nothing; Cmd+Z writes an undone line and the select loses b;
+// verifyBuild [] and the page equal to the disk fold. The lane buttons are measured at 44×44 in L3, the new
+// toolbar controls in 15.
+//
 // THE COMPOSE PASS (#312). A side portal whose UXF_COMPOSE_TRANSPORT names tooling/fake-compose-agent.mjs —
 // a SCRIPTED stand-in for the model driving the REAL handler and fence; the main portal child never gets
 // it — over fp-compose, the stand-in shape (no transcript.jsonl). Through the page: a briefed turn's card
@@ -105,6 +115,7 @@ import { foldLedger, loadBuild, placeExhibit, positionsOf, verifyBuild } from ".
 import { checkRecord, fidelityVerdict } from "../import/report.mjs";
 import { THRESHOLD } from "../import/fidelity.mjs";
 import { editMapping, runImport } from "../portal/lib/import-run.mjs";
+import { readBuildPackage, renderPack } from "../agent-layer/gen-build-handoff.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, "..");
@@ -274,6 +285,12 @@ function seed() {
   mkdirSync(mea);
   for (const f of ["run.json", "answers.jsonl", "transcript.jsonl"]) cpSync(path.join(src, f), path.join(mea, f));
   cpSync(path.join(src, "build"), path.join(mea, "build"), { recursive: true });
+  // #314's lanes pass, likewise — and its pack is written HERE, never into the committed spine.
+  const lan = path.join(DISC(), "fp-lanes");
+  mkdirSync(lan);
+  for (const f of ["run.json", "answers.jsonl", "transcript.jsonl"]) cpSync(path.join(src, f), path.join(lan, f));
+  cpSync(path.join(src, "build"), path.join(lan, "build"), { recursive: true });
+  rmSync(path.join(lan, "build", "handoff"), { recursive: true, force: true });
 }
 const buildDir = (slug) => path.join(DISC(), slug, "build");
 const ledger = (slug) => readFileSync(path.join(buildDir(slug), "ops.jsonl"), "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l));
@@ -614,6 +631,8 @@ async function leg(engine, base, results) {
       t("14 · moving a card on the stand-in still saves (flagged, not blocked)", after !== before);
     });
 
+    await lanesPass(base, page, t, step);
+
     await step("15 · 44×44 targets", async () => {
       await openCanvas(page, base, "real", "fp-journey");
       const measure = async (loc, label) => {
@@ -623,6 +642,8 @@ async function leg(engine, base, results) {
         return { label, w: b?.width ?? 0, h: b?.height ?? 0 };
       };
       const sizes = [await measure(page.locator("[data-canvas-verb=annotate]"), "Add note"), await measure(page.locator('[data-cv-details="f1"]'), "Details")];
+      // #314's toolbar controls (the draft's Keep, Discard and the inspector's lane buttons are measured in L3).
+      for (const [sel, label] of [["[data-canvas-lane]", "lane select"], ["[data-canvas-verb=lane-new]", "New lane"], ["[data-canvas-verb=pack]", "Write handoff pack"]]) sizes.push(await measure(page.locator(sel), label));
       await openDetails(page, "f1");
       sizes.push(await measure(page.locator("#cv-size-preset"), "preset select"));
       sizes.push(await measure(page.locator("#cv-size-width"), "width input"));
@@ -645,6 +666,112 @@ async function leg(engine, base, results) {
   } finally {
     await browser.close();
   }
+}
+
+// ---- the lanes pass (#314) ------------------------------------------------------------------------------
+// A variant is a LANE: drafted on the page (nothing written), kept as ONE variant.add, and the frames, the
+// completeness check and the flow panel switch with it. Runs on its own copy, fp-lanes, whose pack starts absent.
+async function lanesPass(base, page, t, step) {
+  const pkg = path.join(DISC(), "fp-lanes");
+  const flowFile = path.join(buildDir("fp-lanes"), "handoff", "flow.md");
+  const flow = () => page.locator("[data-canvas-flow-text]").textContent();
+  const hidden = (sel) => page.locator(sel).evaluate((b) => getComputedStyle(b).display === "none");
+  await step("L1 · lane A only, Keep and Discard hidden", async () => {
+    await openCanvas(page, base, "real", "fp-lanes");
+    const opts = await page.locator("[data-canvas-lane] option").allTextContents();
+    t("L1 · the lane select holds exactly A (base)", opts.join("|") === "A (base)", JSON.stringify(opts));
+    t("L1 · Keep lane and Discard lane are display:none (computed, not the attribute)", (await hidden("[data-canvas-verb=lane-keep]")) && (await hidden("[data-canvas-verb=lane-discard]")));
+  });
+  await step("L2 · a new lane is a draft; key a is refused", async () => {
+    await page.click("[data-canvas-verb=lane-new]");
+    await page.fill("[data-canvas-lane-key]", "a");
+    await page.click("[data-canvas-verb=lane-create]");
+    await waitSaid(page, "Refused:").catch(() => {});
+    const refusal = await said(page);
+    const draftA = await page.evaluate(() => import("/canvas.mjs").then((m) => m.getCanvasPage().laneDraft));
+    t("L2 · key a is refused, naming lane A, and nothing is drafted", refusal.includes("Refused:") && refusal.includes("lane A") && draftA === null, refusal);
+    await page.fill("[data-canvas-lane-key]", "b");
+    await page.click("[data-canvas-verb=lane-create]");
+    const opts = await page.locator("[data-canvas-lane] option").allTextContents();
+    t("L2 · the select shows b (draft), selected, with Keep and Discard visible",
+      opts.includes("b (draft)") && (await page.locator("[data-canvas-lane]").inputValue()) === "b"
+        && !(await hidden("[data-canvas-verb=lane-keep]")) && !(await hidden("[data-canvas-verb=lane-discard]")), JSON.stringify(opts));
+    t("L2 · a draft writes nothing (ledger still 6)", ledger("fp-lanes").length === 6, String(ledger("fp-lanes").length));
+  });
+  await step("L3 · override one text in lane b", async () => {
+    await openDetails(page, "f1");
+    await page.selectOption("#cv-lane-part", "continue");
+    await page.selectOption("#cv-lane-prop", "label");
+    await page.fill("#cv-lane-value", "Check the name");
+    const sizes = [];
+    for (const name of ["Set in lane", "Leave out of lane"]) {
+      const b = await page.getByRole("button", { name }).boundingBox();
+      sizes.push({ name, w: b?.width ?? 0, h: b?.height ?? 0 });
+    }
+    for (const sel of ["[data-canvas-verb=lane-keep]", "[data-canvas-verb=lane-discard]"]) {
+      const b = await page.locator(sel).boundingBox();
+      sizes.push({ name: sel, w: b?.width ?? 0, h: b?.height ?? 0 });
+    }
+    const small = sizes.filter((x) => x.w < 44 || x.h < 44);
+    t("L3 · the lane buttons measure at least 44×44", small.length === 0, JSON.stringify(small));
+    await page.getByRole("button", { name: "Set in lane" }).click();
+    await page.keyboard.press("Escape");
+    t("L3 · f1 reads Check the name in lane b, and nothing is written", (await node(page, "f1").textContent()).includes("Check the name") && ledger("fp-lanes").length === 6);
+  });
+  await step("L4 · leave f2 out of lane b", async () => {
+    await openDetails(page, "f2");
+    await page.getByRole("button", { name: "Leave out of lane" }).click();
+    await page.keyboard.press("Escape");
+    t("L4 · f2 shows Not in lane b", (await node(page, "f2").textContent()).includes("Not in lane b"));
+    t("L4 · f1's error chip is a plain chip, never an ask button",
+      (await node(page, "f1").textContent()).includes("error: missing in lane b") && (await page.locator('[data-cv-ask-state="f1:error"]').count()) === 0);
+    const text = await flow();
+    t("L4 · the flow panel has no f2 line", !/^\s*f2\b/m.test(text) && !text.includes("--> f2"), JSON.stringify(text));
+  });
+  await step("L5 · Keep lane writes ONE variant.add, and the save regenerates the pack", async () => {
+    await page.click("[data-canvas-verb=lane-keep]");
+    const l = await waitLines("fp-lanes", 7);
+    const want = { key: "b", overrides: { f1: { set: { continue: { label: "Check the name" } } }, f2: { omit: true } } };
+    t("L5 · ledger line 7 is variant.add with the whole override map, applied, owner",
+      l.length === 7 && l[6]?.op === "variant.add" && canon(l[6]?.params) === canon(want) && l[6]?.status === "applied" && l[6]?.source === "owner", JSON.stringify(l[6]));
+    for (let i = 0; i < 40 && !(existsSync(flowFile) && readFileSync(flowFile, "utf8").includes("## Lane b")); i += 1) await sleep(100);
+    t("L5 · the save wrote the pack: build/handoff/flow.md carries ## Lane b", existsSync(flowFile) && readFileSync(flowFile, "utf8").includes("## Lane b"));
+  });
+  await step("L6 · the frames, the check and the diagram switch with the lane", async () => {
+    await page.selectOption("[data-canvas-lane]", "");
+    t("L6 · lane A: f1 reads Continue", (await node(page, "f1").textContent()).includes("Continue") && !(await node(page, "f1").textContent()).includes("Check the name"));
+    const asks = await page.locator("[data-cv-ask-state^='f1:']").evaluateAll((els) => els.map((e) => e.dataset.cvAskState).sort());
+    t("L6 · lane A: f1's missing asks are empty, loading, partial — no error", canon(asks) === canon(["f1:empty", "f1:loading", "f1:partial"]), JSON.stringify(asks));
+    t("L6 · lane A: the flow panel has f1 --> f2", (await flow()).includes("f1 --> f2"));
+    await page.selectOption("[data-canvas-lane]", "b");
+    t("L6 · lane b: the flow panel lacks f1 --> f2 and the missing list names error",
+      !(await flow()).includes("f1 --> f2") && (await page.locator("[data-canvas-flow-missing]").textContent()).includes("error"));
+    t("L6 · a lane switch writes nothing (ledger still 7)", ledger("fp-lanes").length === 7, String(ledger("fp-lanes").length));
+  });
+  await step("L7 · Write handoff pack", async () => {
+    rmSync(path.join(buildDir("fp-lanes"), "handoff"), { recursive: true, force: true });
+    await page.click("[data-canvas-verb=pack]");
+    await page.waitForFunction(() => (document.querySelector("[data-canvas-save]")?.textContent ?? "").startsWith("Handoff pack written"), null, { timeout: 6000 }).catch(() => {});
+    const status = await page.locator("[data-canvas-save]").textContent();
+    t("L7 · the button wrote flow.md (removed first), equal to renderPack and carrying ## Lane b",
+      existsSync(flowFile) && readFileSync(flowFile, "utf8") === renderPack(readBuildPackage(pkg))["flow.md"] && readFileSync(flowFile, "utf8").includes("## Lane b"), status);
+    rmSync(path.join(buildDir("fp-lanes"), "handoff"), { recursive: true, force: true });
+    const evil = await fetch(`${base}/api/canvas/pack`, { method: "POST", headers: { origin: "http://evil.example", "content-type": "application/json" }, body: JSON.stringify({ provenance: "real", slug: "fp-lanes" }) });
+    t("L7 · a cross-origin pack POST → 403 and writes nothing", evil.status === 403 && !existsSync(flowFile), String(evil.status));
+  });
+  await step("L8 · undo takes the lane away", async () => {
+    await undo(page);
+    const l = await waitLines("fp-lanes", 8);
+    t("L8 · line 8 is an undone line restating the variant.add", l[7]?.status === "undone" && l[7]?.op === "variant.add" && canon(l[7]?.params) === canon(l[6]?.params), JSON.stringify(l[7]));
+    const opts = await page.locator("[data-canvas-lane] option").allTextContents();
+    t("L8 · the select no longer lists b", opts.join("|") === "A (base)", JSON.stringify(opts));
+  });
+  await step("L9 · disk and page agree", async () => {
+    await page.waitForFunction(() => import("/canvas.mjs").then((m) => m.getCanvasPage().pending.length === 0), null, { timeout: 6000 }).catch(() => {});
+    const fails = verifyBuild(loadBuild(buildDir("fp-lanes")));
+    t("L9 · verifyBuild over fp-lanes → []", fails.length === 0, fails.join(" | "));
+    t("L9 · the page's document equals foldLedger(ops.jsonl)", canon(foldLedger(ledger("fp-lanes")).doc) === canon(await pageDoc(page)));
+  });
 }
 
 // ---- the import pass (#311) ---------------------------------------------------------------------------
@@ -1191,7 +1318,10 @@ async function measurePass(base, page, t, step) {
     await page.goto(`${base}/canvas.html?provenance=real&slug=fp-measure&import=${seeded.name}`, { waitUntil: "load" });
     await page.waitForSelector("[data-import-view]:not([hidden]) [data-import-measure]", { timeout: 20000 });
     const b = await page.locator("[data-import-measure]").boundingBox();
-    t("I12 · the Measure fidelity button measures at least 44×44", b && b.width >= 44 && b.height >= 44, `${b?.width}×${b?.height}`);
+    // Rounded to 0.01 px: from a fractional y (471.1 on firefox once #314's rail sat above it) Playwright's box
+    // reads 43.99997 for a button whose computed height, client rect and offsetHeight are all exactly 44.
+    const px = (v) => Math.round((v ?? 0) * 100) / 100;
+    t("I12 · the Measure fidelity button measures at least 44×44", b && px(b.width) >= 44 && px(b.height) >= 44, `${b?.width}×${b?.height}`);
     await page.locator("[data-import-measure]").click();
     const settled = await page.waitForFunction(() => document.querySelector("[data-import-fidelity]")?.dataset.importFidelity !== "missing"
       || (document.querySelector("[data-import-measure-refusal]")?.textContent ?? "") !== "", null, { timeout: 60000 }).then(() => true, () => false);
@@ -1604,5 +1734,5 @@ try {
 }
 console.log(totalFails
   ? `\ncanvas-journey ✗  ${totalFails} assertion(s) failed`
-  : `\ncanvas-journey ✓  the run list · the in-repo spine opened with ZERO saves and its save notice · run.json's provenance label with the root flagged · frames, the arrow and decision cards rendered from the ledger and the transcript with no overlap · a note, a decision link, a refused remove, a remove and its undo, a numeric width and a pointer resize each ONE ledger entry and ONE undo · a reload that keeps them · verifyBuild [] on disk and the disk document equal to the page's · 403 cross-origin and 409 stale · the stand-in flagged, not blocked · the inspector in the viewport on both branches · 44×44 targets · the import pass: the MCP-down refusal with one action, two drops writing record + proposal + one component.propose line each with one record shape, a mapping edit re-deriving the record and the view, the run lock refusing a drop "already in flight" and the hung read's one action routed to Re-bind, a stale drop's one action reloading the page, an oversize drop refused and a traversal name a 400 · over the fake bridge: Check binding naming the tab's project and surface, Import selection writing the one selected id + a reference.png shown in the Original pane + a mapping edit (I9), the unpaired refusal's one action and the bridge's own words with Import again re-sending (I10), Re-bind running the binding check (I10b), Browse's two thumbnail tiles importing as one two-id record and served again from the session cache (I11) · a Mode 2 import as an exhibit beside the flow — placed by rule, its PNG shown, a drag, a redo, a preset change and a pointer resize into a frame each refused and put back with no ledger line, an authored height letting it sit below a screen, a drop flagged as having no image (X1–X7, #475) · the owner's faithful frame measured through the page by the spawned renderer, worst ΔE under THRESHOLD with the derived verdict reading green at 12/12 WCAG (#482), a rename returning it to missing and deleting the candidate (I12), and the no-renderer refusal visible in the view with the panel closed (I12b) · the compose pass over the fake agent: a briefed proposal whose card shows the brief, Accept with fromStep, the missing-state ask for exactly that state, Refuse, the four lines agent/owner/agent/owner, undo removing the frame with the proposal intact, an un-briefed turn, an escape and six fence denials, verifyBuild [] and the page equal to the disk, a stale compose a 409 writing nothing, and a count the turn does not explain breaking the page with a reload (C1–C14, #312) · no page errors · nothing under system/, handoff/, discovery/ or import/overrides/ changed (${toRun.join(", ")})`);
+  : `\ncanvas-journey ✓  the run list · the in-repo spine opened with ZERO saves and its save notice · run.json's provenance label with the root flagged · frames, the arrow and decision cards rendered from the ledger and the transcript with no overlap · a note, a decision link, a refused remove, a remove and its undo, a numeric width and a pointer resize each ONE ledger entry and ONE undo · a reload that keeps them · verifyBuild [] on disk and the disk document equal to the page's · 403 cross-origin and 409 stale · the stand-in flagged, not blocked · the inspector in the viewport on both branches · 44×44 targets · the lanes pass: a draft lane b writing nothing, key a refused, Keep lane as ONE variant.add whose save regenerated the pack, the frames, the asks, the diagram and the missing list switching with the lane, Write handoff pack equal to renderPack and 403 cross-origin, undo taking the lane away, verifyBuild [] and the page equal to the disk (L1–L9, #314) · the import pass: the MCP-down refusal with one action, two drops writing record + proposal + one component.propose line each with one record shape, a mapping edit re-deriving the record and the view, the run lock refusing a drop "already in flight" and the hung read's one action routed to Re-bind, a stale drop's one action reloading the page, an oversize drop refused and a traversal name a 400 · over the fake bridge: Check binding naming the tab's project and surface, Import selection writing the one selected id + a reference.png shown in the Original pane + a mapping edit (I9), the unpaired refusal's one action and the bridge's own words with Import again re-sending (I10), Re-bind running the binding check (I10b), Browse's two thumbnail tiles importing as one two-id record and served again from the session cache (I11) · a Mode 2 import as an exhibit beside the flow — placed by rule, its PNG shown, a drag, a redo, a preset change and a pointer resize into a frame each refused and put back with no ledger line, an authored height letting it sit below a screen, a drop flagged as having no image (X1–X7, #475) · the owner's faithful frame measured through the page by the spawned renderer, worst ΔE under THRESHOLD with the derived verdict reading green at 12/12 WCAG (#482), a rename returning it to missing and deleting the candidate (I12), and the no-renderer refusal visible in the view with the panel closed (I12b) · the compose pass over the fake agent: a briefed proposal whose card shows the brief, Accept with fromStep, the missing-state ask for exactly that state, Refuse, the four lines agent/owner/agent/owner, undo removing the frame with the proposal intact, an un-briefed turn, an escape and six fence denials, verifyBuild [] and the page equal to the disk, a stale compose a 409 writing nothing, and a count the turn does not explain breaking the page with a reload (C1–C14, #312) · no page errors · nothing under system/, handoff/, discovery/ or import/overrides/ changed (${toRun.join(", ")})`);
 process.exit(totalFails ? 1 : 0);
