@@ -32,6 +32,12 @@
        at the mobile breakpoint, where .grid-2 is already 1fr and the column is far narrower
        than the cap (components.css). Layout call recorded in the PR — st-ux-fusion T1. */
     #sources .sources-wide { grid-column: 1 / -1; max-width: 76ch; }
+
+    /* The scope note under the method cards (#487) links to the three worked examples.
+       components.css resets every <a> to inherit colour with no underline, which leaves these
+       links with no at-rest signal; an underline in the text's own colour marks them without
+       adding a colour. Page-scoped: the site-wide link treatment is a separate decision. */
+    #method .max-prose a { text-decoration: underline; text-underline-offset: 0.2em; }
   </style>
 </head>
 <body data-page="approach">
@@ -121,6 +127,19 @@
             </div>
           </article>
         </div>
+        <p class="muted max-prose mt-2xl">
+          The worked examples on this site are narrow on purpose, and all three are fictional.
+          <a href="/proto/verdant.html">Verdant</a> is one plant owner and one screen, the overview
+          she opens for a daily check-in; the rest of a plant-care app is left general.
+          <a href="/proto/fieldwork.html">Fieldwork</a> is one dispatcher and one screen, the
+          dispatch board; the technicians' side is left general.
+          <a href="https://github.com/linardsb/ux-factory/blob/main/discovery/faster-payment/prd.md">Faster Payment</a>,
+          a real discovery run on a fictional bank, covers paying a new UK payee from the app;
+          international and business payments are left out of this release. The reason is Ryan
+          Singer's advice on what to define before hiring a developer: start with the concrete
+          cases that matter now and generalise once they are solved, because every added "if"
+          multiplies the complexity.
+        </p>
       </div>
     </section>
 
