@@ -52,9 +52,6 @@ All observed, in `../wt-482`.
 - On the committed, merged tree (`e85dea0`): `node tooling/drift-check.mjs` → `drift-check ✓ syntax · token-css · … · group-count`; `node tooling/token-lint.mjs` → `token-lint ✓ 63 contract tokens · 0 undeclared · 0 orphan · DTCG valid`; `node tooling/build-checks.mjs` → `build ✓  all 46 groups pass`
 
 ## Not run
-- Level 4 manual look at `/components` under `npx serve .`: not opened in a browser. The regenerated
-  `components-neutral.png` is the only evidence the row prints `#69707e`; I did not read the value off the image.
-  Tracker: owner's call.
 - Re-capture of `measure-live/faithful`: out of scope per plan (owner's hand; replay pinned to committed bytes).
 - `canvas-journey` on firefox/webkit: plan names chromium only.
 
@@ -71,7 +68,15 @@ All observed, in `../wt-482`.
 - D2: shared primitive, so `--color-accent-secondary` moves too (4.83 → 4.98, observed).
 
 ## Additions beyond the plan
-None beyond the third prose copy above.
+- `import/fixtures/measure-live/README.md`: the appended #482 paragraph also says the subtitle (line 15, "the
+  neutral pack's `--color-fg-muted`") was drawn at the pack's value before #482, so line 15 is no longer read as
+  current. Line 15 and lines 34–36 left as the capture-time record.
+- Level 4 closed by reading the image instead of a browser: the strong-diff (>40 grey levels) rows between the
+  old and new `components-neutral.png` form 23 bands; the first band's crop
+  prints `#69707e` in the resolved-value column (observed via PIL crop + Read).
+- Sweep `git grep -niE '6b7280|107, ?114, ?128'` and `git grep '11/12'` outside plans/traces: no other neutral-pack
+  mirror. Remaining hits are the contract (D1), the verbatim `measure-live` captures, historical reports, and
+  43.16's synthetic paints of a drawn #6B7280 subtitle (images, not a pack copy).
 
 ## Issues encountered
 - The Docker VR run's `npm ci` reinstalls the mounted `tooling/visual-regression/node_modules` from Linux
