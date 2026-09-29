@@ -29,7 +29,9 @@
 //
 // CANNOT REACH: whether an answer names a REAL instance (a habitual answer such as graded-opus-a a10
 // passes as a case — the owner reads that), the five elements (the page names them as the reading lens
-// and sorts nothing), a want phrased without any of the seven rules' words, and the drawer button's
+// and sorts nothing), a want phrased without any of the seven rules' words, a fact flagged as
+// conditional because it reports a past or quoted modal (couldn't find, said she would, a person named
+// Will — the modal rule is lexical and over-flags; 48.4 pins one such sentence), and the drawer button's
 // click (portal.js has no CI runner; 48.8 is a source pin).
 //
 // TWO HALVES, proposals.mjs's split:
@@ -77,8 +79,9 @@ export const WANT_RULES = Object.freeze([
 ]);
 
 // Paragraphs on blank lines (any line ending), then sentences on terminal punctuation followed by a
-// capital or digit — so `7.40` and `v7 FINAL (2).xlsx` stay inside their sentence. Total: a non-string
-// is stringified, and blank text gives [].
+// capital or digit — so `7.40` and `v7 FINAL (2).xlsx` stay inside their sentence, and a title
+// abbreviation does not: "Mr. Patel signed it." splits after "Mr.", which only shifts the numbering.
+// Total: a non-string is stringified, and blank text gives [].
 export function splitSentences(text) {
   return String(text).split(/\r\n|\r|\n/).join("\n").split(/\n\s*\n/)
     .flatMap((p) => p.replace(/\s+/g, " ").trim().split(/(?<=[.!?]["”)]?)\s+(?=["“(]?[A-Z0-9])/))

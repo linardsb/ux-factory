@@ -597,8 +597,11 @@ process in general, not one case. No bank question was added for this (owner, 20
 **Flagged and kept, never dropped.** The case is split into sentences and every one reaches the page.
 A sentence phrased as a want or in the conditional is marked, by seven lexical rules (`WANT_RULES`)
 whose source is the question's own `weakAnswer` — "any sentence in the conditional" — widened to the
-grammar of a want. The page names the five things to read the case for (triggers, steps, people,
-information needed, hand-offs) and sorts nothing into them: that is a judgement, and this is a fold.
+grammar of a want. The rules are lexical, so they miss a want phrased without their words and
+over-flag a fact that reports a past or quoted modal ("we couldn't find the sheet", "she said she would
+call back", a person named Will) as conditional; the owner reads past both. The page names the five
+things to read the case for (triggers, steps, people, information needed, hand-offs) and sorts nothing
+into them: that is a judgement, and this is a fold.
 
 **The empty state.** A run that never asked the question (every faceted, opening-set and scope-check
 package: 8 of the 12 committed) gets a page saying there is no past case, and nothing to flag.

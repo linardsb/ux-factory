@@ -16233,7 +16233,9 @@ const synthPng = (w, h, ct, px) => {
 // want or in the conditional flagged and kept. CANNOT REACH (the module header and gates.md carry the
 // same clause): whether an answer names a REAL instance (a habitual answer such as graded-opus-a a10
 // passes as a case — the owner reads that), the five elements (the page names them as the reading lens
-// and sorts nothing), a want phrased without any of the seven rules' words, and the drawer button's
+// and sorts nothing), a want phrased without any of the seven rules' words, a fact flagged as
+// conditional because it reports a past or quoted modal (couldn't find, said she would, a person named
+// Will — the modal rule is lexical and over-flags; 48.4 pins one such sentence), and the drawer button's
 // click (portal.js has no CI runner; 48.8 is a source pin).
 // Every case RUNS the function; 48.1 and 48.8 alone read source as text, and say so.
 {
@@ -16305,6 +16307,10 @@ const synthPng = (w, h, ct, px) => {
     }
     for (const s of ["The sous chef posted a photo at 7.40.", "The head chef wanted a new sheet in March.", "The porter signed the note."])
       ok(eq(flagSentence(s), []), `48.4: flagSentence flagged the fact ${JSON.stringify(s)} as ${JSON.stringify(flagSentence(s))}`);
+    // A KNOWN OVER-FLAG, pinned so a narrowing of the modal rule shows up here as a deliberate change:
+    // a past-tense fact of the case reads as conditional (PR #488 review F1; the CANNOT REACH clause).
+    const OVER = "We couldn't find the spec sheet.";
+    ok(eq(flagSentence(OVER), ["modal"]), `48.4: the known over-flag ${JSON.stringify(OVER)} is now ${JSON.stringify(flagSentence(OVER))}, not ["modal"] — the modal rule changed; update this pin and the CANNOT REACH clause (module header, this group, gates.md, README) together`);
     ok(Object.isFrozen(WANT_RULES) && WANT_RULES.every((r) => Object.isFrozen(r)), "48.4: WANT_RULES or one of its rules is not frozen");
   }
 
@@ -16394,7 +16400,7 @@ const synthPng = (w, h, ct, px) => {
   // --- 48.9 nothing tracked moved ---------------------------------------------------------------------
   ok(gitSnap() === GIT_BEFORE, `48.9: the group moved a tracked path — git status for discovery portal/lib portal/public went from ${JSON.stringify(GIT_BEFORE)} to ${JSON.stringify(gitSnap())}`);
 
-  group("as-is", `discovery/as-is.mjs (#486): the as-is record, a pure fold over the latest banked answer to s2-last-time-show-me and run.json's head · 48.1 its imports exactly the bank, prd-projection.mjs and three node built-ins, prd-projection.mjs never naming it, and no OPS, PARAMS, applier or ops.mjs in its code, so it takes no op-verb lock · 48.2 the anchor question in the bank with the weakAnswer the rules cite · 48.3 the splitter on a16 (8, keeping 7.40 and the xlsx name), a19's paragraphs (11), a CRLF control, a boundary-rule control a naive split fails, and blank input · 48.4 the seven rule ids pinned as a literal and each fired on its own control, three facts (past-tense wanted included) unflagged, the rules frozen · 48.5 the real flag vectors, a16 1 of 8 and a19 7 of 11 · 48.6 every sentence on the page with the flagged one kept, the latest-in-file-order anchor over a synthetic re-ask, off-script, document and superseded text absent, a bare-CR heading held inside the quote, the empty state on faster-payment, caseOf total over junk, determinism and no clock · 48.7 the committed allergen-matrix-1/as-is.md equal to the projection's bytes · 48.8 the read-only route and the drawer button pinned as source, writeAsIs unreachable from HTTP · 48.9 nothing tracked moved. CANNOT REACH: whether an answer names a REAL instance (a habitual answer such as graded-opus-a a10 passes as a case — the owner reads that), the five elements (the page names them as the reading lens and sorts nothing), a want phrased without any of the seven rules' words, and the drawer button's click (portal.js has no CI runner; 48.8 is a source pin)`);
+  group("as-is", `discovery/as-is.mjs (#486): the as-is record, a pure fold over the latest banked answer to s2-last-time-show-me and run.json's head · 48.1 its imports exactly the bank, prd-projection.mjs and three node built-ins, prd-projection.mjs never naming it, and no OPS, PARAMS, applier or ops.mjs in its code, so it takes no op-verb lock · 48.2 the anchor question in the bank with the weakAnswer the rules cite · 48.3 the splitter on a16 (8, keeping 7.40 and the xlsx name), a19's paragraphs (11), a CRLF control, a boundary-rule control a naive split fails, and blank input · 48.4 the seven rule ids pinned as a literal and each fired on its own control, three facts (past-tense wanted included) unflagged, one known over-flag (a past-tense couldn't) pinned, the rules frozen · 48.5 the real flag vectors, a16 1 of 8 and a19 7 of 11 · 48.6 every sentence on the page with the flagged one kept, the latest-in-file-order anchor over a synthetic re-ask, off-script, document and superseded text absent, a bare-CR heading held inside the quote, the empty state on faster-payment, caseOf total over junk, determinism and no clock · 48.7 the committed allergen-matrix-1/as-is.md equal to the projection's bytes · 48.8 the read-only route and the drawer button pinned as source, writeAsIs unreachable from HTTP · 48.9 nothing tracked moved. CANNOT REACH: whether an answer names a REAL instance (a habitual answer such as graded-opus-a a10 passes as a case — the owner reads that), the five elements (the page names them as the reading lens and sorts nothing), a want phrased without any of the seven rules' words, a fact flagged as conditional because it reports a past or quoted modal (couldn't find, said she would, a person named Will — the modal rule is lexical and over-flags; 48.4 pins one such sentence), and the drawer button's click (portal.js has no CI runner; 48.8 is a source pin)`);
 }
 
   if (failures) {
