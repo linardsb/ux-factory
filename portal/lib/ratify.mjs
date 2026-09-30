@@ -556,8 +556,9 @@ const shown = (plan) => ({
 });
 
 export async function previewRatify({ pkgRoot, name, input, repoDir = REPO_DIR, git = gitRun }) {
-  // A run in flight (a confirm mid-chain, an import) is why the tree looks dirty, so it answers busy (PR #492 F6).
-  if (isRunInFlight()) return { refused: { kind: "busy", message: "A ratify or an import is in flight and writing — wait for it to finish, then preview again.", action: { label: "Wait, then try again" } } };
+  // A run in flight (a confirm mid-chain, an import, a composition, a compose turn) is why the tree looks dirty, so it
+  // answers busy (PR #492 F6).
+  if (isRunInFlight()) return { refused: { kind: "busy", message: "A run (a ratify, an import, a composition or a compose turn) is in flight — wait for it to finish, then preview again.", action: { label: "Wait, then try again" } } };
   const d = dirty({ repoDir, git });
   if (d) return d;
   const ni = noIcons(repoDir);
