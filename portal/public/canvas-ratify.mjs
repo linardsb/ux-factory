@@ -182,7 +182,7 @@ export function ratifySection(view, { api, reload, provenance, slug, base }) {
       el("p", { class: "cv-import-status", text: `Ratified as ${view.component}. Its mapping is provenance now; a change is a new import.` }),
       stashed ? resultView(stashed) : null);
   }
-  if (view.record?.provenance?.mode !== 1 || view.status !== "proposed") return null;
+  if ((view.mode ?? view.record?.provenance?.mode) !== 1 || view.status !== "proposed") return null;
 
   const pre = view.ratifyPrefill ?? {};
   const section = el("section", { class: "cv-ratify", "data-ratify": view.name, "aria-labelledby": "cv-ratify-title" });

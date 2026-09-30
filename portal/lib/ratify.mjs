@@ -117,16 +117,26 @@ function prose(v, where, { required = true, max = 4000 } = {}) {
 
 const typeOk = (t, v) => (t === "number" ? typeof v === "number" && Number.isFinite(v) : typeof v === t);
 
+// THE ORIGIN (#315, G17): what an admission was read from — an import record, or a group composed in a run. One
+// admission path, two entrances. Every function below takes either an origin or a bare import record (the #313
+// shape, kept so an import's bytes and hash are unchanged).
+export const importOrigin = (record) => ({ kind: "import", id: record.id, record });
+export const groupOrigin = (group, run) => ({ kind: "group", id: group.id, group, run });
+const originOf = (o) => (o && (o.kind === "import" || o.kind === "group") && Object.hasOwn(o, "id") ? o : importOrigin(o));
+
 // The line every provenance carries: the registry's (≤ 200, checkAdmitted's rule) and the spec's Usage opener.
-export function provenanceLine(record, input) {
-  const src = record.source ?? {};
-  const from = `imported from ${src.tool ?? "an unknown tool"}${src.file ? ` (${src.file})` : ""}`;
+export function provenanceLine(recordOrOrigin, input) {
+  const o = originOf(recordOrOrigin);
+  const src = o.kind === "import" ? o.record.source ?? {} : {};
+  const from = o.kind === "group" ? `composed in run ${o.run} from group ${o.id} (${o.group.name})`
+    : `imported from ${src.tool ?? "an unknown tool"}${src.file ? ` (${src.file})` : ""}`;
   return `${from}, licence: ${input.licence}${input.attribution ? `; attribution: ${input.attribution}` : ""}`;
 }
 
 // checkInput(input, ctx, record) → the admitted definition (ratify's registry entry), or throws naming the path.
 // ctx = { vocabNames, vocabClasses, containerNames, proposals, contractTokens, run, cssClasses }.
-export function checkInput(input, ctx, record) {
+export function checkInput(input, ctx, recordOrOrigin) {
+  const origin = originOf(recordOrOrigin);
   if (!plain(input)) throw new Error("ratify: input must be an object");
   for (const k of Object.keys(input)) if (!INPUT_KEYS.includes(k)) bad(k, `is not an input field — the form sends ${INPUT_KEYS.join(", ")}`);
   const { component, prefix } = input;
@@ -165,11 +175,11 @@ export function checkInput(input, ctx, record) {
   prose(input.licence, "licence", { max: 120 });
   prose(input.attribution, "attribution", { required: false, max: 120 });
   // The record's source names reach the spec's Usage line unchecked by prose(), so a line break there is refused (PR #492 F1).
-  for (const k of ["file", "tool"]) {
-    const v = record.source?.[k];
+  for (const k of origin.kind === "import" ? ["file", "tool"] : []) {
+    const v = origin.record.source?.[k];
     if (typeof v === "string" && CONTROL_RE.test(v)) throw new Error(`ratify: record.source.${k} ${JSON.stringify(v)} carries a line break or control character — it would reach the spec as a line of its own; import the file again under a plain name`);
   }
-  if (provenanceLine(record, input).length > 200) bad("licence", "and attribution together make the provenance line longer than 200 characters — shorten one");
+  if (provenanceLine(origin, input).length > 200) bad("licence", "and attribution together make the provenance line longer than 200 characters — shorten one");
 
   const st = input.structure;
   if (!plain(st)) bad("structure", "must be an object { tag, slots, children, allowedChildren? }");
@@ -245,7 +255,7 @@ export function checkInput(input, ctx, record) {
 
   const def = {
     tag: st.tag, class: cls, slots, children: st.children,
-    provenance: { from: "import", record: record.id, run: ctx.run, line: provenanceLine(record, input) },
+    provenance: { from: origin.kind, record: origin.id, run: ctx.run, line: provenanceLine(origin, input) },
   };
   checkAdmitted(component, def, specHead(input));
   return def;
@@ -284,7 +294,7 @@ const inline = (v) => (Array.isArray(v) ? `[${v.map(inline).join(", ")}]`
   : plain(v) ? (Object.keys(v).length ? `{ ${Object.entries(v).map(([k, x]) => `${JSON.stringify(k)}: ${inline(x)}`).join(", ")} }` : "{}")
     : JSON.stringify(v));
 
-export function renderSpec(input, { record, run }) {
+export function renderSpec(input, { record, origin = originOf(record), run }) {
   const h = specHead(input);
   const lines = ["```json", "{"];
   const entries = Object.entries(h);
@@ -305,7 +315,7 @@ export function renderSpec(input, { record, run }) {
     ...lines,
     "## Usage",
     "",
-    `Admitted by ratify (portal/lib/ratify.mjs) from import record \`${record.id}\` in run \`${run}\`: ${provenanceLine(record, input)}.`,
+    `Admitted by ratify (portal/lib/ratify.mjs) from ${origin.kind === "group" ? "group" : "import record"} \`${origin.id}\` in run \`${run}\`: ${provenanceLine(origin, input)}.`,
     "",
     input.usage.trim(),
     "",
@@ -325,9 +335,9 @@ export function renderSpec(input, { record, run }) {
 }
 
 // The CSS block, in the header form components.css's library primitives use (:2496's).
-export function renderCssBlock(input, { record }) {
+export function renderCssBlock(input, { record, origin = originOf(record) }) {
   const cls = `${input.prefix}-${input.component}`;
-  const out = ["", `/* ---------- ${cls} (system/specs/${input.component}.md) — admitted by ratify from import ${record.id} ---------- */`];
+  const out = ["", `/* ---------- ${cls} (system/specs/${input.component}.md) — admitted by ratify from ${origin.kind} ${origin.id} ---------- */`];
   for (const r of input.css) {
     out.push(`.${cls}${r.suffix} {`, ...r.decls.map(([k, v]) => `  ${k}: ${v};`), "}");
   }
@@ -429,16 +439,16 @@ const lineCount = (s) => s.split("\n").length;
 // earlier admissions' slot classes alike.
 const classesOf = (css) => [...new Set([...css.matchAll(/\.((?:ds|vd)-[a-z0-9-]+)/g)].map((m) => m[1]))];
 
-export function planRatify({ head, run, proposal, record, drafts, input, files, ctx }) {
+export function planRatify({ head, run, proposal, record, origin = originOf(record), drafts, input, files, ctx }) {
   if (typeof head !== "string" || !/^[0-9a-f]{40}$/.test(head)) throw new Error(`ratify: HEAD ${JSON.stringify(head)} is not a commit sha`);
   const need = (p) => { if (typeof files[p] !== "string") throw new Error(`ratify: the plan needs the text of ${p}`); return files[p]; };
-  const def = checkInput(input, { ...ctx, run, cssClasses: classesOf(need(ANCHORS.css)) }, record);
+  const def = checkInput(input, { ...ctx, run, cssClasses: classesOf(need(ANCHORS.css)) }, origin);
   const name = input.component;
   const pin = rewritePin(need(ANCHORS.pin), (w, n, n1) =>
-    `${w}/${n} → ${w}/${n1}: ${name} admitted by ratify from import ${record.id} (run ${run}) — wrapper-less, no vd-${name} custom element, so its absent vd/react tabs are honest`);
+    `${w}/${n} → ${w}/${n1}: ${name} admitted by ratify from ${origin.kind} ${origin.id} (run ${run}) — wrapper-less, no vd-${name} custom element, so its absent vd/react tabs are honest`);
   const writes = [
-    { path: `system/specs/${name}.md`, kind: "create", bytes: renderSpec(input, { record, run }) },
-    { path: ANCHORS.css, kind: "append", bytes: need(ANCHORS.css) + renderCssBlock(input, { record }) },
+    { path: `system/specs/${name}.md`, kind: "create", bytes: renderSpec(input, { origin, run }) },
+    { path: ANCHORS.css, kind: "append", bytes: need(ANCHORS.css) + renderCssBlock(input, { origin }) },
     { path: ANCHORS.registry, kind: "rewrite", bytes: rewriteRegistry(need(ANCHORS.registry), name, def) },
     { path: ANCHORS.palette, kind: "rewrite", bytes: rewritePalette(need(ANCHORS.palette), name) },
     { path: ANCHORS.pin, kind: "rewrite", bytes: pin.text },
@@ -448,7 +458,7 @@ export function planRatify({ head, run, proposal, record, drafts, input, files, 
   const withLines = writes.map((w) => ({ ...w, lines: w.kind === "create" ? lineCount(w.bytes) : lineCount(w.bytes) - lineCount(files[w.path]) }));
   const hash = ratifyHash({
     head, proposalId: proposal.id,
-    recordSha: sha256(jsonText(sortKeys(record))),
+    recordSha: sha256(jsonText(sortKeys(origin.kind === "group" ? origin.group : origin.record))),
     draftsSha: sha256(JSON.stringify(sortKeys(drafts))),
     input,
     writes: writes.map((w) => ({ path: w.path, kind: w.kind, sha256: sha256(w.bytes) })),
@@ -506,7 +516,17 @@ function readState({ pkgRoot, name, input, repoDir, git }) {
   const { doc } = foldLedger(pkg.ops);
   const proposal = (doc.proposals ?? []).find((p) => p && p.name === name);
   if (!proposal) return { refused: { kind: "no-proposal", message: `No proposal named "${name}" in this package.`, action: { label: "Import again" } } };
-  const record = JSON.parse(readFileSync(underRoot(buildRoot, `imports/${proposal.recordId}.json`), "utf8"));
+  // #315: a promoted group's proposal names its group, and the group is the ledger's (doc.groups), never a file read.
+  let record = null;
+  let origin;
+  if (proposal.groupId) {
+    const group = doc.groups?.[proposal.groupId];
+    if (!group) return { refused: { kind: "no-group", message: `Proposal "${name}" names group ${proposal.groupId}, which this package's ledger does not hold.`, action: { label: "Open another run" } } };
+    origin = groupOrigin(group, path.basename(pkgRoot));
+  } else {
+    record = JSON.parse(readFileSync(underRoot(buildRoot, `imports/${proposal.recordId}.json`), "utf8"));
+    origin = importOrigin(record);
+  }
   const drafts = Object.fromEntries(["spec.md", "block.css", "template.txt"].map((f) => [f, readFileSync(underRoot(buildRoot, `proposals/${name}/${f}`), "utf8")]));
   const vocab = JSON.parse(readText(repoDir, "handoff/verdant/vocabulary.json"));
   const comps = vocab.components ?? {};
@@ -522,7 +542,7 @@ function readState({ pkgRoot, name, input, repoDir, git }) {
   const containers = plain(input) && Array.isArray(input.containers) ? input.containers : [];
   for (const c of containers) if (ctx.containerNames.includes(c)) files[`system/specs/${c}.md`] = readText(repoDir, `system/specs/${c}.md`);
   const head = git(["rev-parse", "HEAD"], { cwd: repoDir }).trim();
-  return { buildRoot, pkg, doc, proposal, record, drafts, ctx, files, head, run: path.basename(pkgRoot) };
+  return { buildRoot, pkg, doc, proposal, record, origin, drafts, ctx, files, head, run: path.basename(pkgRoot) };
 }
 
 function dirty({ repoDir, git }) {
@@ -544,7 +564,7 @@ const noIcons = (repoDir) => (existsSync(path.join(repoDir, ICONS_DIR)) ? null :
 function plannedOrRefused(state, input) {
   try {
     applyOp(state.doc, { op: "proposal.ratify", params: { proposalId: state.proposal.id, component: input?.component } });
-    return planRatify({ head: state.head, run: state.run, proposal: state.proposal, record: state.record, drafts: state.drafts, input, files: state.files, ctx: state.ctx });
+    return planRatify({ head: state.head, run: state.run, proposal: state.proposal, origin: state.origin, drafts: state.drafts, input, files: state.files, ctx: state.ctx });
   } catch (e) {
     return { refused: { kind: "invalid", message: e.message, action: { label: "Fix the form, then preview again" } } };
   }
@@ -652,6 +672,8 @@ export async function runRatify({ pkgRoot, name, input, hash, base, repoDir = RE
       saveRun(pkgRoot, { base: pkg.ops.length, ops: [{ op: "proposal.ratify", params, status: "applied" }], positions: positionsOf(pkg.canvas), decisions: loadDecisions(pkgRoot) },
         now ? { now } : undefined);
       appended = true;
+      // A group has no import record to stamp (#315): the ledger's proposal.ratify line is the whole fact.
+      if (state.origin.kind !== "import") return { ok: true, component: input.component, gates, diff, checklist: CHECKLIST };
       const ops = loadBuild(buildRoot).ops;
       const proposedAt = ops.find((l) => l.op === "component.propose" && l.params?.name === name && l.status === "applied")?.at;
       const ratifiedAt = ops[ops.length - 1].at;

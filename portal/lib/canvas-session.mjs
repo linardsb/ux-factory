@@ -246,7 +246,7 @@ export function composeFence({ pkgRoot, turn, ownTools, onLine = null, allowSet 
 
 // ---- the handler core ------------------------------------------------------------------------------
 
-// Every node BELOW THE ROOT carries a non-empty string id, and no id repeats. The root is exempt: a root
+// Every node BELOW THE ROOT carries a non-empty string id, no id repeats, and none holds "/" (#315, D4). The root is exempt: a root
 // is never hidden (frameTree flags hide-root), so a state addresses children (probe runs 2-4, Q1).
 function idProblem(tree, at = "composition") {
   const seen = new Set();
@@ -254,6 +254,7 @@ function idProblem(tree, at = "composition") {
     if (!n || typeof n !== "object") return `${p} is not a node`;
     if (p !== at && (typeof n.id !== "string" || !n.id.trim())) return `${p} (${n.name}) has no id`;
     if (typeof n.id === "string") { if (seen.has(n.id)) return `${p} (${n.name}) repeats id "${n.id}"`; seen.add(n.id); }
+    if (typeof n.id === "string" && n.id.includes("/")) return `${p} (${n.name}) id "${n.id}" — "/" is reserved: a placed copy's parts are named <copy>/<part> (#315)`;
     for (const [i, c] of (Array.isArray(n.children) ? n.children : []).entries()) { const e = walk(c, `${p}.children[${i}]`); if (e) return e; }
     return null;
   };

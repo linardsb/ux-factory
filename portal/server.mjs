@@ -44,6 +44,7 @@ import { suggest as suggestImport, SUGGEST_PROVENANCES } from './lib/import-sugg
 // The live fidelity measurement (#474): the renderer is a spawned tooling/ child, so no browser loads here.
 import { measureImport } from './lib/import-measure.mjs';
 import { previewRatify, runRatify } from './lib/ratify.mjs';
+import { promoteGroup, promoteView } from './lib/promote.mjs';
 import { writeBuildHandoff } from '../agent-layer/gen-build-handoff.mjs';
 
 const PUBLIC_DIR = path.join(PORTAL_DIR, 'public');
@@ -615,6 +616,25 @@ const server = createServer(async (req, res) => {
         if (isSaveConflict(e.message)) return json(res, 409, { error: e.message });
         throw e;
       }
+    }
+    // PROMOTE (#315, G17): a saved group becomes a proposal — admission's second entrance. It writes the proposal dir
+    // and one component.propose line, so it answers through withPack like every write. No model runs.
+    if (p === '/api/canvas/promote' && req.method === 'POST') {
+      const b = await readBody(req);
+      const root = resolveRunRoot({ provenance: b.provenance, slug: b.slug });
+      assertProvenanceRoot(b.provenance, root);
+      const conflict = saveConflict(path.join(root, 'build'), b.base);
+      if (conflict) return json(res, 409, { error: conflict });
+      if (typeof b.groupId !== 'string' || !/^g[1-9][0-9]*$/.test(b.groupId)) return json(res, 400, { error: `groupId ${JSON.stringify(b.groupId ?? null)} is not a group id (g1, g2, …)` });
+      return json(res, 200, withPack(root, await promoteGroup({ pkgRoot: root, base: b.base, groupId: b.groupId })));
+    }
+    if (p === '/api/canvas/promote/view' && req.method === 'GET') {
+      const provenance = url.searchParams.get('provenance');
+      const root = resolveRunRoot({ provenance, slug: url.searchParams.get('slug') });
+      assertProvenanceRoot(provenance, root);
+      const name = url.searchParams.get('name');
+      if (!isProposalName(name)) return json(res, 400, { error: `name ${JSON.stringify(name)} is not a component name` });
+      return json(res, 200, promoteView(root, name));
     }
 
     // --- embedded site previews: /sites/<slug>/... → the card's site_root on disk ---

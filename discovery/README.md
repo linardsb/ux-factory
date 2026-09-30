@@ -635,8 +635,9 @@ discovery/<slug>/
   build/
     ops.jsonl            THE TRUTH — append-only, one line per op
     canvas.json          the arrangement — DERIVED, rewritten whole on every save
-    groups/<id>.json     LATER — a defined group, {id, name, parts, provenance}
-    proposals/<name>/    a proposed component (#311): spec.md · block.css · template.txt · source.json · mapping.json
+    groups/<id>.json     a saved group (#315) — DERIVED from ops.jsonl, {id, name, parts, provenance: {run, composedFrom}}
+    proposals/<name>/    a proposed component (#311): spec.md · block.css · template.txt · source.json · mapping.json;
+                         a promoted group's (#315) carries no mapping.json, and its source.json is groups/<id>.json
     imports/<id>.json    the import record (#311), + <id>.md (its projection, which the handoff carries),
                          <id>.transcript.jsonl and, from a live read, <id>.reference.png
     transcript.jsonl     the compose loop's record (#312) — append-only; NOT the package's transcript.jsonl
@@ -644,7 +645,10 @@ discovery/<slug>/
                          flow.md · drops.md · refusals.md · lineage.json · imports/<id>.md
 ```
 
-**`groups/` is still LATER** (#315); nothing writes it yet. `imports/` and `proposals/` are written by
+**`groups/` is a projection** (#315): `saveRun` rewrites every `groups/<id>.json` the ledger's `group.define` lines
+derive and removes any it no longer derives (an undone define), and `verifyBuild` names a missing, extra or
+differing file. A promoted group's proposal dir is written by `portal/lib/promote.mjs` (#315), deterministically and
+saying so. `imports/` and import proposals are written by
 `portal/lib/import-run.mjs` (#311), a package's only import writer, and only through the canvas page's
 Import panel. An import is a recorded run: a Brilliant read or a dropped file goes through the import
 chain (`import/`), and the program writes, in this order, `imports/<id>.transcript.jsonl` (its line types:

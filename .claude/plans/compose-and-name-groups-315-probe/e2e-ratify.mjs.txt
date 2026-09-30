@@ -1,0 +1,31 @@
+import { join } from "node:path";
+import { readFileSync } from "node:fs";
+const ROOT = process.cwd();
+const RF = await import(join(ROOT, "portal/lib/ratify.mjs"));
+const CS = await import(join(ROOT, "portal/lib/canvas-store.mjs"));
+const pkgRoot = "/var/folders/qc/r_gfk_sx0zlgzjfd6bhvjyg40000gn/T/p315-promote-sHfG0H/fp-groups";
+const input = {
+  component: "app-header", prefix: "ds",
+  props: { title: { type: "string", required: true, description: "the screen's title, shown by the header part inside" } },
+  states: ["default"], stateNotes: { default: "the only state — the header row holds its parts" },
+  usage: "The header shared by every screen: a screen header, a help button and a mark, composed in the run and promoted.",
+  accessibility: "A div grouping its children; each child carries its own semantics.",
+  structure: { tag: "div", slots: [{ prop: "title", as: "text", tag: "span", suffix: "-title" }], children: "many", allowedChildren: ["screen-header", "ghost-button", "icon"] },
+  containers: ["stack"],
+  css: [{ suffix: "", decls: [["gap", "var(--spacing-sm)"]] }],
+  example: { title: "Home" }, licence: "the owner's own composition", attribution: "",
+};
+const t0 = Date.now();
+const pre = await RF.previewRatify({ pkgRoot, name: "app-header", input, repoDir: ROOT });
+console.log("preview:", JSON.stringify(pre.refused ?? { writes: pre.plan.writes, hash: pre.hash }));
+if (pre.refused) process.exit(1);
+const r = await RF.runRatify({ pkgRoot, name: "app-header", input, hash: pre.hash, base: CS.loadBuild(join(pkgRoot, "build")).ops.length, repoDir: ROOT });
+console.log("ok:", r.ok, "gatesRed:", r.gatesRed, "error:", r.error ?? "", "ms:", Date.now() - t0);
+for (const g of r.gates ?? []) console.log(" step", g.step, "code", g.code, g.ms + "ms", g.code ? g.tail : "");
+console.log("changed:", JSON.stringify(r.diff?.changed));
+const spec = readFileSync(join(ROOT, "system/specs/app-header.md"), "utf8");
+console.log("USAGE:", spec.split("\n").find((l) => l.startsWith("Admitted by ratify")));
+const reg = readFileSync(join(ROOT, "system/templates.admitted.mjs"), "utf8");
+console.log("REGISTRY:", reg.slice(reg.indexOf('"app-header"'), reg.indexOf('"app-header"') + 700));
+const css = readFileSync(join(ROOT, "system/components.css"), "utf8"); console.log("CSS:", css.split("\n").filter((l) => l.includes("app-header")).join(" | "));
+const ops = CS.loadBuild(join(pkgRoot, "build")).ops; console.log("last:", JSON.stringify(ops[ops.length - 1]));

@@ -45,12 +45,19 @@
 // minted from the document's current state as the lowest free <prefix><n>, and there is no id slot in
 // any PARAMS entry to smuggle one through. Frames get f1, arrows a1, notes n1 — annotate's noteId
 // names a note to EDIT and must resolve, so it is not a slot either.
+//
+// GROUPS (#315). `group.define` saves some parts of a screen as a named definition, DERIVED from the frame's
+// resolved tree (the op names parts, never carries them); `group.place` puts a COPY of it — a `group` node
+// `{name: "group", id: "g1-1", props: {groupId}, overrides?}` — into a base frame's composition, and with
+// `instanceId` replaces that copy's `{set, hide}` overrides. frameTree expands every copy before any layer: the
+// definition's parts, the copy's override resolved by definition ids, every id renamed <copy>/<part>, spliced
+// where the copy was. So `/` is reserved in part ids, and the renderer never sees a `group` node.
 
 import { DEVICE_PRESETS, WIDTH_MAX, WIDTH_MIN, presetWidth } from "./device-presets.mjs";
 
 // The six #302 landed, #306's four (frame.remove, frame.link, annotate, variant.add), #311's
-// component.propose and #313's proposal.ratify. The architecture projects fourteen; the remaining two
-// (group.define, group.place) are #315's, the lock still held: THE EPIC HOLDS AN OP-VERB LOCK: two tickets must not
+// component.propose, #313's proposal.ratify, and #315's group.define and group.place — the last two of the
+// architecture's fourteen; the count is final. THE EPIC HELD AN OP-VERB LOCK while it grew: two tickets must not
 // add ops here concurrently, because a verb is four edits in three files and a merge that takes both
 // halves of two of them leaves a verb with no PARAMS entry or a PARAMS entry with no case.
 export const OPS = Object.freeze([
@@ -66,6 +73,8 @@ export const OPS = Object.freeze([
   "variant.add",
   "component.propose",
   "proposal.ratify",
+  "group.define",
+  "group.place",
 ]);
 
 // EXACT, NOT MINIMAL — an unknown key throws rather than being ignored. discovery/ops.mjs's rule and
@@ -82,8 +91,10 @@ export const PARAMS = Object.freeze({
   "frame.link": Object.freeze(["frameId", "decisionRefs"]),
   annotate: Object.freeze(["noteId", "text"]),
   "variant.add": Object.freeze(["key", "overrides"]),
-  "component.propose": Object.freeze(["name", "recordId", "mode"]),
+  "component.propose": Object.freeze(["name", "recordId", "groupId", "mode"]),
   "proposal.ratify": Object.freeze(["proposalId", "component"]),
+  "group.define": Object.freeze(["groupId", "name", "frameId", "partIds"]),
+  "group.place": Object.freeze(["frameId", "groupId", "parentId", "index", "instanceId", "overrides"]),
 });
 
 // The params a verb may omit. Everything else in its PARAMS entry is required, which is the half of
@@ -94,7 +105,16 @@ const OPTIONAL = Object.freeze({
   "frame.size": Object.freeze(["preset", "width"]),
   connect: Object.freeze(["trigger"]),
   annotate: Object.freeze(["noteId"]),
+  "component.propose": Object.freeze(["recordId", "groupId"]),
+  "group.define": Object.freeze(["groupId"]),
+  "group.place": Object.freeze(["groupId", "parentId", "index", "instanceId", "overrides"]),
 });
+
+// A placed copy's override (#315, D6): set and hide only. `add` is a state's (G19) — a copy that adds parts is another group.
+export const GROUP_OVERRIDE_KEYS = Object.freeze(["set", "hide"]);
+// RESERVED in part ids (#315, D4): an expanded copy's parts are named <instanceId>/<partId>.
+export const PART_SEP = "/";
+const GROUP_ID_RE = /^g[1-9][0-9]*$/;
 
 // A variant's key: short, lowercase, a slug. It names a lane on the canvas and in the handoff, so it
 // is refused rather than normalised — a key the author did not type is a lane they cannot find.
@@ -200,6 +220,23 @@ function refuseFrozen(verb, tree, doc) {
   walk(tree);
 }
 
+// PART_SEP IS RESERVED WHEREVER AN OP INSERTS PARTS (#315, D4; PR #494 review F3). frameTree names an
+// expanded copy's parts <instanceId>/<partId>, so a raw part called "g1-1/title" would collide with one.
+// canvas-session.mjs's idProblem refuses it on the agent path; this is the applier's own refusal, for
+// every other path. Same walk as refuseFrozen: `children` and an add entry's `part`.
+function refuseReservedId(verb, tree) {
+  const walk = (node) => {
+    if (Array.isArray(node)) { node.forEach(walk); return; }
+    if (!plainObject(node)) return;
+    if (typeof node.id === "string" && node.id.includes(PART_SEP)) {
+      throw new Error(`${verb}: part id "${node.id}" holds "${PART_SEP}", which is reserved — a placed copy's parts are named <copy>${PART_SEP}<part> (#315)`);
+    }
+    if (Array.isArray(node.children)) node.children.forEach(walk);
+    if (plainObject(node.part)) walk(node.part);
+  };
+  walk(tree);
+}
+
 // CONNECT'S TWO ENDPOINTS, EXACT THE WAY PARAMS IS (#302, PR #432's open question 3, owner's call
 // 2026-09-21: close it). The rule this file states about itself — a recorded op never says more than
 // the op that was applied — was enforced on the ENVELOPE and one level down was open: an unknown key
@@ -212,6 +249,32 @@ export const ENDPOINT_KEYS = Object.freeze({
   from: Object.freeze(["frameId", "partId"]),
   to: Object.freeze(["frameId"]),
 });
+
+// #315 helpers. walkNodes follows `children` only (and arrays), frameTree's walk.
+function walkNodes(tree, fn) {
+  if (Array.isArray(tree)) { tree.forEach((t) => walkNodes(t, fn)); return; }
+  if (!plainObject(tree)) return;
+  fn(tree);
+  for (const c of Array.isArray(tree.children) ? tree.children : []) walkNodes(c, fn);
+}
+function instancesOf(frame) {
+  const out = [];
+  walkNodes(frame?.composition, (n) => { if (n.name === "group" && typeof n.id === "string") out.push(n); });
+  return out;
+}
+function checkGroupOverride(ov) {
+  if (!plainObject(ov)) throw new Error(`group.place: "overrides" must be an object — this op carried ${JSON.stringify(ov)}`);
+  for (const k of Object.keys(ov)) {
+    if (k === "add") throw new Error(`group.place: overrides.add — a copy takes set and hide; add is a state's (G19), and a copy that adds parts is another group`);
+    if (!GROUP_OVERRIDE_KEYS.includes(k)) throw new Error(`group.place: unknown key "${k}" in overrides — a copy's override takes ${GROUP_OVERRIDE_KEYS.join(", ")}`);
+  }
+  if (ov.set !== undefined && (!plainObject(ov.set) || Object.values(ov.set).some((v) => !plainObject(v)))) {
+    throw new Error(`group.place: overrides.set must be an object of part id → props object — this op carried ${JSON.stringify(ov.set)}`);
+  }
+  if (ov.hide !== undefined && (!Array.isArray(ov.hide) || ov.hide.some((x) => typeof x !== "string"))) {
+    throw new Error(`group.place: overrides.hide must be an array of part ids — this op carried ${JSON.stringify(ov.hide)}`);
+  }
+}
 
 export function applyOp(doc, op) {
   if (!doc || !Array.isArray(doc.frames) || !Array.isArray(doc.arrows)) {
@@ -230,6 +293,7 @@ export function applyOp(doc, op) {
   next.notes ??= [];
   next.variants ??= [];
   next.proposals ??= [];
+  next.groups ??= {};
   const frameIds = () => new Set(next.frames.map((f) => f.id));
   // Named by the verb that asked, so a dangling reference says which op could not resolve it rather
   // than which lookup failed. discovery/ops.mjs's resolveAnswer shape.
@@ -252,6 +316,7 @@ export function applyOp(doc, op) {
         throw new Error(`screen.compose: "why" must be one sentence naming the decision and the reason — a composition nobody can judge is refused (D4)`);
       }
       refuseFrozen("screen.compose", p.composition, next);
+      refuseReservedId("screen.compose", p.composition);
       next.frames.push({
         id: nextId("f", frameIds()),
         screenId: p.screenId,
@@ -292,7 +357,10 @@ export function applyOp(doc, op) {
       if (twin) {
         throw new Error(`state.add: "${base.id}" already carries a "${p.stateKey}" state (${twin.id}) — one design per state per screen, and missingStates counts distinct keys so a second one would be absorbed rather than reported`);
       }
-      if (plainObject(p.override) && p.override.add !== undefined) refuseFrozen("state.add", p.override.add, next);
+      if (plainObject(p.override) && p.override.add !== undefined) {
+        refuseFrozen("state.add", p.override.add, next);
+        refuseReservedId("state.add", p.override.add);
+      }
       // A STATE IS A SIBLING FRAME CARRYING AN OVERRIDE, never a copy of the base. The architecture's
       // call, and the reason resolve() exists: a copy drifts from its base the first time the base
       // changes, and the whole point of a state is that it IS the base except where it says so.
@@ -455,7 +523,10 @@ export function applyOp(doc, op) {
         if (ov.add !== undefined && !plainObject(ov.add) && !Array.isArray(ov.add)) {
           throw new Error(`variant.add: overrides.${fid}.add must be a composition node or an array of them — this op carried ${JSON.stringify(ov.add)}`);
         }
-        if (ov.add !== undefined) refuseFrozen("variant.add", ov.add, next);
+        if (ov.add !== undefined) {
+          refuseFrozen("variant.add", ov.add, next);
+          refuseReservedId("variant.add", ov.add);
+        }
       }
       // Stored as an override map keyed by frame id (G33). The lane UI and the per-variant
       // completeness check are #314's.
@@ -470,13 +541,24 @@ export function applyOp(doc, op) {
       if (typeof p.name !== "string" || !PROPOSAL_NAME_RE.test(p.name)) {
         throw new Error(`component.propose: name ${JSON.stringify(p.name)} is not a component name — lowercase letters, digits and hyphens, 2–40, starting with a letter`);
       }
-      if (typeof p.recordId !== "string" || !/^i[1-9][0-9]*$/.test(p.recordId)) {
+      // Two entrances, one path (#315, D1): an import record, or a saved group — exactly one.
+      if ((p.recordId === undefined) === (p.groupId === undefined)) {
+        throw new Error(`component.propose: give recordId or groupId, exactly one — this op carried ${p.recordId === undefined ? "neither" : "both"}`);
+      }
+      if (p.recordId !== undefined && (typeof p.recordId !== "string" || !/^i[1-9][0-9]*$/.test(p.recordId))) {
         throw new Error(`component.propose: recordId ${JSON.stringify(p.recordId)} is not an import record id (i1, i2, …)`);
       }
       if (p.mode !== 1 && p.mode !== 2) throw new Error(`component.propose: mode ${JSON.stringify(p.mode)} must be 1 or 2`);
+      if (p.groupId !== undefined) {
+        if (typeof p.groupId !== "string" || !GROUP_ID_RE.test(p.groupId)) throw new Error(`component.propose: groupId ${JSON.stringify(p.groupId)} is not a group id (g1, g2, …)`);
+        if (!Object.hasOwn(next.groups, p.groupId)) throw new Error(`component.propose: groupId "${p.groupId}" does not resolve — this document holds ${Object.keys(next.groups).join(", ") || "no groups"}`);
+        if (p.mode !== 1) throw new Error(`component.propose: mode ${p.mode} with group "${p.groupId}" — a composed group is never a frozen original`);
+      }
       if (next.proposals.some((x) => x.name === p.name)) throw new Error(`component.propose: duplicate name "${p.name}" — a proposal of that name already exists`);
-      if (next.proposals.some((x) => x.recordId === p.recordId)) throw new Error(`component.propose: record "${p.recordId}" already has a proposal — one proposal per import record`);
-      next.proposals.push({ id: nextId("pr", new Set(next.proposals.map((x) => x.id))), name: p.name, recordId: p.recordId, mode: p.mode, status: "proposed" });
+      if (p.recordId !== undefined && next.proposals.some((x) => x.recordId === p.recordId)) throw new Error(`component.propose: record "${p.recordId}" already has a proposal — one proposal per import record`);
+      if (p.groupId !== undefined && next.proposals.some((x) => x.groupId === p.groupId)) throw new Error(`component.propose: group "${p.groupId}" already has a proposal — one proposal per group`);
+      const src = p.recordId !== undefined ? { recordId: p.recordId } : { groupId: p.groupId };
+      next.proposals.push({ id: nextId("pr", new Set(next.proposals.map((x) => x.id))), name: p.name, ...src, mode: p.mode, status: "proposed" });
       break;
     }
     case "proposal.ratify": {
@@ -503,7 +585,117 @@ export function applyOp(doc, op) {
       next.proposals[at] = { ...entry, status: "ratified", component: p.component };
       break;
     }
-    // Unreachable: checkOp refused every verb outside OPS. Kept because the day an eleventh verb is
+    case "group.define": {
+      // THE DEFINITION IS DERIVED FROM A SELECTION (#315, D5): the op names parts on a screen, never carries
+      // them, so no op can record a part that was never on one. groupId is an EDIT target (annotate's rule).
+      if (typeof p.name !== "string" || !PROPOSAL_NAME_RE.test(p.name)) {
+        throw new Error(`group.define: name ${JSON.stringify(p.name)} is not a component name — lowercase letters, digits and hyphens, 2–40, starting with a letter (Promote proposes it as one)`);
+      }
+      if (!Array.isArray(p.partIds) || !p.partIds.length || p.partIds.some((x) => typeof x !== "string" || !x.trim())) {
+        throw new Error(`group.define: "partIds" must be a non-empty array of part ids — this op carried ${JSON.stringify(p.partIds)}`);
+      }
+      const twice = p.partIds.find((x, i) => p.partIds.indexOf(x) !== i);
+      if (twice !== undefined) throw new Error(`group.define: part "${twice}" is selected twice`);
+      const slashed = p.partIds.find((x) => x.includes(PART_SEP));
+      if (slashed !== undefined) throw new Error(`group.define: "${slashed}" is a part of a placed copy — a selection may not reach inside one, and groups do not nest`);
+      const edit = p.groupId !== undefined;
+      if (edit && !(typeof p.groupId === "string" && Object.hasOwn(next.groups, p.groupId))) {
+        throw new Error(`group.define: groupId "${p.groupId}" does not resolve — this document holds ${Object.keys(next.groups).join(", ") || "no groups"}; an op names a group to EDIT, never the id of one it creates`);
+      }
+      // A GROUP A PROPOSAL NAMES IS FIXED (PR #494 review F1). Promote froze its drafts from these parts, and
+      // Ratify reads the LIVE group for the provenance line and the hash, so a redefine would let an admitted
+      // spec name a group its template no longer describes. An import record cannot change after propose;
+      // neither can this. Define a new group to change it.
+      const named = edit ? next.proposals.filter((x) => plainObject(x) && x.groupId === p.groupId) : [];
+      if (named.length) {
+        throw new Error(`group.define: "${p.groupId}" is named by ${named.map((x) => `${x.id} (${x.name}, ${x.status})`).join(", ")} — its drafts were frozen from these parts, so a proposed group is not redefined; define a new group instead`);
+      }
+      const clash = Object.values(next.groups).find((g) => g.name === p.name && g.id !== p.groupId);
+      if (clash) throw new Error(`group.define: name "${p.name}" is already ${clash.id}'s — one group per name`);
+      frame(p.frameId, "frameId");
+      const t = frameTree(next, p.frameId);
+      if (!t.tree) throw new Error(`group.define: frame "${p.frameId}" has nothing to select from (${t.flags.map((f) => f.kind).join(", ")})`);
+      // Document order, and ancestry: each node with the chain of ids above it.
+      const order = [];
+      const walkSel = (n, above) => {
+        if (!plainObject(n)) return;
+        if (typeof n.id === "string") order.push({ node: n, above });
+        const here = typeof n.id === "string" ? [...above, n.id] : above;
+        for (const c of Array.isArray(n.children) ? n.children : []) walkSel(c, here);
+      };
+      walkSel(t.tree, []);
+      const byId = new Map(order.map((o) => [o.node.id, o]));
+      for (const id of p.partIds) {
+        if (!byId.has(id)) throw new Error(`group.define: part "${id}" does not resolve in "${p.frameId}" — it holds ${order.map((o) => o.node.id).join(", ")}`);
+        const anc = byId.get(id).above.find((a) => p.partIds.includes(a));
+        if (anc) throw new Error(`group.define: "${id}" sits inside "${anc}", which is also selected — select one or the other`);
+      }
+      const picked = order.filter((o) => p.partIds.includes(o.node.id));
+      for (const o of picked) {
+        const inner = [];
+        walkNodes(o.node, (n) => { if (typeof n.id === "string" && n.id.includes(PART_SEP)) inner.push(n.id); });
+        if (inner.length) throw new Error(`group.define: "${o.node.id}" contains a placed copy (${inner[0]}) — groups do not nest`);
+      }
+      const parts = structuredClone(picked.map((o) => o.node));
+      refuseFrozen("group.define", parts, next);
+      const composedFrom = { frameId: p.frameId, partIds: picked.map((o) => o.node.id) };
+      if (!edit) {
+        const id = nextId("g", new Set(Object.keys(next.groups)));
+        next.groups[id] = { id, name: p.name, parts, composedFrom };
+        break;
+      }
+      // A REDEFINE THAT DROPS A PART A COPY OVERRIDES IS REFUSED, naming every blocker (canDeleteBasePart's shape).
+      const keep = new Set();
+      walkNodes(parts, (n) => { if (typeof n.id === "string") keep.add(n.id); });
+      const blockers = groupInstances(next).filter((i) => i.groupId === p.groupId).flatMap((i) => {
+        const ov = plainObject(i.overrides) ? i.overrides : {};
+        const named = [...Object.keys(plainObject(ov.set) ? ov.set : {}), ...(Array.isArray(ov.hide) ? ov.hide : [])];
+        return [...new Set(named)].filter((x) => !keep.has(x)).map((x) => `${i.frameId} ${i.instanceId} (${x})`);
+      });
+      if (blockers.length) {
+        throw new Error(`group.define: redefining "${p.groupId}" drops parts copies still override — ${blockers.join(", ")} — drop those overrides first`);
+      }
+      next.groups[p.groupId] = { id: p.groupId, name: p.name, parts, composedFrom };
+      break;
+    }
+    case "group.place": {
+      const f = frame(p.frameId, "frameId");
+      if (f.baseId != null) {
+        throw new Error(`group.place: "${f.id}" is the ${f.stateKey} state of "${f.baseId}" — place the copy on the base; a state inherits its base's copies`);
+      }
+      const edit = p.instanceId !== undefined;
+      if (p.overrides !== undefined) checkGroupOverride(p.overrides);
+      if (edit) {
+        for (const k of ["groupId", "parentId", "index"]) {
+          if (p[k] !== undefined) throw new Error(`group.place: "${k}" with instanceId — an edit replaces a copy's overrides and nothing else`);
+        }
+        if (p.overrides === undefined) throw new Error(`group.place: "overrides" is required with instanceId — it is what an edit replaces`);
+        const inst = instancesOf(f).find((n) => n.id === p.instanceId);
+        if (!inst) {
+          throw new Error(`group.place: instanceId "${p.instanceId}" does not resolve on "${f.id}" — it holds ${instancesOf(f).map((n) => n.id).join(", ") || "no copies"}; an op names a copy to EDIT, never the id of one it creates`);
+        }
+        inst.overrides = p.overrides;
+        break;
+      }
+      if (p.groupId === undefined || p.parentId === undefined) throw new Error(`group.place: "groupId" and "parentId" are required to place a copy`);
+      const g = typeof p.groupId === "string" && Object.hasOwn(next.groups, p.groupId) ? next.groups[p.groupId] : null;
+      if (!g) throw new Error(`group.place: groupId "${p.groupId}" does not resolve — this document holds ${Object.keys(next.groups).join(", ") || "no groups"}`);
+      refuseFrozen("group.place", g.parts, next);
+      let parent = null;
+      walkNodes(f.composition, (n) => { if (n.name !== "group" && n.id === p.parentId && typeof n.id === "string") parent ??= n; });
+      if (!parent) throw new Error(`group.place: parentId "${p.parentId}" does not resolve in "${f.id}"'s composition`);
+      if (!Array.isArray(parent.children)) throw new Error(`group.place: "${p.parentId}" (${parent.name}) has no children to place into`);
+      const index = p.index ?? parent.children.length;
+      if (!Number.isInteger(index) || index < 0 || index > parent.children.length) {
+        throw new Error(`group.place: index ${JSON.stringify(p.index)} is not a whole number in 0–${parent.children.length}`);
+      }
+      const taken = new Set();
+      for (const fr of next.frames) walkNodes(fr?.composition, (n) => { if (typeof n.id === "string") taken.add(n.id); });
+      const id = nextId(`${g.id}-`, taken);
+      parent.children.splice(index, 0, { name: "group", id, props: { groupId: g.id }, ...(p.overrides !== undefined && { overrides: p.overrides }) });
+      break;
+    }
+    // Unreachable: checkOp refused every verb outside OPS. Kept because the day a fifteenth verb is
     // added to OPS and not to the switch, this is the line that says so.
     default: throw new Error(`"${op.op}" is in OPS but has no case in the applier`);
   }
@@ -624,6 +816,53 @@ export function laneDoc(doc, lane = null) {
   };
 }
 
+// groupInstances(doc) → [{ frameId, instanceId, groupId, overrides }] — every placed copy in every frame's raw
+// composition, frame order then document order (#315). A read: total over junk.
+export function groupInstances(doc) {
+  const out = [];
+  for (const f of Array.isArray(doc?.frames) ? doc.frames : []) {
+    if (!plainObject(f)) continue;
+    for (const n of instancesOf(f)) out.push({ frameId: f.id, instanceId: n.id, groupId: n.props?.groupId ?? null, overrides: n.overrides ?? null });
+  }
+  return out;
+}
+
+// expandGroups(tree, groups, flags) — D4, in place: each copy becomes its definition's parts with the copy's
+// override resolved (keyed by DEFINITION ids), every id renamed <instanceId>/<partId>, spliced where the copy was.
+function expandGroups(tree, groups, flags) {
+  const defs = plainObject(groups) ? groups : {};
+  const visit = (node) => {
+    if (!plainObject(node) || !Array.isArray(node.children)) return;
+    const out = [];
+    for (const c of node.children) {
+      if (!plainObject(c) || c.name !== "group") { visit(c); out.push(c); continue; }
+      const def = defs[c.props?.groupId];
+      if (!plainObject(def) || !Array.isArray(def.parts)) { flags.push({ kind: "unknown-group", partId: c.id ?? null }); continue; }
+      const parts = structuredClone(def.parts);
+      const map = {};
+      walkNodes(parts, (n) => { if (typeof n.id === "string" && !Object.hasOwn(map, n.id)) map[n.id] = plainObject(n.props) ? n.props : {}; });
+      const r = resolve({ parts: map }, plainObject(c.overrides) ? c.overrides : null);
+      flags.push(...r.flags.map((fl) => ({ ...fl, instanceId: c.id })));
+      const prune = (n) => {
+        if (!Array.isArray(n.children)) return;
+        n.children = n.children.filter((k) => !(plainObject(k) && typeof k.id === "string" && r.resolved.parts[k.id]?.hidden === true));
+        n.children.forEach(prune);
+      };
+      const kept = parts.filter((n) => !(plainObject(n) && typeof n.id === "string" && r.resolved.parts[n.id]?.hidden === true));
+      kept.forEach(prune);
+      walkNodes(kept, (n) => {
+        if (typeof n.id !== "string") return;
+        const { hidden, ...props } = r.resolved.parts[n.id] ?? {};
+        if (Object.keys(props).length || n.props !== undefined) n.props = props;
+        n.id = `${c.id}${PART_SEP}${n.id}`;
+      });
+      out.push(...kept);
+    }
+    node.children = out;
+  };
+  visit(tree);
+}
+
 // frameTree(doc, frameId) → { tree, flags } — the renderable composition for one frame (#306).
 //
 // A base frame is its composition with its own sets applied; a state is the SAME, then the state's
@@ -637,6 +876,10 @@ export function laneDoc(doc, lane = null) {
 // a tree carrying it would be refused whole. A hidden ROOT is flagged and kept — dropping it would
 // leave nothing to render and nothing to say why. `overrides.add` (G19's dialogs, later) is flagged
 // and ignored. Total over junk: an unknown frame answers tree: null with a flag, never a throw.
+//
+// A PLACED COPY IS EXPANDED FIRST (#315, D4): before any layer, each group node becomes its definition's parts
+// with the copy's override resolved, every id renamed <instanceId>/<partId>, so the layers, the renderer and
+// flowEdges only ever see vocabulary names. An unknown group is flagged and dropped; a group ROOT is flagged.
 export function frameTree(doc, frameId, lane = null) {
   const frames = Array.isArray(doc?.frames) ? doc.frames.filter((f) => f && typeof f === "object") : [];
   const f = frames.find((x) => x.id === frameId);
@@ -654,6 +897,10 @@ export function frameTree(doc, frameId, lane = null) {
   if (!plainObject(base.composition)) return { tree: null, flags: [{ kind: "no-composition", frameId: base.id }] };
 
   const tree = structuredClone(base.composition);
+  const flags = [];
+  // #315 (D4): copies first, so every layer below sees real vocabulary names and namespaced ids.
+  if (tree.name === "group") return { tree: null, flags: [{ kind: "group-root", frameId: base.id }] };
+  expandGroups(tree, doc?.groups, flags);
   const parts = {};
   const walk = (node, fn, parent = null) => {
     if (!plainObject(node)) return;
@@ -662,7 +909,6 @@ export function frameTree(doc, frameId, lane = null) {
   };
   walk(tree, (n) => { if (typeof n.id === "string" && !Object.hasOwn(parts, n.id)) parts[n.id] = plainObject(n.props) ? n.props : {}; });
 
-  const flags = [];
   let acc = { parts };
   // THE ORDER IS THE DECISION (#314): the lane's change to a base reaches every state of it (a state IS its base
   // except where it says), the state's own override still wins over it, and the lane's override of the state is last.

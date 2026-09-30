@@ -139,7 +139,7 @@ variant  {key, overrides: {frameId: override}}
   `screen.compose` · `screen.set` · `frame.remove` · `frame.size` · `frame.link` · `state.add` ·
   `connect` · `disconnect` · `annotate` · `group.define` · `group.place` · `variant.add` ·
   `component.propose` · `proposal.ratify`. Fourteen, and the count is a starting point, not a pin:
-  MVP 14's first slice needs six. The board's eight ops keep their names in `board-ops.mjs`; a prefix
+  MVP 14's first slice needs six. (As built, the count is final at fourteen — see the #315 addendum below.) The board's eight ops keep their names in `board-ops.mjs`; a prefix
   never collides because `connect` here takes `{from, to, trigger}` and the driver dispatches by module.
 - **`ops.jsonl` is the truth.** One line per op: `{seq, at, source: owner|agent, op, params, status:
   applied|proposed|accepted|refused|undone, fromStep?}`. Undo appends an `undone` line rather than
@@ -442,3 +442,34 @@ Four divergences from § Boundaries "Ratify writes, gates, and stops at the diff
 
 What it does not change: the op count (`proposal.ratify` is verb twelve; `group.define`/`group.place` remain
 #315's), the origin guard, `withRunLock`, and G6's stop — nothing is committed on the owner's behalf.
+
+## Addendum 2026-09-30: compose-and-name as built (#315)
+
+The last two verbs, `group.define` and `group.place`, and Promote as admission's second entrance
+(`.claude/plans/compose-and-name-groups-315.md`). Six decisions, each proven by a probe before the build:
+
+- **D1 — Promote's source is a `groupId` on `component.propose` (owner's call).** The verb takes exactly one of
+  `recordId` or `groupId`; a group proposal is Mode 1 only and one per group. No synthetic import record is ever
+  written, so ratify reads the group from the ledger (`doc.groups`) and stamps no record.
+- **D2 — two verbs with optional EDIT targets (owner's call).** `group.define`'s `groupId` and `group.place`'s
+  `instanceId` name a group or a copy to edit and must resolve (annotate's `noteId` rule); neither is a slot for a
+  new id. **The op count is final at fourteen.**
+- **D3 — resolution is `frameTree`'s, not the renderer's.** `agentic-renderer.mjs` has no document, so a copy is
+  expanded in `frameTree` before any layer, and the renderer, `flowEdges`, the handoff and the page read one
+  expansion. `validateComposition` sees real vocabulary names only, so the vocabulary refusal applies to every part
+  inside a copy for free. The ticket's file estimate listed the renderer; it is untouched.
+- **D4 — `/` is reserved in part ids.** An expanded copy's parts are named `<instanceId>/<partId>` (`g1-1/header`),
+  so two copies of one group never share an id and an override on one never lands on the other. `group.define`
+  refuses a selected id holding `/`, the compose session's `idProblem` refuses it on the agent path, and minted copy
+  ids (`g1-1`, `g1-2`, …) never contain it.
+- **D5 — a definition is DERIVED from a selection, never carried.** `group.define {name, frameId, partIds}` reads the
+  frame's resolved tree and stores the selected subtrees in document order, with `composedFrom`. No op can record a
+  part that was never on a screen; the cost is that a definition changes only by re-capture from a screen.
+- **D9 — the count, defined once.** `compositionCount(doc)` in `agent-layer/gen-build-handoff.mjs`: composed = saved
+  groups, placed = copies across frames, admitted = RATIFIED proposals split by entrance. A promoted and ratified
+  group counts in both. `flow.md` prints it under `## Composition over admission`, zeros included.
+
+`groups/<id>.json` is written by `saveRun` as a projection of `ops.jsonl` (like `canvas.json`) and verified by
+`verifyBuild`. What it does not change: `saveBuild`, the lane grammar, the importer's drafting, and ratify's gates.
+A promoted group admitted as a CONTAINER (`children: "many"`) reds the importer's matcher fixtures (groups 40, 43,
+46) — the matcher's cause, not the origin's — and is its own ticket.

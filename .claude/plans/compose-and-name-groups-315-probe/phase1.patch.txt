@@ -1,0 +1,497 @@
+diff --git a/system/canvas-ops.mjs b/system/canvas-ops.mjs
+index 7803242..b22403b 100644
+--- a/system/canvas-ops.mjs
++++ b/system/canvas-ops.mjs
+@@ -66,6 +66,8 @@ export const OPS = Object.freeze([
+   "variant.add",
+   "component.propose",
+   "proposal.ratify",
++  "group.define",
++  "group.place",
+ ]);
+ 
+ // EXACT, NOT MINIMAL — an unknown key throws rather than being ignored. discovery/ops.mjs's rule and
+@@ -82,8 +84,10 @@ export const PARAMS = Object.freeze({
+   "frame.link": Object.freeze(["frameId", "decisionRefs"]),
+   annotate: Object.freeze(["noteId", "text"]),
+   "variant.add": Object.freeze(["key", "overrides"]),
+-  "component.propose": Object.freeze(["name", "recordId", "mode"]),
++  "component.propose": Object.freeze(["name", "recordId", "groupId", "mode"]),
+   "proposal.ratify": Object.freeze(["proposalId", "component"]),
++  "group.define": Object.freeze(["groupId", "name", "frameId", "partIds"]),
++  "group.place": Object.freeze(["frameId", "groupId", "parentId", "index", "instanceId", "overrides"]),
+ });
+ 
+ // The params a verb may omit. Everything else in its PARAMS entry is required, which is the half of
+@@ -94,8 +98,17 @@ const OPTIONAL = Object.freeze({
+   "frame.size": Object.freeze(["preset", "width"]),
+   connect: Object.freeze(["trigger"]),
+   annotate: Object.freeze(["noteId"]),
++  "component.propose": Object.freeze(["recordId", "groupId"]),
++  "group.define": Object.freeze(["groupId"]),
++  "group.place": Object.freeze(["groupId", "parentId", "index", "instanceId", "overrides"]),
+ });
+ 
++// A placed copy's override (#315, D6): set and hide only. `add` is a state's (G19) — a copy that adds parts is another group.
++export const GROUP_OVERRIDE_KEYS = Object.freeze(["set", "hide"]);
++// RESERVED in part ids (#315, D4): an expanded copy's parts are named <instanceId>/<partId>.
++export const PART_SEP = "/";
++const GROUP_ID_RE = /^g[1-9][0-9]*$/;
++
+ // A variant's key: short, lowercase, a slug. It names a lane on the canvas and in the handoff, so it
+ // is refused rather than normalised — a key the author did not type is a lane they cannot find.
+ const VARIANT_KEY_RE = /^[a-z0-9][a-z0-9-]{0,23}$/;
+@@ -213,6 +226,32 @@ export const ENDPOINT_KEYS = Object.freeze({
+   to: Object.freeze(["frameId"]),
+ });
+ 
++// #315 helpers. walkNodes follows `children` only (and arrays), frameTree's walk.
++function walkNodes(tree, fn) {
++  if (Array.isArray(tree)) { tree.forEach((t) => walkNodes(t, fn)); return; }
++  if (!plainObject(tree)) return;
++  fn(tree);
++  for (const c of Array.isArray(tree.children) ? tree.children : []) walkNodes(c, fn);
++}
++function instancesOf(frame) {
++  const out = [];
++  walkNodes(frame?.composition, (n) => { if (n.name === "group" && typeof n.id === "string") out.push(n); });
++  return out;
++}
++function checkGroupOverride(ov) {
++  if (!plainObject(ov)) throw new Error(`group.place: "overrides" must be an object — this op carried ${JSON.stringify(ov)}`);
++  for (const k of Object.keys(ov)) {
++    if (k === "add") throw new Error(`group.place: overrides.add — a copy takes set and hide; add is a state's (G19), and a copy that adds parts is another group`);
++    if (!GROUP_OVERRIDE_KEYS.includes(k)) throw new Error(`group.place: unknown key "${k}" in overrides — a copy's override takes ${GROUP_OVERRIDE_KEYS.join(", ")}`);
++  }
++  if (ov.set !== undefined && (!plainObject(ov.set) || Object.values(ov.set).some((v) => !plainObject(v)))) {
++    throw new Error(`group.place: overrides.set must be an object of part id → props object — this op carried ${JSON.stringify(ov.set)}`);
++  }
++  if (ov.hide !== undefined && (!Array.isArray(ov.hide) || ov.hide.some((x) => typeof x !== "string"))) {
++    throw new Error(`group.place: overrides.hide must be an array of part ids — this op carried ${JSON.stringify(ov.hide)}`);
++  }
++}
++
+ export function applyOp(doc, op) {
+   if (!doc || !Array.isArray(doc.frames) || !Array.isArray(doc.arrows)) {
+     throw new Error("applyOp: the document must carry frames and arrows arrays — start from emptyDoc()");
+@@ -230,6 +269,7 @@ export function applyOp(doc, op) {
+   next.notes ??= [];
+   next.variants ??= [];
+   next.proposals ??= [];
++  next.groups ??= {};
+   const frameIds = () => new Set(next.frames.map((f) => f.id));
+   // Named by the verb that asked, so a dangling reference says which op could not resolve it rather
+   // than which lookup failed. discovery/ops.mjs's resolveAnswer shape.
+@@ -470,13 +510,24 @@ export function applyOp(doc, op) {
+       if (typeof p.name !== "string" || !PROPOSAL_NAME_RE.test(p.name)) {
+         throw new Error(`component.propose: name ${JSON.stringify(p.name)} is not a component name — lowercase letters, digits and hyphens, 2–40, starting with a letter`);
+       }
+-      if (typeof p.recordId !== "string" || !/^i[1-9][0-9]*$/.test(p.recordId)) {
++      // Two entrances, one path (#315, D1): an import record, or a saved group — exactly one.
++      if ((p.recordId === undefined) === (p.groupId === undefined)) {
++        throw new Error(`component.propose: give recordId or groupId, exactly one — this op carried ${p.recordId === undefined ? "neither" : "both"}`);
++      }
++      if (p.recordId !== undefined && (typeof p.recordId !== "string" || !/^i[1-9][0-9]*$/.test(p.recordId))) {
+         throw new Error(`component.propose: recordId ${JSON.stringify(p.recordId)} is not an import record id (i1, i2, …)`);
+       }
+       if (p.mode !== 1 && p.mode !== 2) throw new Error(`component.propose: mode ${JSON.stringify(p.mode)} must be 1 or 2`);
++      if (p.groupId !== undefined) {
++        if (typeof p.groupId !== "string" || !GROUP_ID_RE.test(p.groupId)) throw new Error(`component.propose: groupId ${JSON.stringify(p.groupId)} is not a group id (g1, g2, …)`);
++        if (!Object.hasOwn(next.groups, p.groupId)) throw new Error(`component.propose: groupId "${p.groupId}" does not resolve — this document holds ${Object.keys(next.groups).join(", ") || "no groups"}`);
++        if (p.mode !== 1) throw new Error(`component.propose: mode ${p.mode} with group "${p.groupId}" — a composed group is never a frozen original`);
++      }
+       if (next.proposals.some((x) => x.name === p.name)) throw new Error(`component.propose: duplicate name "${p.name}" — a proposal of that name already exists`);
+-      if (next.proposals.some((x) => x.recordId === p.recordId)) throw new Error(`component.propose: record "${p.recordId}" already has a proposal — one proposal per import record`);
+-      next.proposals.push({ id: nextId("pr", new Set(next.proposals.map((x) => x.id))), name: p.name, recordId: p.recordId, mode: p.mode, status: "proposed" });
++      if (p.recordId !== undefined && next.proposals.some((x) => x.recordId === p.recordId)) throw new Error(`component.propose: record "${p.recordId}" already has a proposal — one proposal per import record`);
++      if (p.groupId !== undefined && next.proposals.some((x) => x.groupId === p.groupId)) throw new Error(`component.propose: group "${p.groupId}" already has a proposal — one proposal per group`);
++      const src = p.recordId !== undefined ? { recordId: p.recordId } : { groupId: p.groupId };
++      next.proposals.push({ id: nextId("pr", new Set(next.proposals.map((x) => x.id))), name: p.name, ...src, mode: p.mode, status: "proposed" });
+       break;
+     }
+     case "proposal.ratify": {
+@@ -503,7 +554,109 @@ export function applyOp(doc, op) {
+       next.proposals[at] = { ...entry, status: "ratified", component: p.component };
+       break;
+     }
+-    // Unreachable: checkOp refused every verb outside OPS. Kept because the day an eleventh verb is
++    case "group.define": {
++      // THE DEFINITION IS DERIVED FROM A SELECTION (#315, D5): the op names parts on a screen, never carries
++      // them, so no op can record a part that was never on one. groupId is an EDIT target (annotate's rule).
++      if (typeof p.name !== "string" || !PROPOSAL_NAME_RE.test(p.name)) {
++        throw new Error(`group.define: name ${JSON.stringify(p.name)} is not a component name — lowercase letters, digits and hyphens, 2–40, starting with a letter (Promote proposes it as one)`);
++      }
++      if (!Array.isArray(p.partIds) || !p.partIds.length || p.partIds.some((x) => typeof x !== "string" || !x.trim())) {
++        throw new Error(`group.define: "partIds" must be a non-empty array of part ids — this op carried ${JSON.stringify(p.partIds)}`);
++      }
++      const twice = p.partIds.find((x, i) => p.partIds.indexOf(x) !== i);
++      if (twice !== undefined) throw new Error(`group.define: part "${twice}" is selected twice`);
++      const slashed = p.partIds.find((x) => x.includes(PART_SEP));
++      if (slashed !== undefined) throw new Error(`group.define: "${slashed}" is a part of a placed copy — a selection may not reach inside one, and groups do not nest`);
++      const edit = p.groupId !== undefined;
++      if (edit && !(typeof p.groupId === "string" && Object.hasOwn(next.groups, p.groupId))) {
++        throw new Error(`group.define: groupId "${p.groupId}" does not resolve — this document holds ${Object.keys(next.groups).join(", ") || "no groups"}; an op names a group to EDIT, never the id of one it creates`);
++      }
++      const clash = Object.values(next.groups).find((g) => g.name === p.name && g.id !== p.groupId);
++      if (clash) throw new Error(`group.define: name "${p.name}" is already ${clash.id}'s — one group per name`);
++      frame(p.frameId, "frameId");
++      const t = frameTree(next, p.frameId);
++      if (!t.tree) throw new Error(`group.define: frame "${p.frameId}" has nothing to select from (${t.flags.map((f) => f.kind).join(", ")})`);
++      // Document order, and ancestry: each node with the chain of ids above it.
++      const order = [];
++      const walkSel = (n, above) => {
++        if (!plainObject(n)) return;
++        if (typeof n.id === "string") order.push({ node: n, above });
++        const here = typeof n.id === "string" ? [...above, n.id] : above;
++        for (const c of Array.isArray(n.children) ? n.children : []) walkSel(c, here);
++      };
++      walkSel(t.tree, []);
++      const byId = new Map(order.map((o) => [o.node.id, o]));
++      for (const id of p.partIds) {
++        if (!byId.has(id)) throw new Error(`group.define: part "${id}" does not resolve in "${p.frameId}" — it holds ${order.map((o) => o.node.id).join(", ")}`);
++        const anc = byId.get(id).above.find((a) => p.partIds.includes(a));
++        if (anc) throw new Error(`group.define: "${id}" sits inside "${anc}", which is also selected — select one or the other`);
++      }
++      const picked = order.filter((o) => p.partIds.includes(o.node.id));
++      for (const o of picked) {
++        const inner = [];
++        walkNodes(o.node, (n) => { if (typeof n.id === "string" && n.id.includes(PART_SEP)) inner.push(n.id); });
++        if (inner.length) throw new Error(`group.define: "${o.node.id}" contains a placed copy (${inner[0]}) — groups do not nest`);
++      }
++      const parts = structuredClone(picked.map((o) => o.node));
++      refuseFrozen("group.define", parts, next);
++      const composedFrom = { frameId: p.frameId, partIds: picked.map((o) => o.node.id) };
++      if (!edit) {
++        const id = nextId("g", new Set(Object.keys(next.groups)));
++        next.groups[id] = { id, name: p.name, parts, composedFrom };
++        break;
++      }
++      // A REDEFINE THAT DROPS A PART A COPY OVERRIDES IS REFUSED, naming every blocker (canDeleteBasePart's shape).
++      const keep = new Set();
++      walkNodes(parts, (n) => { if (typeof n.id === "string") keep.add(n.id); });
++      const blockers = groupInstances(next).filter((i) => i.groupId === p.groupId).flatMap((i) => {
++        const ov = plainObject(i.overrides) ? i.overrides : {};
++        const named = [...Object.keys(plainObject(ov.set) ? ov.set : {}), ...(Array.isArray(ov.hide) ? ov.hide : [])];
++        return [...new Set(named)].filter((x) => !keep.has(x)).map((x) => `${i.frameId} ${i.instanceId} (${x})`);
++      });
++      if (blockers.length) {
++        throw new Error(`group.define: redefining "${p.groupId}" drops parts copies still override — ${blockers.join(", ")} — drop those overrides first`);
++      }
++      next.groups[p.groupId] = { id: p.groupId, name: p.name, parts, composedFrom };
++      break;
++    }
++    case "group.place": {
++      const f = frame(p.frameId, "frameId");
++      if (f.baseId != null) {
++        throw new Error(`group.place: "${f.id}" is the ${f.stateKey} state of "${f.baseId}" — place the copy on the base; a state inherits its base's copies`);
++      }
++      const edit = p.instanceId !== undefined;
++      if (p.overrides !== undefined) checkGroupOverride(p.overrides);
++      if (edit) {
++        for (const k of ["groupId", "parentId", "index"]) {
++          if (p[k] !== undefined) throw new Error(`group.place: "${k}" with instanceId — an edit replaces a copy's overrides and nothing else`);
++        }
++        if (p.overrides === undefined) throw new Error(`group.place: "overrides" is required with instanceId — it is what an edit replaces`);
++        const inst = instancesOf(f).find((n) => n.id === p.instanceId);
++        if (!inst) {
++          throw new Error(`group.place: instanceId "${p.instanceId}" does not resolve on "${f.id}" — it holds ${instancesOf(f).map((n) => n.id).join(", ") || "no copies"}; an op names a copy to EDIT, never the id of one it creates`);
++        }
++        inst.overrides = p.overrides;
++        break;
++      }
++      if (p.groupId === undefined || p.parentId === undefined) throw new Error(`group.place: "groupId" and "parentId" are required to place a copy`);
++      const g = typeof p.groupId === "string" && Object.hasOwn(next.groups, p.groupId) ? next.groups[p.groupId] : null;
++      if (!g) throw new Error(`group.place: groupId "${p.groupId}" does not resolve — this document holds ${Object.keys(next.groups).join(", ") || "no groups"}`);
++      refuseFrozen("group.place", g.parts, next);
++      let parent = null;
++      walkNodes(f.composition, (n) => { if (n.name !== "group" && n.id === p.parentId && typeof n.id === "string") parent ??= n; });
++      if (!parent) throw new Error(`group.place: parentId "${p.parentId}" does not resolve in "${f.id}"'s composition`);
++      if (!Array.isArray(parent.children)) throw new Error(`group.place: "${p.parentId}" (${parent.name}) has no children to place into`);
++      const index = p.index ?? parent.children.length;
++      if (!Number.isInteger(index) || index < 0 || index > parent.children.length) {
++        throw new Error(`group.place: index ${JSON.stringify(p.index)} is not a whole number in 0–${parent.children.length}`);
++      }
++      const taken = new Set();
++      for (const fr of next.frames) walkNodes(fr?.composition, (n) => { if (typeof n.id === "string") taken.add(n.id); });
++      const id = nextId(`${g.id}-`, taken);
++      parent.children.splice(index, 0, { name: "group", id, props: { groupId: g.id }, ...(p.overrides !== undefined && { overrides: p.overrides }) });
++      break;
++    }
++    // Unreachable: checkOp refused every verb outside OPS. Kept because the day a fifteenth verb is
+     // added to OPS and not to the switch, this is the line that says so.
+     default: throw new Error(`"${op.op}" is in OPS but has no case in the applier`);
+   }
+@@ -637,6 +790,53 @@ export function laneDoc(doc, lane = null) {
+ // a tree carrying it would be refused whole. A hidden ROOT is flagged and kept — dropping it would
+ // leave nothing to render and nothing to say why. `overrides.add` (G19's dialogs, later) is flagged
+ // and ignored. Total over junk: an unknown frame answers tree: null with a flag, never a throw.
++// groupInstances(doc) → [{ frameId, instanceId, groupId, overrides }] — every placed copy in every frame's raw
++// composition, frame order then document order (#315). A read: total over junk.
++export function groupInstances(doc) {
++  const out = [];
++  for (const f of Array.isArray(doc?.frames) ? doc.frames : []) {
++    if (!plainObject(f)) continue;
++    for (const n of instancesOf(f)) out.push({ frameId: f.id, instanceId: n.id, groupId: n.props?.groupId ?? null, overrides: n.overrides ?? null });
++  }
++  return out;
++}
++
++// expandGroups(tree, groups, flags) — D4, in place: each copy becomes its definition's parts with the copy's
++// override resolved (keyed by DEFINITION ids), every id renamed <instanceId>/<partId>, spliced where the copy was.
++function expandGroups(tree, groups, flags) {
++  const defs = plainObject(groups) ? groups : {};
++  const visit = (node) => {
++    if (!plainObject(node) || !Array.isArray(node.children)) return;
++    const out = [];
++    for (const c of node.children) {
++      if (!plainObject(c) || c.name !== "group") { visit(c); out.push(c); continue; }
++      const def = defs[c.props?.groupId];
++      if (!plainObject(def) || !Array.isArray(def.parts)) { flags.push({ kind: "unknown-group", partId: c.id ?? null }); continue; }
++      const parts = structuredClone(def.parts);
++      const map = {};
++      walkNodes(parts, (n) => { if (typeof n.id === "string" && !Object.hasOwn(map, n.id)) map[n.id] = plainObject(n.props) ? n.props : {}; });
++      const r = resolve({ parts: map }, plainObject(c.overrides) ? c.overrides : null);
++      flags.push(...r.flags.map((fl) => ({ ...fl, instanceId: c.id })));
++      const prune = (n) => {
++        if (!Array.isArray(n.children)) return;
++        n.children = n.children.filter((k) => !(plainObject(k) && typeof k.id === "string" && r.resolved.parts[k.id]?.hidden === true));
++        n.children.forEach(prune);
++      };
++      const kept = parts.filter((n) => !(plainObject(n) && typeof n.id === "string" && r.resolved.parts[n.id]?.hidden === true));
++      kept.forEach(prune);
++      walkNodes(kept, (n) => {
++        if (typeof n.id !== "string") return;
++        const { hidden, ...props } = r.resolved.parts[n.id] ?? {};
++        if (Object.keys(props).length || n.props !== undefined) n.props = props;
++        n.id = `${c.id}${PART_SEP}${n.id}`;
++      });
++      out.push(...kept);
++    }
++    node.children = out;
++  };
++  visit(tree);
++}
++
+ export function frameTree(doc, frameId, lane = null) {
+   const frames = Array.isArray(doc?.frames) ? doc.frames.filter((f) => f && typeof f === "object") : [];
+   const f = frames.find((x) => x.id === frameId);
+@@ -654,6 +854,10 @@ export function frameTree(doc, frameId, lane = null) {
+   if (!plainObject(base.composition)) return { tree: null, flags: [{ kind: "no-composition", frameId: base.id }] };
+ 
+   const tree = structuredClone(base.composition);
++  const flags = [];
++  // #315 (D4): copies first, so every layer below sees real vocabulary names and namespaced ids.
++  if (tree.name === "group") return { tree: null, flags: [{ kind: "group-root", frameId: base.id }] };
++  expandGroups(tree, doc?.groups, flags);
+   const parts = {};
+   const walk = (node, fn, parent = null) => {
+     if (!plainObject(node)) return;
+@@ -662,7 +866,6 @@ export function frameTree(doc, frameId, lane = null) {
+   };
+   walk(tree, (n) => { if (typeof n.id === "string" && !Object.hasOwn(parts, n.id)) parts[n.id] = plainObject(n.props) ? n.props : {}; });
+ 
+-  const flags = [];
+   let acc = { parts };
+   // THE ORDER IS THE DECISION (#314): the lane's change to a base reaches every state of it (a state IS its base
+   // except where it says), the state's own override still wins over it, and the lane's override of the state is last.
+diff --git a/tooling/build-checks.mjs b/tooling/build-checks.mjs
+index 1d8afbf..4a661e0 100644
+--- a/tooling/build-checks.mjs
++++ b/tooling/build-checks.mjs
+@@ -11246,7 +11246,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href)
+ // `.trim()` is a human read.
+ 
+ {
+-  const { OPS: COPS, PARAMS: CPARAMS, ENDPOINT_KEYS, EXHIBIT_SIZE, STATE_KEYS, applyOp, applyOps, canDeleteBasePart, emptyDoc, exhibitClash, exhibitClashes, exhibitsOf, frameTree, missingStates, placeDecision, resolve } =
++  const { OPS: COPS, PARAMS: CPARAMS, ENDPOINT_KEYS, EXHIBIT_SIZE, GROUP_OVERRIDE_KEYS, STATE_KEYS, applyOp, applyOps, canDeleteBasePart, emptyDoc, exhibitClash, exhibitClashes, exhibitsOf, flowEdges, frameTree, groupInstances, missingStates, placeDecision, resolve } =
+     await import("../system/canvas-ops.mjs");
+   const { DEVICE_PRESETS, PRESET_NAMES, WIDTH_MAX, WIDTH_MIN, presetWidth } = await import("../system/device-presets.mjs");
+   const deep = (v) => (v && typeof v === "object" && !Array.isArray(v)
+@@ -11256,10 +11256,10 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href)
+   const names = (fn, ...must) => { const m = threw(fn); return m && must.every((w) => m.includes(w)) ? null : `${m ?? "NO THROW"}`; };
+ 
+   // --- 35.1 the roster, BOTH directions, frozen BY MUTATION -------------------------------------
+-  ok(COPS.length === 12 && Object.keys(CPARAMS).length === COPS.length
++  ok(COPS.length === 14 && Object.keys(CPARAMS).length === COPS.length
+     && COPS.every((v) => Array.isArray(CPARAMS[v]))
+     && Object.keys(CPARAMS).every((v) => COPS.includes(v)),
+-    `OPS (${COPS.join(", ")}) and PARAMS (${Object.keys(CPARAMS).join(", ")}) are not the same twelve verbs — #302's six, #306's four, #311's one and #313's one`);
++    `OPS (${COPS.join(", ")}) and PARAMS (${Object.keys(CPARAMS).join(", ")}) are not the same fourteen verbs — #302's six, #306's four, #311's one, #313's one and #315's two`);
+   for (const [label, arr] of [["OPS", COPS], ...COPS.map((v) => [`PARAMS.${v}`, CPARAMS[v]])]) {
+     const n = arr.length;
+     ok(Object.isFrozen(arr) && threw(() => arr.push("smuggled")) !== null && arr.length === n,
+@@ -11270,7 +11270,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href)
+   // NO PARAMS ENTRY CARRIES AN ID FOR WHAT ITS OP CREATES. board-ops.mjs's rule, and the only way to
+   // enforce it is on the KEY SET: a caller cannot smuggle an id through a slot that does not exist.
+   ok(!CPARAMS["screen.compose"].includes("frameId") && !CPARAMS["screen.compose"].includes("id")
+-    && !CPARAMS.connect.includes("arrowId") && !CPARAMS.connect.includes("id"),
++    && !CPARAMS.connect.includes("arrowId") && !CPARAMS.connect.includes("id")
++    && !CPARAMS["group.define"].includes("id") && !CPARAMS["group.place"].includes("id"),
+     "a PARAMS entry offers an id slot for the thing its op creates — ids are minted from the document, and a slot here is how a caller sets one");
+ 
+   // --- 35.2 VALID_FOR — one minimal valid op per verb, and a verb with no fixture fails BY NAME --
+@@ -11287,6 +11288,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href)
+     "variant.add": { key: "b", overrides: { f1: { set: {} } } },
+     "component.propose": { name: "spike-list-row", recordId: "i1", mode: 1 },
+     "proposal.ratify": { proposalId: "pr1", component: "person-row" },
++    "group.define": { name: "app-header", frameId: "f3", partIds: ["title"] },
++    "group.place": { frameId: "f3", groupId: "g1", parentId: "screen" },
+   };
+   for (const verb of COPS) {
+     ok(VALID_FOR[verb], `no VALID_FOR fixture for "${verb}" — every verb needs one minimal valid op here, or this group iterates OPS in name only`);
+@@ -11494,6 +11497,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href)
+       // mints pr1 for proposal.ratify's control; its name and record differ from VALID_FOR["component.propose"]'s,
+       // so that verb's own control still owes the document nothing (#313).
+       { op: "component.propose", params: { name: "kept-row", recordId: "i9", mode: 1 } },
++      // #315: f3 with an id'd part for group.define's control, and g1 for group.place's.
++      { op: "screen.compose", params: { ...VALID_FOR["screen.compose"], screenId: "home", composition: { name: "stack", id: "screen", children: [{ name: "text", id: "title", props: { role: "heading", content: "Home" } }] } } },
++      { op: "group.define", params: { name: "kept-group", frameId: "f3", partIds: ["title"] } },
+     ]) ?? emptyDoc();
+     ok(threw(() => applyOp(doc, { op: verb, params: VALID_FOR[verb] })) === null,
+       `the minimal VALID_FOR op for "${verb}" was REFUSED (${threw(() => applyOp(doc, { op: verb, params: VALID_FOR[verb] }))}) — every refusal above would pass on an applier that refuses everything`);
+@@ -11881,6 +11887,145 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href)
+     }
+   }
+ 
++  // --- 35.17 compose-and-name (#315): group.define / group.place, copies expanded in frameTree -------
++  {
++    const find = (tree, id) => (tree?.id === id ? tree : (tree?.children ?? []).map((c) => find(c, id)).find(Boolean));
++    const HOME = { name: "stack", id: "screen", props: { direction: "column", gap: "md" }, children: [
++      { name: "screen-header", id: "header", props: { title: "Home" } },
++      { name: "ghost-button", id: "help", props: { label: "Help" } },
++      { name: "icon", id: "mark", props: { name: "info", size: "md" } },
++    ] };
++    const PAY = { name: "stack", id: "screen", props: { direction: "column", gap: "md" }, children: [] };
++    const compose = (screenId, composition) => ({ op: "screen.compose", params: { screenId, why: "the header case: one title, one help button, one mark", composition } });
++    const define = { op: "group.define", params: { name: "app-header", frameId: "f1", partIds: ["header", "help", "mark"] } };
++    // a. POSITIVE CONTROL FIRST: define → g1; place on f2 and f3 → g1-1, g1-2.
++    const a = fold([compose("home", HOME), define, compose("pay", PAY), compose("review", PAY),
++      { op: "group.place", params: { frameId: "f2", groupId: "g1", parentId: "screen" } },
++      { op: "group.place", params: { frameId: "f3", groupId: "g1", parentId: "screen" } }]) ?? emptyDoc();
++    const g1 = a.groups?.g1;
++    ok(g1?.name === "app-header" && deep(g1?.parts?.map((x) => x.id)) === deep(["header", "help", "mark"]) && deep(g1?.composedFrom) === deep({ frameId: "f1", partIds: ["header", "help", "mark"] }),
++      `35.17a group.define did not mint g1 with three parts in document order: ${deep(g1)}`);
++    ok(deep(groupInstances(a).map((i) => [i.frameId, i.instanceId, i.groupId])) === deep([["f2", "g1-1", "g1"], ["f3", "g1-2", "g1"]]),
++      `35.17a place twice did not give two copies g1-1 on f2 and g1-2 on f3: ${deep(groupInstances(a))}`);
++    const t2 = frameTree(a, "f2");
++    ok(find(t2.tree, "g1-1/header")?.props?.title === "Home" && !find(t2.tree, "g1-1") && !JSON.stringify(t2.tree).includes('"group"'),
++      `35.17a f2's tree does not hold the expanded copy g1-1/header "Home": ${deep(t2.tree)}`);
++    // b. edit the definition → both follow.
++    const b = fold([{ op: "screen.set", params: { frameId: "f1", partId: "help", prop: "label", value: "Get help" } },
++      { op: "group.define", params: { groupId: "g1", name: "app-header", frameId: "f1", partIds: ["header", "help", "mark"] } }], a) ?? emptyDoc();
++    ok(find(frameTree(b, "f2").tree, "g1-1/help")?.props?.label === "Get help" && find(frameTree(b, "f3").tree, "g1-2/help")?.props?.label === "Get help",
++      "35.17b a redefined g1 did not reach both copies — edit the definition and every copy follows");
++    ok(Object.keys(b.groups).length === 1, `35.17b a redefine minted a second group: ${deep(Object.keys(b.groups))}`);
++    // c. override one copy's text → only it differs.
++    const c = fold([{ op: "group.place", params: { frameId: "f3", instanceId: "g1-2", overrides: { set: { header: { title: "Add a payee" } } } } }], b) ?? emptyDoc();
++    ok(find(frameTree(c, "f3").tree, "g1-2/header")?.props?.title === "Add a payee" && find(frameTree(c, "f2").tree, "g1-1/header")?.props?.title === "Home",
++      `35.17c overriding g1-2's title changed ${find(frameTree(c, "f2").tree, "g1-1/header")?.props?.title === "Add a payee" ? "BOTH copies" : "nothing"} — only the overridden copy differs`);
++    // two copies on ONE frame are independent too.
++    const c2 = fold([{ op: "group.place", params: { frameId: "f2", groupId: "g1", parentId: "screen", index: 0, overrides: { set: { header: { title: "Second" } } } } }], c) ?? emptyDoc();
++    const t22 = frameTree(c2, "f2").tree;
++    ok(find(t22, "g1-3/header")?.props?.title === "Second" && find(t22, "g1-1/header")?.props?.title === "Home" && t22?.children?.[0]?.id === "g1-3/header",
++      `35.17c two copies on one frame are not independent, or index 0 did not lead: ${deep(t22?.children?.map((x) => x.id))}`);
++    // d. a redefine that drops a part a copy overrides → refused naming it; without the override → accepted.
++    const drop = { op: "group.define", params: { groupId: "g1", name: "app-header", frameId: "f1", partIds: ["help", "mark"] } };
++    ok(names(() => applyOp(c, drop), "group.define", "g1-2", "header", "f3") === null,
++      `35.17d redefining g1 without header while g1-2 overrides it: ${threw(() => applyOp(c, drop)) ?? "NO THROW"}`);
++    ok(threw(() => applyOp(b, drop)) === null, `35.17d control — the same redefine with no override in place was refused: ${threw(() => applyOp(b, drop))}`);
++    // e. refusals by name.
++    const gd = (patch) => () => applyOp(a, { op: "group.define", params: { ...define.params, name: "fresh-group", ...patch } });
++    const gp = (patch) => () => applyOp(a, { op: "group.place", params: { frameId: "f2", groupId: "g1", parentId: "screen", ...patch } });
++    const withState = fold([{ op: "state.add", params: { baseId: "f2", stateKey: "error", override: { set: {} } } }], a) ?? emptyDoc();
++    for (const [label, fn, ...must] of [
++      ["an unknown frame", gd({ frameId: "f9" }), "group.define", "f9"],
++      ["an unknown part", gd({ partIds: ["ghost"] }), "group.define", "ghost", "does not resolve"],
++      ["a part twice", gd({ partIds: ["help", "help"] }), "group.define", "help", "twice"],
++      ["an ancestor also selected", gd({ partIds: ["screen", "help"] }), "group.define", "help", "screen"],
++      ["a part of a copy", () => applyOp(a, { op: "group.define", params: { name: "nested", frameId: "f2", partIds: ["g1-1/header"] } }), "group.define", "g1-1/header", "nest"],
++      ["a subtree holding a copy", () => applyOp(a, { op: "group.define", params: { name: "nested", frameId: "f2", partIds: ["screen"] } }), "group.define", "g1-1", "nest"],
++      ["a name that is not a component name", gd({ name: "App Header" }), "group.define", "App Header"],
++      ["a duplicate name", gd({ name: "app-header" }), "group.define", "app-header", "g1"],
++      ["an unknown groupId edit target", gd({ groupId: "g9" }), "group.define", "g9", "EDIT"],
++      ["placing on a state", () => applyOp(withState, { op: "group.place", params: { frameId: "f4", groupId: "g1", parentId: "screen" } }), "group.place", "f4", "state"],
++      ["an unknown parent", gp({ parentId: "nope" }), "group.place", "nope"],
++      ["a parent with no children", () => applyOp(a, { op: "group.place", params: { frameId: "f1", groupId: "g1", parentId: "help" } }), "group.place", "help", "no children"],
++      ["index 99", gp({ index: 99 }), "group.place", "99"],
++      ["index -1", gp({ index: -1 }), "group.place", "-1"],
++      ["overrides.add", gp({ overrides: { add: [] } }), "group.place", "add", "G19"],
++      ["an unknown override key", gp({ overrides: { omit: true } }), "group.place", "omit", "set, hide"],
++      ["set not an object of objects", gp({ overrides: { set: { header: "x" } } }), "group.place", "overrides.set"],
++      ["hide not strings", gp({ overrides: { hide: [1] } }), "group.place", "overrides.hide"],
++      ["instanceId with groupId", () => applyOp(a, { op: "group.place", params: { frameId: "f2", instanceId: "g1-1", groupId: "g1", overrides: {} } }), "group.place", "groupId", "instanceId"],
++      ["an instanceId that does not resolve", () => applyOp(a, { op: "group.place", params: { frameId: "f2", instanceId: "g1-9", overrides: {} } }), "group.place", "g1-9", "EDIT"],
++      ["create with no groupId", gp({ groupId: undefined }), "group.place", "groupId"],
++      ["an unknown groupId", gp({ groupId: "g9" }), "group.place", "g9"],
++    ]) {
++      ok(names(fn, ...must) === null, `35.17e ${label}: the refusal must name ${must.map((w) => JSON.stringify(w)).join(" and ")} — got ${threw(fn) ?? "NO THROW"}`);
++    }
++    // f. flags: a dangling copy override is FLAGGED with its copy and the tree still renders; hide drops from one copy only;
++    //    an unknown group node is flagged and dropped.
++    const f = fold([{ op: "group.place", params: { frameId: "f2", instanceId: "g1-1", overrides: { set: { ghost: { label: "x" } }, hide: ["help"] } } }], a) ?? emptyDoc();
++    const tf = frameTree(f, "f2");
++    ok(tf.flags.some((fl) => fl.kind === "dangling-set" && fl.partId === "ghost" && fl.instanceId === "g1-1") && !!tf.tree,
++      `35.17f a dangling copy override was not flagged with its copy: ${deep(tf.flags)}`);
++    ok(!find(tf.tree, "g1-1/help") && !!find(frameTree(f, "f3").tree, "g1-2/help"), "35.17f hide: [help] must drop help from g1-1 only");
++    const junk = frameTree({ frames: [{ id: "f1", composition: { name: "stack", id: "s", children: [{ name: "group", id: "g7-1", props: { groupId: "g7" } }] } }] }, "f1");
++    ok(junk.flags.some((fl) => fl.kind === "unknown-group" && fl.partId === "g7-1") && deep(junk.tree?.children) === "[]",
++      `35.17f an unknown group node was not flagged and dropped: ${deep(junk)}`);
++    // a state of a base holding a copy renders the copy, and can address a namespaced part.
++    const st = fold([{ op: "state.add", params: { baseId: "f2", stateKey: "error", override: { set: { "g1-1/header": { title: "Payee not found" } } } } }], c) ?? emptyDoc();
++    ok(find(frameTree(st, "f4").tree, "g1-1/header")?.props?.title === "Payee not found", `35.17f a state of a base holding a copy did not render it: ${deep(frameTree(st, "f4"))}`);
++    // an arrow from a part inside a copy reads the part's text through the namespaced id.
++    const ar = fold([{ op: "connect", params: { from: { frameId: "f2", partId: "g1-1/help" }, to: { frameId: "f3" } } }], b) ?? emptyDoc();
++    ok(flowEdges(ar)[0]?.partText === "Get help", `35.17f flowEdges did not read the copy's part: ${deep(flowEdges(ar))}`);
++    // g. every expanded tree passes the REAL validateComposition; a copy whose part the parent does not allow is refused BY NAME.
++    for (const fid of ["f2", "f3"]) {
++      ok(threw(() => validateComposition(VOCAB, frameTree(c2, fid).tree)) === null, `35.17g frameTree(${fid}) with copies failed validateComposition: ${threw(() => validateComposition(VOCAB, frameTree(c2, fid).tree))}`);
++    }
++    const LIST = { name: "stack", id: "screen", children: [{ name: "list", id: "people", props: {}, children: [{ name: "list-row", id: "row", props: { title: "Ada" } }] }] };
++    const gv = fold([compose("people", LIST), { op: "group.define", params: { name: "person", frameId: "f1", partIds: ["row"] } }, compose("pay", PAY),
++      { op: "group.place", params: { frameId: "f2", groupId: "g1", parentId: "screen" } }]) ?? emptyDoc();
++    ok(names(() => validateComposition(VOCAB, frameTree(gv, "f2").tree), "list-row") === null,
++      `35.17g a copy of a list-row placed in a stack must be refused naming list-row: ${threw(() => validateComposition(VOCAB, frameTree(gv, "f2").tree)) ?? "NO THROW"}`);
++    // h. #475, 35.14-style: a Mode 2 name is refused inside a definition and a placed copy; Mode 1 is accepted.
++    const FROZ = (name) => ({ name: "stack", id: "screen", children: [{ name, id: "row", props: {} }] });
++    const hz = fold([compose("home", FROZ("frozen-row")), { op: "component.propose", params: { name: "frozen-row", recordId: "i1", mode: 2 } }]) ?? emptyDoc();
++    const hzDefine = () => applyOp(hz, { op: "group.define", params: { name: "froz", frameId: "f1", partIds: ["row"] } });
++    ok(names(hzDefine, "group.define", "frozen-row", "pr1", "G7") === null, `35.17h group.define over a frozen original: ${threw(hzDefine) ?? "NO THROW"}`);
++    const hk = fold([compose("home", FROZ("kept-row")), { op: "component.propose", params: { name: "kept-row", recordId: "i1", mode: 1 } }]) ?? emptyDoc();
++    ok(threw(() => applyOp(hk, { op: "group.define", params: { name: "kept", frameId: "f1", partIds: ["row"] } })) === null, "35.17h control — a Mode 1 name was refused by group.define");
++    const hp = fold([compose("home", FROZ("frozen-row")), { op: "group.define", params: { name: "froz", frameId: "f1", partIds: ["row"] } },
++      { op: "component.propose", params: { name: "frozen-row", recordId: "i1", mode: 2 } }, compose("pay", PAY)]) ?? emptyDoc();
++    const hpPlace = () => applyOp(hp, { op: "group.place", params: { frameId: "f2", groupId: "g1", parentId: "screen" } });
++    ok(names(hpPlace, "group.place", "frozen-row", "G7") === null, `35.17h group.place of a group defined before the Mode 2 proposal: ${threw(hpPlace) ?? "NO THROW"}`);
++    // i. component.propose from a group.
++    const pi = (params) => () => applyOp(a, { op: "component.propose", params });
++    ok(threw(pi({ name: "app-header", groupId: "g1", mode: 1 })) === null, `35.17i proposing g1 was refused: ${threw(pi({ name: "app-header", groupId: "g1", mode: 1 }))}`);
++    let ip = emptyDoc();
++    try { ip = pi({ name: "app-header", groupId: "g1", mode: 1 })(); } catch { /* reported above */ }
++    ok(deep(ip.proposals?.[0]) === deep({ id: "pr1", name: "app-header", groupId: "g1", mode: 1, status: "proposed" }) && exhibitsOf(ip).length === 0,
++      `35.17i the group proposal is ${deep(ip.proposals?.[0])} — groupId, no recordId, and no exhibit`);
++    for (const [label, fn, ...must] of [
++      ["both ids", pi({ name: "x-row", groupId: "g1", recordId: "i1", mode: 1 }), "component.propose", "exactly one", "both"],
++      ["neither id", pi({ name: "x-row", mode: 1 }), "component.propose", "exactly one", "neither"],
++      ["an unknown group", pi({ name: "x-row", groupId: "g9", mode: 1 }), "component.propose", "g9"],
++      ["mode 2 with a group", pi({ name: "x-row", groupId: "g1", mode: 2 }), "component.propose", "frozen original"],
++      ["a second proposal for g1", () => applyOp(ip, { op: "component.propose", params: { name: "other-header", groupId: "g1", mode: 1 } }), "component.propose", "g1", "one proposal per group"],
++    ]) {
++      ok(names(fn, ...must) === null, `35.17i ${label}: the refusal must name ${must.map((w) => JSON.stringify(w)).join(" and ")} — got ${threw(fn) ?? "NO THROW"}`);
++    }
++    // j. reads total over junk; purity; GROUP_OVERRIDE_KEYS frozen.
++    for (const j of [null, undefined, 42, { frames: "no" }, { frames: [null, { id: "f1", composition: 7 }] }]) {
++      ok(threw(() => groupInstances(j)) === null && Array.isArray(groupInstances(j)), `35.17j groupInstances(${JSON.stringify(j)}) threw or answered no list`);
++    }
++    const before = deep(a);
++    const placeOp = { op: "group.place", params: { frameId: "f2", groupId: "g1", parentId: "screen", overrides: { set: { header: { title: "T" } } } } };
++    const opBefore = deep(placeOp);
++    let placed = emptyDoc();
++    try { placed = applyOp(a, placeOp); } catch { /* the control above covers it */ }
++    placed.frames?.[1]?.composition?.children?.forEach((x) => { if (x.overrides) x.overrides.set.header.title = "mutated"; });
++    ok(deep(a) === before && deep(placeOp) === opBefore, "35.17j group.place mutated its input document or its op params");
++    ok(Object.isFrozen(GROUP_OVERRIDE_KEYS) && deep(GROUP_OVERRIDE_KEYS) === deep(["set", "hide"]), `35.17j GROUP_OVERRIDE_KEYS is ${deep(GROUP_OVERRIDE_KEYS)}`);
++  }
++
+   group("canvas ops", `#313's proposal.ratify (35.16): a Mode 1 proposal ratified FIRST as the positive control — status "ratified", its component recorded, every other key and pr1 untouched, exhibitsOf still pr1 alone — then seven refusals each matched on what they name: an unknown id (listing pr1, pr2), a Mode 2 proposal (frozen original, G7), a second ratify, a component that is not a name, a proposalId that is not pr<n>, an id slot, and a document with no proposals key · #314's lanes (35.15): variant.add refusing key "a" (lane A is the document), omit other than true, omit beside set, an unknown override key, and a wrong-typed set, hide or add (PR #491 F2: a string or a part of strings for set, a number or a non-string part for hide, null for add, each named by its overrides.<frame>.<key> path) — each named — behind the positive control that {omit: true} alone and {set, hide, add} are ACCEPTED; LANE_OVERRIDE_KEYS frozen as set · hide · add · omit and BASE_LANE null; laneKeys [null] then [null, "b"], total over 5 junk docs; laneDoc omitting a base's states and every arrow touching either, flagging each omitted frame, an unknown lane holding no frames with an unknown-lane flag, and its argument unmutated; frameTree's layer order base.sets → lane[base] → state.overrides → state.sets → lane[state] (lane b's f1 "Check the name", its f2 still "Send anyway" plus the lane's hint, lane A's f1 "Continue") and an omitted frame answering tree null, flagged; missingStates per lane on the committed SYNTHETIC two-lane fixture — empty, partial for A and empty, error, partial for b, the error missing in b ONLY, [] for an unknown lane — and its f3 keeping "Checking the name…" in b; stateDiagram's spine text exact, lane b with no f2 and its arrow relabelled, "a:b;c#d" emitted as abcd; the lane reads total over junk · #475's Mode 2 exhibit (35.13, 35.14): EXHIBIT_SIZE 320×280 frozen by mutation; exhibitsOf answering Mode 2 proposals only, in order, total over 5 junk docs; exhibitClash over six literal boxes — right of the flow clear, below a frame with no authored height REFUSED (it reaches down without end, the only reading Node can compute), below an authored 600 clear, overlapping it refused, touching edges clear, a widened f2 refused — and junk answering null; exhibitClashes, the ONE call the page and arrangement both make, honouring an authored h from positions (the resize escape hatch), skipping an unplaced exhibit and taking a frame's width from the DOCUMENT even when positions says 9999 · the frozen-original refusal in screen.compose (nested two levels), state.add's override.add and variant.add's overrides.<frame>.add — each both bare and in the architecture's {parentId, index, part} wrapper, whose part the walk must reach — each naming the verb, the name, pr1 and G7, behind two kinds of positive control: the same three ops naming a Mode 1 proposal accepted, and a prop called name not mistaken for a node · #311's component.propose (35.12): pr1 minted deterministically and pr2 after it, eight refusals each matched on what they name (a bad name two ways, a duplicate name, a duplicate recordId, a recordId that is not i<n>, mode 3 and mode "1", an id slot), every key but proposals untouched, status "proposed" and proposal.ratify in OPS as the only verb that moves it — and a pre-#311 document with no proposals key folding · #306's four verbs and frame.size's free width: annotate minting n1 and EDITING in place (a noteId that does not resolve is refused, or it is the smuggling slot), frame.link REPLACING the list, frame.size {width} recording preset null, variant.add one lane, frame.remove taking its arrows with it — and 19 refusals naming the blocker (a state or a variant lane overriding the frame), each rule on decisionRefs, blank text, the lane key, the override map, and exactly-one-of preset/width with the 320–2560 bounds · frameTree resolving base sets, then the state\'s override, then its own sets, DROPPING a hidden node rather than writing `+"`"+`hidden`+"`"+` (the real validateComposition refuses that prop, and the returned trees pass it), flagging a dangling set and a hidden root, total over junk · placeDecision right of the anchor\'s whole ROW (894 then 1206 on the spine, where right-of-the-anchor is 422, on top of f2), a lower row ignored, total over junk · non-data inside params (a function, a symbol, nested) refused BY PATH before structuredClone's unnamed DataCloneError can speak (#437) · OPS ↔ PARAMS the same ${COPS.length} verbs in BOTH directions, every list frozen BY MUTATION at both levels (Object.freeze is shallow, and a pushable PARAMS entry lets the frozen case pass for the wrong reason), STATE_KEYS pinned as the five-state floor with "ideal" leading it, and NO PARAMS entry offering an id slot for the thing its op creates — the only way to enforce board-ops' mint-from-the-document rule is on the key set · a VALID_FOR fixture per verb so a THIRTEENTH verb with no fixture fails BY NAME, each fixture's keys asserted to be in its own PARAMS entry · EVERY constructive call routed through one fold() that turns a throw into a NAMED failure rather than an uncaught one: ok() only accumulates and group() prints at the end, so an unguarded throw here kills the process before a single named failure speaks — found by mutation (widening a PARAMS entry with an id slot makes 35.1's own assertion false AND makes the fold throw, and unguarded the throw won) · the happy six-op fold: ids minted f1/f2 and a1 with no op carrying one, a state proven to be a SIBLING carrying an override rather than a copy of its base, frame.size recording BOTH the preset name and the width so a later table edit moves new frames and leaves committed ones, and PURITY proven by mutating the input and by mutating the return · 19 refusals each DRIVEN by a broken op and matched on the words it must NAME — including D4's `+"`"+`why`+"`"+` three ways (absent, EMPTY, non-string), a state outside the minimum, a dangling frameId in each of four positions, an unknown verb, an unknown param, an unknown ENVELOPE key, a document that is not one, and PR #432's three open questions as the owner closed them on 2026-09-21: a state OF a state (which missingStates walks base frames only and could never have reported), a DUPLICATE (baseId, stateKey) (which its Set absorbed silently), and an unknown key INSIDE connect's from or to — with ENDPOINT_KEYS frozen at both levels beside PARAMS and `+"`"+`partId`+"`"+` proven to be `+"`"+`from`+"`"+`'s alone — behind the positive control that EVERY verb's minimal valid op is ACCEPTED, without which the battery would pass on an applier that refuses everything, plus applyOps naming the failing INDEX and verb · the TWO-LAYER rule gated: frame.sets (screen.set's) and frame.overrides.set (state.add's) proven to be the SAME SHAPE so ONE resolve applies both, with the state's layer proven to win over the base's — measured rather than assumed, because the spine's first render dropped its screen.set entirely and nothing said who joined the composition to the sets · resolve() proven to FLAG a dangling override and to keep it OUT of the resolved parts (never dropped, because it is a real thing someone wrote) with landing set and hide both applied, total over 6 junk shapes · missingStates as a LIST rather than a count, only BASE frames considered, a base with the floor met OMITTED so an empty answer means met rather than unchecked, total over 6 · canDeleteBasePart refusing by naming the state, its frame and what to do instead, with the part NOTHING overrides proven to pass so the refusal does not fire on everything · the preset table frozen with presetWidth answering NULL rather than a default · and the import graph pinned to device-presets.mjs alone. What it cannot reach: whether a composition RENDERS (group 3's), whether a frame ever reaches the canvas or the page renders frameTree's output (studio-journey's and canvas-journey's), whether the page puts a refused move back (canvas-journey's), whether Mermaid parses the stateDiagram text (a human paste), and whether a `+"`"+`why`+"`"+` is any GOOD — a sentence that says nothing while passing .trim() is a human read`);
+ }
+ 

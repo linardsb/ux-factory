@@ -24,7 +24,7 @@ system/                       the shipped design system — brand-agnostic core 
   templates.admitted.mjs      the RATIFIED registry — data, spread into the renderer's TEMPLATES by one interpreter;
                               portal/lib/ratify.mjs rewrites it, nobody else (#313)
   action-bus.mjs              the one bidirectional action contract (agent/click/keyboard, voice-ready)
-  canvas-ops.mjs              the BUILD document's op grammar (twelve verbs) + a pure applier (screens, states,
+  canvas-ops.mjs              the BUILD document's op grammar (fourteen verbs) + a pure applier (screens, states,
                               overrides, the flow) — the third op layer, beside board-ops' shape and
                               discovery/ops' decisions; no SDK anywhere in its import graph
   device-presets.mjs          the device width table frame.size reads — names are the contract

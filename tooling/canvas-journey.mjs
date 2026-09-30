@@ -64,6 +64,16 @@
 // verifyBuild [] and the page equal to the disk fold. The lane buttons are measured at 44×44 in L3, the new
 // toolbar controls in 15.
 //
+// THE GROUPS PASS (#315, G1–G8) over its own copy, fp-groups, whose f3 (the header case: screen-header, ghost-button,
+// icon) is seeded in-process as one owner screen.compose: f3's Details save the three parts as app-header (ONE
+// group.define line, build/groups/g1.json with three parts); f1's Details place g1 into screen (ONE group.place, the
+// copy rendered as g1-1/header "Home"); the copy's title overridden to "Add a payee" (ONE group.place with
+// instanceId) while f3 still reads Home; Promote reloads at ?promoted=app-header with source.json deep-equal to
+// groups/g1.json, the ledger's last line component.propose {app-header, g1, mode 1} and the ratify form mounted;
+// verifyBuild [] and the pack's flow.md counting 1 group, 1 placed copy; git status over system/, handoff/,
+// discovery/ and import/overrides/ unchanged (AC #4); five group controls at 44×44 and no page errors. WHAT IT
+// CANNOT REACH: two copies of one group (35.17a/c prove the namespacing), and whether a group is a good reuse.
+//
 // THE COMPOSE PASS (#312). A side portal whose UXF_COMPOSE_TRANSPORT names tooling/fake-compose-agent.mjs —
 // a SCRIPTED stand-in for the model driving the REAL handler and fence; the main portal child never gets
 // it — over fp-compose, the stand-in shape (no transcript.jsonl). Through the page: a briefed turn's card
@@ -111,7 +121,7 @@ import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { foldLedger, loadBuild, placeExhibit, positionsOf, verifyBuild } from "../portal/lib/canvas-store.mjs";
+import { foldLedger, loadBuild, loadDecisions, placeExhibit, positionsOf, saveRun, verifyBuild } from "../portal/lib/canvas-store.mjs";
 import { checkRecord, fidelityVerdict } from "../import/report.mjs";
 import { THRESHOLD } from "../import/fidelity.mjs";
 import { editMapping, runImport } from "../portal/lib/import-run.mjs";
@@ -291,6 +301,11 @@ function seed() {
   for (const f of ["run.json", "answers.jsonl", "transcript.jsonl"]) cpSync(path.join(src, f), path.join(lan, f));
   cpSync(path.join(src, "build"), path.join(lan, "build"), { recursive: true });
   rmSync(path.join(lan, "build", "handoff"), { recursive: true, force: true });
+  // #315's groups pass, likewise — its f3 is seeded in-process (seedGroups), never committed.
+  const grp = path.join(DISC(), "fp-groups");
+  mkdirSync(grp);
+  for (const f of ["run.json", "answers.jsonl", "transcript.jsonl"]) cpSync(path.join(src, f), path.join(grp, f));
+  cpSync(path.join(src, "build"), path.join(grp, "build"), { recursive: true });
 }
 const buildDir = (slug) => path.join(DISC(), slug, "build");
 const ledger = (slug) => readFileSync(path.join(buildDir(slug), "ops.jsonl"), "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l));
@@ -616,7 +631,8 @@ async function leg(engine, base, results) {
       t("14 · d7 and d8 carry the stand-in flag", (await node(page, "d7").textContent()).includes(flag) && (await node(page, "d8").textContent()).includes(flag));
       await openDetails(page, "f1");
       t("14 · the inspector offers no decision checkboxes, says why, and the link is disabled",
-        (await page.locator('#cv-inspector input[type="checkbox"]').count()) === 0 && (await page.locator("#cv-no-transcript").count()) === 1
+        // #315's "Save parts as a group" checkboxes are not decisions; they are counted out.
+        (await page.locator('#cv-inspector input[type="checkbox"]:not([data-group-part])').count()) === 0 && (await page.locator("#cv-no-transcript").count()) === 1
           && (await page.getByRole("button", { name: "Link decisions" }).isDisabled()));
       await page.keyboard.press("Escape");
       const before = readFileSync(path.join(buildDir("fp-stand-in"), "canvas.json"), "utf8");
@@ -632,6 +648,7 @@ async function leg(engine, base, results) {
     });
 
     await lanesPass(base, page, t, step);
+    await groupsPass(base, page, t, step, errors);
 
     await step("15 · 44×44 targets", async () => {
       await openCanvas(page, base, "real", "fp-journey");
@@ -771,6 +788,100 @@ async function lanesPass(base, page, t, step) {
     const fails = verifyBuild(loadBuild(buildDir("fp-lanes")));
     t("L9 · verifyBuild over fp-lanes → []", fails.length === 0, fails.join(" | "));
     t("L9 · the page's document equals foldLedger(ops.jsonl)", canon(foldLedger(ledger("fp-lanes")).doc) === canon(await pageDoc(page)));
+  });
+}
+
+// ---- the groups pass (#315) -----------------------------------------------------------------------------
+// The owner's header case, seeded as ONE owner screen.compose through saveRun (seedMeasure's precedent — a scratch
+// copy, never committed), then defined, placed, overridden and promoted through the page.
+function seedGroups() {
+  const pkg = path.join(DISC(), "fp-groups");
+  const b = loadBuild(buildDir("fp-groups"));
+  saveRun(pkg, { base: b.ops.length, positions: { ...positionsOf(b.canvas), f3: { x: 1600, y: 0 } }, decisions: loadDecisions(pkg), ops: [
+    { op: "screen.compose", status: "applied", params: { screenId: "home", why: "the header case: a title, a help button and a mark shared by every screen", decisionRefs: [],
+      composition: { name: "stack", id: "screen", props: { direction: "column", gap: "md" }, children: [
+        { name: "screen-header", id: "header", props: { title: "Home" } },
+        { name: "ghost-button", id: "help", props: { label: "Help" } },
+        { name: "icon", id: "mark", props: { name: "info", size: "md" } }] } } },
+  ] });
+}
+
+async function groupsPass(base, page, t, step, errors) {
+  const e0 = errors.length;
+  const gitBefore = gitImportScope();
+  const sizes = [];
+  const measure = async (sel, label) => { const b = await page.locator(sel).boundingBox(); sizes.push({ label, w: b?.width ?? 0, h: b?.height ?? 0 }); };
+  const partText = (id, part) => node(page, id).locator(`[data-part="${part}"]`).first().textContent().catch(() => null);
+  await step("G1 · open fp-groups; f3 renders the header", async () => {
+    seedGroups();
+    await openCanvas(page, base, "real", "fp-groups");
+    t("G1 · f3 renders screen-header Home", (await partText("f3", "header"))?.includes("Home"), await node(page, "f3").textContent().catch(() => "no f3"));
+  });
+  await step("G2 · save three parts of f3 as app-header", async () => {
+    const n = ledger("fp-groups").length;
+    await openDetails(page, "f3");
+    for (const id of ["header", "help", "mark"]) await page.locator(`#cv-inspector [data-group-part="${id}"]`).check();
+    await page.fill("#cv-inspector [data-group-name]", "app-header");
+    await measure('#cv-inspector label:has([data-group-part="header"])', "part checkbox label");
+    await measure("#cv-inspector [data-group-define]", "Save group");
+    await page.locator("#cv-inspector [data-group-define]").click();
+    const l = await waitLines("fp-groups", n + 1);
+    t("G2 · ledger +1: group.define {app-header, f3, header help mark}", l.length === n + 1 && l.at(-1)?.op === "group.define"
+      && canon(l.at(-1)?.params) === canon({ name: "app-header", frameId: "f3", partIds: ["header", "help", "mark"] }), JSON.stringify(l.at(-1)));
+    const gFile = path.join(buildDir("fp-groups"), "groups", "g1.json");
+    t("G2 · build/groups/g1.json exists with three parts", existsSync(gFile) && JSON.parse(readFileSync(gFile, "utf8")).parts?.length === 3);
+  });
+  await step("G3 · place g1 into f1's screen", async () => {
+    const n = ledger("fp-groups").length;
+    await openDetails(page, "f1");
+    await page.selectOption("#cv-inspector [data-group-pick]", "g1");
+    await page.selectOption("#cv-inspector [data-group-parent]", "screen");
+    await measure("#cv-inspector [data-group-place]", "Place copy");
+    await measure("#cv-inspector [data-group-promote]", "Promote");
+    await page.locator("#cv-inspector [data-group-place]").click();
+    const l = await waitLines("fp-groups", n + 1);
+    t("G3 · ledger +1: group.place {f1, g1, screen}", l.length === n + 1 && l.at(-1)?.op === "group.place" && canon(l.at(-1)?.params) === canon({ frameId: "f1", groupId: "g1", parentId: "screen" }), JSON.stringify(l.at(-1)));
+    t("G3 · f1 renders the copy's header, g1-1/header, reading Home", (await partText("f1", "g1-1/header"))?.includes("Home"));
+  });
+  await step("G4 · override the copy's title", async () => {
+    const n = ledger("fp-groups").length;
+    await openDetails(page, "f1");
+    await page.selectOption("#cv-inspector [data-group-instance]", "g1-1");
+    await page.selectOption("#cv-inspector [data-group-copy-part]", "header title");
+    await page.fill("#cv-inspector [data-group-value]", "Add a payee");
+    await measure("#cv-inspector [data-group-override]", "Set on this copy");
+    await page.locator("#cv-inspector [data-group-override]").click();
+    const l = await waitLines("fp-groups", n + 1);
+    t("G4 · ledger +1: group.place {instanceId g1-1, overrides.set.header.title}", l.length === n + 1 && l.at(-1)?.op === "group.place"
+      && canon(l.at(-1)?.params) === canon({ frameId: "f1", instanceId: "g1-1", overrides: { set: { header: { title: "Add a payee" } } } }), JSON.stringify(l.at(-1)));
+    t("G4 · f1 reads Add a payee and f3 still reads Home", (await partText("f1", "g1-1/header"))?.includes("Add a payee") && (await partText("f3", "header"))?.includes("Home"));
+  });
+  await step("G5 · Promote", async () => {
+    await page.waitForFunction(() => import("/canvas.mjs").then((m) => m.getCanvasPage().pending.length === 0), null, { timeout: 6000 }).catch(() => {});
+    await openDetails(page, "f1");
+    await Promise.all([page.waitForURL(/promoted=app-header/, { timeout: 10000 }), page.locator("#cv-inspector [data-group-promote]").click()]);
+    await page.waitForSelector('html[data-canvas-page="ready"]', { timeout: 20000 });
+    await page.waitForSelector('[data-ratify="app-header"]', { timeout: 10000 }).catch(() => {});
+    const src = path.join(buildDir("fp-groups"), "proposals", "app-header", "source.json");
+    const grp = path.join(buildDir("fp-groups"), "groups", "g1.json");
+    t("G5 · proposals/app-header/source.json deep-equals groups/g1.json", existsSync(src) && canon(JSON.parse(readFileSync(src, "utf8"))) === canon(JSON.parse(readFileSync(grp, "utf8"))));
+    const l = ledger("fp-groups");
+    t("G5 · the ledger's last line is component.propose {app-header, g1, mode 1}", l.at(-1)?.op === "component.propose" && canon(l.at(-1)?.params) === canon({ name: "app-header", groupId: "g1", mode: 1 }), JSON.stringify(l.at(-1)));
+    t("G5 · the ratify form is mounted for app-header", (await page.locator('[data-ratify="app-header"]').count()) === 1 && !(await page.locator("[data-groups-panel]").isHidden()));
+  });
+  await step("G6 · disk verifies; the pack counts the group", async () => {
+    const fails = verifyBuild(loadBuild(buildDir("fp-groups")));
+    t("G6 · verifyBuild over fp-groups → []", fails.length === 0, fails.join(" | "));
+    const flowFile = path.join(buildDir("fp-groups"), "handoff", "flow.md");
+    t("G6 · the pack's flow.md reads 1 group(s), 1 placed copy", existsSync(flowFile) && readFileSync(flowFile, "utf8").includes("- Composed and named: 1 group(s), 1 placed copy."));
+  });
+  await step("G7 · nothing under system/, handoff/, discovery/ or import/overrides/ changed", async () => {
+    t("G7 · git status identical across the pass (AC #4)", gitImportScope() === gitBefore, gitImportScope());
+  });
+  await step("G8 · 44×44 and no page errors", async () => {
+    const small = sizes.filter((x) => x.w < 44 || x.h < 44);
+    t(`G8 · the group controls measure at least 44×44 (${sizes.length} measured)`, sizes.length === 5 && small.length === 0, JSON.stringify(small));
+    t("G8 · no page errors during the pass", errors.length === e0, errors.slice(e0, e0 + 3).join(" | "));
   });
 }
 

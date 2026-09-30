@@ -22,7 +22,7 @@
 // group 36 import it in CI — where portal/node_modules does not exist at all. That absence IS the
 // SDK-free proof, and it is why this module must never grow an import of a portal sibling that has one.
 //
-// THE TWO FILES ARE DIFFERENT KINDS AND ARE WRITTEN DIFFERENTLY:
+// THE FILES ARE DIFFERENT KINDS AND ARE WRITTEN DIFFERENTLY:
 //
 //   ops.jsonl    APPEND-ONLY on the live path. saveRun, the page's writer, only ever appends lines
 //                after checking the page's base against the ledger's length. saveBuild writes a NEW
@@ -31,13 +31,28 @@
 //   canvas.json  A WHOLE-FILE REWRITE, the generator idiom, because the arrangement is derived: it
 //                is rewritten from the document on every save and never carries a fact the ops do
 //                not, so there is nothing in it to append to. Positions are the one authored part.
+//   groups/<id>.json  A WHOLE-FILE REWRITE like canvas.json (#315, D7): each saved group's definition,
+//                derived from the fold on every save; a file the fold no longer derives (an undone define)
+//                is removed. It carries no authored part at all.
 
-import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { basename, dirname, join } from "node:path";
 import { applyOp, applyOps, EXHIBIT_SIZE, exhibitClashes, exhibitsOf } from "../../system/canvas-ops.mjs";
 
 export const OPS_FILE = "ops.jsonl";
 export const CANVAS_FILE = "canvas.json";
+export const GROUPS_DIR = "groups";
+
+// groupFiles(doc, run) → { "<id>.json": {id, name, parts, provenance: {run, composedFrom}} } — the groups/ projection
+// (#315, D7): derived from the fold, rewritten on every save, never a fact the ops do not carry. Id order.
+export function groupFiles(doc, run) {
+  const groups = doc && typeof doc.groups === "object" && doc.groups ? doc.groups : {};
+  return Object.fromEntries(Object.keys(groups).sort((a, b) => Number(a.slice(1)) - Number(b.slice(1))).map((id) => {
+    const g = groups[id];
+    return [`${id}.json`, { id: g.id, name: g.name, parts: g.parts, provenance: { run, composedFrom: g.composedFrom } }];
+  }));
+}
+const groupText = (v) => `${JSON.stringify(v, null, 2)}\n`;
 
 // saveBuild(root, canvas, opLines) → { root, ops, canvas } — the two paths written.
 //
@@ -88,7 +103,15 @@ export function loadBuild(root) {
     try { canvas = JSON.parse(readFileSync(canvasPath, "utf8")); }
     catch (e) { throw new Error(`loadBuild: ${canvasPath} is not JSON — ${e.message}`); }
   }
-  return { ops, canvas };
+  const groupsDir = join(root, GROUPS_DIR);
+  const groups = {};
+  if (existsSync(groupsDir)) {
+    for (const f of readdirSync(groupsDir).filter((x) => x.endsWith(".json")).sort()) {
+      try { groups[f] = JSON.parse(readFileSync(join(groupsDir, f), "utf8")); }
+      catch (e) { throw new Error(`loadBuild: ${join(groupsDir, f)} is not JSON — ${e.message}`); }
+    }
+  }
+  return { ops, canvas, groups, run: basename(dirname(root)) };
 }
 
 // ---- #306: the fold, the derivation, the gate ----------------------------------------------------
@@ -225,11 +248,14 @@ export function positionsOf(canvas) {
   return out;
 }
 
-// verifyBuild({ ops, canvas }) → string[] — empty means clean. THE GATE PREDICATE (AC #1): the ledger's
+// verifyBuild({ ops, canvas, groups? }) → string[] — empty means clean. THE GATE PREDICATE (AC #1): the ledger's
 // shape, the fold, and canvas.json equal to what the ops derive under canvas.json's OWN positions. So
 // a moved node can never fail it (positions are authored — #302's inverse case, kept), while any node
-// or edge the ops do not produce, or a width they disagree with, always does.
-export function verifyBuild({ ops, canvas } = {}) {
+// or edge the ops do not produce, or a width they disagree with, always does. With `groups` (loadBuild's), every
+// groups/ file must equal what the ops derive, none missing and none extra, its provenance.run a run slug but not
+// the reading directory's (a renamed copy keeps the run its groups were composed in) (#315). A position is looked for only in a
+// line's own keys and its params' own keys (F10, PR #485), so a part id `x` inside an override is not one.
+export function verifyBuild({ ops, canvas, groups } = {}) {
   const out = [];
   if (!Array.isArray(ops)) return ["ops.jsonl did not load as a list of lines"];
   ops.forEach((l, i) => {
@@ -238,7 +264,9 @@ export function verifyBuild({ ops, canvas } = {}) {
     if (typeof l?.at !== "string" || !l.at.endsWith("Z")) out.push(`${at}: "at" is not an ISO stamp ending Z`);
     if (l?.source !== "owner" && l?.source !== "agent") out.push(`${at}: source ${JSON.stringify(l?.source)} is not owner or agent`);
     if (!STATUSES.includes(l?.status)) out.push(`${at}: status ${JSON.stringify(l?.status)} is not in ${STATUSES.join(" · ")}`);
-    if (/"x"\s*:|"y"\s*:/.test(JSON.stringify(l))) out.push(`${at}: carries an x or a y — positions live in canvas.json alone`);
+    // F10 (PR #485): only the line's own keys and its params' own keys — where a position could ever be written. A part
+    // or an override key called x deep inside params is not a position.
+    if (["x", "y"].some((k) => Object.hasOwn(l ?? {}, k) || (l?.params && typeof l.params === "object" && Object.hasOwn(l.params, k)))) out.push(`${at}: carries an x or a y — positions live in canvas.json alone`);
     // #312: a verdict names the agent's proposal it answers, restating it, and is that proposal's only one.
     if (l?.fromStep !== undefined) {
       const p = ops[l.fromStep - 1];
@@ -258,6 +286,22 @@ export function verifyBuild({ ops, canvas } = {}) {
   try { folded = foldLedger(ops).doc; derived = arrangement(folded, positionsOf(canvas)); }
   catch (e) { out.push(`the ledger does not fold into the arrangement: ${e.message}`); return out; }
   out.push(...laneFlaws(folded));
+  // #315: groups/ compared only when the caller passes it (loadBuild does), so a hand-built {ops, canvas} is unaffected.
+  // provenance.run is the run the group was COMPOSED in, not the directory it is read from: a package copied under
+  // another name (every scratch copy here, 36.10's among them) keeps its groups' run, so run is checked as a slug and
+  // everything else is compared to the fold.
+  if (groups !== undefined) {
+    const want = groupFiles(folded, null);
+    const have = groups && typeof groups === "object" ? groups : {};
+    const sansRun = (g) => canon({ ...g, provenance: { ...(g?.provenance ?? {}), run: null } });
+    for (const f of Object.keys(have)) {
+      if (!Object.hasOwn(want, f)) { out.push(`groups/${f} carries a fact the ops do not`); continue; }
+      if (sansRun(have[f]) !== sansRun(want[f])) out.push(`groups/${f} is ${canon(have[f])}, the ops derive ${canon(want[f])}`);
+      const r = have[f]?.provenance?.run;
+      if (typeof r !== "string" || !RUN_SLUG_RE.test(r)) out.push(`groups/${f}'s provenance.run ${JSON.stringify(r ?? null)} is not a run slug`);
+    }
+    for (const f of Object.keys(want)) if (!Object.hasOwn(have, f)) out.push(`groups/${f} is missing, which the ops derive`);
+  }
   if (canvas?.$description !== derived.$description) out.push("canvas.json's $description is not the derivation's");
   for (const kind of ["nodes", "edges"]) {
     const want = new Map(derived[kind].map((x) => [x.id, x]));
@@ -488,8 +532,16 @@ export function saveRun(pkgRoot, { base, ops, positions, decisions } = {}, { now
     }
   }
   const canvas = arrangement(doc, positions);
+  const gfiles = groupFiles(doc, basename(pkgRoot));
   mkdirSync(buildRoot, { recursive: true });
   if (lines.length) appendFileSync(opsPath, lines.map((l) => `${JSON.stringify(l)}\n`).join(""));
   writeFileSync(join(buildRoot, CANVAS_FILE), `${JSON.stringify(canvas, null, 2)}\n`);
+  // groups/ is a projection (#315, D7): every derived file written, every underived one (an undone define) removed.
+  const gdir = join(buildRoot, GROUPS_DIR);
+  if (Object.keys(gfiles).length || existsSync(gdir)) {
+    mkdirSync(gdir, { recursive: true });
+    for (const f of readdirSync(gdir)) if (f.endsWith(".json") && !Object.hasOwn(gfiles, f)) rmSync(join(gdir, f));
+    for (const [f, v] of Object.entries(gfiles)) writeFileSync(join(gdir, f), groupText(v));
+  }
   return { count: base + lines.length };
 }

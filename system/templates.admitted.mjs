@@ -35,7 +35,9 @@ export const ADMIT_CLASS_RE = /^(ds|vd)-[a-z][a-z0-9-]{1,39}$/;
 const ATTR_RE = /^data-[a-z][a-z0-9-]*$/;
 // Attributes the renderer and the canvas set on a rendered part themselves; a slot claiming one breaks selection.
 const RESERVED_ATTRS = Object.freeze(["data-part", "data-stx-id", "data-stx-selected"]);
-const RECORD_RE = /^i[1-9][0-9]*$/;
+// Where an admission came from (#315): an import record (i1) or a group composed in a run (g1) — one admission path,
+// two entrances. The key stays `record` for both: the id of the thing the admission was read from.
+export const PROVENANCE_FROM = Object.freeze({ import: /^i[1-9][0-9]*$/, group: /^g[1-9][0-9]*$/ });
 const RUN_RE = /^[a-z0-9-]{1,48}$/;
 
 const plain = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
@@ -88,8 +90,10 @@ export function checkAdmitted(name, def, spec) {
   const pv = def.provenance;
   if (!plain(pv)) throw new Error(`${at("provenance")} must be an object { ${PROVENANCE_KEYS.join(", ")} }`);
   for (const k of Object.keys(pv)) if (!PROVENANCE_KEYS.includes(k)) throw new Error(`${at(`provenance.${k}`)} is not a provenance key`);
-  if (pv.from !== "import") throw new Error(`${at("provenance.from")} ${JSON.stringify(pv.from)} must be "import"`);
-  if (typeof pv.record !== "string" || !RECORD_RE.test(pv.record)) throw new Error(`${at("provenance.record")} ${JSON.stringify(pv.record)} is not an import record id (i1, i2, …)`);
+  if (!Object.hasOwn(PROVENANCE_FROM, pv.from)) throw new Error(`${at("provenance.from")} ${JSON.stringify(pv.from)} must be "import" or "group"`);
+  if (typeof pv.record !== "string" || !PROVENANCE_FROM[pv.from].test(pv.record)) {
+    throw new Error(`${at("provenance.record")} ${JSON.stringify(pv.record)} is not ${pv.from === "group" ? "a group id (g1, g2, …)" : "an import record id (i1, i2, …)"}`);
+  }
   if (typeof pv.run !== "string" || !RUN_RE.test(pv.run)) throw new Error(`${at("provenance.run")} ${JSON.stringify(pv.run)} is not a run slug`);
   if (typeof pv.line !== "string" || !pv.line.trim() || pv.line.length > 200) {
     throw new Error(`${at("provenance.line")} must be a non-empty string of at most 200 characters`);
