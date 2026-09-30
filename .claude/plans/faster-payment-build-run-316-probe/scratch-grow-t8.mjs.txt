@@ -1,0 +1,54 @@
+import path from "node:path";
+import { readFileSync } from "node:fs";
+process.env.PROBE_ALLOW = "1";
+const { runComposeTurn } = await import("./portal/lib/canvas-session.mjs");
+const store = await import("./portal/lib/canvas-store.mjs");
+const { runImport } = await import("./portal/lib/import-run.mjs");
+const { missingStates } = await import("./system/canvas-ops.mjs");
+const { composeQuery } = await import("./tooling/fake-compose-agent.mjs");
+const pkgRoot = path.resolve("discovery/faster-payment");
+const build = path.join(pkgRoot, "build");
+const stage = process.argv[2];
+const cur = () => store.loadBuild(build);
+const count = () => cur().ops.length;
+const pos = (extra = {}) => ({ ...store.positionsOf(cur().canvas), ...extra });
+const turn = async (ask, brief) => { const r = await runComposeTurn({ pkgRoot, base: count(), ask, brief, transport: composeQuery }); console.log("turn", ask.kind, r.outcome, "count", r.count, "added", r.added); return r; };
+const verdict = (status, open) => {
+  const { doc } = store.foldLedger(cur().ops);
+  const o = { op: open.op, params: open.params, status, fromStep: open.seq };
+  const after = store.foldLedger([...cur().ops, { ...o, seq: count()+1, source:"owner" }]).doc;
+  const p = pos(); let k = 0; for (const f of after.frames) if (!p[f.id]) p[f.id] = { x: 1600 + 440*(k++), y: 0 };
+  return store.saveRun(pkgRoot, { base: count(), ops: [o], positions: p, decisions: store.loadDecisions(pkgRoot) });
+};
+const doc0 = () => store.foldLedger(cur().ops).doc;
+if (stage === "a") {
+  console.log("missing", JSON.stringify(missingStates(doc0())), "frames", doc0().frames.map(f=>f.id+":"+f.screenId));
+  await turn({ kind: "screen" }, "confirm the payee before sending");
+  console.log(verdict("accepted", store.openProposals(cur().ops)[0]));
+  console.log("missing", JSON.stringify(missingStates(doc0())));
+  const m = missingStates(doc0()).find(x=>x.frameId==="f1");
+  await turn({ kind: "state", baseId: "f1", stateKey: m.missing[0] }, null);
+  console.log(verdict("refused", store.openProposals(cur().ops)[0]));
+  await turn({ kind: "screen" }, "invalid: uses a hero banner");
+}
+if (stage === "b") {
+  const bytes = readFileSync("import/fixtures/spike-c-instance.blueprint.txt");
+  const r = await runImport({ pkgRoot, base: count(), entrance: "drop", mode: Number(process.argv[3] ?? 2), file: { name: "spike-c-instance.blueprint.txt", bytes }, suggester: null });
+  console.log(r.refused ?? { name: r.name, recordId: r.recordId, count: r.count });
+}
+const own = (ops, extra = {}) => { const after = store.foldLedger([...cur().ops, ...ops.map((o,i)=>({...o, seq: count()+1+i, source:"owner"}))]).doc; const p = { ...pos(), ...extra }; let k = 0; after.frames.forEach((f)=>{ if(!p[f.id]) p[f.id]={x:3000+440*(k++),y:0}; }); return store.saveRun(pkgRoot, { base: count(), ops, positions: p, decisions: store.loadDecisions(pkgRoot) }); };
+// a drag of spine nodes, as the sitting will do: no op, only positions
+if (stage === "drag") { const p = pos(); console.log(own([], { f2: { ...p.f2, y: p.f2.y + 40 }, d7: { ...p.d7, y: p.d7.y + 60 } })); }
+if (stage === "c") {
+  console.log(own([{ op:"group.define", params:{ name:"amount-row", frameId:"f3", partIds:["amount","continue"] }, status:"applied" }]));
+  console.log(own([{ op:"group.place", params:{ frameId:"f1", groupId:"g1", parentId:"screen" }, status:"applied" }]));
+}
+if (stage === "r") {
+  const pr = doc0().proposals; console.log(JSON.stringify(pr));
+  console.log(own([{ op:"proposal.ratify", params:{ proposalId:"pr1", component:"payee-row" }, status:"applied" }]));
+}
+if (stage === "p") { // agent proposal left open
+  await turn({ kind: "screen" }, "review screen before sending");
+}
+if (stage === "v") { console.log(verdict("accepted", store.openProposals(cur().ops)[0])); }
+if (stage === "drag2") { const p = pos(); console.log(own([], { f4: { ...p.f4, x: 2100 } })); }

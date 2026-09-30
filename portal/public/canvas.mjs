@@ -450,7 +450,7 @@ function renderFlow() {
   const list = $("[data-canvas-flow-missing]");
   const miss = missingStates(view, lane);
   list.replaceChildren(...(miss.length ? miss.map((m) => el("li", { text: `${frameName(frameOf(m.frameId))}: ${m.missing.join(", ")} missing` }))
-    : [el("li", { text: "Every screen in this lane meets the floor." })]));
+    : [el("li", { text: "Every screen in this lane has every state it requires." })]));
   const sel = $("[data-canvas-lane]");
   const keys = laneKeys(view);
   sel.replaceChildren(...keys.map((k) => el("option", { value: k ?? "", text: k === null ? "A (base)" : laneDraft?.key === k ? `${k} (draft)` : k })));
@@ -636,6 +636,8 @@ function proposalCard(o) {
     shown.appendChild(renderComposition(vocab, tree));
   } catch (e) { shown.appendChild(el("p", { class: "cv-flag", text: `Refused: ${e.message}` })); }
   const refs = o.op === "screen.compose" ? (o.params.decisionRefs ?? []) : null;
+  // #316 (R6): the states a screen declares become required, so the owner sees them before accepting.
+  const states = o.op === "screen.compose" && Array.isArray(o.params.states) && o.params.states.length ? o.params.states : null;
   const accept = el("button", { type: "button", class: "btn btn-secondary cv-btn", "data-compose-accept": "", text: "Accept" });
   const refuse = el("button", { type: "button", class: "btn btn-secondary cv-btn", "data-compose-refuse": "", text: "Refuse" });
   const emit = (type) => (e) => bus.emit({ type, source: e && e.detail === 0 ? "keyboard" : "pointer", target: { component: "proposal", id: String(o.seq) } });
@@ -647,6 +649,7 @@ function proposalCard(o) {
     el("p", { class: "cv-compose-why", text: `Why: ${o.why ?? "no reason given"}` }),
     el("p", { class: "cv-compose-brief", "data-compose-brief": "", text: o.brief !== null && o.brief !== undefined ? `Your brief: "${o.brief}"` : "No brief this turn." }),
     refs === null ? null : el("p", { class: "cv-compose-refs", text: refs.length ? `Decisions proposed: ${refs.join(", ")}` : "No decision named — it will be flagged" }),
+    states === null ? null : el("p", { class: "cv-compose-states", "data-compose-states": "", text: `States declared: ${states.join(" · ")}` }),
     el("div", { class: "cv-compose-actions" }, accept, refuse));
 }
 

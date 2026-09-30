@@ -52,6 +52,11 @@
 // `instanceId` replaces that copy's `{set, hide}` overrides. frameTree expands every copy before any layer: the
 // definition's parts, the copy's override resolved by definition ids, every id renamed <copy>/<part>, spliced
 // where the copy was. So `/` is reserved in part ids, and the renderer never sees a `group` node.
+//
+// DECLARED STATES (#316). `screen.compose` may carry `states`: the kebab-case keys this screen needs BEYOND the
+// floor (Confirmation of Payee's close-match, a send's pending). A declared key is then a state `state.add` accepts
+// for that base, and missingStates REQUIRES it like the floor's five — an allowed-but-unrequired key is never asked
+// for. There is no re-declare path: a wrong declaration is frame.remove and a new compose.
 
 import { DEVICE_PRESETS, WIDTH_MAX, WIDTH_MIN, presetWidth } from "./device-presets.mjs";
 
@@ -81,7 +86,7 @@ export const OPS = Object.freeze([
 // its reason: an op whose recorded text says more than the op that was applied is a record of
 // something that did not happen.
 export const PARAMS = Object.freeze({
-  "screen.compose": Object.freeze(["screenId", "why", "composition", "decisionRefs"]),
+  "screen.compose": Object.freeze(["screenId", "why", "composition", "decisionRefs", "states"]),
   "screen.set": Object.freeze(["frameId", "partId", "prop", "value"]),
   "state.add": Object.freeze(["baseId", "stateKey", "override"]),
   "frame.size": Object.freeze(["frameId", "preset", "width"]),
@@ -101,7 +106,7 @@ export const PARAMS = Object.freeze({
 // "exact" that catches a caller who knows the key and forgot the value. frame.size's two are
 // optional HERE because the rule is "exactly one of them", which the case enforces by name.
 const OPTIONAL = Object.freeze({
-  "screen.compose": Object.freeze(["decisionRefs"]),
+  "screen.compose": Object.freeze(["decisionRefs", "states"]),
   "frame.size": Object.freeze(["preset", "width"]),
   connect: Object.freeze(["trigger"]),
   annotate: Object.freeze(["noteId"]),
@@ -119,6 +124,8 @@ const GROUP_ID_RE = /^g[1-9][0-9]*$/;
 // A variant's key: short, lowercase, a slug. It names a lane on the canvas and in the handoff, so it
 // is refused rather than normalised — a key the author did not type is a lane they cannot find.
 const VARIANT_KEY_RE = /^[a-z0-9][a-z0-9-]{0,23}$/;
+// A declared state's key (#316): kebab-case, 2–24 characters, refused rather than normalised like a lane's.
+export const STATE_KEY_RE = /^[a-z][a-z0-9-]{1,23}$/;
 // "a" is RESERVED: lane A is the document itself, which every other lane is its differences on (#314).
 // A lane's override takes exactly these keys. `omit: true`, alone, leaves the frame out of the lane (#314, owner
 // 2026-09-29); omitting a BASE leaves its states out too (laneDoc's rule).
@@ -130,9 +137,9 @@ const plainObject = (v) => v !== null && typeof v === "object" && !Array.isArray
 
 // THE REQUIRED MINIMUM, not the whole enum. A screen that only exists in its happy state is a screen
 // nobody has designed the failure of, and these five are the states the architecture names as the
-// floor. The enum is OPEN — a screen may declare more — but state.add refuses a key outside this set
-// until the screen declares it, so a typo becomes a refusal rather than a sixth state nothing else
-// knows about.
+// floor. The enum is OPEN — a screen declares more at compose (`states`, #316) — but state.add refuses a key
+// outside this set until the screen declares it, so a typo becomes a refusal rather than a sixth state nothing
+// else knows about.
 export const STATE_KEYS = Object.freeze(["ideal", "empty", "error", "partial", "loading"]);
 
 export const emptyDoc = () => ({ frames: [], arrows: [], notes: [], groups: {}, variants: [], proposals: [] });
@@ -317,6 +324,14 @@ export function applyOp(doc, op) {
       }
       refuseFrozen("screen.compose", p.composition, next);
       refuseReservedId("screen.compose", p.composition);
+      if (p.states !== undefined) {
+        if (!Array.isArray(p.states)) throw new Error(`screen.compose: "states" must be a list of state keys, not ${JSON.stringify(p.states)}`);
+        p.states.forEach((k, i) => {
+          if (typeof k !== "string" || !STATE_KEY_RE.test(k)) throw new Error(`screen.compose: states[${i}] ${JSON.stringify(k)} is not a kebab-case key of 2–24 characters (e.g. close-match)`);
+          if (STATE_KEYS.includes(k)) throw new Error(`screen.compose: states[${i}] "${k}" is already the floor's — declare only states beyond ${STATE_KEYS.join(" · ")}`);
+          if (p.states.indexOf(k) !== i) throw new Error(`screen.compose: states[${i}] "${k}" is declared twice`);
+        });
+      }
       next.frames.push({
         id: nextId("f", frameIds()),
         screenId: p.screenId,
@@ -326,6 +341,7 @@ export function applyOp(doc, op) {
         decisionRefs: p.decisionRefs ?? [],
         composition: p.composition,
         why: p.why,
+        ...(p.states?.length && { states: [...p.states] }),
       });
       break;
     }
@@ -345,8 +361,9 @@ export function applyOp(doc, op) {
       if (base.baseId) {
         throw new Error(`state.add: "${p.baseId}" is itself the ${base.stateKey} state of "${base.baseId}" — a state is a sibling of a SCREEN, and a state of a state sits outside missingStates' floor check entirely`);
       }
-      if (!STATE_KEYS.includes(p.stateKey)) {
-        throw new Error(`state.add: "${p.stateKey}" is not one of the required minimum ${STATE_KEYS.join(" · ")} — the enum is open, but a screen declares a state of its own before a frame can carry it`);
+      const declared = Array.isArray(base.states) ? base.states : [];
+      if (!STATE_KEYS.includes(p.stateKey) && !declared.includes(p.stateKey)) {
+        throw new Error(`state.add: "${p.stateKey}" is not one of the required minimum ${STATE_KEYS.join(" · ")} — the enum is open, but a screen declares a state of its own before a frame can carry it, and "${base.id}" declares ${declared.join(" · ") || "none"}`);
       }
       // ONE STATE PER KEY PER SCREEN (#302, PR #432's open question 2, owner's call 2026-09-21:
       // refuse a second one). Two frames claiming the same (baseId, stateKey) is two designs for one
@@ -748,7 +765,7 @@ export function resolve(base, override) {
 }
 
 // missingStates(doc, lane?) → [{ frameId, screenId, missing: [...] }] — for every BASE frame,
-// which of the required minimum states has no sibling.
+// which of the required minimum states, and of the states it declares (#316), has no sibling.
 //
 // THE POINT IS THE LIST, NOT A COUNT. "Three states missing" is a number; "error and empty are
 // missing from the payment screen" is something an author can act on. Bases with nothing missing are
@@ -762,7 +779,8 @@ export function missingStates(doc, lane = null) {
     if (base.baseId != null || base.id == null) continue; // a state is not a base
     const have = new Set(frames.filter((f) => f.baseId === base.id).map((f) => f.stateKey));
     have.add(base.stateKey ?? "ideal"); // the base IS its own ideal
-    const missing = STATE_KEYS.filter((k) => !have.has(k));
+    const declared = Array.isArray(base.states) ? base.states.filter((k) => typeof k === "string") : [];
+    const missing = [...STATE_KEYS, ...declared].filter((k) => !have.has(k));
     if (missing.length) out.push({ frameId: base.id, screenId: base.screenId ?? null, missing });
   }
   return out;

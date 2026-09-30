@@ -121,7 +121,7 @@ import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { foldLedger, loadBuild, loadDecisions, placeExhibit, positionsOf, saveRun, verifyBuild } from "../portal/lib/canvas-store.mjs";
+import { foldLedger, loadBuild, loadDecisions, placeExhibit, positionsOf, saveRun, seedSpine, verifyBuild } from "../portal/lib/canvas-store.mjs";
 import { checkRecord, fidelityVerdict } from "../import/report.mjs";
 import { THRESHOLD } from "../import/fidelity.mjs";
 import { editMapping, runImport } from "../portal/lib/import-run.mjs";
@@ -266,46 +266,22 @@ process.on("unhandledRejection", (e) => { console.error(`\ncanvas-journey ✗  u
 // ---- the scratch packages ---------------------------------------------------------------------------
 // Rebuilt per engine so every leg starts identical. fp-journey is a copy of the fictional Faster
 // Payment package; its run.json keeps provenance "fictional" ON PURPOSE — step 3 asserts the page
-// labels it fictional and flags the root. fp-stand-in carries no transcript.jsonl.
+// labels it fictional and flags the root. fp-stand-in carries no transcript.jsonl. Every copy is SEEDED from the
+// spine (#316, the store's seedSpine): the committed package grows with a real run, and the steps below count lines
+// and mint ids from the spine's six. A seed carries no handoff/, so #314's pack is written HERE, never into the spine.
 const DISC = () => path.join(scratch, "_discovery");
 function seed() {
   rmSync(DISC(), { recursive: true, force: true });
   mkdirSync(DISC(), { recursive: true });
   const src = path.join(REPO, "discovery/faster-payment");
-  const j = path.join(DISC(), "fp-journey");
-  mkdirSync(j);
-  for (const f of ["run.json", "answers.jsonl", "transcript.jsonl"]) cpSync(path.join(src, f), path.join(j, f));
-  cpSync(path.join(src, "build"), path.join(j, "build"), { recursive: true });
-  const s = path.join(DISC(), "fp-stand-in");
-  mkdirSync(s);
-  cpSync(path.join(src, "run.json"), path.join(s, "run.json"));
-  cpSync(path.join(src, "build"), path.join(s, "build"), { recursive: true });
+  seedSpine(src, path.join(DISC(), "fp-journey"), { discovery: true });
+  seedSpine(src, path.join(DISC(), "fp-stand-in"));
   // #311's import pass works on its own copy, so the steps above keep their line counts.
-  const imp = path.join(DISC(), "fp-import");
-  mkdirSync(imp);
-  for (const f of ["run.json", "answers.jsonl", "transcript.jsonl"]) cpSync(path.join(src, f), path.join(imp, f));
-  cpSync(path.join(src, "build"), path.join(imp, "build"), { recursive: true });
+  seedSpine(src, path.join(DISC(), "fp-import"), { discovery: true });
   // #312's compose pass: the stand-in shape — run.json, prd.md and build/, no transcript.jsonl.
-  const cmp = path.join(DISC(), "fp-compose");
-  mkdirSync(cmp);
-  for (const f of ["run.json", "prd.md"]) cpSync(path.join(src, f), path.join(cmp, f));
-  cpSync(path.join(src, "build"), path.join(cmp, "build"), { recursive: true });
-  // #474's measurement pass, likewise on its own copy.
-  const mea = path.join(DISC(), "fp-measure");
-  mkdirSync(mea);
-  for (const f of ["run.json", "answers.jsonl", "transcript.jsonl"]) cpSync(path.join(src, f), path.join(mea, f));
-  cpSync(path.join(src, "build"), path.join(mea, "build"), { recursive: true });
-  // #314's lanes pass, likewise — and its pack is written HERE, never into the committed spine.
-  const lan = path.join(DISC(), "fp-lanes");
-  mkdirSync(lan);
-  for (const f of ["run.json", "answers.jsonl", "transcript.jsonl"]) cpSync(path.join(src, f), path.join(lan, f));
-  cpSync(path.join(src, "build"), path.join(lan, "build"), { recursive: true });
-  rmSync(path.join(lan, "build", "handoff"), { recursive: true, force: true });
-  // #315's groups pass, likewise — its f3 is seeded in-process (seedGroups), never committed.
-  const grp = path.join(DISC(), "fp-groups");
-  mkdirSync(grp);
-  for (const f of ["run.json", "answers.jsonl", "transcript.jsonl"]) cpSync(path.join(src, f), path.join(grp, f));
-  cpSync(path.join(src, "build"), path.join(grp, "build"), { recursive: true });
+  seedSpine(src, path.join(DISC(), "fp-compose"));
+  // #474's measurement pass, #314's lanes pass and #315's groups pass (its f3 seeded in-process by seedGroups), likewise.
+  for (const slug of ["fp-measure", "fp-lanes", "fp-groups"]) seedSpine(src, path.join(DISC(), slug), { discovery: true });
 }
 const buildDir = (slug) => path.join(DISC(), slug, "build");
 const ledger = (slug) => readFileSync(path.join(buildDir(slug), "ops.jsonl"), "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l));

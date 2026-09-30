@@ -1,0 +1,192 @@
+canvas-journey · portal http://127.0.0.1:60511 · jobsDir /private/var/folders/qc/r_gfk_sx0zlgzjfd6bhvjyg40000gn/T/canvas-journey-LLAXzb · HEAD b2017a7
+
+════ chromium ════
+  ✓ 1 · #/canvas lists faster-payment (fictional), fp-journey and fp-stand-in (real)
+  ✓ 1 · …the stand-in row says it has no transcript
+  ✓ 2 · the in-repo package reads "Fictional flow, neutral skin" with NO mismatch flag
+  ✓ 2 · the save notice names discovery/faster-payment/build/ (R2)
+  ✓ 2 · ZERO save requests across load and a 1 s idle (D11)
+  ✗ 2 · no two nodes' rendered boxes overlap  f2×f3
+  ✓ 3 · run.json's provenance wins: "Fictional flow, neutral skin" WITH the root flagged
+  ✓ 3 · frames f1 and f2 on the stage
+  ✓ 3 · f1 renders its screen.set hint
+  ✓ 3 · f2 renders its state's override
+  ✓ 3 · arrow a1 is drawn
+  ✓ 3 · cards d7 and d8 render from the transcript (d7 carries its question)
+  ✗ 3b · every node's rendered box overlaps no other (the default placement, on real heights)  f2×f3
+  ✓ 4 · the live region says "Note n1 added."
+  ✗ 4 · ledger line 7 is annotate {text}, applied, owner  {"seq":7,"at":"2026-09-30T18:48:19.317Z","source":"agent","op":"screen.compose","params":{"screenId":"choose-amount","why":"Serves the owner's brief: \"confirm the payee before sending\"","composition":{"name":"stack","props":{"direction":"column","gap":"md","pad":"lg"},"children":[{"name":"screen-header","id":"title","props":{"title":"Choose the amount","showBack":true}},{"name":"text-field","id":"amount","props":{"label":"Amount","placeholder":"£0.00"}},{"name":"primary-button","id":"continue","props":{"label":"Continue"}}]},"decisionRefs":["7"]},"status":"proposed"}
+  ✓ 5 · the link is announced
+  ✗ 5 · ledger line 8 is frame.link {f1, [7, 8, 10]}  {"seq":8,"at":"2026-09-30T18:48:19.321Z","source":"owner","op":"screen.compose","params":{"screenId":"choose-amount","why":"Serves the owner's brief: \"confirm the payee before sending\"","composition":{"name":"stack","props":{"direction":"column","gap":"md","pad":"lg"},"children":[{"name":"screen-header","id":"title","props":{"title":"Choose the amount","showBack":true}},{"name":"text-field","id":"amount","props":{"label":"Amount","placeholder":"£0.00"}},{"name":"primary-button","id":"continue","props":{"label":"Continue"}}]},"decisionRefs":["7"]},"status":"accepted","fromStep":7}
+  ✓ 5 · card d10 is on the stage
+  ✓ 5b · the open inspector lies inside the viewport (branch: anchor)
+  ✗ 5b · the inspector inside the viewport — threw  locator.click: Timeout 30000ms exceeded.
+  ✓ 6 · the refusal names the blocking state, error (f2)
+  ✗ 6 · a refused op records nothing — still 8 lines  16
+  ✓ 7 · f2 and a1 are gone
+  ✓ 7 · the announcement counts the arrow
+  ✗ 7 · ledger line 9 is frame.remove {f2}  {"seq":9,"at":"2026-09-30T18:48:19.327Z","source":"agent","op":"state.add","params":{"baseId":"f1","stateKey":"empty","override":{"set":{"account":{"hint":"Something went wrong — check the amount."}}}},"status":"proposed"}
+  ✓ 8 · f2 and a1 are back
+  ✗ 8 · ledger line 10 is undone, restating line 9 (D1)  {"seq":10,"at":"2026-09-30T18:48:19.330Z","source":"owner","op":"state.add","params":{"baseId":"f1","stateKey":"empty","override":{"set":{"account":{"hint":"Something went wrong — check the amount."}}}},"status":"refused","fromStep":9}
+  ✗ 9 · ledger line 11 is frame.size {f1, width 600}  {"seq":11,"at":"2026-09-30T18:48:19.333Z","source":"agent","op":"screen.compose","status":"refused"}
+  ✓ 9 · f1 is 600 wide on the stage
+  ✓ 9 · ONE undo puts f1 back at 390
+  ✗ 9 · …and ledger line 12 is undone, restating line 11 (one gesture, one entry)  [{"seq":11,"at":"2026-09-30T18:48:19.333Z","source":"agent","op":"screen.compose","status":"refused"},{"seq":12,"at":"2026-09-30T18:48:19.442Z","source":"owner","op":"component.propose","params":{"name":"spike-list-row","recordId":"i1","mode":1},"status":"applied"},{"seq":13,"at":"2026-09-30T18:48:19.548Z","source":"owner","op":"group.define","params":{"name":"amount-row","frameId":"f3","partIds":["amount","continue"]},"status":"applied"},{"seq":14,"at":"2026-09-30T18:48:19.555Z","source":"owner","op":"group.place","params":{"frameId":"f1","groupId":"g1","parentId":"screen"},"status":"applied"},{"seq":15,"at":"2026-09-30T18:51:05.214Z","source":"owner","op":"annotate","params":{"text":"Check the CoP copy with legal"},"status":"applied"},{"seq":16,"at":"2026-09-30T18:51:05.393Z","source":"owner","op":"frame.link","params":{"frameId":"f1","decisionRefs":["7","8","10"]},"status":"applied"},{"seq":17,"at":"2026-09-30T18:51:36.613Z","source":"owner","op":"frame.remove","params":{"frameId":"f2"},"status":"applied"},{"seq":18,"at":"2026-09-30T18:51:36.674Z","source":"owner","op":"frame.remove","params":{"frameId":"f2"},"status":"undone"},{"seq":19,"at":"2026-09-30T18:51:36.813Z","source":"owner","op":"frame.size","params":{"frameId":"f1","width":600},"status":"applied"}]
+  ✓ 10 · exactly one new frame.size line from the drag (the resized hook, D8)
+  ✓ 10 · ONE undo restores 390 and appends exactly one undone line
+  ✓ 10b · a click-then-type edit lands as ONE annotate {noteId n1} line
+  ✓ 12a · before any reload, the document the page built equals foldLedger(ops.jsonl)
+  ✓ 11 · after reload n1 shows its text, d10 and f2 are present, f1 is 390 wide
+  ✓ 12 · verifyBuild over the package on disk → []
+  ✓ 12 · after reload, the route serves the ledger's fold
+  ✓ 13 · a cross-origin save → 403, ledger unchanged
+  ✓ 13 · a stale base → 409, ledger unchanged
+  ✓ 14 · d7 and d8 carry the stand-in flag
+  ✓ 14 · the inspector offers no decision checkboxes, says why, and the link is disabled
+  ✓ 14 · moving a card on the stand-in still saves (flagged, not blocked)
+  ✓ L1 · the lane select holds exactly A (base)
+  ✓ L1 · Keep lane and Discard lane are display:none (computed, not the attribute)
+  ✓ L2 · key a is refused, naming lane A, and nothing is drafted
+  ✓ L2 · the select shows b (draft), selected, with Keep and Discard visible
+  ✗ L2 · a draft writes nothing (ledger still 6)  14
+  ✓ L3 · the lane buttons measure at least 44×44
+  ✗ L3 · f1 reads Check the name in lane b, and nothing is written  
+  ✓ L4 · f2 shows Not in lane b
+  ✓ L4 · f1's error chip is a plain chip, never an ask button
+  ✓ L4 · the flow panel has no f2 line
+  ✗ L5 · ledger line 7 is variant.add with the whole override map, applied, owner  {"seq":7,"at":"2026-09-30T18:48:19.317Z","source":"agent","op":"screen.compose","params":{"screenId":"choose-amount","why":"Serves the owner's brief: \"confirm the payee before sending\"","composition":{"name":"stack","props":{"direction":"column","gap":"md","pad":"lg"},"children":[{"name":"screen-header","id":"title","props":{"title":"Choose the amount","showBack":true}},{"name":"text-field","id":"amount","props":{"label":"Amount","placeholder":"£0.00"}},{"name":"primary-button","id":"continue","props":{"label":"Continue"}}]},"decisionRefs":["7"]},"status":"proposed"}
+  ✓ L5 · the save wrote the pack: build/handoff/flow.md carries ## Lane b
+  ✓ L6 · lane A: f1 reads Continue
+  ✓ L6 · lane A: f1's missing asks are empty, loading, partial — no error
+  ✓ L6 · lane A: the flow panel has f1 --> f2
+  ✓ L6 · lane b: the flow panel lacks f1 --> f2 and the missing list names error
+  ✗ L6 · a lane switch writes nothing (ledger still 7)  15
+  ✓ L7 · the button wrote flow.md (removed first), equal to renderPack and carrying ## Lane b
+  ✓ L7 · a cross-origin pack POST → 403 and writes nothing
+  ✗ L8 · line 8 is an undone line restating the variant.add  {"seq":8,"at":"2026-09-30T18:48:19.321Z","source":"owner","op":"screen.compose","params":{"screenId":"choose-amount","why":"Serves the owner's brief: \"confirm the payee before sending\"","composition":{"name":"stack","props":{"direction":"column","gap":"md","pad":"lg"},"children":[{"name":"screen-header","id":"title","props":{"title":"Choose the amount","showBack":true}},{"name":"text-field","id":"amount","props":{"label":"Amount","placeholder":"£0.00"}},{"name":"primary-button","id":"continue","props":{"label":"Continue"}}]},"decisionRefs":["7"]},"status":"accepted","fromStep":7}
+  ✓ L8 · the select no longer lists b
+  ✓ L9 · verifyBuild over fp-lanes → []
+  ✓ L9 · the page's document equals foldLedger(ops.jsonl)
+  ✗ G1 · open fp-groups; f3 renders the header — threw  arrangement: node "f4" has no position — every node the ops make needs an authored x and y
+  ✗ G2 · save three parts of f3 as app-header — threw  locator.check: Timeout 30000ms exceeded.
+  ✗ G3 · ledger +1: group.place {f1, g1, screen}  {"seq":14,"at":"2026-09-30T18:48:19.555Z","source":"owner","op":"group.place","params":{"frameId":"f1","groupId":"g1","parentId":"screen"},"status":"applied"}
+  ✗ G3 · f1 renders the copy's header, g1-1/header, reading Home  
+  ✗ G4 · override the copy's title — threw  page.selectOption: Timeout 30000ms exceeded.
+  ✗ G5 · Promote — threw  locator.click: Timeout 30000ms exceeded.
+  ✓ G6 · verifyBuild over fp-groups → []
+  ✓ G6 · the pack's flow.md reads 1 group(s), 1 placed copy
+  ✓ G7 · git status identical across the pass (AC #4)
+  ✗ G8 · the group controls measure at least 44×44 (2 measured)  []
+  ✓ G8 · no page errors during the pass
+  ✓ 15 · every new control measures at least 44×44 (14 measured)
+  ✓ I1 · the refusal names "did not start" with exactly ONE action
+  ✓ I1 · …the refusal is not-running
+  ✗ I1 · …and wrote nothing under build/imports/  
+  ✓ I1 · the panel's controls measure at least 44×44
+  ✓ I2 · imports/i1.json, .md and .transcript.jsonl on disk
+  ✓ I2 · proposals/spike-list-row-2/ holds the five files
+  ✓ I2 · the record passes checkRecord
+  ✓ I2 · suggestions are off on the journey: the record carries suggestions [] and the transcript's suggest line says so
+  ✗ I2 · the ledger's last line is component.propose {name, i1, mode 1}  {"seq":15,"at":"2026-09-30T18:53:47.803Z","source":"owner","op":"component.propose","params":{"name":"spike-list-row-2","recordId":"i2","mode":1},"status":"applied"}
+  ✓ I2 · the view labels it the importer's, and fidelity missing — never a pass
+  ✓ I3 · i2 written
+  ✓ I3 · i2's record has i1's key set (AC #1b)
+  ✓ I4 · a drop rewrote mapping.json on disk
+  ✓ I4 · the view swaps build()'s child-loss row for the owner's drop row, and the total holds (#477)
+  ✗ I4 · imports/i2.json was re-derived and still passes checkRecord  
+  ✓ I4 · remap to stack + rename → the Mapped pane renders data-part="person"
+  ✓ I5 · a drop during a pending selection read is refused "already in flight"
+  ✓ I5 · the pending read resolves to the stale-binding refusal (timeout, no retry)
+  ✓ I5 · …its one action is Re-bind, routed to the binding check
+  ✓ I5 · after it, a drop succeeds
+  ✓ I7 · the page's drop after a second tab's gets a 409 with ONE action, "Reload the page"
+  ✓ I7 · …clicking it reloads, and the page's base is the ledger's length again
+  ✓ I8 · 9,000,000 bytes → 200 { refused: too-large } with ONE action, and no ledger line
+  ✓ I8 · a traversal name → 400 on the view and on the mapping route
+  ✓ I9 · the binding line waits for a click (nothing talks to Brilliant on load)
+  ✓ I9 · Check binding → "Reads: this tab's project (name not exposed) · web"
+  ✓ I9 · Check binding and Browse the page measure at least 44×44
+  ✓ I9 · Import selection → a record, not a refusal
+  ✓ I9 · i6.json's source.ids is exactly ["630fe03901352c90"], and it passes checkRecord
+  ✓ I9 · imports/i6.reference.png is on disk, a PNG
+  ✓ I9 · the ledger's last line is component.propose for this record
+  ✓ I9 · the Original pane shows the exported <img>
+  ✓ I9 · after the reload, the binding line is the read's (kept for the session)
+  ✓ I9 · dropping a part rewrote mapping.json and the view re-rendered its drop list with the owner's row
+  ✓ I11 · Browse → 2 tiles, read fresh (not from the cache)
+  ✓ I11 · each tile shows its thumbnail <img> (complete, naturalWidth > 0, alt = its name)
+  ✓ I11 · Import is disabled at 0; both tiles pressed → "Import 2 selected"
+  ✓ I11 · the tiles, Import N selected and Refresh measure at least 44×44
+  ✓ I11 · Import 2 selected → a record
+  ✓ I11 · i7.json's source.ids holds both picked ids
+  ✓ I11 · Browse again → the same 2 tiles from the session cache
+  ✓ X1 · Import selection in Mode 2 → a record and a component.propose line with mode 2
+  ✓ X1 · canvas.json places pr8 by placeExhibit, recomputed in Node ({"x":1518,"y":0})
+  ✓ X1 · after the reload, exactly one exhibit on the stage (pr8), its PNG loaded
+  ✓ X1 · …labelled "Frozen original · Mode 2"
+  ✓ X2 · measured: the exhibit's rendered box meets no frame's
+  ✓ X3 · precondition: the wide page is at scale 1
+  ✓ X3 · dragging the exhibit onto f1 is announced "Refused … beside the flow"
+  ✓ X3 · …the exhibit is put back (within 1 px)
+  ✓ X3 · …no ledger line, and the save line is not "Not saved"
+  ✓ X3b · Redo after the refusal is refused again: put back, no ledger line, never "Not saved"
+  ✓ X4 · precondition: f1 + 1440 ≤ exhibit < f2 + 1440 (0 + 1440 ≤ 1518 < 472 + 1440)
+  ✓ X4 · f2 → desktop would grow it into the exhibit: refused, f2 keeps its width
+  ✓ X4 · …and no ledger line (no applied + undone pair)
+  ✓ X4 · f1 → desktop (0 + 1440 ≤ the exhibit) is ACCEPTED — the guard does not refuse everything
+  ✓ X4 · …and undone (one undone line)
+  ✓ X4b · a pointer resize of f2 into the exhibit is refused and its width put back
+  ✓ X4b · …no ledger line, and canvas.json carries no height for f2 (the refused resize authored nothing)
+  ✓ X6 · a vertical resize authors f1's height (canvas.json carries it) and adds no ledger line
+  ✓ X6 · the exhibit dragged below f1's authored bottom is ACCEPTED: no refusal, canvas.json has it there, verifyBuild []
+  ✗ X6 · …and dragged back beside the flow  Original rectangle-1-3 moved to 10, 733.
+  ✓ X5 · a Mode 2 drop is an exhibit (pr9) with no <img> and a flag saying there is no reference image
+  ✓ X5 · verifyBuild on disk is [] after both Mode 2 imports and every gesture
+  ✓ X7 · no page errors or console errors on the wide page
+  ✓ I10 · the refusal names "not paired" with ONE action, "Import again"
+  ✓ I10 · …and the bridge's own words as the detail line
+  ✓ I10 · the action measures at least 44×44
+  ✓ I10 · clicking "Import again" sends the import again (one click, one request)
+  ✓ I10b · Import selection → "did not answer" with ONE action, "Re-bind"
+  ✓ I10b · clicking Re-bind posts the binding check
+  ✓ I10b · …and the binding line updates (a hung bridge: the check is refused, and says so)
+  ✓ I6 · git status over system/, handoff/, discovery/ and import/overrides/ unchanged across the pass (AC #4)
+  ✓ I12 · the Measure fidelity button measures at least 44×44
+  ✗ I12 · the view left missing, naming a worst region under THRESHOLD  measure-render: no @playwright/test under /Users/Berzins/wt316-probe/tooling/visual-regression/node_modules — run: cd tooling/visual-regression && npm ciShow the install commandcd tooling/visual-regression && npm ci (worst undefined)
+    · measured worst ΔE undefined at undefined (the committed replay: see faithful.measure.json)
+  ✓ I12 · the record passes checkRecord, and the page's verdict word is the DERIVED one
+  ✗ I12 · the faithful frame reads GREEN, every WCAG pair passing (#482)  missing at WCAG 12/12 (failing []), worst undefined
+  ✗ I12 · imports/<id>.candidate.png is a PNG of the reference's size  missing
+  ✓ I12 · a rename through the page reads missing — not measured, never a pass, and the PNG is gone
+  ✓ I12b · the no-renderer refusal is VISIBLE with the panel closed and names npm ci
+  ✓ I12b · …and the record on disk is unchanged
+  ✓ C1 · the compose panel shows with Ask enabled
+  ✓ C1 · …and the package carries the stand-in flag
+  ✓ C2 · one proposed agent screen.compose line
+  ✓ C2 · the card shows the brief, and its why quotes it
+  ✗ C2 · the owner's line precedes the turn's init  ["turn","text","init","op","text","stats","turn","init","op","text","stats","turn","text","init","refused","op","text","stats","turn","text","init","op","text","stats"]
+  ✓ C12 · the compose buttons measure at least 44×44
+  ✓ C3 · f3 appears and the last line is accepted/owner with fromStep
+  ✓ C3 · the error: missing button shows on f3
+  ✓ C12 · the missing-state button measures at least 44×44
+  ✓ C4 · the last line is a proposed agent state.add of f3/error
+  ✗ C5 · the last line is refused/owner with fromStep, and no new frame  {"seq":18,"at":"2026-09-30T18:54:24.824Z","source":"owner","op":"state.add","params":{"baseId":"f3","stateKey":"error","override":{"set":{"amount":{"hint":"Something went wrong — check the amount."}}}
+  ✓ C6 · proposed, accepted, proposed, refused from agent, owner, agent, owner
+  ✓ C7 · an undone line restating C2's op
+  ✗ C7 · f3 is gone from the stage and the disk fold  undo did not remove f3
+  ✓ C7 · C2's proposed line is byte-identical on disk
+  ✓ C8 · briefed:false and no owner line
+  ✓ C8 · …then Refuse
+  ✓ C9 · the ledger does not move, the transcript has a not-covered line, and the page says Not covered
+  ✓ C10 · six denied lines and the ledger does not move
+  ✓ C11 · verifyBuild [] on the compose package
+  ✓ C11 · the page's document equals the disk fold
+  ✓ C13 · a stale base on /api/canvas/compose → 409, ledger and transcript unchanged
+  ✓ C14 · the page says another tab saved and asks for a reload
+  ✓ C12 · the compose pass changed nothing under discovery/
+  ✓ 16 · no page errors or console errors across the leg
+  ✓ the leg changed nothing under discovery/ (git status identical before and after)
+  ── chromium: 152 passed, 32 failed
+
+canvas-journey ✗  32 assertion(s) failed
+exit 1

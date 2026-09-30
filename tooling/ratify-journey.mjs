@@ -40,6 +40,7 @@ import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { seedSpine } from "../portal/lib/canvas-store.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, "..");
@@ -399,7 +400,8 @@ try {
   const copied = buildTree();
   t(`tree · the clone (HEAD + diff + ${copied} untracked) starts with an empty git status`, git(T, "status", "--porcelain") === "");
   mkdirSync(path.join(J, "_discovery"), { recursive: true });
-  cpSync(path.join(T, "discovery/faster-payment"), PKG(), { recursive: true });
+  // The spine, SEEDED (#316): the committed package grows with a real run, and this journey mints i1/pr1 from the six.
+  seedSpine(path.join(T, "discovery/faster-payment"), PKG(), { discovery: true });
   const port = await freePort();
   const portal = launch(path.join(T, "portal/server.mjs"), { cwd: path.join(T, "portal"), env: { PORT: String(port), JOBS_DIR: J, UXF_IMPORT_SUGGEST: "off" } });
   const base = `http://127.0.0.1:${port}`;
