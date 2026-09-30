@@ -1,0 +1,13 @@
+diff --git a/system/loc-summary.json b/system/loc-summary.json
+index 05216d6..03e5f56 100644
+--- a/system/loc-summary.json
++++ b/system/loc-summary.json
+@@ -5,7 +5,7 @@
+       "id": "runtime",
+       "label": "design system (system/ — tokens, components, view-time modules)",
+       "files": 81,
+-      "linesApprox": 32800
++      "linesApprox": 32900
+     },
+     {
+       "id": "pages",

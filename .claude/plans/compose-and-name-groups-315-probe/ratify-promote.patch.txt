@@ -1,0 +1,549 @@
+diff --git a/portal/lib/canvas-store.mjs b/portal/lib/canvas-store.mjs
+index 143bb35..f67d703 100644
+--- a/portal/lib/canvas-store.mjs
++++ b/portal/lib/canvas-store.mjs
+@@ -32,12 +32,24 @@
+ //                is rewritten from the document on every save and never carries a fact the ops do
+ //                not, so there is nothing in it to append to. Positions are the one authored part.
+ 
+-import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+-import { join } from "node:path";
++import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
++import { basename, dirname, join } from "node:path";
+ import { applyOp, applyOps, EXHIBIT_SIZE, exhibitClashes, exhibitsOf } from "../../system/canvas-ops.mjs";
+ 
+ export const OPS_FILE = "ops.jsonl";
+ export const CANVAS_FILE = "canvas.json";
++export const GROUPS_DIR = "groups";
++
++// groupFiles(doc, run) → { "<id>.json": {id, name, parts, provenance: {run, composedFrom}} } — the groups/ projection
++// (#315, D7): derived from the fold, rewritten on every save, never a fact the ops do not carry. Id order.
++export function groupFiles(doc, run) {
++  const groups = doc && typeof doc.groups === "object" && doc.groups ? doc.groups : {};
++  return Object.fromEntries(Object.keys(groups).sort((a, b) => Number(a.slice(1)) - Number(b.slice(1))).map((id) => {
++    const g = groups[id];
++    return [`${id}.json`, { id: g.id, name: g.name, parts: g.parts, provenance: { run, composedFrom: g.composedFrom } }];
++  }));
++}
++const groupText = (v) => `${JSON.stringify(v, null, 2)}\n`;
+ 
+ // saveBuild(root, canvas, opLines) → { root, ops, canvas } — the two paths written.
+ //
+@@ -88,7 +100,15 @@ export function loadBuild(root) {
+     try { canvas = JSON.parse(readFileSync(canvasPath, "utf8")); }
+     catch (e) { throw new Error(`loadBuild: ${canvasPath} is not JSON — ${e.message}`); }
+   }
+-  return { ops, canvas };
++  const groupsDir = join(root, GROUPS_DIR);
++  const groups = {};
++  if (existsSync(groupsDir)) {
++    for (const f of readdirSync(groupsDir).filter((x) => x.endsWith(".json")).sort()) {
++      try { groups[f] = JSON.parse(readFileSync(join(groupsDir, f), "utf8")); }
++      catch (e) { throw new Error(`loadBuild: ${join(groupsDir, f)} is not JSON — ${e.message}`); }
++    }
++  }
++  return { ops, canvas, groups, run: basename(dirname(root)) };
+ }
+ 
+ // ---- #306: the fold, the derivation, the gate ----------------------------------------------------
+@@ -229,7 +249,7 @@ export function positionsOf(canvas) {
+ // shape, the fold, and canvas.json equal to what the ops derive under canvas.json's OWN positions. So
+ // a moved node can never fail it (positions are authored — #302's inverse case, kept), while any node
+ // or edge the ops do not produce, or a width they disagree with, always does.
+-export function verifyBuild({ ops, canvas } = {}) {
++export function verifyBuild({ ops, canvas, groups, run } = {}) {
+   const out = [];
+   if (!Array.isArray(ops)) return ["ops.jsonl did not load as a list of lines"];
+   ops.forEach((l, i) => {
+@@ -238,7 +258,9 @@ export function verifyBuild({ ops, canvas } = {}) {
+     if (typeof l?.at !== "string" || !l.at.endsWith("Z")) out.push(`${at}: "at" is not an ISO stamp ending Z`);
+     if (l?.source !== "owner" && l?.source !== "agent") out.push(`${at}: source ${JSON.stringify(l?.source)} is not owner or agent`);
+     if (!STATUSES.includes(l?.status)) out.push(`${at}: status ${JSON.stringify(l?.status)} is not in ${STATUSES.join(" · ")}`);
+-    if (/"x"\s*:|"y"\s*:/.test(JSON.stringify(l))) out.push(`${at}: carries an x or a y — positions live in canvas.json alone`);
++    // F10 (PR #485): only the line's own keys and its params' own keys — where a position could ever be written. A part
++    // or an override key called x deep inside params is not a position.
++    if (["x", "y"].some((k) => Object.hasOwn(l ?? {}, k) || (l?.params && typeof l.params === "object" && Object.hasOwn(l.params, k)))) out.push(`${at}: carries an x or a y — positions live in canvas.json alone`);
+     // #312: a verdict names the agent's proposal it answers, restating it, and is that proposal's only one.
+     if (l?.fromStep !== undefined) {
+       const p = ops[l.fromStep - 1];
+@@ -258,6 +280,16 @@ export function verifyBuild({ ops, canvas } = {}) {
+   try { folded = foldLedger(ops).doc; derived = arrangement(folded, positionsOf(canvas)); }
+   catch (e) { out.push(`the ledger does not fold into the arrangement: ${e.message}`); return out; }
+   out.push(...laneFlaws(folded));
++  // #315: groups/ compared only when the caller passes it (loadBuild does), so a hand-built {ops, canvas} is unaffected.
++  if (groups !== undefined) {
++    const want = groupFiles(folded, run);
++    const have = groups && typeof groups === "object" ? groups : {};
++    for (const f of Object.keys(have)) {
++      if (!Object.hasOwn(want, f)) out.push(`groups/${f} carries a fact the ops do not`);
++      else if (canon(have[f]) !== canon(want[f])) out.push(`groups/${f} is ${canon(have[f])}, the ops derive ${canon(want[f])}`);
++    }
++    for (const f of Object.keys(want)) if (!Object.hasOwn(have, f)) out.push(`groups/${f} is missing, which the ops derive`);
++  }
+   if (canvas?.$description !== derived.$description) out.push("canvas.json's $description is not the derivation's");
+   for (const kind of ["nodes", "edges"]) {
+     const want = new Map(derived[kind].map((x) => [x.id, x]));
+@@ -488,8 +520,16 @@ export function saveRun(pkgRoot, { base, ops, positions, decisions } = {}, { now
+     }
+   }
+   const canvas = arrangement(doc, positions);
++  const gfiles = groupFiles(doc, basename(pkgRoot));
+   mkdirSync(buildRoot, { recursive: true });
+   if (lines.length) appendFileSync(opsPath, lines.map((l) => `${JSON.stringify(l)}\n`).join(""));
+   writeFileSync(join(buildRoot, CANVAS_FILE), `${JSON.stringify(canvas, null, 2)}\n`);
++  // groups/ is a projection (#315, D7): every derived file written, every underived one (an undone define) removed.
++  const gdir = join(buildRoot, GROUPS_DIR);
++  if (Object.keys(gfiles).length || existsSync(gdir)) {
++    mkdirSync(gdir, { recursive: true });
++    for (const f of readdirSync(gdir)) if (f.endsWith(".json") && !Object.hasOwn(gfiles, f)) rmSync(join(gdir, f));
++    for (const [f, v] of Object.entries(gfiles)) writeFileSync(join(gdir, f), groupText(v));
++  }
+   return { count: base + lines.length };
+ }
+diff --git a/portal/lib/import-run.mjs b/portal/lib/import-run.mjs
+index 992f685..29a3b51 100644
+--- a/portal/lib/import-run.mjs
++++ b/portal/lib/import-run.mjs
+@@ -506,12 +506,12 @@ function proposalOf(buildRoot, name) {
+ 
+ // The ratify form's starting state (#313): the importer's drafted root declarations, the containers a part may be
+ // listed in (every vocabulary entry that takes many children; stack chosen), and the contract tokens a rule may use.
+-function ratifyPrefill(name, record, vocab) {
++export function ratifyPrefill(name, decls, vocab) {
+   const comps = vocab.components ?? {};
+   const contractCss = readFileSync(path.join(REPO_DIR, "system/tokens.contract.css"), "utf8");
+   return {
+     component: name, prefix: "ds",
+-    css: [{ suffix: "", decls: rootDeclarations(record.ir.children[0]) }],
++    css: [{ suffix: "", decls }],
+     props: {}, states: ["default"], example: {},
+     containerChoices: Object.keys(comps).filter((n) => comps[n].childrenCardinality === "many"),
+     containers: ["stack"],
+@@ -559,7 +559,7 @@ export function importView(pkgRoot, name) {
+     snapChoices: Object.fromEntries(Object.entries(targets).map(([f, list]) => [f, list.map((t) => t.ref)])),
+     status: held?.status ?? "proposed",
+     component: held?.status === "ratified" ? held.component : null,
+-    ratifyPrefill: ratifyPrefill(name, record, inputs.vocab),
++    ratifyPrefill: ratifyPrefill(name, rootDeclarations(record.ir.children[0]), inputs.vocab),
+     label: `mode ${record.provenance.mode} · source ${record.source.tool}${record.source.file ? ` (${record.source.file})` : ""} · drafted by the importer, not by an agent · ${fidelity}`,
+   };
+ }
+diff --git a/portal/lib/promote.mjs b/portal/lib/promote.mjs
+new file mode 100644
+index 0000000..1c0f47b
+--- /dev/null
++++ b/portal/lib/promote.mjs
+@@ -0,0 +1,111 @@
++// portal/lib/promote.mjs — hand-written canon (this repo; not generated). PROMOTE: a group composed in a run becomes
++// a proposal — admission's second entrance (epic #295 ticket #315, G17; docs/epics/canvas-design-import.architecture.md
++// § Other eng-lead calls "Compose-and-name is the default; promote is admission"). One admission path, two entrances:
++// what this writes is what an import writes, and portal/lib/ratify.mjs admits either.
++//
++// INVARIANTS — each one is asserted by build-checks group 50, not assumed:
++//   1. NO SDK, NO MODEL. Node built-ins, the store, the grammar, import-run's helpers and env only.
++//   2. NOTHING IS WRITTEN OUTSIDE <pkg>/build/proposals/<name>/, and every target is resolved before the first byte.
++//   3. THE DRAFTS ARE DETERMINISTIC AND SAY SO ON THEIR FIRST LINE — never an agent's.
++//   4. THE OP IS APPENDED LAST, through saveRun, after every file is written; a second promote of one group refuses
++//      before anything is written.
++
++import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
++import path from "node:path";
++
++import { foldLedger, groupFiles, loadBuild, loadDecisions, positionsOf, saveConflict, saveRun } from "./canvas-store.mjs";
++import { REPO_DIR } from "./env.mjs";
++import { jsonText, ratifyPrefill, underLock, underRoot } from "./import-run.mjs";
++
++const DRAFTED = (group, run) => `drafted by portal/lib/promote.mjs from group ${group.id} (${group.name}), composed in run ${run} — not by an agent; props, states, behaviour and the accessibility model are the owner's at ratify (#313)`;
++
++export function draftFromGroup({ name, group, run }) {
++  const head = { component: name, status: "proposed", class: `vd-${name}`, props: {}, tokens: [], states: [], children: [] };
++  const spec = [
++    `<!-- ${DRAFTED(group, run)} -->`,
++    "```json",
++    JSON.stringify(head, null, 2),
++    "```",
++    "",
++    "## Provenance",
++    "",
++    `- group: \`${group.id}\` (${group.name})`,
++    `- run: \`${run}\``,
++    `- composed from: \`${group.composedFrom?.frameId}\` parts ${(group.composedFrom?.partIds ?? []).map((i) => `\`${i}\``).join(", ")}`,
++    ...group.parts.map((p) => `- ${p.id} · ${p.name}`),
++    "",
++    "## Props",
++    "",
++    "## States",
++    "",
++    "## Behaviour",
++    "",
++    "## Accessibility",
++    "",
++  ].join("\n");
++  const css = [
++    `/* ${DRAFTED(group, run)} */`,
++    `/* ---------- ${name} (proposal ${name}, group ${group.id}) ---------- */`,
++    `.vd-${name} {`,
++    "  /* a composed group carries no contract token of its own — its parts do */",
++    "}",
++    "",
++  ].join("\n");
++  const template = `${JSON.stringify({ note: DRAFTED(group, run), compositions: [group.parts] }, null, 2)}\n`;
++  return { "spec.md": spec, "block.css": css, "template.txt": template };
++}
++
++export function promoteName(groupName, { taken = [], vocabNames = [] } = {}) {
++  const blocked = new Set([...taken, ...vocabNames]);
++  if (!blocked.has(groupName)) return groupName;
++  let n = 2;
++  while (blocked.has(`${groupName}-${n}`)) n += 1;
++  return `${groupName}-${n}`;
++}
++
++const vocabOf = (repoDir) => JSON.parse(readFileSync(path.join(repoDir, "handoff/verdant/vocabulary.json"), "utf8"));
++
++export async function promoteGroup({ pkgRoot, base, groupId, repoDir = REPO_DIR, now }) {
++  return underLock(async () => {
++    const buildRoot = path.join(pkgRoot, "build");
++    const conflict = saveConflict(buildRoot, base);
++    if (conflict) throw new Error(conflict);
++    const pkg = loadBuild(buildRoot);
++    const { doc } = foldLedger(pkg?.ops ?? []);
++    const group = doc.groups?.[groupId];
++    if (!group) return { refused: { kind: "no-group", message: `No group ${JSON.stringify(groupId)} in this run.`, action: { label: "Save the group first" } } };
++    const held = (doc.proposals ?? []).find((p) => p && p.groupId === groupId);
++    if (held) return { refused: { kind: "already-promoted", message: `Group ${groupId} is already proposal ${held.name} (${held.status}).`, action: { label: "Open the proposal" } } };
++    const run = path.basename(pkgRoot);
++    const vocab = vocabOf(repoDir);
++    const taken = existsSync(path.join(buildRoot, "proposals")) ? readdirSync(path.join(buildRoot, "proposals")) : [];
++    const name = promoteName(group.name, { taken, vocabNames: Object.keys(vocab.components ?? {}) });
++    const drafts = draftFromGroup({ name, group, run });
++    const dir = underRoot(buildRoot, `proposals/${name}`);
++    const targets = Object.fromEntries(["source.json", ...Object.keys(drafts)].map((f) => [f, underRoot(buildRoot, `proposals/${name}/${f}`)]));
++    mkdirSync(dir, { recursive: true });
++    writeFileSync(targets["source.json"], jsonText(groupFiles(doc, run)[`${groupId}.json`]));
++    for (const [f, text] of Object.entries(drafts)) writeFileSync(targets[f], text);
++    const { count } = saveRun(pkgRoot, {
++      base: pkg.ops.length,
++      ops: [{ op: "component.propose", params: { name, groupId, mode: 1 }, status: "applied" }],
++      positions: positionsOf(pkg.canvas), decisions: loadDecisions(pkgRoot),
++    }, now ? { now } : undefined);
++    return { name, groupId, count, view: promoteView(pkgRoot, name, { repoDir }) };
++  }, "a promote");
++}
++
++export function promoteView(pkgRoot, name, { repoDir = REPO_DIR } = {}) {
++  const buildRoot = path.join(pkgRoot, "build");
++  const src = underRoot(buildRoot, `proposals/${name}/source.json`);
++  if (!existsSync(src)) throw new Error(`promote: no promoted proposal "${name}" in ${buildRoot}`);
++  const source = JSON.parse(readFileSync(src, "utf8"));
++  const held = (foldLedger(loadBuild(buildRoot)?.ops ?? []).doc.proposals ?? []).find((p) => p && p.name === name) ?? null;
++  return {
++    name, groupId: source.id, mode: 1, status: held?.status ?? "proposed",
++    component: held?.status === "ratified" ? held.component : null,
++    dir: `build/proposals/${name}/`, source,
++    ratifyPrefill: ratifyPrefill(name, [], vocabOf(repoDir)),
++    label: `composed in run ${source.provenance?.run} from group ${source.id} · drafted by portal/lib/promote.mjs, not by an agent`,
++  };
++}
+diff --git a/portal/lib/ratify.mjs b/portal/lib/ratify.mjs
+index 1ea23bf..23c92a7 100644
+--- a/portal/lib/ratify.mjs
++++ b/portal/lib/ratify.mjs
+@@ -117,16 +117,26 @@ function prose(v, where, { required = true, max = 4000 } = {}) {
+ 
+ const typeOk = (t, v) => (t === "number" ? typeof v === "number" && Number.isFinite(v) : typeof v === t);
+ 
++// THE ORIGIN (#315, G17): what an admission was read from — an import record, or a group composed in a run. One
++// admission path, two entrances. Every function below takes either an origin or a bare import record (the #313
++// shape, kept so an import's bytes and hash are unchanged).
++export const importOrigin = (record) => ({ kind: "import", id: record.id, record });
++export const groupOrigin = (group, run) => ({ kind: "group", id: group.id, group, run });
++const originOf = (o) => (o && (o.kind === "import" || o.kind === "group") && Object.hasOwn(o, "id") ? o : importOrigin(o));
++
+ // The line every provenance carries: the registry's (≤ 200, checkAdmitted's rule) and the spec's Usage opener.
+-export function provenanceLine(record, input) {
+-  const src = record.source ?? {};
+-  const from = `imported from ${src.tool ?? "an unknown tool"}${src.file ? ` (${src.file})` : ""}`;
++export function provenanceLine(recordOrOrigin, input) {
++  const o = originOf(recordOrOrigin);
++  const src = o.kind === "import" ? o.record.source ?? {} : {};
++  const from = o.kind === "group" ? `composed in run ${o.run} from group ${o.id} (${o.group.name})`
++    : `imported from ${src.tool ?? "an unknown tool"}${src.file ? ` (${src.file})` : ""}`;
+   return `${from}, licence: ${input.licence}${input.attribution ? `; attribution: ${input.attribution}` : ""}`;
+ }
+ 
+ // checkInput(input, ctx, record) → the admitted definition (ratify's registry entry), or throws naming the path.
+ // ctx = { vocabNames, vocabClasses, containerNames, proposals, contractTokens, run, cssClasses }.
+-export function checkInput(input, ctx, record) {
++export function checkInput(input, ctx, recordOrOrigin) {
++  const origin = originOf(recordOrOrigin);
+   if (!plain(input)) throw new Error("ratify: input must be an object");
+   for (const k of Object.keys(input)) if (!INPUT_KEYS.includes(k)) bad(k, `is not an input field — the form sends ${INPUT_KEYS.join(", ")}`);
+   const { component, prefix } = input;
+@@ -165,11 +175,11 @@ export function checkInput(input, ctx, record) {
+   prose(input.licence, "licence", { max: 120 });
+   prose(input.attribution, "attribution", { required: false, max: 120 });
+   // The record's source names reach the spec's Usage line unchecked by prose(), so a line break there is refused (PR #492 F1).
+-  for (const k of ["file", "tool"]) {
+-    const v = record.source?.[k];
++  for (const k of origin.kind === "import" ? ["file", "tool"] : []) {
++    const v = origin.record.source?.[k];
+     if (typeof v === "string" && CONTROL_RE.test(v)) throw new Error(`ratify: record.source.${k} ${JSON.stringify(v)} carries a line break or control character — it would reach the spec as a line of its own; import the file again under a plain name`);
+   }
+-  if (provenanceLine(record, input).length > 200) bad("licence", "and attribution together make the provenance line longer than 200 characters — shorten one");
++  if (provenanceLine(origin, input).length > 200) bad("licence", "and attribution together make the provenance line longer than 200 characters — shorten one");
+ 
+   const st = input.structure;
+   if (!plain(st)) bad("structure", "must be an object { tag, slots, children, allowedChildren? }");
+@@ -245,7 +255,7 @@ export function checkInput(input, ctx, record) {
+ 
+   const def = {
+     tag: st.tag, class: cls, slots, children: st.children,
+-    provenance: { from: "import", record: record.id, run: ctx.run, line: provenanceLine(record, input) },
++    provenance: { from: origin.kind, record: origin.id, run: ctx.run, line: provenanceLine(origin, input) },
+   };
+   checkAdmitted(component, def, specHead(input));
+   return def;
+@@ -284,7 +294,7 @@ const inline = (v) => (Array.isArray(v) ? `[${v.map(inline).join(", ")}]`
+   : plain(v) ? (Object.keys(v).length ? `{ ${Object.entries(v).map(([k, x]) => `${JSON.stringify(k)}: ${inline(x)}`).join(", ")} }` : "{}")
+     : JSON.stringify(v));
+ 
+-export function renderSpec(input, { record, run }) {
++export function renderSpec(input, { record, origin = originOf(record), run }) {
+   const h = specHead(input);
+   const lines = ["```json", "{"];
+   const entries = Object.entries(h);
+@@ -305,7 +315,7 @@ export function renderSpec(input, { record, run }) {
+     ...lines,
+     "## Usage",
+     "",
+-    `Admitted by ratify (portal/lib/ratify.mjs) from import record \`${record.id}\` in run \`${run}\`: ${provenanceLine(record, input)}.`,
++    `Admitted by ratify (portal/lib/ratify.mjs) from ${origin.kind === "group" ? "group" : "import record"} \`${origin.id}\` in run \`${run}\`: ${provenanceLine(origin, input)}.`,
+     "",
+     input.usage.trim(),
+     "",
+@@ -325,9 +335,9 @@ export function renderSpec(input, { record, run }) {
+ }
+ 
+ // The CSS block, in the header form components.css's library primitives use (:2496's).
+-export function renderCssBlock(input, { record }) {
++export function renderCssBlock(input, { record, origin = originOf(record) }) {
+   const cls = `${input.prefix}-${input.component}`;
+-  const out = ["", `/* ---------- ${cls} (system/specs/${input.component}.md) — admitted by ratify from import ${record.id} ---------- */`];
++  const out = ["", `/* ---------- ${cls} (system/specs/${input.component}.md) — admitted by ratify from ${origin.kind} ${origin.id} ---------- */`];
+   for (const r of input.css) {
+     out.push(`.${cls}${r.suffix} {`, ...r.decls.map(([k, v]) => `  ${k}: ${v};`), "}");
+   }
+@@ -429,16 +439,16 @@ const lineCount = (s) => s.split("\n").length;
+ // earlier admissions' slot classes alike.
+ const classesOf = (css) => [...new Set([...css.matchAll(/\.((?:ds|vd)-[a-z0-9-]+)/g)].map((m) => m[1]))];
+ 
+-export function planRatify({ head, run, proposal, record, drafts, input, files, ctx }) {
++export function planRatify({ head, run, proposal, record, origin = originOf(record), drafts, input, files, ctx }) {
+   if (typeof head !== "string" || !/^[0-9a-f]{40}$/.test(head)) throw new Error(`ratify: HEAD ${JSON.stringify(head)} is not a commit sha`);
+   const need = (p) => { if (typeof files[p] !== "string") throw new Error(`ratify: the plan needs the text of ${p}`); return files[p]; };
+-  const def = checkInput(input, { ...ctx, run, cssClasses: classesOf(need(ANCHORS.css)) }, record);
++  const def = checkInput(input, { ...ctx, run, cssClasses: classesOf(need(ANCHORS.css)) }, origin);
+   const name = input.component;
+   const pin = rewritePin(need(ANCHORS.pin), (w, n, n1) =>
+-    `${w}/${n} → ${w}/${n1}: ${name} admitted by ratify from import ${record.id} (run ${run}) — wrapper-less, no vd-${name} custom element, so its absent vd/react tabs are honest`);
++    `${w}/${n} → ${w}/${n1}: ${name} admitted by ratify from ${origin.kind} ${origin.id} (run ${run}) — wrapper-less, no vd-${name} custom element, so its absent vd/react tabs are honest`);
+   const writes = [
+-    { path: `system/specs/${name}.md`, kind: "create", bytes: renderSpec(input, { record, run }) },
+-    { path: ANCHORS.css, kind: "append", bytes: need(ANCHORS.css) + renderCssBlock(input, { record }) },
++    { path: `system/specs/${name}.md`, kind: "create", bytes: renderSpec(input, { origin, run }) },
++    { path: ANCHORS.css, kind: "append", bytes: need(ANCHORS.css) + renderCssBlock(input, { origin }) },
+     { path: ANCHORS.registry, kind: "rewrite", bytes: rewriteRegistry(need(ANCHORS.registry), name, def) },
+     { path: ANCHORS.palette, kind: "rewrite", bytes: rewritePalette(need(ANCHORS.palette), name) },
+     { path: ANCHORS.pin, kind: "rewrite", bytes: pin.text },
+@@ -448,7 +458,7 @@ export function planRatify({ head, run, proposal, record, drafts, input, files,
+   const withLines = writes.map((w) => ({ ...w, lines: w.kind === "create" ? lineCount(w.bytes) : lineCount(w.bytes) - lineCount(files[w.path]) }));
+   const hash = ratifyHash({
+     head, proposalId: proposal.id,
+-    recordSha: sha256(jsonText(sortKeys(record))),
++    recordSha: sha256(jsonText(sortKeys(origin.kind === "group" ? origin.group : origin.record))),
+     draftsSha: sha256(JSON.stringify(sortKeys(drafts))),
+     input,
+     writes: writes.map((w) => ({ path: w.path, kind: w.kind, sha256: sha256(w.bytes) })),
+@@ -506,7 +516,17 @@ function readState({ pkgRoot, name, input, repoDir, git }) {
+   const { doc } = foldLedger(pkg.ops);
+   const proposal = (doc.proposals ?? []).find((p) => p && p.name === name);
+   if (!proposal) return { refused: { kind: "no-proposal", message: `No proposal named "${name}" in this package.`, action: { label: "Import again" } } };
+-  const record = JSON.parse(readFileSync(underRoot(buildRoot, `imports/${proposal.recordId}.json`), "utf8"));
++  // #315: a promoted group's proposal names its group, and the group is the ledger's (doc.groups), never a file read.
++  let record = null;
++  let origin;
++  if (proposal.groupId) {
++    const group = doc.groups?.[proposal.groupId];
++    if (!group) return { refused: { kind: "no-group", message: `Proposal "${name}" names group ${proposal.groupId}, which this package's ledger does not hold.`, action: { label: "Open another run" } } };
++    origin = groupOrigin(group, path.basename(pkgRoot));
++  } else {
++    record = JSON.parse(readFileSync(underRoot(buildRoot, `imports/${proposal.recordId}.json`), "utf8"));
++    origin = importOrigin(record);
++  }
+   const drafts = Object.fromEntries(["spec.md", "block.css", "template.txt"].map((f) => [f, readFileSync(underRoot(buildRoot, `proposals/${name}/${f}`), "utf8")]));
+   const vocab = JSON.parse(readText(repoDir, "handoff/verdant/vocabulary.json"));
+   const comps = vocab.components ?? {};
+@@ -522,7 +542,7 @@ function readState({ pkgRoot, name, input, repoDir, git }) {
+   const containers = plain(input) && Array.isArray(input.containers) ? input.containers : [];
+   for (const c of containers) if (ctx.containerNames.includes(c)) files[`system/specs/${c}.md`] = readText(repoDir, `system/specs/${c}.md`);
+   const head = git(["rev-parse", "HEAD"], { cwd: repoDir }).trim();
+-  return { buildRoot, pkg, doc, proposal, record, drafts, ctx, files, head, run: path.basename(pkgRoot) };
++  return { buildRoot, pkg, doc, proposal, record, origin, drafts, ctx, files, head, run: path.basename(pkgRoot) };
+ }
+ 
+ function dirty({ repoDir, git }) {
+@@ -544,7 +564,7 @@ const noIcons = (repoDir) => (existsSync(path.join(repoDir, ICONS_DIR)) ? null :
+ function plannedOrRefused(state, input) {
+   try {
+     applyOp(state.doc, { op: "proposal.ratify", params: { proposalId: state.proposal.id, component: input?.component } });
+-    return planRatify({ head: state.head, run: state.run, proposal: state.proposal, record: state.record, drafts: state.drafts, input, files: state.files, ctx: state.ctx });
++    return planRatify({ head: state.head, run: state.run, proposal: state.proposal, origin: state.origin, drafts: state.drafts, input, files: state.files, ctx: state.ctx });
+   } catch (e) {
+     return { refused: { kind: "invalid", message: e.message, action: { label: "Fix the form, then preview again" } } };
+   }
+@@ -656,6 +676,8 @@ export async function runRatify({ pkgRoot, name, input, hash, base, repoDir = RE
+       const proposedAt = ops.find((l) => l.op === "component.propose" && l.params?.name === name && l.status === "applied")?.at;
+       const ratifiedAt = ops[ops.length - 1].at;
+       const ms = Date.parse(ratifiedAt) - Date.parse(proposedAt);
++      // A group has no import record to stamp (#315): the ledger's proposal.ratify line is the whole fact.
++      if (state.origin.kind !== "import") return { ok: true, component: input.component, gates, diff, checklist: CHECKLIST };
+       const r = state.record;
+       const record = buildRecord({
+         id: r.id, source: r.source, ir: r.ir, recognition: r.recognition, mapping: r.mapping,
+diff --git a/system/canvas-ops.mjs b/system/canvas-ops.mjs
+index 7803242..cbcba3a 100644
+--- a/system/canvas-ops.mjs
++++ b/system/canvas-ops.mjs
+@@ -66,6 +66,7 @@ export const OPS = Object.freeze([
+   "variant.add",
+   "component.propose",
+   "proposal.ratify",
++  "group.define",
+ ]);
+ 
+ // EXACT, NOT MINIMAL — an unknown key throws rather than being ignored. discovery/ops.mjs's rule and
+@@ -82,8 +83,9 @@ export const PARAMS = Object.freeze({
+   "frame.link": Object.freeze(["frameId", "decisionRefs"]),
+   annotate: Object.freeze(["noteId", "text"]),
+   "variant.add": Object.freeze(["key", "overrides"]),
+-  "component.propose": Object.freeze(["name", "recordId", "mode"]),
++  "component.propose": Object.freeze(["name", "recordId", "groupId", "mode"]),
+   "proposal.ratify": Object.freeze(["proposalId", "component"]),
++  "group.define": Object.freeze(["groupId", "name", "frameId", "partIds"]),
+ });
+ 
+ // The params a verb may omit. Everything else in its PARAMS entry is required, which is the half of
+@@ -94,6 +96,8 @@ const OPTIONAL = Object.freeze({
+   "frame.size": Object.freeze(["preset", "width"]),
+   connect: Object.freeze(["trigger"]),
+   annotate: Object.freeze(["noteId"]),
++  "component.propose": Object.freeze(["recordId", "groupId"]),
++  "group.define": Object.freeze(["groupId"]),
+ });
+ 
+ // A variant's key: short, lowercase, a slug. It names a lane on the canvas and in the handoff, so it
+@@ -230,6 +234,7 @@ export function applyOp(doc, op) {
+   next.notes ??= [];
+   next.variants ??= [];
+   next.proposals ??= [];
++  next.groups ??= {};
+   const frameIds = () => new Set(next.frames.map((f) => f.id));
+   // Named by the verb that asked, so a dangling reference says which op could not resolve it rather
+   // than which lookup failed. discovery/ops.mjs's resolveAnswer shape.
+@@ -470,6 +475,15 @@ export function applyOp(doc, op) {
+       if (typeof p.name !== "string" || !PROPOSAL_NAME_RE.test(p.name)) {
+         throw new Error(`component.propose: name ${JSON.stringify(p.name)} is not a component name — lowercase letters, digits and hyphens, 2–40, starting with a letter`);
+       }
++      if ((p.recordId === undefined) === (p.groupId === undefined)) throw new Error(`component.propose: give recordId or groupId, exactly one — this op carried ${p.recordId === undefined ? "neither" : "both"}`);
++      if (p.groupId !== undefined) {
++        if (typeof p.groupId !== "string" || !Object.hasOwn(next.groups, p.groupId)) throw new Error(`component.propose: groupId ${JSON.stringify(p.groupId)} does not resolve`);
++        if (p.mode !== 1) throw new Error(`component.propose: mode ${JSON.stringify(p.mode)} — a composed group is never a frozen original`);
++        if (next.proposals.some((x) => x.name === p.name)) throw new Error(`component.propose: duplicate name "${p.name}" — a proposal of that name already exists`);
++        if (next.proposals.some((x) => x.groupId === p.groupId)) throw new Error(`component.propose: group "${p.groupId}" already has a proposal — one proposal per group`);
++        next.proposals.push({ id: nextId("pr", new Set(next.proposals.map((x) => x.id))), name: p.name, groupId: p.groupId, mode: 1, status: "proposed" });
++        break;
++      }
+       if (typeof p.recordId !== "string" || !/^i[1-9][0-9]*$/.test(p.recordId)) {
+         throw new Error(`component.propose: recordId ${JSON.stringify(p.recordId)} is not an import record id (i1, i2, …)`);
+       }
+@@ -503,6 +517,21 @@ export function applyOp(doc, op) {
+       next.proposals[at] = { ...entry, status: "ratified", component: p.component };
+       break;
+     }
++    case "group.define": {
++      // PROBE-MINIMAL (#315 probe B): derive the parts from the frame's resolved tree, in document order.
++      if (typeof p.name !== "string" || !PROPOSAL_NAME_RE.test(p.name)) throw new Error(`group.define: name ${JSON.stringify(p.name)} is not a component name`);
++      const t = frameTree(next, p.frameId);
++      if (!t.tree) throw new Error(`group.define: frame "${p.frameId}" has no tree (${t.flags.map((f) => f.kind).join(", ")})`);
++      const want = new Set(p.partIds);
++      const parts = [];
++      const walk = (n) => { if (!plainObject(n)) return; if (want.has(n.id)) { parts.push(structuredClone(n)); return; } (n.children ?? []).forEach(walk); };
++      walk(t.tree);
++      if (parts.length !== want.size) throw new Error(`group.define: a part id does not resolve in "${p.frameId}"`);
++      refuseFrozen("group.define", parts, next);
++      const id = p.groupId ?? nextId("g", new Set(Object.keys(next.groups)));
++      next.groups[id] = { id, name: p.name, parts, composedFrom: { frameId: p.frameId, partIds: parts.map((x) => x.id) } };
++      break;
++    }
+     // Unreachable: checkOp refused every verb outside OPS. Kept because the day an eleventh verb is
+     // added to OPS and not to the switch, this is the line that says so.
+     default: throw new Error(`"${op.op}" is in OPS but has no case in the applier`);
+diff --git a/system/templates.admitted.mjs b/system/templates.admitted.mjs
+index 356b806..8cc1a91 100644
+--- a/system/templates.admitted.mjs
++++ b/system/templates.admitted.mjs
+@@ -35,7 +35,9 @@ export const ADMIT_CLASS_RE = /^(ds|vd)-[a-z][a-z0-9-]{1,39}$/;
+ const ATTR_RE = /^data-[a-z][a-z0-9-]*$/;
+ // Attributes the renderer and the canvas set on a rendered part themselves; a slot claiming one breaks selection.
+ const RESERVED_ATTRS = Object.freeze(["data-part", "data-stx-id", "data-stx-selected"]);
+-const RECORD_RE = /^i[1-9][0-9]*$/;
++// Where an admission came from (#315): an import record (i1) or a group composed in a run (g1) — one admission path,
++// two entrances. The key stays `record` for both: the id of the thing the admission was read from.
++export const PROVENANCE_FROM = Object.freeze({ import: /^i[1-9][0-9]*$/, group: /^g[1-9][0-9]*$/ });
+ const RUN_RE = /^[a-z0-9-]{1,48}$/;
+ 
+ const plain = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
+@@ -88,8 +90,10 @@ export function checkAdmitted(name, def, spec) {
+   const pv = def.provenance;
+   if (!plain(pv)) throw new Error(`${at("provenance")} must be an object { ${PROVENANCE_KEYS.join(", ")} }`);
+   for (const k of Object.keys(pv)) if (!PROVENANCE_KEYS.includes(k)) throw new Error(`${at(`provenance.${k}`)} is not a provenance key`);
+-  if (pv.from !== "import") throw new Error(`${at("provenance.from")} ${JSON.stringify(pv.from)} must be "import"`);
+-  if (typeof pv.record !== "string" || !RECORD_RE.test(pv.record)) throw new Error(`${at("provenance.record")} ${JSON.stringify(pv.record)} is not an import record id (i1, i2, …)`);
++  if (!Object.hasOwn(PROVENANCE_FROM, pv.from)) throw new Error(`${at("provenance.from")} ${JSON.stringify(pv.from)} must be "import" or "group"`);
++  if (typeof pv.record !== "string" || !PROVENANCE_FROM[pv.from].test(pv.record)) {
++    throw new Error(`${at("provenance.record")} ${JSON.stringify(pv.record)} is not ${pv.from === "group" ? "a group id (g1, g2, …)" : "an import record id (i1, i2, …)"}`);
++  }
+   if (typeof pv.run !== "string" || !RUN_RE.test(pv.run)) throw new Error(`${at("provenance.run")} ${JSON.stringify(pv.run)} is not a run slug`);
+   if (typeof pv.line !== "string" || !pv.line.trim() || pv.line.length > 200) {
+     throw new Error(`${at("provenance.line")} must be a non-empty string of at most 200 characters`);
+diff --git a/tooling/build-checks.mjs b/tooling/build-checks.mjs
+index 1d8afbf..f750640 100644
+--- a/tooling/build-checks.mjs
++++ b/tooling/build-checks.mjs
+@@ -11256,7 +11256,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href)
+   const names = (fn, ...must) => { const m = threw(fn); return m && must.every((w) => m.includes(w)) ? null : `${m ?? "NO THROW"}`; };
+ 
+   // --- 35.1 the roster, BOTH directions, frozen BY MUTATION -------------------------------------
+-  ok(COPS.length === 12 && Object.keys(CPARAMS).length === COPS.length
++  ok(COPS.length === 13 && Object.keys(CPARAMS).length === COPS.length
+     && COPS.every((v) => Array.isArray(CPARAMS[v]))
+     && Object.keys(CPARAMS).every((v) => COPS.includes(v)),
+     `OPS (${COPS.join(", ")}) and PARAMS (${Object.keys(CPARAMS).join(", ")}) are not the same twelve verbs — #302's six, #306's four, #311's one and #313's one`);
+@@ -11287,6 +11287,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href)
+     "variant.add": { key: "b", overrides: { f1: { set: {} } } },
+     "component.propose": { name: "spike-list-row", recordId: "i1", mode: 1 },
+     "proposal.ratify": { proposalId: "pr1", component: "person-row" },
++    "group.define": { name: "app-header", frameId: "f3", partIds: ["title"] },
+   };
+   for (const verb of COPS) {
+     ok(VALID_FOR[verb], `no VALID_FOR fixture for "${verb}" — every verb needs one minimal valid op here, or this group iterates OPS in name only`);
+@@ -11494,6 +11495,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href)
+       // mints pr1 for proposal.ratify's control; its name and record differ from VALID_FOR["component.propose"]'s,
+       // so that verb's own control still owes the document nothing (#313).
+       { op: "component.propose", params: { name: "kept-row", recordId: "i9", mode: 1 } },
++      { op: "screen.compose", params: { ...VALID_FOR["screen.compose"], screenId: "home", composition: { name: "stack", id: "screen", children: [{ name: "text", id: "title", props: { role: "heading", content: "Home" } }] } } },
++      { op: "group.define", params: { name: "kept-group", frameId: "f3", partIds: ["title"] } },
+     ]) ?? emptyDoc();
+     ok(threw(() => applyOp(doc, { op: verb, params: VALID_FOR[verb] })) === null,
+       `the minimal VALID_FOR op for "${verb}" was REFUSED (${threw(() => applyOp(doc, { op: verb, params: VALID_FOR[verb] }))}) — every refusal above would pass on an applier that refuses everything`);

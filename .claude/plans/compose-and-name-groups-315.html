@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Saved groups brief</title>
+<style>
+:root{--bg:#fbfaf7;--fg:#1f2328;--muted:#5b6470;--line:#dcd8cf;--card:#fff;--accent:#2f6f5e}
+@media (prefers-color-scheme:dark){:root{--bg:#16181b;--fg:#e8e6e1;--muted:#a3a9b1;--line:#33373d;--card:#1e2125;--accent:#7cc4ad}}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.55 system-ui,sans-serif}
+main{max-width:760px;margin:0 auto;padding:32px 16px 64px}
+h1{font-size:26px;margin:0 0 6px}h2{font-size:18px;margin:36px 0 10px}
+p,li{max-width:66ch}.muted{color:var(--muted)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:12px 0}
+.card h3{margin:0 0 6px;font-size:16px}
+pre{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px 12px;overflow-x:auto;font-size:13px;margin:8px 0 0}
+code{font-family:ui-monospace,Menlo,monospace;font-size:.92em}
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.box{border:1px solid var(--accent);border-radius:8px;padding:8px 10px;font-size:14px;background:var(--card)}
+.arrow{color:var(--muted)}
+ul.prompts{list-style:none;padding:0}
+ul.prompts li{display:flex;justify-content:space-between;gap:12px;align-items:center;border-bottom:1px solid var(--line);padding:8px 0;max-width:none}
+.copy{opacity:.35;border:0;background:none;color:inherit;cursor:pointer;font-size:15px;line-height:1;min-width:32px;min-height:32px}
+.copy:hover,.copy:focus-visible{opacity:1}.copy::before{content:'⧉'}.copy.copied::before{content:'✓'}
+a{color:var(--accent)}
+</style></head><body><main>
+<h1>Saved groups on the build canvas</h1>
+<p class="muted">The full plan: <a href="compose-and-name-groups-315.md">compose-and-name-groups-315.md</a></p>
+
+<h2>What we're building and why</h2>
+<p>Today every screen on the canvas is built part by part, so a header shared by five screens is five separate copies. After this, the owner saves a few parts as a named group, places copies of it anywhere, and can promote it to a real component.</p>
+
+<h2>The concepts this rests on</h2>
+<div class="card"><h3>1. Definition and instances</h3>
+<p>A definition is the master copy; an instance is a placed copy that points back to it. Change the master and every copy changes. This plan needs it so a shared header is designed once.</p>
+<pre>group g1 "app-header"  → title · help button · icon
+screen A: [copy g1-1]   screen B: [copy g1-2]</pre></div>
+
+<div class="card"><h3>2. Overrides</h3>
+<p>An override is a short note on one copy saying "same as the master, except this". It works like a sticky note on a photocopy. One copy's title can say "Add a payee" while the master still says "Home".</p>
+<pre>g1-2 overrides: { set: { header: { title: "Add a payee" } } }</pre></div>
+
+<div class="card"><h3>3. The ledger (append-only record)</h3>
+<p>Every change is a new line in a log file, and lines are never edited or removed. The group file on disk is recomputed from that log, so the two can never disagree.</p>
+<pre>ops.jsonl      ← the truth, one line per change
+groups/g1.json ← rewritten from it on every save</pre></div>
+
+<div class="card"><h3>4. Promotion as admission</h3>
+<p>Admission is how a new part joins the official component library. Promote sends a group through the same door an imported design uses, and the owner still approves it. One door means one set of checks.</p></div>
+
+<h2>How the pieces fit</h2>
+<div class="flow">
+<span class="box">Tick parts, name them</span><span class="arrow">→</span>
+<span class="box">Definition in the ledger</span><span class="arrow">→</span>
+<span class="box">Place copies + overrides</span><span class="arrow">→</span>
+<span class="box">Screen renders expanded copies</span><span class="arrow">→</span>
+<span class="box">Promote → proposal</span><span class="arrow">→</span>
+<span class="box">Owner ratifies</span>
+</div>
+
+<h2>The plan at a glance</h2>
+<ul>
+<li><b>Grammar</b>: two new change types and the copy expansion.</li>
+<li><b>Storage</b> (after grammar): write and check <code>groups/</code>.</li>
+<li><b>Promote + ratify</b> (after storage): the proposal and its provenance line.</li>
+<li><b>Page</b> (after promote): tick, place, override, promote.</li>
+<li><b>Handoff count</b> (after grammar only): groups vs admissions.</li>
+<li><b>Checks, journey, docs</b> (last).</li>
+</ul>
+<pre>system/canvas-ops.mjs            # the two new changes, copies expanded
+portal/lib/canvas-store.mjs      # writes groups/&lt;id&gt;.json
+portal/lib/promote.mjs           # new: group → proposal folder
+portal/lib/ratify.mjs            # "composed in run X"
+portal/public/canvas-groups.mjs  # new: the owner's controls
+agent-layer/gen-build-handoff.mjs# prints the count
+tooling/build-checks.mjs         # the proofs
+tooling/canvas-journey.mjs       # the browser walk-through</pre>
+<ul>
+<li>Save, place twice, edit master, override one copy, blocked delete — all proven.</li>
+<li>A browser walk-through ends with a proposal folder whose source is the group.</li>
+<li>The handoff's group-vs-admission count is checked on a fixture.</li>
+<li>A promoted group is approved all the way into the component library, with every check green.</li>
+<li>Saving and placing never write to the design system; only Promote writes a proposal.</li>
+</ul>
+
+<h2>Go deeper</h2>
+<ul class="prompts">
+<li data-prompt="/learn definitions and instances in design tools"><span><b>/learn definitions and instances in design tools</b> — masters, copies, and how edits flow.</span><button class="copy" aria-label="Copy prompt"></button></li>
+<li data-prompt="/learn override layering"><span><b>/learn override layering</b> — why the order changes are applied in matters.</span><button class="copy" aria-label="Copy prompt"></button></li>
+<li data-prompt="/learn event sourcing with an append-only log"><span><b>/learn event sourcing with an append-only log</b> — files recomputed from a log.</span><button class="copy" aria-label="Copy prompt"></button></li>
+<li data-prompt="/learn single admission path for a component library"><span><b>/learn single admission path for a component library</b> — one door, one set of checks.</span><button class="copy" aria-label="Copy prompt"></button></li>
+</ul>
+</main>
+<script>
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.copy')
+  if (!btn) return
+  const text = btn.closest('[data-prompt]').dataset.prompt
+  try {
+    await navigator.clipboard.writeText(text)
+  } catch {
+    const ta = Object.assign(document.createElement('textarea'), { value: text })
+    ta.style.cssText = 'position:fixed;opacity:0'
+    document.body.append(ta)
+    ta.select()
+    document.execCommand('copy')
+    ta.remove()
+  }
+  btn.classList.add('copied')
+  setTimeout(() => btn.classList.remove('copied'), 1200)
+})
+</script>
+</body></html>

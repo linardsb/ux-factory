@@ -1,0 +1,58 @@
+import { cpSync, mkdtempSync, readFileSync, readdirSync, existsSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { execFileSync } from "node:child_process";
+const ROOT = process.cwd();
+const CS = await import(join(ROOT, "portal/lib/canvas-store.mjs"));
+const PR = await import(join(ROOT, "portal/lib/promote.mjs"));
+export async function seedGroup(pkg) {
+  let b = CS.loadBuild(join(pkg, "build"));
+  const positions = { ...CS.positionsOf(b.canvas), f3: { x: 1600, y: 0 } };
+  CS.saveRun(pkg, { base: b.ops.length, positions, decisions: CS.loadDecisions(pkg), ops: [
+    { op: "screen.compose", status: "applied", params: { screenId: "home", why: "the header case: a title, a help button and a mark shared by every screen", decisionRefs: [], composition: { name: "stack", id: "screen", props: { direction: "column", gap: "md" }, children: [
+      { name: "screen-header", id: "header", props: { title: "Home" } },
+      { name: "ghost-button", id: "help", props: { label: "Help" } },
+      { name: "icon", id: "mark", props: { name: "info", size: "md" } } ] } } },
+    { op: "group.define", status: "applied", params: { name: "app-header", frameId: "f3", partIds: ["header", "help", "mark"] } },
+  ] });
+}
+if (process.argv[2] === "run") {
+  const pkg = join(mkdtempSync(join(tmpdir(), "p315-promote-")), "fp-groups");
+  cpSync(join(ROOT, "discovery/faster-payment"), pkg, { recursive: true });
+  const sysBefore = execFileSync("git", ["status", "--porcelain", "--", "system", "handoff"], { encoding: "utf8" });
+  const list = (d) => existsSync(d) ? readdirSync(d, { recursive: true }).sort() : [];
+  const before = list(join(pkg, "build"));
+  await seedGroup(pkg);
+  const afterDefine = list(join(pkg, "build"));
+  console.log("after define new:", afterDefine.filter((f) => !before.includes(f)));
+  console.log("verifyBuild after define:", JSON.stringify(CS.verifyBuild(CS.loadBuild(join(pkg, "build")))));
+  const r = await PR.promoteGroup({ pkgRoot: pkg, base: CS.loadBuild(join(pkg, "build")).ops.length, groupId: "g1" });
+  const afterPromote = list(join(pkg, "build"));
+  console.log("promote:", r.name, r.groupId, r.count, r.refused ?? "");
+  console.log("after promote new:", afterPromote.filter((f) => !afterDefine.includes(f)));
+  const src = readFileSync(join(pkg, "build/proposals/app-header/source.json"));
+  const grp = readFileSync(join(pkg, "build/groups/g1.json"));
+  console.log("source.json byte-equals groups/g1.json:", src.equals(grp));
+  const ops = CS.loadBuild(join(pkg, "build")).ops;
+  console.log("last line:", JSON.stringify(ops[ops.length - 1]));
+  console.log("verifyBuild after promote:", JSON.stringify(CS.verifyBuild(CS.loadBuild(join(pkg, "build")))));
+  const again = await PR.promoteGroup({ pkgRoot: pkg, base: ops.length, groupId: "g1" });
+  console.log("second promote:", JSON.stringify(again.refused));
+  console.log("no-group:", JSON.stringify((await PR.promoteGroup({ pkgRoot: pkg, base: ops.length, groupId: "g9" })).refused?.kind));
+  console.log("view label:", r.view.label, "| prefill containers:", r.view.ratifyPrefill.containerChoices);
+  console.log("system/handoff unchanged:", sysBefore === execFileSync("git", ["status", "--porcelain", "--", "system", "handoff"], { encoding: "utf8" }));
+  console.log("spec first line:", readFileSync(join(pkg, "build/proposals/app-header/spec.md"), "utf8").split("\n")[0]);
+  // F10: an x-keyed override in a state
+  const b = CS.loadBuild(join(pkg, "build"));
+  const withX = [...b.ops, { seq: b.ops.length + 1, at: "2026-09-30T00:00:00.000Z", source: "owner", op: "state.add", params: { baseId: "f3", stateKey: "error", override: { set: { x: { label: "a" } } } }, status: "applied" }];
+  const v1 = CS.verifyBuild({ ...b, ops: withX, canvas: { ...b.canvas, nodes: [...b.canvas.nodes] } });
+  console.log("F10 set:{x:…} verify:", JSON.stringify(v1.filter((l) => l.includes("x or a y"))));
+  const top = [...b.ops.slice(0, -1), { ...b.ops[b.ops.length - 1], x: 3 }];
+  console.log("F10 top-level x:", JSON.stringify(CS.verifyBuild({ ...b, ops: top }).filter((l) => l.includes("x or a y"))));
+  // undo of the define → file removed? (LIFO: the propose line is on top, so undo propose, then define)
+  // groups drift
+  const g = { ...b.groups, "g1.json": { ...b.groups["g1.json"], name: "renamed" }, "g9.json": {} };
+  console.log("hand-edit + orphan:", JSON.stringify(CS.verifyBuild({ ...b, groups: g }).filter((l) => l.startsWith("groups/"))));
+  console.log("missing:", JSON.stringify(CS.verifyBuild({ ...b, groups: {} }).filter((l) => l.startsWith("groups/"))));
+  console.log("PKG", pkg);
+}

@@ -1,0 +1,30 @@
+import * as CP from "node:child_process";
+import { cpSync, mkdtempSync, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { createHash } from "node:crypto";
+const ROOT = process.cwd();
+const RF = await import(join(ROOT, "portal/lib/ratify.mjs"));
+const IR = await import(join(ROOT, "portal/lib/import-run.mjs"));
+const scratch = (t) => mkdtempSync(join(tmpdir(), `p315-${t}-`));
+const PKG = join(scratch("plan"), "pkg"); cpSync(join(ROOT, "discovery/faster-payment"), PKG, { recursive: true });
+const ledger = (pkg) => readFileSync(join(pkg, "build/ops.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
+import { existsSync, writeFileSync } from "node:fs";
+const FX="/tmp/p315/fixture.json";
+let RECORD, DRAFTS, dropped;
+if (existsSync(FX)) ({ RECORD, DRAFTS, dropped } = JSON.parse(readFileSync(FX,"utf8"))); else {
+dropped = await IR.runImport({ pkgRoot: PKG, provenance: "real", base: ledger(PKG).length, entrance: "drop", file: { name: "spike-c.txt", bytes: readFileSync(join(ROOT, "import/fixtures/spike-c-instance.blueprint.txt")) }, overridesDir: scratch("ov") });
+RECORD = JSON.parse(readFileSync(join(PKG, `build/imports/${dropped.recordId}.json`), "utf8"));
+DRAFTS = Object.fromEntries(["spec.md", "block.css", "template.txt"].map((f) => [f, readFileSync(join(PKG, `build/proposals/${dropped.name}/${f}`), "utf8")]));
+writeFileSync(FX, JSON.stringify({RECORD,DRAFTS,dropped}));}
+const PROPOSAL = { id: "pr1", name: dropped.name, recordId: dropped.recordId, mode: 1, status: "proposed" };
+const VOC = JSON.parse(readFileSync(join(ROOT, "handoff/verdant/vocabulary.json"), "utf8")).components;
+const CTX = { vocabNames: Object.keys(VOC), vocabClasses: Object.values(VOC).map((c) => c.class), containerNames: Object.keys(VOC).filter((n) => VOC[n].childrenCardinality === "many"), proposals: [PROPOSAL], contractTokens: RF.contractTokensOf(readFileSync(join(ROOT, "system/tokens.contract.css"), "utf8")) };
+const FILES = Object.fromEntries([...Object.values(RF.ANCHORS), "system/specs/stack.md", "system/specs/list.md"].map((p) => [p, process.env.ORIG ? CP.execFileSync("git",["show",`HEAD:${p}`],{encoding:"utf8",maxBuffer:1<<28}) : readFileSync(join(ROOT, p), "utf8")]));
+const INPUT = { component: "probe-row", prefix: "ds", props: { name: { type: "string", required: true, description: "the person's name" }, meta: { type: "string", required: false, description: "one line under the name" } }, states: ["default"], stateNotes: { default: "the only state — a row is not a control" }, usage: "A row naming one person.", accessibility: "Plain text in a div; the row adds no interaction.", structure: { tag: "div", slots: [{ prop: "name", as: "text", tag: "span", suffix: "-name" }, { prop: "meta", as: "text", tag: "span", suffix: "-meta" }], children: "none" }, containers: ["stack"], css: [{ suffix: "", decls: [["gap", "var(--spacing-sm)"], ["padding", "var(--spacing-sm)"]] }, { suffix: "-meta", decls: [["color", "var(--color-fg-muted)"]] }], example: { name: "Ada Lovelace", meta: "Payee" }, licence: "the owner's own drawing (spike C fixture)", attribution: "" };
+const P = RF.planRatify({ head: "0".repeat(40), run: "fp-ratify", proposal: PROPOSAL, record: RECORD, drafts: DRAFTS, input: INPUT, files: FILES, ctx: CTX });
+const sha = (s) => createHash("sha256").update(s).digest("hex").slice(0, 16);
+console.log("hash", P.hash);
+for (const w of P.writes) console.log(w.path, w.kind, sha(w.bytes), w.lines);
+console.log("def", sha(JSON.stringify(P.def)));
+console.log("pin", JSON.stringify(P.pin));
