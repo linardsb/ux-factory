@@ -448,3 +448,12 @@
 }
 .cv-import-tile[aria-pressed="true"] { border-color: var(--color-accent); box-shadow: inset 0 0 0 1px var(--color-accent); }
 .cv-import-tile img { display: block; max-width: 100%; height: auto; }
+
+/* #314: lanes, the flow panel, and a frame left out of the active lane. Buttons reuse .cv-btn (44×44). */
+.cv-lanes { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-xs); }
+.cv-lane-label { font-size: var(--type-caption); color: var(--color-fg-muted); }
+.cv-lane-select, .cv-lane-key { min-height: 44px; }
+.cv-flow { display: flex; flex-direction: column; gap: var(--spacing-xs); min-width: 0; }
+.cv-flow-title { margin: 0; font-size: var(--type-caption); }
+.cv-flow-text { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--type-caption); }
+.cv-flow-missing { margin: 0; padding-left: var(--spacing-md); font-size: var(--type-caption); }

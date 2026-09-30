@@ -251,8 +251,10 @@ export function verifyBuild({ ops, canvas } = {}) {
     } else if (l?.status === "accepted") out.push(`${at}: an accepted line names the proposal it answers (fromStep)`);
   });
   let derived;
-  try { derived = arrangement(foldLedger(ops).doc, positionsOf(canvas)); }
+  let folded;
+  try { folded = foldLedger(ops).doc; derived = arrangement(folded, positionsOf(canvas)); }
   catch (e) { out.push(`the ledger does not fold into the arrangement: ${e.message}`); return out; }
+  out.push(...laneFlaws(folded));
   if (canvas?.$description !== derived.$description) out.push("canvas.json's $description is not the derivation's");
   for (const kind of ["nodes", "edges"]) {
     const want = new Map(derived[kind].map((x) => [x.id, x]));
@@ -263,6 +265,21 @@ export function verifyBuild({ ops, canvas } = {}) {
     }
     for (const id of want.keys()) if (!have.has(id)) out.push(`canvas.json is missing ${kind} "${id}", which the ops derive`);
     if (out.length === 0 && canon([...have.keys()]) !== canon([...want.keys()])) out.push(`canvas.json's ${kind} are out of the derivation's order`);
+  }
+  return out;
+}
+
+// laneFlaws(doc) → string[] — every lane override naming a frame the ops do not create (#314: the ops.jsonl ↔
+// canvas.json gate extended to variants). Unreachable through today's applier — variant.add refuses an unknown frame
+// and frame.remove refuses an overridden one — so it is a TRIPWIRE for a loosened applier; its positive control is a
+// hand-built document (build-checks 36.12).
+export function laneFlaws(doc) {
+  const ids = new Set((Array.isArray(doc?.frames) ? doc.frames : []).map((f) => f?.id));
+  const out = [];
+  for (const v of Array.isArray(doc?.variants) ? doc.variants : []) {
+    for (const fid of Object.keys(v?.overrides ?? {})) {
+      if (!ids.has(fid)) out.push(`lane "${v?.key}" overrides "${fid}", which the ops do not create`);
+    }
   }
   return out;
 }
@@ -325,6 +342,7 @@ export function loadDecisions(pkgRoot) {
       answerRef: l.params?.answer_ref ?? null,
       answer: answers.get(l.params?.answer_ref) ?? null,
       wrongIf: l.params?.wrong_if ?? null,
+      evidenceRefs: Array.isArray(l.params?.evidence_refs) ? [...l.params.evidence_refs] : [],
       level: l.params?.level ?? null,
     }));
 }

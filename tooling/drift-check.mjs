@@ -24,6 +24,7 @@ import { genVocabulary } from "../agent-layer/gen-vocabulary.mjs";
 import { genPackBundle } from "../agent-layer/gen-pack-bundle.mjs";
 import { genPackIndex } from "../agent-layer/gen-pack-index.mjs";
 import { genReplay } from "../agent-layer/gen-replay.mjs";
+import { genBuildHandoff } from "../agent-layer/gen-build-handoff.mjs";
 import { validateScenarios } from "../scenarios/validate.mjs";
 import { validateTrace } from "./validate-trace.mjs";
 
@@ -173,6 +174,17 @@ function checkReplay() {
     );
 }
 
+// 6b. Build handoff packs (#314) — every committed build package's <pkg>/build/handoff/ against a fresh render,
+// both directions: a stale or missing file is drift, and so is a file the render does not produce. The handoff
+// leg above cannot see these — its porcelain check is scoped to handoff/.
+function checkBuildHandoff() {
+  const r = genBuildHandoff({ check: true });
+  if (r.drifted.length)
+    throw new Error(
+      `build-handoff drift: ${r.drifted.join(", ")} — regenerate: node agent-layer/gen-build-handoff.mjs`
+    );
+}
+
 // 7. Group-count drift — build-checks' own pass line, CLAUDE.md's map and gates.md all state a group
 // count, and all three have gone stale behind a ticket that added a group. Two figures are read from the
 // source: the number of group("…") CALLS and the number of DISTINCT names. A group called from both arms
@@ -220,8 +232,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     checkScenarios();
     checkTraces();
     checkReplay();
+    checkBuildHandoff();
     checkGroupCount();
-    console.log("drift-check     ✓  syntax · token-css · annotated-source · loc-summary · param-count · icons · system-graph · inspect-data · inspect-mounts · handoff · scenarios · traces · replay · group-count");
+    console.log("drift-check     ✓  syntax · token-css · annotated-source · loc-summary · param-count · icons · system-graph · inspect-data · inspect-mounts · handoff · scenarios · traces · replay · build-handoff · group-count");
   } catch (e) {
     console.error("drift ✗  " + e.message);
     process.exit(1);

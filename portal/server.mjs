@@ -43,6 +43,7 @@ import { BROWSE_MAX, bindingStatus, browse, dropTooLarge, editMapping, importVie
 import { suggest as suggestImport, SUGGEST_PROVENANCES } from './lib/import-suggest.mjs';
 // The live fidelity measurement (#474): the renderer is a spawned tooling/ child, so no browser loads here.
 import { measureImport } from './lib/import-measure.mjs';
+import { writeBuildHandoff } from '../agent-layer/gen-build-handoff.mjs';
 
 const PUBLIC_DIR = path.join(PORTAL_DIR, 'public');
 const MIME = {
@@ -440,6 +441,16 @@ const server = createServer(async (req, res) => {
       return streamChat(body, res);
     }
 
+    // THE PACK FOLLOWS EVERY WRITE (#314). Every route that writes into a build package answers through withPack,
+    // so build/handoff/ is never older than the package it describes. A pack that fails to write never turns a
+    // saved ledger into a 500: the page reads packError and says so. build-checks 49.9 pins every write route.
+    const withPack = (root, body) => {
+      try { writeBuildHandoff(root); return body; }
+      catch (e) {
+        console.error(`handoff pack not written for ${root}: ${e.message}`);   // the body alone reaches one page (PR #491 F4)
+        return { ...(body && typeof body === 'object' ? body : {}), packError: e.message };
+      }
+    };
     // --- the canvas page's three routes (#306) ---
     // Every one resolves the package root with the same resolveRunRoot + assertProvenanceRoot pair the
     // discovery routes run, so a real package can never be read or written inside the repo.
@@ -476,7 +487,16 @@ const server = createServer(async (req, res) => {
       assertProvenanceRoot(b.provenance, root);
       const conflict = saveConflict(path.join(root, 'build'), b.base);
       if (conflict) return json(res, 409, { error: conflict });
-      return json(res, 200, saveRun(root, { base: b.base, ops: b.ops, positions: b.positions, decisions: loadDecisions(root) }));
+      return json(res, 200, withPack(root, saveRun(root, { base: b.base, ops: b.ops, positions: b.positions, decisions: loadDecisions(root) })));
+    }
+    // The explicit regeneration (#314): the page's "Write handoff pack" button. Writes build/handoff/ only.
+    if (p === '/api/canvas/pack' && req.method === 'POST') {
+      const b = await readBody(req);
+      const root = resolveRunRoot({ provenance: b.provenance, slug: b.slug });
+      assertProvenanceRoot(b.provenance, root);
+      if (!loadBuild(path.join(root, 'build'))) return notFound(res);
+      const r = writeBuildHandoff(root);
+      return json(res, 200, { files: r.files.map((f) => path.relative(root, f)) });
     }
     // ONE AGENT TURN (#312): one proposal, recorded as `proposed`, then the agent yields. The 409 comes
     // before any token, as the save and the import do; the session checks it again inside the lock. A
@@ -491,13 +511,13 @@ const server = createServer(async (req, res) => {
       try { checkComposeRequest({ ask: b.ask, brief: b.brief ?? null }); }
       catch (e) { return json(res, 400, { error: e.message }); }
       try {
-        return json(res, 200, await runComposeTurn({ pkgRoot: root, base: b.base, ask: b.ask, brief: b.brief ?? null }));
+        return json(res, 200, withPack(root, await runComposeTurn({ pkgRoot: root, base: b.base, ask: b.ask, brief: b.brief ?? null })));
       } catch (e) {
         // A save that lands between this route's check and the turn's lock is the same 409, never a 500
         // the page would read as "The turn failed" (PR #485 review F8).
         if (isSaveConflict(e.message)) return json(res, 409, { error: e.message });
         const refused = composeRefusal(e.message);
-        if (refused) return json(res, 200, { refused });
+        if (refused) return json(res, 200, withPack(root, { refused }));
         throw e;
       }
     }
@@ -522,7 +542,7 @@ const server = createServer(async (req, res) => {
         const bad = ids.find((id) => typeof id !== 'string' || !/^[0-9a-f]{16}$/.test(id));
         if (bad !== undefined) return json(res, 400, { error: `ids: ${JSON.stringify(bad)} is not a Brilliant element id` });
       }
-      return json(res, 200, await runImport({ pkgRoot: root, provenance: b.provenance, base: b.base, entrance: b.entrance, ids: b.ids ?? null, mode: b.mode, suggester: suggesterFor(b.provenance) }));
+      return json(res, 200, withPack(root, await runImport({ pkgRoot: root, provenance: b.provenance, base: b.base, entrance: b.entrance, ids: b.ids ?? null, mode: b.mode, suggester: suggesterFor(b.provenance) })));
     }
     // Which project a read reaches, and the page's top-level elements. Neither writes a file; both spawn the
     // bridge (which may open a pairing tab), so neither runs until the owner clicks. Lock contention is a
@@ -543,8 +563,8 @@ const server = createServer(async (req, res) => {
       const tooLarge = dropTooLarge(Number(req.headers['content-length']));
       if (tooLarge) { req.resume(); return json(res, 200, { refused: tooLarge }); }
       const bytes = await readUpload(req);
-      return json(res, 200, await runImport({ pkgRoot: root, provenance, base, entrance: 'drop', mode: Number(url.searchParams.get('mode') || 1),
-        file: { name: url.searchParams.get('name') || 'dropped file', bytes }, suggester: suggesterFor(provenance) }));
+      return json(res, 200, withPack(root, await runImport({ pkgRoot: root, provenance, base, entrance: 'drop', mode: Number(url.searchParams.get('mode') || 1),
+        file: { name: url.searchParams.get('name') || 'dropped file', bytes }, suggester: suggesterFor(provenance) })));
     }
     if (p === '/api/canvas/import/view' && req.method === 'GET') {
       const provenance = url.searchParams.get('provenance');
@@ -559,7 +579,7 @@ const server = createServer(async (req, res) => {
       const root = resolveRunRoot({ provenance: b.provenance, slug: b.slug });
       assertProvenanceRoot(b.provenance, root);
       if (!isProposalName(b.name)) return json(res, 400, { error: `name ${JSON.stringify(b.name ?? null)} is not a component name` });
-      return json(res, 200, editMapping({ pkgRoot: root, provenance: b.provenance, name: b.name, edit: b.edit }));
+      return json(res, 200, withPack(root, editMapping({ pkgRoot: root, provenance: b.provenance, name: b.name, edit: b.edit })));
     }
     // Measure fidelity (#474): only on the owner's click. It spawns tooling/measure-render.mjs and writes
     // only under the build root. No saveConflict 409 here, deliberately: a measurement never touches
@@ -569,7 +589,7 @@ const server = createServer(async (req, res) => {
       const root = resolveRunRoot({ provenance: b.provenance, slug: b.slug });
       assertProvenanceRoot(b.provenance, root);
       if (!isProposalName(b.name)) return json(res, 400, { error: `name ${JSON.stringify(b.name ?? null)} is not a component name` });
-      return json(res, 200, await measureImport({ pkgRoot: root, name: b.name }));
+      return json(res, 200, withPack(root, await measureImport({ pkgRoot: root, name: b.name })));
     }
 
     // --- embedded site previews: /sites/<slug>/... → the card's site_root on disk ---

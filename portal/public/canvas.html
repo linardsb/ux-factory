@@ -31,6 +31,19 @@
       </div>
       <button class="btn btn-secondary cv-btn" type="button" data-canvas-verb="annotate">Add note</button>
       <button class="btn btn-secondary cv-btn" type="button" data-canvas-verb="import" aria-controls="cv-import-panel">Import</button>
+      <span class="cv-lanes">
+        <label class="cv-lane-label" for="cv-lane">Lane</label>
+        <select id="cv-lane" class="cv-lane-select" data-canvas-lane></select>
+        <button class="btn btn-secondary cv-btn" type="button" data-canvas-verb="lane-new">New lane</button>
+        <span class="cv-lane-new" data-canvas-lane-form hidden>
+          <label class="cv-lane-label" for="cv-lane-key">Key</label>
+          <input id="cv-lane-key" class="cv-lane-key" data-canvas-lane-key maxlength="24" autocomplete="off" />
+          <button class="btn btn-secondary cv-btn" type="button" data-canvas-verb="lane-create">Create</button>
+        </span>
+        <button class="btn btn-secondary cv-btn" type="button" data-canvas-verb="lane-keep" hidden>Keep lane</button>
+        <button class="btn btn-secondary cv-btn" type="button" data-canvas-verb="lane-discard" hidden>Discard lane</button>
+      </span>
+      <button class="btn btn-secondary cv-btn" type="button" data-canvas-verb="pack">Write handoff pack</button>
       <p class="cv-save" role="status" data-canvas-save></p>
     </div>
     <section class="cv-import-view" data-import-view hidden></section>
@@ -39,6 +52,11 @@
       <aside class="cv-rail">
         <div class="cv-import" id="cv-import-panel" data-import-panel hidden></div>
         <section class="cv-compose" data-compose-panel aria-label="Compose"></section>
+        <section class="cv-flow" data-canvas-flow aria-label="Flow for this lane">
+          <h2 class="cv-flow-title">Flow</h2>
+          <pre class="cv-flow-text" data-canvas-flow-text></pre>
+          <ul class="cv-flow-missing" data-canvas-flow-missing></ul>
+        </section>
         <div data-studio-minimap></div>
         <div data-studio-layers></div>
       </aside>

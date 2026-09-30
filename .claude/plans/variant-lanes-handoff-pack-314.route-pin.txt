@@ -1,0 +1,15 @@
+import { readFileSync } from "node:fs";
+export function unpackedWriteRoutes(src) {
+  const code = src.replace(/\/\/[^\n]*/g, "");
+  const heads = [...code.matchAll(/if \(p === '(\/api\/canvas\/[a-z/-]*)' && req\.method === 'POST'\) \{/g)];
+  const READ_ONLY = ["/api/canvas/import/binding", "/api/canvas/pack"];
+  const out = [];
+  heads.forEach((h, i) => {
+    const body = code.slice(h.index, heads[i + 1]?.index ?? code.indexOf("// --- embedded site previews", h.index));
+    if (!READ_ONLY.includes(h[1]) && !body.includes("withPack(")) out.push(h[1]);
+  });
+  return { routes: heads.map((h) => h[1]), missing: out };
+}
+const src = readFileSync(process.argv[2], "utf8");
+console.log(JSON.stringify(unpackedWriteRoutes(src)));
+console.log("mutated:", JSON.stringify(unpackedWriteRoutes(src.replace("withPack(root, editMapping(", "(editMapping(")).missing));
