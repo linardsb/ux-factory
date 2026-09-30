@@ -1,7 +1,7 @@
 // gen-build-handoff.mjs — a build package → its handoff pack (epic #295 ticket #314;
 // docs/epics/canvas-design-import.architecture.md § Data model, "The handoff pack, extended").
-// Emits <pkg>/build/handoff/: flow.md (the state diagram as Mermaid stateDiagram-v2 per lane, G5's
-// "tapping Continue goes to …" sentences, missing states per lane), drops.md (every import record's drop
+// Emits <pkg>/build/handoff/: flow.md (the composition-over-admission count (#315), the state diagram as
+// Mermaid stateDiagram-v2 per lane, G5's "tapping Continue goes to …" sentences, missing states per lane), drops.md (every import record's drop
 // list in the three classes), refusals.md (the ledger's refused lines, the transcript-only refusals and
 // the imports' denied lines), lineage.json (frame → decision → answer → evidence, by id) and
 // imports/<id>.md (each record's own projection, verbatim).
@@ -31,7 +31,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, wri
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { foldLedger, listBuilds, loadBuild } from "../portal/lib/canvas-store.mjs";
-import { STATE_KEYS, edgePhrase, flowEdges, frameLabel, frameTree, laneDoc, laneKeys, missingStates, stateDiagram } from "../system/canvas-ops.mjs";
+import { STATE_KEYS, edgePhrase, flowEdges, frameLabel, frameTree, groupInstances, laneDoc, laneKeys, missingStates, stateDiagram } from "../system/canvas-ops.mjs";
 import { DROP_CLASSES } from "../import/ir.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -59,8 +59,27 @@ function differences(doc, key) {
   return out.length ? out : ["- none"];
 }
 
+// compositionCount(doc) → { composed, placed, admitted: { total, fromImport, fromGroup } } — the PRD's "Composition over
+// admission" metric (#315, D9), defined once. composed = saved groups; placed = copies across every frame; admitted =
+// RATIFIED proposals, split by entrance. A promoted group that is ratified counts in composed AND admitted.fromGroup.
+export function compositionCount(doc) {
+  const ratified = (Array.isArray(doc?.proposals) ? doc.proposals : []).filter((p) => p && p.status === "ratified");
+  const fromImport = ratified.filter((p) => typeof p.recordId === "string").length;
+  const fromGroup = ratified.filter((p) => typeof p.groupId === "string").length;
+  return {
+    composed: doc?.groups && typeof doc.groups === "object" ? Object.keys(doc.groups).length : 0,
+    placed: groupInstances(doc).length,
+    admitted: { total: fromImport + fromGroup, fromImport, fromGroup },
+  };
+}
+
 function renderFlow(slug, doc) {
   const out = [`# Flow — ${slug}`, "", `${provenance("`build/ops.jsonl`")} Lane A is the document; every other lane is its differences on A (G33).`];
+  const c = compositionCount(doc);
+  out.push("", "## Composition over admission", "",
+    `- Composed and named: ${c.composed} group(s), ${c.placed} placed ${c.placed === 1 ? "copy" : "copies"}.`,
+    `- Admitted through the chain: ${c.admitted.total} (${c.admitted.fromImport} from imports, ${c.admitted.fromGroup} from promoted groups).`,
+    "", "A promoted group that is ratified counts in both lines (PRD § Success metrics, \"Composition over admission\" — reported, no target).");
   for (const key of laneKeys(doc)) {
     out.push("", key === null ? "## Lane A (base)" : `## Lane ${key}`, "");
     if (key !== null) out.push("Differences from lane A:", "", ...differences(doc, key), "");

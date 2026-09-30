@@ -506,12 +506,12 @@ function proposalOf(buildRoot, name) {
 
 // The ratify form's starting state (#313): the importer's drafted root declarations, the containers a part may be
 // listed in (every vocabulary entry that takes many children; stack chosen), and the contract tokens a rule may use.
-function ratifyPrefill(name, record, vocab) {
+export function ratifyPrefill(name, decls, vocab) {
   const comps = vocab.components ?? {};
   const contractCss = readFileSync(path.join(REPO_DIR, "system/tokens.contract.css"), "utf8");
   return {
     component: name, prefix: "ds",
-    css: [{ suffix: "", decls: rootDeclarations(record.ir.children[0]) }],
+    css: [{ suffix: "", decls }],
     props: {}, states: ["default"], example: {},
     containerChoices: Object.keys(comps).filter((n) => comps[n].childrenCardinality === "many"),
     containers: ["stack"],
@@ -559,7 +559,7 @@ export function importView(pkgRoot, name) {
     snapChoices: Object.fromEntries(Object.entries(targets).map(([f, list]) => [f, list.map((t) => t.ref)])),
     status: held?.status ?? "proposed",
     component: held?.status === "ratified" ? held.component : null,
-    ratifyPrefill: ratifyPrefill(name, record, inputs.vocab),
+    ratifyPrefill: ratifyPrefill(name, rootDeclarations(record.ir.children[0]), inputs.vocab),
     label: `mode ${record.provenance.mode} · source ${record.source.tool}${record.source.file ? ` (${record.source.file})` : ""} · drafted by the importer, not by an agent · ${fidelity}`,
   };
 }

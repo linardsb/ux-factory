@@ -50,8 +50,9 @@ import { mountCanvasVerbs } from "/system/studio-verbs.mjs";
 import { mountCanvasSelect } from "/system/studio-select.mjs";
 import { mountStudioLayers } from "/system/studio-layers.mjs";
 import { mountStudioMinimap } from "/system/studio-minimap.mjs";
-import { applyOp, EXHIBIT_SIZE, exhibitClashes, exhibitsOf, frameTree, laneDoc, laneKeys, missingStates, placeDecision, stateDiagram } from "/system/canvas-ops.mjs";
+import { applyOp, EXHIBIT_SIZE, exhibitClashes, exhibitsOf, frameTree, groupInstances, laneDoc, laneKeys, missingStates, placeDecision, stateDiagram } from "/system/canvas-ops.mjs";
 import { PRESET_NAMES, WIDTH_MAX, WIDTH_MIN, presetWidth } from "/system/device-presets.mjs";
+import { groupFieldsets, mountPromoted } from "/canvas-groups.mjs";
 
 const el = (tag, attrs, ...kids) => {
   const n = document.createElement(tag);
@@ -138,7 +139,9 @@ const describeOp = (o) => {
     case "frame.link": return `linked ${p.frameId} to ${p.decisionRefs?.length ? `decisions ${p.decisionRefs.join(", ")}` : "no decision"}`;
     case "frame.remove": return `removed ${p.frameId}`;
     case "frame.size": return `resized ${p.frameId} to ${p.preset ?? `${p.width} px`}`;
-    case "component.propose": return `proposed ${p.name} from import ${p.recordId}`;
+    case "component.propose": return p.groupId ? `proposed ${p.name} from group ${p.groupId}` : `proposed ${p.name} from import ${p.recordId}`;
+    case "group.define": return p.groupId ? `redefined ${p.groupId}` : `saved group ${p.name}`;
+    case "group.place": return p.instanceId ? `overrode ${p.instanceId}` : `placed ${p.groupId} on ${p.frameId}`;
     case "proposal.ratify": return `ratified ${p.proposalId} as ${p.component}`;
     case "screen.compose": return `composed ${p.screenId}`;
     case "state.add": return `added the ${p.stateKey} state of ${p.baseId}`;
@@ -203,6 +206,7 @@ function frameParts(f) {
   return { screen, name: el("span", { class: "cv-name", text: frameName(f) }), chips, missing };
 }
 
+const groupInstancesOf = (frameId) => groupInstances(doc).filter((i) => i.frameId === frameId).map((i) => i.instanceId);
 const missingOf = (f) => (f.baseId ? [] : missingStates(view, lane).find((m) => m.frameId === f.id)?.missing ?? []);
 const frameSig = (f) => canon({ lane, tree: frameTree(view, f.id, lane), w: f.width, name: frameName(f), refs: f.decisionRefs ?? [], missing: missingOf(f) });
 
@@ -893,7 +897,10 @@ function openInspector(frameId, trigger) {
       omitBtn);
   }
 
-  pop.replaceChildren(el("p", { class: "cv-inspector-title", text: `Details — ${spoken(f)}` }), ...(laneSet ? [laneSet] : []), device, decisionsSet,
+  // #315: the group fieldsets (lane A only).
+  const groupSets = groupFieldsets(f, { view, doc, emitFrom, lane, getPage: getCanvasPage, say: (t) => canvas.say(t) });
+
+  pop.replaceChildren(el("p", { class: "cv-inspector-title", text: `Details — ${spoken(f)}` }), ...(laneSet ? [laneSet] : []), ...groupSets, device, decisionsSet,
     el("div", { class: "cv-inspector-actions" }, removeBtn, closeBtn));
   pop.setAttribute("role", "dialog");
   pop.setAttribute("aria-label", `Details for ${frameName(f)}`);
@@ -962,6 +969,24 @@ function registerConsumers() {
     laneDraft = null;
     if (!applyOwnerOp({ op: "variant.add", params: { key, overrides: a?.params?.overrides } })) { laneDraft = draft; reconcile(); return; }
     canvas.say(`Lane ${key} kept.`);
+  });
+  // #315: a group is defined from a selection on a frame, and placed or overridden as a copy.
+  bus.on("ui.group-define", (a) => {
+    const frameId = a?.target?.id;
+    const p = a?.params ?? {};
+    const before = new Set(Object.keys(doc.groups ?? {}));
+    if (!applyOwnerOp({ op: "group.define", params: { name: p.name, frameId, partIds: p.partIds, ...(p.groupId && { groupId: p.groupId }) } })) return;
+    const id = p.groupId ?? Object.keys(doc.groups).find((g) => !before.has(g));
+    canvas.say(`Group ${id} ${p.name} saved from ${p.partIds.length} part${p.partIds.length === 1 ? "" : "s"} of ${spoken(frameOf(frameId))}.`);
+  });
+  bus.on("ui.group-place", (a) => {
+    const frameId = a?.target?.id;
+    const p = a?.params ?? {};
+    const params = p.instanceId ? { frameId, instanceId: p.instanceId, overrides: p.overrides } : { frameId, groupId: p.groupId, parentId: p.parentId };
+    const before = new Set(groupInstancesOf(frameId));
+    if (!applyOwnerOp({ op: "group.place", params })) return;
+    const id = p.instanceId ?? groupInstancesOf(frameId).find((i) => !before.has(i));
+    canvas.say(p.instanceId ? `Copy ${id} on ${spoken(frameOf(frameId))} overridden.` : `Copy ${id} of ${p.groupId} placed on ${spoken(frameOf(frameId))}.`);
   });
   bus.on("ui.frame-size", (a) => {
     const id = a?.target?.id;
@@ -1046,6 +1071,7 @@ async function boot() {
     wireLanes();
     $("[data-canvas-verb=annotate]").addEventListener("click", addNote);
     renderCompose();
+    mountPromoted(getCanvasPage);
     lastSavedKey = canon(gatherPositions());
     // LAST, so it runs after every exact consumer (action-bus.mjs: exact handlers, then "*").
     bus.on("*", scheduleSave);

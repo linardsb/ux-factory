@@ -12,7 +12,9 @@
 // agree (R9); the now-dirty tree refuses a second preview and confirm (R10); the page cannot undo the ratify and a
 // crafted undo line is a 500 naming it (R11); every Ratify control is 44×44 (R12). Then the RENDER PROOF (AC #3):
 // /components#person-row and a stack holding the part on the canvas, on chromium, firefox and webkit, with
-// system/agentic-renderer.mjs untouched.
+// system/agentic-renderer.mjs untouched. Then a PROMOTED GROUP (#315): three parts saved as journey-header, promoted
+// through the route and ratified with children "none" — ten steps exit 0, D8's Usage line in the spec, the registry
+// provenance from group g1, and no import record touched.
 //
 // OPERATOR-RUN, NOT IN CI, like every journey driver here: it needs three browsers and runs the real chain.
 //
@@ -331,6 +333,66 @@ async function renderProof(base) {
   t("render · system/agentic-renderer.mjs is untouched in the clone", git(T, "diff", "HEAD", "--", "system/agentic-renderer.mjs") === "");
 }
 
+// ---- a promoted group, admitted end to end (#315, Task 6.6) ----------------------------------------------------
+// After person-row, committed in the clone so its tree is clean again: one screen composed in-process (seedMeasure's
+// precedent), its three parts saved as a group, the group promoted through POST /api/canvas/promote, then preview and
+// confirm through the API with children "none" — the shape proven green; a "many" container reds groups 40/43/46 through
+// the matcher (the plan's Out of Scope). The name is journey-header, never app-header: group 50's promote fixtures
+// (50.18, 50.19) own that name and refuse it as a vocabulary member, exactly as 50's probe-row does beside person-row.
+async function groupAdmission(base) {
+  const NAME = "journey-header";
+  git(T, "add", "-A");
+  git(T, "-c", "user.name=ratify-journey", "-c", "user.email=journey@localhost", "commit", "-q", "-m", "scratch: person-row admitted");
+  t("group · the clone is clean again after committing person-row", porcelainSet().size === 0, [...porcelainSet()].join(" | "));
+  const { foldLedger, loadBuild, loadDecisions, positionsOf, saveRun } = await import(pathToFileURL(path.join(T, "portal/lib/canvas-store.mjs")).href);
+  const b0 = loadBuild(path.join(PKG(), "build"));
+  const frames = new Set(foldLedger(b0.ops).doc.frames.map((fr) => fr.id));
+  let n = 1;
+  while (frames.has(`f${n}`)) n += 1;
+  const fid = `f${n}`;
+  saveRun(PKG(), { base: b0.ops.length, positions: { ...positionsOf(b0.canvas), [fid]: { x: 4400, y: 0 } }, decisions: loadDecisions(PKG()), ops: [
+    { op: "screen.compose", status: "applied", params: { screenId: "home", why: "the header case: a title, a help button and a mark shared by every screen", decisionRefs: [],
+      composition: { name: "stack", id: "screen", props: { direction: "column", gap: "md" }, children: [
+        { name: "screen-header", id: "header", props: { title: "Home" } },
+        { name: "ghost-button", id: "help", props: { label: "Help" } },
+        { name: "icon", id: "mark", props: { name: "info", size: "md" } }] } } },
+    { op: "group.define", status: "applied", params: { name: NAME, frameId: fid, partIds: ["header", "help", "mark"] } },
+  ] });
+  const imports = () => git(T, "status", "--porcelain").split("\n").filter(Boolean);
+  const importsBefore = readFileSync(path.join(PKG(), "build/imports/i1.json"));
+  const WHO = { provenance: "real", slug: "fp-ratify" };
+  const pr = await post(base, "/api/canvas/promote", { ...WHO, base: ledger().length, groupId: "g1" });
+  t(`group · Promote answers ${NAME} from g1`, pr.status === 200 && pr.body?.name === NAME && pr.body?.groupId === "g1", `${pr.status} ${JSON.stringify(pr.body).slice(0, 200)}`);
+  const proposalId = foldLedger(ledger()).doc.proposals.find((p) => p.groupId === "g1")?.id;
+  const input = {
+    component: NAME, prefix: "ds",
+    props: { title: { type: "string", required: true, description: "the screen's title, shown by the header part inside" } },
+    states: ["default"], stateNotes: { default: "the only state — the header row holds its parts" },
+    usage: "The header shared by every screen: a screen header, a help button and a mark, composed in the run and promoted.",
+    accessibility: "A div grouping its title; the row adds no interaction.",
+    structure: { tag: "div", slots: [{ prop: "title", as: "text", tag: "span", suffix: "-title" }], children: "none" },
+    containers: ["stack"],
+    css: [{ suffix: "", decls: [["gap", "var(--spacing-sm)"]] }],
+    example: { title: "Home" }, licence: "the owner's own composition", attribution: "",
+  };
+  const pv = await post(base, "/api/canvas/ratify/preview", { ...WHO, name: NAME, input });
+  t("group · the preview plans six writes with a hash", !pv.body?.refused && typeof pv.body?.hash === "string" && pv.body?.plan?.writes?.length === 6, JSON.stringify(pv.body?.refused ?? pv.body).slice(0, 300));
+  const cf = await post(base, "/api/canvas/ratify/confirm", { ...WHO, name: NAME, input, hash: pv.body?.hash, base: ledger().length });
+  const gates = cf.body?.gates ?? [];
+  t("group · the confirm runs ten chain steps, every exit 0", cf.body?.ok === true && gates.length === 10 && gates.every((g) => g.code === 0),
+    `${cf.status} ${JSON.stringify(cf.body?.refused ?? cf.body?.error ?? gates.filter((g) => g.code !== 0).map((g) => ({ step: g.step, code: g.code, tail: String(g.tail).slice(-400) })))}`);
+  const last = ledger().at(-1);
+  t(`group · the ledger's last line is proposal.ratify ${proposalId} → ${NAME}`, last?.op === "proposal.ratify" && JSON.stringify(last.params) === JSON.stringify({ proposalId, component: NAME }), JSON.stringify(last));
+  const specPath = path.join(T, `system/specs/${NAME}.md`);
+  const usage = `Admitted by ratify (portal/lib/ratify.mjs) from group \`g1\` in run \`fp-ratify\`: composed in run fp-ratify from group g1 (${NAME}), licence: the owner's own composition.`;
+  t("group · the spec's Usage line is D8's, verbatim", existsSync(specPath) && readFileSync(specPath, "utf8").split("\n").includes(usage),
+    existsSync(specPath) ? readFileSync(specPath, "utf8").split("\n").find((l) => l.startsWith("Admitted by ratify")) : "no spec");
+  const reg = readFileSync(path.join(T, "system/templates.admitted.mjs"), "utf8");
+  const entry = reg.slice(reg.indexOf(`"${NAME}"`));
+  t("group · the registry entry's provenance is from group g1", /"from":\s*"group"/.test(entry.slice(0, 1200)) && /"record":\s*"g1"/.test(entry.slice(0, 1200)), entry.slice(0, 400));
+  t("group · no import record changed (a group has none to stamp)", readFileSync(path.join(PKG(), "build/imports/i1.json")).equals(importsBefore) && !imports().some((l) => l.includes("imports/")));
+}
+
 // ---- run ----------------------------------------------------------------------------------------------------
 try {
   console.log(`ratify-journey — scratch ${root}`);
@@ -354,7 +416,7 @@ try {
   if (!toRun.includes("chromium")) {
     // The render proof needs an admitted part: without the page pass there is none, so say so.
     t("render · needs the chromium page pass to admit the part first", false, "run `all` or `chromium`");
-  } else await renderProof(base);
+  } else { await renderProof(base); await groupAdmission(base); }
 } catch (e) {
   t("the journey ran to the end", false, e.stack ?? e.message);
 } finally {

@@ -921,3 +921,14 @@ The op-verb lock: this PR holds it. `proposal.ratify` (#313) merged at `b99d9ac`
 
 ## AMENDMENTS
 
+- **2026-09-30 (implementation).** Pre-flight re-run at `b99d9ac` in `../wt-315`: `build ✓  all 50 groups pass`,
+  `OPS.length` 12, both probe patches `git apply --check` clean (observed). Three plan errors, corrected in the build:
+  1. **Task 3.2 / 50.18 "the first line of each draft"** — `template.txt` is JSON (`{note, compositions}`, the
+     importer's own shape), so its first line is `{`. 50.18 asserts the parsed `note` for that file and the first
+     line for `spec.md` and `block.css`.
+  2. **Task 6.5 / canvas-journey step 14** — the stand-in's "no decision checkboxes" count now meets G2's
+     "Save parts as a group" checkboxes on every frame; the count excludes `[data-group-part]`. The plan did not
+     name this collision.
+  3. **Task 6.6 / the journey admits `app-header`** — 50.18 and 50.19 use `app-header` as their fixture name and
+     guard that it is NOT a vocabulary member (50's `probe-row` rule), so admitting `app-header` in the ratify
+     journey's clone would red chain step 10 on those guards. The journey admits the group as `journey-header`.

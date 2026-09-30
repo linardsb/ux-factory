@@ -334,6 +334,13 @@
   font-size: var(--type-caption);
 }
 .cv-compose h2 { margin: 0; font-size: var(--type-body); }
+/* #315: a promoted group's proposal and its ratify form, in the rail. */
+.cv-groups {
+  display: flex; flex-direction: column; gap: var(--spacing-xs); padding: var(--spacing-sm);
+  border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-bg-surface);
+  font-size: var(--type-caption);
+}
+.cv-groups-title { margin: 0; font-size: var(--type-body); }
 .cv-compose p { margin: 0; overflow-wrap: anywhere; }
 .cv-compose label { font-weight: 600; }
 .cv-compose textarea {
