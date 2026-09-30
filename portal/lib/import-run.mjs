@@ -82,9 +82,12 @@ import { exhibitsOf, PROPOSAL_NAME_RE } from "../../system/canvas-ops.mjs";
 import { RULESET } from "../../system/derive.rules.mjs";
 import { checkPairs } from "../../system/wcag.mjs";
 import { foldLedger, loadBuild, loadDecisions, placeExhibit, positionsOf, saveConflict, saveRun } from "./canvas-store.mjs";
-import { withRunLock } from "./builder.mjs";
+import { isRunInFlight, withRunLock } from "./builder.mjs";
 import { JOBS_DIR, REPO_DIR } from "./env.mjs";
 import { bindingOf, brilliantServer, classifyBridge, failureOf, openBridge, parseExport, parseInit, parseLookup, parsePage, parseSelection, TOOLS } from "./brilliant-mcp.mjs";
+
+// Re-exported so ratify can answer `busy` without importing builder.mjs (build-checks 50.1 pins its specifiers).
+export { isRunInFlight };
 
 // --- the fence ------------------------------------------------------------------------------------
 

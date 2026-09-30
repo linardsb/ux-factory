@@ -124,7 +124,9 @@ export function readForm(root) {
 // The gates, the porcelain, the diff and (red) the revert command — all textContent.
 function resultView(r) {
   const box = el("div", { class: "cv-ratify-result", "data-ratify-result": r.ok ? "green" : "red" });
-  box.appendChild(el("p", { class: "cv-import-status", text: r.ok ? `Ratified as ${r.component}: every gate green. Nothing is committed.` : "A gate went red. The files are left written so you can read the failure in context; nothing was appended to the ledger." }));
+  box.appendChild(el("p", { class: "cv-import-status", text: r.ok ? `Ratified as ${r.component}: every gate green. Nothing is committed.`
+    : r.error ? `Ratify stopped on an error: ${r.error}. ${r.appended ? "Every gate was green and the ledger records the ratify, but the import record was not stamped." : "The files written before it are left in the tree; nothing was appended to the ledger."}`
+      : "A gate went red. The files are left written so you can read the failure in context; nothing was appended to the ledger." }));
   const steps = el("ol", { class: "cv-ratify-steps", "data-ratify-steps": true });
   for (const g of r.gates ?? []) {
     steps.appendChild(el("li", { "data-ratify-step": g.step, "data-ratify-exit": String(g.code) },

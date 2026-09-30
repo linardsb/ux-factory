@@ -30,6 +30,8 @@
 //   7. GREEN APPENDS, RED DOES NOT (D7). On a green chain the op is appended and the record stamped
 //      (`elapsed.ratify`, D8: the two server-written `at`s); on a red one the files stay for the owner to read,
 //      nothing is appended, and the answer carries the revert command. The owner commits. Nothing here does.
+//      The op is appended BEFORE the record is stamped, because elapsed.ratify is measured to the op's own
+//      server-written `at`; a throw between the two answers `error` with `appended: true` and no revert.
 //
 // A FICTIONAL PACKAGE LIVES UNDER discovery/, WHICH THE GUARD COVERS, so a ratify on one refuses `dirty` until
 // its import is committed. A real package lives in JOBS_DIR and never shows in the repo's git status.
@@ -44,7 +46,7 @@ import { applyOp, PROPOSAL_NAME_RE } from "../../system/canvas-ops.mjs";
 import { ADMIT_CLASS_RE, ADMIT_TAGS, checkAdmitted } from "../../system/templates.admitted.mjs";
 import { foldLedger, loadBuild, loadDecisions, positionsOf, saveConflict, saveRun } from "./canvas-store.mjs";
 import { REPO_DIR } from "./env.mjs";
-import { jsonText, sortKeys, underLock, underRoot } from "./import-run.mjs";
+import { isRunInFlight, jsonText, sortKeys, underLock, underRoot } from "./import-run.mjs";
 
 // --- the fixed argv -------------------------------------------------------------------------------
 
@@ -64,7 +66,8 @@ export const CHAIN = Object.freeze([
   Object.freeze(["tooling/build-checks.mjs"]),
 ]);
 
-// D5. (1) tracked changes anywhere but prose; (2) untracked files in the code dirs.
+// D5. (1) tracked changes anywhere but prose; (2) untracked files in the code dirs. `:(exclude,glob)*.md` matches
+// ROOT-level .md only (glob `*` stops at `/`) — deliberate: a spec under system/specs/ is code here, not prose.
 export const CLEAN_GUARD = Object.freeze([
   Object.freeze(["status", "--porcelain", "-uno", "--", ".", ":(exclude).claude", ":(exclude).agents", ":(exclude)docs", ":(exclude,glob)*.md"]),
   Object.freeze(["status", "--porcelain", "-unormal", "--", "system", "handoff", "import", "agent-layer", "portal", "tooling", "discovery", "proto", "scenarios", "worker"]),
@@ -97,6 +100,7 @@ const CSS_VALUE_RE = /^var\(--[a-z0-9-]+\)(?: var\(--[a-z0-9-]+\))*$/;
 const ATTR_RE = /^data-[a-z][a-z0-9-]*$/;
 // A prose line that would open a heading or a fence inside the spec's four sections.
 const PROSE_BAD_RE = /^[ \t]*(?:#|```)/m;
+const CONTROL_RE = /[\x00-\x1f\x7f\u2028\u2029]/;
 const PROP_TYPES = Object.freeze(["string", "number", "boolean"]);
 const INPUT_KEYS = Object.freeze(["component", "prefix", "props", "states", "stateNotes", "usage", "accessibility", "structure", "containers", "css", "example", "licence", "attribution"]);
 
@@ -121,7 +125,7 @@ export function provenanceLine(record, input) {
 }
 
 // checkInput(input, ctx, record) → the admitted definition (ratify's registry entry), or throws naming the path.
-// ctx = { vocabNames, vocabClasses, containerNames, proposals, contractTokens, run }.
+// ctx = { vocabNames, vocabClasses, containerNames, proposals, contractTokens, run, cssClasses }.
 export function checkInput(input, ctx, record) {
   if (!plain(input)) throw new Error("ratify: input must be an object");
   for (const k of Object.keys(input)) if (!INPUT_KEYS.includes(k)) bad(k, `is not an input field — the form sends ${INPUT_KEYS.join(", ")}`);
@@ -133,6 +137,7 @@ export function checkInput(input, ctx, record) {
   const cls = `${prefix}-${component}`;
   if (!ADMIT_CLASS_RE.test(cls)) bad("component", `gives the class ${JSON.stringify(cls)}, which is not a component class`);
   if (ctx.vocabClasses.includes(cls)) bad("component", `gives the class "${cls}", which a vocabulary component already carries`);
+  if ((ctx.cssClasses ?? []).includes(cls)) bad("component", `gives the class "${cls}", which system/components.css already styles`);
 
   if (!plain(input.props)) bad("props", "must be an object of prop name → { type, required, enum?, description }");
   for (const [name, p] of Object.entries(input.props)) {
@@ -159,6 +164,11 @@ export function checkInput(input, ctx, record) {
   if (typeof input.licence !== "string" || !input.licence.trim()) bad("licence", "is required — whose drawing this is and on what terms");
   prose(input.licence, "licence", { max: 120 });
   prose(input.attribution, "attribution", { required: false, max: 120 });
+  // The record's source names reach the spec's Usage line unchecked by prose(), so a line break there is refused (PR #492 F1).
+  for (const k of ["file", "tool"]) {
+    const v = record.source?.[k];
+    if (typeof v === "string" && CONTROL_RE.test(v)) throw new Error(`ratify: record.source.${k} ${JSON.stringify(v)} carries a line break or control character — it would reach the spec as a line of its own; import the file again under a plain name`);
+  }
   if (provenanceLine(record, input).length > 200) bad("licence", "and attribution together make the provenance line longer than 200 characters — shorten one");
 
   const st = input.structure;
@@ -176,6 +186,10 @@ export function checkInput(input, ctx, record) {
       if (typeof s.suffix !== "string" || !SUFFIX_RE.test(s.suffix)) bad(`${at}.suffix`, `${JSON.stringify(s.suffix)} is not a class suffix like -name`);
       if (suffixes.includes(s.suffix)) bad(`${at}.suffix`, `"${s.suffix}" is already another slot's`);
       suffixes.push(s.suffix);
+      // A slot class components.css already styles would be restyled by the appended block (PR #492 F3).
+      if (ctx.vocabClasses.includes(`${cls}${s.suffix}`) || (ctx.cssClasses ?? []).includes(`${cls}${s.suffix}`)) {
+        bad(`${at}.suffix`, `gives the class "${cls}${s.suffix}", which system/components.css already styles`);
+      }
       return { prop: s.prop, as: "text", tag: s.tag, class: `${cls}${s.suffix}` };
     }
     if (s.as === "attr") {
@@ -411,11 +425,15 @@ const lineCount = (s) => s.split("\n").length;
 
 // planRatify → { writes: [{path, kind, bytes}], pin, palette, containers, chain, hash, def }. Pure.
 // `files` holds the current text of the four ANCHORS and of `system/specs/<c>.md` for every chosen container.
+// Every ds-/vd- class a selector in components.css names: vocabulary roots, hand-written sub-element classes and
+// earlier admissions' slot classes alike.
+const classesOf = (css) => [...new Set([...css.matchAll(/\.((?:ds|vd)-[a-z0-9-]+)/g)].map((m) => m[1]))];
+
 export function planRatify({ head, run, proposal, record, drafts, input, files, ctx }) {
   if (typeof head !== "string" || !/^[0-9a-f]{40}$/.test(head)) throw new Error(`ratify: HEAD ${JSON.stringify(head)} is not a commit sha`);
-  const def = checkInput(input, { ...ctx, run }, record);
-  const name = input.component;
   const need = (p) => { if (typeof files[p] !== "string") throw new Error(`ratify: the plan needs the text of ${p}`); return files[p]; };
+  const def = checkInput(input, { ...ctx, run, cssClasses: classesOf(need(ANCHORS.css)) }, record);
+  const name = input.component;
   const pin = rewritePin(need(ANCHORS.pin), (w, n, n1) =>
     `${w}/${n} → ${w}/${n1}: ${name} admitted by ratify from import ${record.id} (run ${run}) — wrapper-less, no vd-${name} custom element, so its absent vd/react tabs are honest`);
   const writes = [
@@ -538,6 +556,8 @@ const shown = (plan) => ({
 });
 
 export async function previewRatify({ pkgRoot, name, input, repoDir = REPO_DIR, git = gitRun }) {
+  // A run in flight (a confirm mid-chain, an import) is why the tree looks dirty, so it answers busy (PR #492 F6).
+  if (isRunInFlight()) return { refused: { kind: "busy", message: "A ratify or an import is in flight and writing — wait for it to finish, then preview again.", action: { label: "Wait, then try again" } } };
   const d = dirty({ repoDir, git });
   if (d) return d;
   const ni = noIcons(repoDir);
@@ -557,6 +577,8 @@ const PLAIN_PATH_RE = /^[A-Za-z0-9._/-]+$/;
 function diffOf({ repoDir, git, before, writes }) {
   const after = porcelain(repoDir, git);
   const mine = after.filter((l) => !before.includes(l));
+  // `git diff` covers tracked files only: a file the writes or the chain create appears in `changed` (porcelain's
+  // ??), and ratify's own created spec is carried whole in `created` (PR #492 F4).
   const full = git(["diff"], { cwd: repoDir });
   const CAP = 200_000;
   return {
@@ -601,43 +623,55 @@ export async function runRatify({ pkgRoot, name, input, hash, base, repoDir = RE
     // Every target resolved under repoDir BEFORE the first byte.
     const targets = plan.writes.map((w) => ({ ...w, abs: underRoot(repoDir, w.path) }));
     const before = porcelain(repoDir, git);
-    for (const w of targets) {
-      mkdirSync(path.dirname(w.abs), { recursive: true });
-      writeFileSync(w.abs, w.bytes);
-    }
-    const written = plan.writes.map((w) => w.path).join(",");
+    // From the first byte on, a throw answers with the error and the revert command rather than a bare 500 (PR #492
+    // F2). After the op is appended the chain was green and the files are the admission, so no revert is offered.
     const gates = [];
-    let red = false;
-    for (const [script, ...fixed] of CHAIN) {
-      const args = [...fixed];
-      if (script === "agent-layer/gen-loc-summary.mjs") args.push("--worktree-files", written);
-      if (script === "tooling/build-checks.mjs") args.push("--loc-worktree-files", written);
-      const r = await runStep(script, args, { cwd: repoDir });
-      gates.push({ step: script, code: r.code, ms: r.ms, tail: r.tail });
-      if (r.code !== 0) { red = true; break; }
-    }
-    const diff = diffOf({ repoDir, git, before, writes: plan.writes });
-    if (red) return { gatesRed: true, component: input.component, gates, diff, revert: revertOf(diff.changed), checklist: CHECKLIST };
+    let appended = false;
+    try {
+      for (const w of targets) {
+        mkdirSync(path.dirname(w.abs), { recursive: true });
+        writeFileSync(w.abs, w.bytes);
+      }
+      const written = plan.writes.map((w) => w.path).join(",");
+      let red = false;
+      for (const [script, ...fixed] of CHAIN) {
+        const args = [...fixed];
+        if (script === "agent-layer/gen-loc-summary.mjs") args.push("--worktree-files", written);
+        if (script === "tooling/build-checks.mjs") args.push("--loc-worktree-files", written);
+        const r = await runStep(script, args, { cwd: repoDir });
+        gates.push({ step: script, code: r.code, ms: r.ms, tail: r.tail });
+        if (r.code !== 0) { red = true; break; }
+      }
+      const diff = diffOf({ repoDir, git, before, writes: plan.writes });
+      if (red) return { gatesRed: true, component: input.component, gates, diff, revert: revertOf(diff.changed), checklist: CHECKLIST };
 
-    // Green: the op, then the record — both only now (invariant 7).
-    const params = { proposalId: state.proposal.id, component: input.component };
-    const pkg = loadBuild(buildRoot);
-    saveRun(pkgRoot, { base: pkg.ops.length, ops: [{ op: "proposal.ratify", params, status: "applied" }], positions: positionsOf(pkg.canvas), decisions: loadDecisions(pkgRoot) },
-      now ? { now } : undefined);
-    const ops = loadBuild(buildRoot).ops;
-    const proposedAt = ops.find((l) => l.op === "component.propose" && l.params?.name === name && l.status === "applied")?.at;
-    const ratifiedAt = ops[ops.length - 1].at;
-    const ms = Date.parse(ratifiedAt) - Date.parse(proposedAt);
-    const r = state.record;
-    const record = buildRecord({
-      id: r.id, source: r.source, ir: r.ir, recognition: r.recognition, mapping: r.mapping,
-      fidelity: r.fidelity.deltaEMin ? { wcag: r.fidelity.wcag, deltaEMin: r.fidelity.deltaEMin } : { wcag: r.fidelity.wcag },
-      provenance: { ...r.provenance, licence: input.licence.trim(), attribution: input.attribution?.trim() || r.provenance.attribution || null },
-      elapsed: { ...r.elapsed, ratify: Number.isFinite(ms) ? ms : null },
-      ...(Object.hasOwn(r, "suggestions") ? { suggestions: r.suggestions } : {}),
-    });
-    writeFileSync(underRoot(buildRoot, `imports/${r.id}.json`), jsonText(sortKeys(record)));
-    writeFileSync(underRoot(buildRoot, `imports/${r.id}.md`), projectRecord(record));
-    return { ok: true, component: input.component, gates, diff, checklist: CHECKLIST };
+      // Green: the op, then the record — both only now (invariant 7).
+      const params = { proposalId: state.proposal.id, component: input.component };
+      const pkg = loadBuild(buildRoot);
+      saveRun(pkgRoot, { base: pkg.ops.length, ops: [{ op: "proposal.ratify", params, status: "applied" }], positions: positionsOf(pkg.canvas), decisions: loadDecisions(pkgRoot) },
+        now ? { now } : undefined);
+      appended = true;
+      const ops = loadBuild(buildRoot).ops;
+      const proposedAt = ops.find((l) => l.op === "component.propose" && l.params?.name === name && l.status === "applied")?.at;
+      const ratifiedAt = ops[ops.length - 1].at;
+      const ms = Date.parse(ratifiedAt) - Date.parse(proposedAt);
+      const r = state.record;
+      const record = buildRecord({
+        id: r.id, source: r.source, ir: r.ir, recognition: r.recognition, mapping: r.mapping,
+        fidelity: r.fidelity.deltaEMin ? { wcag: r.fidelity.wcag, deltaEMin: r.fidelity.deltaEMin } : { wcag: r.fidelity.wcag },
+        provenance: { ...r.provenance, licence: input.licence.trim(), attribution: input.attribution?.trim() || r.provenance.attribution || null },
+        elapsed: { ...r.elapsed, ratify: Number.isFinite(ms) ? ms : null },
+        ...(Object.hasOwn(r, "suggestions") ? { suggestions: r.suggestions } : {}),
+      });
+      writeFileSync(underRoot(buildRoot, `imports/${r.id}.json`), jsonText(sortKeys(record)));
+      writeFileSync(underRoot(buildRoot, `imports/${r.id}.md`), projectRecord(record));
+      return { ok: true, component: input.component, gates, diff, checklist: CHECKLIST };
+    } catch (e) {
+      let after = [];
+      try { after = porcelain(repoDir, git); } catch { /* git itself failed: the error below still names the cause */ }
+      const changed = after.filter((l) => !before.includes(l));
+      return { gatesRed: true, error: e.message, appended, component: input.component, gates, diff: { porcelain: after, changed },
+        ...(appended ? {} : { revert: revertOf(changed) }), checklist: CHECKLIST };
+    }
   }, "a ratify");
 }

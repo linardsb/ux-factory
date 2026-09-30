@@ -13,7 +13,7 @@
 //      (the owner's call, 2026-09-30: declarative over owner-typed JS templates).
 //   2. THE SHAPE IS SMALL ON PURPOSE. A root element from ADMIT_TAGS (containers and inline text — no
 //      a, button, input, img, script, style or iframe), text slots written through textContent, attr
-//      slots limited to data-*, and children "none" or "many". A part this cannot express is admitted
+//      slots limited to data-* (never RESERVED_ATTRS, which the renderer and canvas set), and children "none" or "many". A part this cannot express is admitted
 //      by hand through the existing three-file chain, and the ratify form says so.
 //   3. checkAdmitted IS THE ONE VALIDATOR, and it is pure: no DOM, no fs, no imports. The portal may
 //      import it (a cached copy is still correct, because it holds no data); it must NEVER import this
@@ -33,6 +33,8 @@ const ATTR_SLOT_KEYS = Object.freeze(["prop", "as", "attr"]);
 const PROVENANCE_KEYS = Object.freeze(["from", "record", "run", "line"]);
 export const ADMIT_CLASS_RE = /^(ds|vd)-[a-z][a-z0-9-]{1,39}$/;
 const ATTR_RE = /^data-[a-z][a-z0-9-]*$/;
+// Attributes the renderer and the canvas set on a rendered part themselves; a slot claiming one breaks selection.
+const RESERVED_ATTRS = Object.freeze(["data-part", "data-stx-id", "data-stx-selected"]);
 const RECORD_RE = /^i[1-9][0-9]*$/;
 const RUN_RE = /^[a-z0-9-]{1,48}$/;
 
@@ -75,6 +77,8 @@ export function checkAdmitted(name, def, spec) {
       }
     } else if (typeof s.attr !== "string" || !ATTR_RE.test(s.attr)) {
       throw new Error(`${sat("attr")} ${JSON.stringify(s.attr)} is not a data-* attribute`);
+    } else if (RESERVED_ATTRS.includes(s.attr)) {
+      throw new Error(`${sat("attr")} ${JSON.stringify(s.attr)} is reserved — the renderer and the canvas set it themselves`);
     }
   });
   if (!CHILDREN.includes(def.children)) throw new Error(`${at("children")} ${JSON.stringify(def.children)} must be "none" or "many"`);

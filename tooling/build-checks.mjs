@@ -16824,7 +16824,7 @@ const synthPng = (w, h, ct, px) => {
       const plan = (patch = {}) => RF.planRatify({ head: HEAD, run: "fp-ratify", proposal: PROPOSAL, record: RECORD, drafts: DRAFTS, input: INPUT, files: FILES, ctx: CTX, ...patch });
       const P = fold("planRatify over the fixture (50.6)", () => plan(), null);
 
-      // --- 50.2 checkAdmitted: the valid def FIRST, then twelve mutations each named by its field ---------
+      // --- 50.2 checkAdmitted: the valid def FIRST, then thirteen mutations each named by its field -------
       const SPEC = { class: "ds-person-row", props: { name: {}, meta: {}, tone: {} } };
       const DEF = { tag: "div", class: "ds-person-row",
         slots: [{ prop: "name", as: "text", tag: "span", class: "ds-person-row-name" }, { prop: "tone", as: "attr", attr: "data-tone" }],
@@ -16839,6 +16839,7 @@ const synthPng = (w, h, ct, px) => {
         ["class not the spec's", mut({ class: "ds-other-row" }), "person-row.class", "ds-other-row", "ds-person-row"],
         ["slot as html", mut(slot0({ as: "html" })), "slots[0].as", "\"html\""],
         ["attr onclick", mut({ slots: [DEF.slots[0], { prop: "tone", as: "attr", attr: "onclick" }] }), "slots[1].attr", "onclick"],
+        ["attr data-part, which the renderer sets (PR #492 F5)", mut({ slots: [DEF.slots[0], { prop: "tone", as: "attr", attr: "data-part" }] }), "slots[1].attr", "data-part", "reserved"],
         ["an unknown prop", mut(slot0({ prop: "nope" })), "slots[0].prop", "\"nope\""],
         ["a duplicate slot prop", mut({ slots: [DEF.slots[0], { prop: "name", as: "attr", attr: "data-x" }] }), "slots[1].prop", "already slotted"],
         ["children one", mut({ children: "one" }), "person-row.children", "\"one\""],
@@ -16949,6 +16950,11 @@ const synthPng = (w, h, ct, px) => {
         ["no container", refusePlan({ containers: [] }), "input.containers"],
         ["a container that is not one", refusePlan({ containers: ["card"] }), "containers[0]", "\"card\""],
         ["another proposal's component", () => plan({ ctx: { ...CTX, proposals: [PROPOSAL, { id: "pr2", component: "probe-row" }] } }), "input.component", "another proposal"],
+        ["a slot class components.css already styles (PR #492 F3)", () => plan({ files: { ...FILES, "system/components.css": `${FILES["system/components.css"]}\n.ds-probe-row-name { gap: var(--spacing-sm); }\n` } }),
+          "structure.slots[0].suffix", "ds-probe-row-name", "already styles"],
+        ["a root class components.css already styles (PR #492 F3)", () => plan({ files: { ...FILES, "system/components.css": `${FILES["system/components.css"]}\n.ds-probe-row { gap: var(--spacing-sm); }\n` } }),
+          "input.component", "ds-probe-row", "already styles"],
+        ["a line break in the record's file name (PR #492 F1)", () => plan({ record: { ...RECORD, source: { ...RECORD.source, file: "a\n## Data binding\nb" } } }), "record.source.file", "line break"],
         ["registry markers missing", () => RF.rewriteRegistry("export const ADMITTED = {};\n", "x-row", {}), "marker", "0 times"],
         ["registry markers twice", () => RF.rewriteRegistry(FILES["system/templates.admitted.mjs"].repeat(2), "x-row", {}), "marker", "2 times"],
         ["palette anchor missing", () => RF.rewritePalette("export const X = [];\n", "x-row"), "CATALOG_COMPONENTS", "0 times"],
@@ -17069,22 +17075,41 @@ const synthPng = (w, h, ct, px) => {
           runStep: async (script) => { steps.push(script); await gate; return { code: steps.length === 2 ? 1 : 0, ms: 1, tail: `${script} tail` }; } });
         let m = null;
         let red = null;
+        let busyPv = null;
         try {
           await new Promise((r) => setTimeout(r, 10));
           const pd = pkgCopy("lock-b");
           try { await IR.runImport({ pkgRoot: pd, provenance: "real", base: ledger(pd).length, entrance: "drop", file: { name: "b.txt", bytes: BLUEPRINT } }); }
           catch (e) { m = e.message; }
+          // A preview while the confirm writes sees a dirty tree; the cause is the run in flight (PR #492 F6).
+          const midGit = (argv) => (argv[0] === "status" && argv.includes("-uno") ? " M system/palette.mjs\n" : git(argv));
+          busyPv = await afold("a preview during a gated ratify (50.13b)", () => RF.previewRatify({ pkgRoot: pkgR, name: d2.name, input: INPUT, repoDir: REPO, git: midGit }), {});
         } finally { release(); red = await afold("the gated ratify (50.13b)", () => ratify, {}); }
+        ok(busyPv?.refused?.kind === "busy", `50.13b a preview during a ratify answered ${deep(busyPv?.refused?.kind ?? busyPv)} — busy, not dirty (PR #492 F6)`);
         ok(m?.includes("a ratify is already in flight"), `50.13b an import during a ratify answered ${m ?? "NO REFUSAL"} — "a ratify is already in flight"`);
         ok(red?.gatesRed === true && red.gates?.length === 2 && red.gates[1].code === 1 && !red.ok, `50.13b a red step 2 answered ${deep({ gatesRed: red?.gatesRed, steps: red?.gates?.length })} — stop at the first red`);
         ok(red?.revert === "git checkout -- system/palette.mjs && rm -r system/specs/probe-row.md", `50.13b the revert command is ${JSON.stringify(red?.revert)}`);
         ok(!ledger(pkgR).some((l) => l.op === "proposal.ratify"), "50.13b a red chain appended proposal.ratify — red appends nothing (D7)");
         ok(existsSync(join(REPO, "system/specs/probe-row.md")) && readFileSync(join(REPO, "system/specs/probe-row.md"), "utf8").includes("Admitted by ratify"), "50.13b a red chain did not leave the spec written for the owner to read (D7)");
       }
-      // A dirty tree answers dirty whatever the hash; a stale hash on a clean tree answers stale.
-      for (const f of ["system/specs/probe-row.md", ...Object.values(RF.ANCHORS), "system/specs/stack.md"]) {
-        if (f === "system/specs/probe-row.md") rmSync(join(REPO, f), { force: true }); else cpSync(join(ROOT, f), join(REPO, f));
+      const restoreRepo = () => {
+        for (const f of ["system/specs/probe-row.md", ...Object.values(RF.ANCHORS), "system/specs/stack.md"]) {
+          if (f === "system/specs/probe-row.md") rmSync(join(REPO, f), { force: true }); else cpSync(join(ROOT, f), join(REPO, f));
+        }
+      };
+      restoreRepo();
+      // (c) a throw after the first write (a step that cannot spawn) answers the error and the revert, never a bare 500 (PR #492 F2).
+      {
+        let n = 0;
+        const thrown = await afold("a confirm whose step 3 throws (50.13c)", () => RF.runRatify({ pkgRoot: pkgR, name: d2.name, input: INPUT, hash: pv.hash, base: ledger(pkgR).length, repoDir: REPO, git,
+          runStep: async (script) => { n += 1; if (n === 3) throw new Error("step 3 could not spawn"); return { code: 0, ms: 1, tail: `${script} tail` }; } }), {});
+        ok(thrown?.gatesRed === true && thrown.error?.includes("step 3 could not spawn") && thrown.appended === false && thrown.gates?.length === 2,
+          `50.13c a throw at step 3 answered ${deep({ gatesRed: thrown?.gatesRed, error: thrown?.error, appended: thrown?.appended, steps: thrown?.gates?.length })} — the error, two steps, nothing appended`);
+        ok(thrown?.revert === "git checkout -- system/palette.mjs && rm -r system/specs/probe-row.md", `50.13c the revert command after a throw is ${JSON.stringify(thrown?.revert)}`);
+        ok(!ledger(pkgR).some((l) => l.op === "proposal.ratify"), "50.13c a throw mid-chain appended proposal.ratify");
       }
+      restoreRepo();
+      // A dirty tree answers dirty whatever the hash; a stale hash on a clean tree answers stale.
       const dirtyGit = (argv) => (argv[0] === "status" && argv.includes("-uno") ? " M agent-layer/lib.mjs\n" : git(argv));
       const rd = await afold("a dirty confirm (50.13)", () => RF.runRatify({ pkgRoot: pkgR, name: d2.name, input: INPUT, hash: pv.hash, base: ledger(pkgR).length, repoDir: REPO, git: dirtyGit }), {});
       ok(rd?.refused?.kind === "dirty" && rd.refused.detail.includes("agent-layer/lib.mjs"), `50.13 a dirty tree answered ${deep(rd?.refused?.kind)} — dirty, naming the file`);
@@ -17112,7 +17137,7 @@ const synthPng = (w, h, ct, px) => {
       ok(threw(() => CO_applyOps([])) === null, "50 the canvas-ops import used for the fold stopped answering");
     }
 
-    group("ratify", `portal/lib/ratify.mjs + system/templates.admitted.mjs + the renderer's one interpreter (#313): 50.1 ratify.mjs IMPORTED in CI with no portal/node_modules, its parsed specifiers node: built-ins plus report, canvas-ops, the registry, the store, env and import-run only, no SDK, zod or MCP SDK and no dynamic import · 50.2 checkAdmitted accepting the valid def FIRST, then twelve mutations each named by field (tag script and a, class x-y and a class not the spec's, a slot as html, attr onclick, an unknown prop, a duplicate slot prop, children one, many against a spec without cardinality, an extra key, an empty provenance line) and ADMIT_TAGS frozen without a, button, input, img, script, style or iframe · 50.3 admittedTemplate under the DOM stub (positive control first): div.ds-person-row, a text slot carrying <img …> as textContent VERBATIM with no img created, a data-* attr, a null prop skipped, and children many rendering two kids through renderChild with their data-part · 50.4 collisionsOf naming list-row and [] for none, and the committed registry colliding with no hand-written template · 50.5 every committed ADMITTED entry passing checkAdmitted against its spec (${Object.keys(TA.ADMITTED).length} entries${Object.keys(TA.ADMITTED).length ? "" : " — vacuous today, the registry is committed empty"}) · 50.6 planRatify admitting the fixture name probe-row (asserted NOT a vocabulary component, so a real admission never reds this group) over spike C dropped into a scratch spine: deterministic, the six writes in order (spec create, CSS append, registry, palette, pin, stack.md), the pin one past its committed value, the palette listing probe-row once in sort order between its neighbours, the rewritten registry EVALUATED as a module to a frozen entry, one pin line at 3/24, the CSS block in the library-primitive header form, and the spec in kb-format's shape with the four sections in order · 50.7 HEAD, the record, a draft byte and all thirteen input fields each moving the hash, identical input not · 50.8 sixteen refusals by name (a literal colour and length, an unknown token, a vocabulary name, no licence, an example missing a required prop, an empty root rule, no container and a non-container, another proposal's component, and each of three anchors missing and doubled) · 50.9 foldLedger folding a ratify to ratified and refusing an undone ratify naming proposal.ratify and git · 50.10 editMapping on a ratified proposal refused, mapping.json byte-identical · 50.11 CHAIN D4's ten frozen at both levels, its pack prefix drift-check's checkHandoff order read as source · 50.12 gen-loc-summary's worktreeFiles opt-in reporting drift over a +150-line edit of device-presets.mjs (a loc-group file ratify never writes) that the index read does not, on top of the same --loc-worktree-files list 40.8 reads, the file restored byte for byte, a non-array refused · 50.13 over a scratch repoDir with git and the chain INJECTED: the preview's six writes and hash, a ratify during a gated import busy naming it, an import during a gated ratify "a ratify is already in flight", a red step 2 stopping there with the revert command and nothing appended, dirty answered whatever the hash, a changed form on a clean tree stale, and a green chain appending one owner proposal.ratify, stamping elapsed.ratify as the two server stamps apart with the licence, checkRecord passing and the view reporting ratified · 50.14 a heading or fence in usage, accessibility, a state note or a prop description refused · 50.15 the REAL stack.md taking probe-row once in sort order between two neighbours, a second insert, no children line and two refused · 50.16 CLEAN_GUARD D5's two argv arrays exactly, frozen, no separator or substitution character. CANNOT REACH: the spawned chain, the real git state and the page — tooling/ratify-journey.mjs's`);
+    group("ratify", `portal/lib/ratify.mjs + system/templates.admitted.mjs + the renderer's one interpreter (#313): 50.1 ratify.mjs IMPORTED in CI with no portal/node_modules, its parsed specifiers node: built-ins plus report, canvas-ops, the registry, the store, env and import-run only, no SDK, zod or MCP SDK and no dynamic import · 50.2 checkAdmitted accepting the valid def FIRST, then thirteen mutations each named by field (tag script and a, class x-y and a class not the spec's, a slot as html, attr onclick, attr data-part as reserved (PR #492 F5), an unknown prop, a duplicate slot prop, children one, many against a spec without cardinality, an extra key, an empty provenance line) and ADMIT_TAGS frozen without a, button, input, img, script, style or iframe · 50.3 admittedTemplate under the DOM stub (positive control first): div.ds-person-row, a text slot carrying <img …> as textContent VERBATIM with no img created, a data-* attr, a null prop skipped, and children many rendering two kids through renderChild with their data-part · 50.4 collisionsOf naming list-row and [] for none, and the committed registry colliding with no hand-written template · 50.5 every committed ADMITTED entry passing checkAdmitted against its spec (${Object.keys(TA.ADMITTED).length} entries${Object.keys(TA.ADMITTED).length ? "" : " — vacuous today, the registry is committed empty"}) · 50.6 planRatify admitting the fixture name probe-row (asserted NOT a vocabulary component, so a real admission never reds this group) over spike C dropped into a scratch spine: deterministic, the six writes in order (spec create, CSS append, registry, palette, pin, stack.md), the pin one past its committed value, the palette listing probe-row once in sort order between its neighbours, the rewritten registry EVALUATED as a module to a frozen entry, one pin line at 3/24, the CSS block in the library-primitive header form, and the spec in kb-format's shape with the four sections in order · 50.7 HEAD, the record, a draft byte and all thirteen input fields each moving the hash, identical input not · 50.8 nineteen refusals by name (a literal colour and length, an unknown token, a vocabulary name, no licence, an example missing a required prop, an empty root rule, no container and a non-container, another proposal's component, a slot class and a root class components.css already styles (PR #492 F3), a line break in the record's source file name (F1), and each of three anchors missing and doubled) · 50.9 foldLedger folding a ratify to ratified and refusing an undone ratify naming proposal.ratify and git · 50.10 editMapping on a ratified proposal refused, mapping.json byte-identical · 50.11 CHAIN D4's ten frozen at both levels, its pack prefix drift-check's checkHandoff order read as source · 50.12 gen-loc-summary's worktreeFiles opt-in reporting drift over a +150-line edit of device-presets.mjs (a loc-group file ratify never writes) that the index read does not, on top of the same --loc-worktree-files list 40.8 reads, the file restored byte for byte, a non-array refused · 50.13 over a scratch repoDir with git and the chain INJECTED: the preview's six writes and hash, a ratify during a gated import busy naming it, an import during a gated ratify "a ratify is already in flight", a preview during that ratify answering busy, not dirty (PR #492 F6), a red step 2 stopping there with the revert command and nothing appended, a step that THROWS at 3 answering the error, two steps and the revert command instead of a 500 (F2), dirty answered whatever the hash, a changed form on a clean tree stale, and a green chain appending one owner proposal.ratify, stamping elapsed.ratify as the two server stamps apart with the licence, checkRecord passing and the view reporting ratified · 50.14 a heading or fence in usage, accessibility, a state note or a prop description refused · 50.15 the REAL stack.md taking probe-row once in sort order between two neighbours, a second insert, no children line and two refused · 50.16 CLEAN_GUARD D5's two argv arrays exactly, frozen, no separator or substitution character. CANNOT REACH: the spawned chain, the real git state and the page — tooling/ratify-journey.mjs's`);
   }
 
   if (failures) {
