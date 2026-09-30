@@ -92,7 +92,7 @@
 //  21 catalog        the component catalog's pure layer: pack↔vocabulary set identity, the
 //                     palette's static CATALOG_COMPONENTS pinned against the generated vocabulary,
 //                     controlFor's bounds fidelity over every real prop (declared subsets only,
-//                     nothing invented), tabsFor's 3/23 wrapper histogram pinned as the #220
+//                     nothing invented), tabsFor's wrapper histogram pinned as the #220
 //                     tripwire, WRAPPER_ATTRS pinned against each wrapper source's
 //                     observedAttributes AND the vocabulary's props (with the type:"type" mutation
 //                     that proves the fabricated-API refusal is real), reactSnippet's attribute
@@ -5156,8 +5156,14 @@ function scanSvg(svg, label) {
       `${c.name}: vd/react tabs must be present IFF the pack ships a wrapper (wrapper: ${c.wrapper})`);
     if (c.wrapper) withWrapper += 1; else withoutWrapper += 1;
   }
-  ok(withWrapper === 3 && withoutWrapper === 23,
-    `the wrapper histogram moved — ${withWrapper} with / ${withoutWrapper} without (pinned 3/23; see the tripwire note above)`);
+  // THE PIN IS ONE MACHINE-EDITABLE LINE (#313): a ratify admits a wrapper-less part, so it moves `without` by one and
+  // appends its reason to WRAPPER_PIN_REASONS — the tripwire note above, continued as data. Both anchors' comment text
+  // is part of what portal/lib/ratify.mjs matches, and it refuses unless each matches exactly once.
+  const WRAPPER_PIN = { with: 3, without: 23 }; // ratify-pin — portal/lib/ratify.mjs moves this line and appends a reason below; one line, one match
+  const WRAPPER_PIN_REASONS = [ // ratify-reasons
+  ];
+  ok(withWrapper === WRAPPER_PIN.with && withoutWrapper === WRAPPER_PIN.without,
+    `the wrapper histogram moved — ${withWrapper} with / ${withoutWrapper} without (pinned ${WRAPPER_PIN.with}/${WRAPPER_PIN.without}; see the tripwire note above)`);
 
   // --- 21.5 WRAPPER_ATTRS — the one hand-written table, triple-pinned. Each wrapper source is
   // TEXT-PARSED for its observedAttributes literal (the group-12 "CSS cannot import" precedent,
@@ -5573,6 +5579,7 @@ function scanSvg(svg, label) {
   const PACK = JSON.parse(readFileSync(join(ROOT, "handoff/verdant/pack.json"), "utf8"));
   const GRAPH = JSON.parse(readFileSync(join(ROOT, "system/system-graph.json"), "utf8"));
   const RENDERER_SRC = readFileSync(join(ROOT, "system/agentic-renderer.mjs"), "utf8");
+  const { ADMITTED: ADMITTED_23 } = await import("../system/templates.admitted.mjs");
 
   // --- 23.1 index integrity over the REAL artifacts ---------------------------------------------
   // One entry per pack component, so no class collision is being silently absorbed (docsIndex
@@ -5595,14 +5602,16 @@ function scanSvg(svg, label) {
   // require the pack's class to be one of them. A template rename, a pack rename or a spec rename
   // each break this from a different side, which is what makes it a drift detector rather than a
   // restatement. It is a SOURCE-TEXT check and says so: the alternative is a DOM, which this job
-  // does not have.
+  // does not have. …or the admitted registry's `class` (#313): a ratified part has no template line in
+  // the renderer's source, and the one interpreter (admittedTemplate) emits `def.class` as the root, so
+  // for an admitted name the data IS the emitted class.
   const emitsClass = (src, className) => {
     const esc = className.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     return new RegExp(`class: (?:"${esc}"|\`${esc}(?:\\$| ))`).test(src);
   };
   for (const c of PACK.components) {
     ok(index.has(c.class), `the docs index cannot resolve "${c.component}"'s class ${c.class}`);
-    ok(emitsClass(RENDERER_SRC, c.class),
+    ok(emitsClass(RENDERER_SRC, c.class) || (Object.hasOwn(ADMITTED_23, c.component) && ADMITTED_23[c.component].class === c.class),
       `agentic-renderer.mjs emits no root class "${c.class}" for "${c.component}" — a rendered component the inspector's decoration would never find, so clicking it does nothing`);
   }
 
@@ -5739,7 +5748,7 @@ function scanSvg(svg, label) {
       `COMPILED_SELECTOR is ${COMPILED_SELECTOR} but renderScreen emits .${rootClass[1]} — the studio would never notice it had compiled`);
   }
 
-  group("studio docs", `docsIndex over the real pack — ${index.size} classes, one per component, collisions proven to THROW and to name both sides · every pack class asserted to be a class agentic-renderer.mjs actually emits (three template forms, source-text and says so), plus the ${rendered.size} components the COMMITTED replay board really compiles, each proven to be a doc trigger · the class-rename MUTATION proving that detector can fail · headingTags exact at 2/4/5 and total over 12 junk levels, with the absent-level default pinned so mount 1 stays byte-identical · loadDocsModel driven with a stub fetch: exactly ${askedOnce} requests equal to DOCS_SOURCES, the THIRD argument's fields (token groups, ${withConsumer} measured consumers) asserted present, and the graph-omitted MUTATION proving that assertion real — AC #3 gated rather than true by construction · shouldLoad's full 8-row truth table + totality, and COMPILED_SELECTOR pinned against studio-flow.mjs's own renderScreen class. The click, the opened panel, the cross-page agreement, the un-stolen focus, the live token values and the at-rest request count are tooling/studio-journey.mjs's docsPass, and say so`);
+  group("studio docs", `docsIndex over the real pack — ${index.size} classes, one per component, collisions proven to THROW and to name both sides · every pack class asserted to be a class agentic-renderer.mjs actually emits (three template forms, source-text and says so, or the admitted registry's class, which the one interpreter emits as the root — #313), plus the ${rendered.size} components the COMMITTED replay board really compiles, each proven to be a doc trigger · the class-rename MUTATION proving that detector can fail · headingTags exact at 2/4/5 and total over 12 junk levels, with the absent-level default pinned so mount 1 stays byte-identical · loadDocsModel driven with a stub fetch: exactly ${askedOnce} requests equal to DOCS_SOURCES, the THIRD argument's fields (token groups, ${withConsumer} measured consumers) asserted present, and the graph-omitted MUTATION proving that assertion real — AC #3 gated rather than true by construction · shouldLoad's full 8-row truth table + totality, and COMPILED_SELECTOR pinned against studio-flow.mjs's own renderScreen class. The click, the opened panel, the cross-page agreement, the un-stolen focus, the live token values and the at-rest request count are tooling/studio-journey.mjs's docsPass, and say so`);
 }
 
 // --- 24 · the studio's device frames (#219) ----------------------------------------------------------
@@ -11247,10 +11256,10 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const names = (fn, ...must) => { const m = threw(fn); return m && must.every((w) => m.includes(w)) ? null : `${m ?? "NO THROW"}`; };
 
   // --- 35.1 the roster, BOTH directions, frozen BY MUTATION -------------------------------------
-  ok(COPS.length === 11 && Object.keys(CPARAMS).length === COPS.length
+  ok(COPS.length === 12 && Object.keys(CPARAMS).length === COPS.length
     && COPS.every((v) => Array.isArray(CPARAMS[v]))
     && Object.keys(CPARAMS).every((v) => COPS.includes(v)),
-    `OPS (${COPS.join(", ")}) and PARAMS (${Object.keys(CPARAMS).join(", ")}) are not the same eleven verbs — #302's six, #306's four and #311's one`);
+    `OPS (${COPS.join(", ")}) and PARAMS (${Object.keys(CPARAMS).join(", ")}) are not the same twelve verbs — #302's six, #306's four, #311's one and #313's one`);
   for (const [label, arr] of [["OPS", COPS], ...COPS.map((v) => [`PARAMS.${v}`, CPARAMS[v]])]) {
     const n = arr.length;
     ok(Object.isFrozen(arr) && threw(() => arr.push("smuggled")) !== null && arr.length === n,
@@ -11277,6 +11286,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     annotate: { text: "check the copy with legal" },
     "variant.add": { key: "b", overrides: { f1: { set: {} } } },
     "component.propose": { name: "spike-list-row", recordId: "i1", mode: 1 },
+    "proposal.ratify": { proposalId: "pr1", component: "person-row" },
   };
   for (const verb of COPS) {
     ok(VALID_FOR[verb], `no VALID_FOR fixture for "${verb}" — every verb needs one minimal valid op here, or this group iterates OPS in name only`);
@@ -11481,6 +11491,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       { op: "screen.compose", params: VALID_FOR["screen.compose"] },
       { op: "screen.compose", params: { ...VALID_FOR["screen.compose"], screenId: "second" } },
       { op: "connect", params: VALID_FOR.connect },
+      // mints pr1 for proposal.ratify's control; its name and record differ from VALID_FOR["component.propose"]'s,
+      // so that verb's own control still owes the document nothing (#313).
+      { op: "component.propose", params: { name: "kept-row", recordId: "i9", mode: 1 } },
     ]) ?? emptyDoc();
     ok(threw(() => applyOp(doc, { op: verb, params: VALID_FOR[verb] })) === null,
       `the minimal VALID_FOR op for "${verb}" was REFUSED (${threw(() => applyOp(doc, { op: verb, params: VALID_FOR[verb] }))}) — every refusal above would pass on an applier that refuses everything`);
@@ -11651,7 +11664,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     const { proposals: _pb, ...restBase } = base;
     ok(deep(restA) === deep(restBase), `component.propose touched more than proposals: ${deep(restA)} vs ${deep(restBase)}`);
     ok(a.proposals?.[0]?.status === "proposed", `a new proposal's status is ${deep(a.proposals?.[0]?.status)} — only proposal.ratify (#313) moves it`);
-    ok(!COPS.includes("proposal.ratify"), "OPS includes proposal.ratify — #313 adds proposal.ratify and must move this assertion in the same PR");
+    ok(COPS.includes("proposal.ratify"), "OPS does not include proposal.ratify — #313's verb is the only thing that moves a proposal's status (35.16 drives it)");
     // A document saved before #311 has no proposals key and still folds.
     const { proposals: _old, ...pre311 } = emptyDoc();
     const folded = fold([propose], pre311);
@@ -11832,7 +11845,43 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     }
   }
 
-  group("canvas ops", `#314's lanes (35.15): variant.add refusing key "a" (lane A is the document), omit other than true, omit beside set, an unknown override key, and a wrong-typed set, hide or add (PR #491 F2: a string or a part of strings for set, a number or a non-string part for hide, null for add, each named by its overrides.<frame>.<key> path) — each named — behind the positive control that {omit: true} alone and {set, hide, add} are ACCEPTED; LANE_OVERRIDE_KEYS frozen as set · hide · add · omit and BASE_LANE null; laneKeys [null] then [null, "b"], total over 5 junk docs; laneDoc omitting a base's states and every arrow touching either, flagging each omitted frame, an unknown lane holding no frames with an unknown-lane flag, and its argument unmutated; frameTree's layer order base.sets → lane[base] → state.overrides → state.sets → lane[state] (lane b's f1 "Check the name", its f2 still "Send anyway" plus the lane's hint, lane A's f1 "Continue") and an omitted frame answering tree null, flagged; missingStates per lane on the committed SYNTHETIC two-lane fixture — empty, partial for A and empty, error, partial for b, the error missing in b ONLY, [] for an unknown lane — and its f3 keeping "Checking the name…" in b; stateDiagram's spine text exact, lane b with no f2 and its arrow relabelled, "a:b;c#d" emitted as abcd; the lane reads total over junk · #475's Mode 2 exhibit (35.13, 35.14): EXHIBIT_SIZE 320×280 frozen by mutation; exhibitsOf answering Mode 2 proposals only, in order, total over 5 junk docs; exhibitClash over six literal boxes — right of the flow clear, below a frame with no authored height REFUSED (it reaches down without end, the only reading Node can compute), below an authored 600 clear, overlapping it refused, touching edges clear, a widened f2 refused — and junk answering null; exhibitClashes, the ONE call the page and arrangement both make, honouring an authored h from positions (the resize escape hatch), skipping an unplaced exhibit and taking a frame's width from the DOCUMENT even when positions says 9999 · the frozen-original refusal in screen.compose (nested two levels), state.add's override.add and variant.add's overrides.<frame>.add — each both bare and in the architecture's {parentId, index, part} wrapper, whose part the walk must reach — each naming the verb, the name, pr1 and G7, behind two kinds of positive control: the same three ops naming a Mode 1 proposal accepted, and a prop called name not mistaken for a node · #311's component.propose (35.12): pr1 minted deterministically and pr2 after it, eight refusals each matched on what they name (a bad name two ways, a duplicate name, a duplicate recordId, a recordId that is not i<n>, mode 3 and mode "1", an id slot), every key but proposals untouched, status "proposed" and no proposal.ratify in OPS — a proposal never reaches the vocabulary without #313 — and a pre-#311 document with no proposals key folding · #306's four verbs and frame.size's free width: annotate minting n1 and EDITING in place (a noteId that does not resolve is refused, or it is the smuggling slot), frame.link REPLACING the list, frame.size {width} recording preset null, variant.add one lane, frame.remove taking its arrows with it — and 19 refusals naming the blocker (a state or a variant lane overriding the frame), each rule on decisionRefs, blank text, the lane key, the override map, and exactly-one-of preset/width with the 320–2560 bounds · frameTree resolving base sets, then the state\'s override, then its own sets, DROPPING a hidden node rather than writing `+"`"+`hidden`+"`"+` (the real validateComposition refuses that prop, and the returned trees pass it), flagging a dangling set and a hidden root, total over junk · placeDecision right of the anchor\'s whole ROW (894 then 1206 on the spine, where right-of-the-anchor is 422, on top of f2), a lower row ignored, total over junk · non-data inside params (a function, a symbol, nested) refused BY PATH before structuredClone's unnamed DataCloneError can speak (#437) · OPS ↔ PARAMS the same ${COPS.length} verbs in BOTH directions, every list frozen BY MUTATION at both levels (Object.freeze is shallow, and a pushable PARAMS entry lets the frozen case pass for the wrong reason), STATE_KEYS pinned as the five-state floor with "ideal" leading it, and NO PARAMS entry offering an id slot for the thing its op creates — the only way to enforce board-ops' mint-from-the-document rule is on the key set · a VALID_FOR fixture per verb so an ELEVENTH verb with no fixture fails BY NAME, each fixture's keys asserted to be in its own PARAMS entry · EVERY constructive call routed through one fold() that turns a throw into a NAMED failure rather than an uncaught one: ok() only accumulates and group() prints at the end, so an unguarded throw here kills the process before a single named failure speaks — found by mutation (widening a PARAMS entry with an id slot makes 35.1's own assertion false AND makes the fold throw, and unguarded the throw won) · the happy six-op fold: ids minted f1/f2 and a1 with no op carrying one, a state proven to be a SIBLING carrying an override rather than a copy of its base, frame.size recording BOTH the preset name and the width so a later table edit moves new frames and leaves committed ones, and PURITY proven by mutating the input and by mutating the return · 19 refusals each DRIVEN by a broken op and matched on the words it must NAME — including D4's `+"`"+`why`+"`"+` three ways (absent, EMPTY, non-string), a state outside the minimum, a dangling frameId in each of four positions, an unknown verb, an unknown param, an unknown ENVELOPE key, a document that is not one, and PR #432's three open questions as the owner closed them on 2026-09-21: a state OF a state (which missingStates walks base frames only and could never have reported), a DUPLICATE (baseId, stateKey) (which its Set absorbed silently), and an unknown key INSIDE connect's from or to — with ENDPOINT_KEYS frozen at both levels beside PARAMS and `+"`"+`partId`+"`"+` proven to be `+"`"+`from`+"`"+`'s alone — behind the positive control that EVERY verb's minimal valid op is ACCEPTED, without which the battery would pass on an applier that refuses everything, plus applyOps naming the failing INDEX and verb · the TWO-LAYER rule gated: frame.sets (screen.set's) and frame.overrides.set (state.add's) proven to be the SAME SHAPE so ONE resolve applies both, with the state's layer proven to win over the base's — measured rather than assumed, because the spine's first render dropped its screen.set entirely and nothing said who joined the composition to the sets · resolve() proven to FLAG a dangling override and to keep it OUT of the resolved parts (never dropped, because it is a real thing someone wrote) with landing set and hide both applied, total over 6 junk shapes · missingStates as a LIST rather than a count, only BASE frames considered, a base with the floor met OMITTED so an empty answer means met rather than unchecked, total over 6 · canDeleteBasePart refusing by naming the state, its frame and what to do instead, with the part NOTHING overrides proven to pass so the refusal does not fire on everything · the preset table frozen with presetWidth answering NULL rather than a default · and the import graph pinned to device-presets.mjs alone. What it cannot reach: whether a composition RENDERS (group 3's), whether a frame ever reaches the canvas or the page renders frameTree's output (studio-journey's and canvas-journey's), whether the page puts a refused move back (canvas-journey's), whether Mermaid parses the stateDiagram text (a human paste), and whether a `+"`"+`why`+"`"+` is any GOOD — a sentence that says nothing while passing .trim() is a human read`);
+  // --- 35.16 proposal.ratify (#313): the ledger half of an admission ---------------------------
+  // The filesystem half (spec, CSS, registry, palette, pin) is portal/lib/ratify.mjs's and group 50's. Here: the
+  // status move, and every refusal the document alone can decide — Mode 2 above all (#475's hand-off, G7).
+  {
+    const m = fold([
+      { op: "screen.compose", params: VALID_FOR["screen.compose"] },
+      { op: "component.propose", params: { name: "frozen-row", recordId: "i1", mode: 2 } },
+      { op: "component.propose", params: { name: "kept-row", recordId: "i2", mode: 1 } },
+    ]) ?? emptyDoc();
+    const ratify = (proposalId, component, doc = m, extra = {}) => () => applyOp(doc, { op: "proposal.ratify", params: { proposalId, component, ...extra } });
+    // POSITIVE CONTROL FIRST: a Mode 1 proposal is ratified, and nothing else in the document moves.
+    ok(threw(ratify("pr2", "kept-row")) === null, `35.16 positive control — ratifying Mode 1 pr2 was refused: ${threw(ratify("pr2", "kept-row"))}`);
+    let after = emptyDoc();
+    try { after = ratify("pr2", "kept-row")(); } catch { /* reported above */ }
+    const pr2 = (after.proposals ?? []).find((x) => x.id === "pr2");
+    ok(pr2?.status === "ratified" && pr2?.component === "kept-row", `35.16 pr2 after ratify is ${deep(pr2)} — status "ratified", component "kept-row"`);
+    const { proposals: _ra, ...restAfter } = after;
+    const { proposals: _rm, ...restM } = m;
+    ok(deep(restAfter) === deep(restM) && deep((after.proposals ?? []).find((x) => x.id === "pr1")) === deep(m.proposals?.[0]),
+      `35.16 proposal.ratify touched more than pr2: ${deep(restAfter)} vs ${deep(restM)}`);
+    ok(deep(exhibitsOf(after)) === deep([{ id: "pr1", name: "frozen-row", recordId: "i1" }]),
+      `35.16 exhibitsOf after a ratify answered ${deep(exhibitsOf(after))} — the Mode 2 exhibit pr1 only`);
+    const { proposals: _np, ...noProposals } = emptyDoc();
+    for (const [label, fn, ...must] of [
+      ["an unknown id", ratify("pr9", "x-row"), "proposal.ratify", "\"pr9\"", "does not resolve", "pr1, pr2"],
+      ["a Mode 2 proposal", ratify("pr1", "frozen-row"), "frozen original", "pr1", "G7"],
+      ["a second ratify", ratify("pr2", "kept-row", after), "already ratified"],
+      ["a component that is not a name", ratify("pr2", "Person Row"), "not a component name"],
+      ["a proposalId that is not pr<n>", ratify("1", "kept-row"), "proposal.ratify", "\"1\""],
+      ["an id slot (PARAMS exactness)", ratify("pr2", "kept-row", m, { id: "pr7" }), "proposal.ratify", "id"],
+      ["a document with no proposals key", ratify("pr1", "kept-row", noProposals), "does not resolve", "no proposals"],
+    ]) {
+      ok(names(fn, ...must) === null, `35.16 ${label}: the refusal must name ${must.map((w) => JSON.stringify(w)).join(" and ")} — got ${threw(fn) ?? "NO THROW"}`);
+    }
+  }
+
+  group("canvas ops", `#313's proposal.ratify (35.16): a Mode 1 proposal ratified FIRST as the positive control — status "ratified", its component recorded, every other key and pr1 untouched, exhibitsOf still pr1 alone — then seven refusals each matched on what they name: an unknown id (listing pr1, pr2), a Mode 2 proposal (frozen original, G7), a second ratify, a component that is not a name, a proposalId that is not pr<n>, an id slot, and a document with no proposals key · #314's lanes (35.15): variant.add refusing key "a" (lane A is the document), omit other than true, omit beside set, an unknown override key, and a wrong-typed set, hide or add (PR #491 F2: a string or a part of strings for set, a number or a non-string part for hide, null for add, each named by its overrides.<frame>.<key> path) — each named — behind the positive control that {omit: true} alone and {set, hide, add} are ACCEPTED; LANE_OVERRIDE_KEYS frozen as set · hide · add · omit and BASE_LANE null; laneKeys [null] then [null, "b"], total over 5 junk docs; laneDoc omitting a base's states and every arrow touching either, flagging each omitted frame, an unknown lane holding no frames with an unknown-lane flag, and its argument unmutated; frameTree's layer order base.sets → lane[base] → state.overrides → state.sets → lane[state] (lane b's f1 "Check the name", its f2 still "Send anyway" plus the lane's hint, lane A's f1 "Continue") and an omitted frame answering tree null, flagged; missingStates per lane on the committed SYNTHETIC two-lane fixture — empty, partial for A and empty, error, partial for b, the error missing in b ONLY, [] for an unknown lane — and its f3 keeping "Checking the name…" in b; stateDiagram's spine text exact, lane b with no f2 and its arrow relabelled, "a:b;c#d" emitted as abcd; the lane reads total over junk · #475's Mode 2 exhibit (35.13, 35.14): EXHIBIT_SIZE 320×280 frozen by mutation; exhibitsOf answering Mode 2 proposals only, in order, total over 5 junk docs; exhibitClash over six literal boxes — right of the flow clear, below a frame with no authored height REFUSED (it reaches down without end, the only reading Node can compute), below an authored 600 clear, overlapping it refused, touching edges clear, a widened f2 refused — and junk answering null; exhibitClashes, the ONE call the page and arrangement both make, honouring an authored h from positions (the resize escape hatch), skipping an unplaced exhibit and taking a frame's width from the DOCUMENT even when positions says 9999 · the frozen-original refusal in screen.compose (nested two levels), state.add's override.add and variant.add's overrides.<frame>.add — each both bare and in the architecture's {parentId, index, part} wrapper, whose part the walk must reach — each naming the verb, the name, pr1 and G7, behind two kinds of positive control: the same three ops naming a Mode 1 proposal accepted, and a prop called name not mistaken for a node · #311's component.propose (35.12): pr1 minted deterministically and pr2 after it, eight refusals each matched on what they name (a bad name two ways, a duplicate name, a duplicate recordId, a recordId that is not i<n>, mode 3 and mode "1", an id slot), every key but proposals untouched, status "proposed" and proposal.ratify in OPS as the only verb that moves it — and a pre-#311 document with no proposals key folding · #306's four verbs and frame.size's free width: annotate minting n1 and EDITING in place (a noteId that does not resolve is refused, or it is the smuggling slot), frame.link REPLACING the list, frame.size {width} recording preset null, variant.add one lane, frame.remove taking its arrows with it — and 19 refusals naming the blocker (a state or a variant lane overriding the frame), each rule on decisionRefs, blank text, the lane key, the override map, and exactly-one-of preset/width with the 320–2560 bounds · frameTree resolving base sets, then the state\'s override, then its own sets, DROPPING a hidden node rather than writing `+"`"+`hidden`+"`"+` (the real validateComposition refuses that prop, and the returned trees pass it), flagging a dangling set and a hidden root, total over junk · placeDecision right of the anchor\'s whole ROW (894 then 1206 on the spine, where right-of-the-anchor is 422, on top of f2), a lower row ignored, total over junk · non-data inside params (a function, a symbol, nested) refused BY PATH before structuredClone's unnamed DataCloneError can speak (#437) · OPS ↔ PARAMS the same ${COPS.length} verbs in BOTH directions, every list frozen BY MUTATION at both levels (Object.freeze is shallow, and a pushable PARAMS entry lets the frozen case pass for the wrong reason), STATE_KEYS pinned as the five-state floor with "ideal" leading it, and NO PARAMS entry offering an id slot for the thing its op creates — the only way to enforce board-ops' mint-from-the-document rule is on the key set · a VALID_FOR fixture per verb so a THIRTEENTH verb with no fixture fails BY NAME, each fixture's keys asserted to be in its own PARAMS entry · EVERY constructive call routed through one fold() that turns a throw into a NAMED failure rather than an uncaught one: ok() only accumulates and group() prints at the end, so an unguarded throw here kills the process before a single named failure speaks — found by mutation (widening a PARAMS entry with an id slot makes 35.1's own assertion false AND makes the fold throw, and unguarded the throw won) · the happy six-op fold: ids minted f1/f2 and a1 with no op carrying one, a state proven to be a SIBLING carrying an override rather than a copy of its base, frame.size recording BOTH the preset name and the width so a later table edit moves new frames and leaves committed ones, and PURITY proven by mutating the input and by mutating the return · 19 refusals each DRIVEN by a broken op and matched on the words it must NAME — including D4's `+"`"+`why`+"`"+` three ways (absent, EMPTY, non-string), a state outside the minimum, a dangling frameId in each of four positions, an unknown verb, an unknown param, an unknown ENVELOPE key, a document that is not one, and PR #432's three open questions as the owner closed them on 2026-09-21: a state OF a state (which missingStates walks base frames only and could never have reported), a DUPLICATE (baseId, stateKey) (which its Set absorbed silently), and an unknown key INSIDE connect's from or to — with ENDPOINT_KEYS frozen at both levels beside PARAMS and `+"`"+`partId`+"`"+` proven to be `+"`"+`from`+"`"+`'s alone — behind the positive control that EVERY verb's minimal valid op is ACCEPTED, without which the battery would pass on an applier that refuses everything, plus applyOps naming the failing INDEX and verb · the TWO-LAYER rule gated: frame.sets (screen.set's) and frame.overrides.set (state.add's) proven to be the SAME SHAPE so ONE resolve applies both, with the state's layer proven to win over the base's — measured rather than assumed, because the spine's first render dropped its screen.set entirely and nothing said who joined the composition to the sets · resolve() proven to FLAG a dangling override and to keep it OUT of the resolved parts (never dropped, because it is a real thing someone wrote) with landing set and hide both applied, total over 6 junk shapes · missingStates as a LIST rather than a count, only BASE frames considered, a base with the floor met OMITTED so an empty answer means met rather than unchecked, total over 6 · canDeleteBasePart refusing by naming the state, its frame and what to do instead, with the part NOTHING overrides proven to pass so the refusal does not fire on everything · the preset table frozen with presetWidth answering NULL rather than a default · and the import graph pinned to device-presets.mjs alone. What it cannot reach: whether a composition RENDERS (group 3's), whether a frame ever reaches the canvas or the page renders frameTree's output (studio-journey's and canvas-journey's), whether the page puts a refused move back (canvas-journey's), whether Mermaid parses the stateDiagram text (a human paste), and whether a `+"`"+`why`+"`"+` is any GOOD — a sentence that says nothing while passing .trim() is a human read`);
 }
 
 // --- 36 · the build package's round trip (#302) ----------------------------------------------------
@@ -12778,7 +12827,13 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   // Re-stating the generator's three regexes here would be a second implementation that can drift, so
   // this CALLS the generator. (GROUPS is exported since #310, for 40.26's per-path read; this case
   // still calls genLocSummary, because no drift over the whole tracked tree is what AC #3 names.) It reads the git INDEX, so it is only meaningful once import/ is tracked.
-  const loc = genLocSummary({ check: true });
+  // …except the files named by `--loc-worktree-files a,b` (#313): ratify's chain regenerates loc-summary.json from the
+  // working-tree bytes of exactly the files it wrote (step 8) and passes the same list here (step 10), or an admission
+  // whose added lines cross a 100-line rounding boundary would red this case over files nobody has staged. No flag —
+  // CI, drift-check and every hand run — reads the index exactly as before.
+  const locFlag = process.argv.indexOf("--loc-worktree-files");
+  const locWorktree = locFlag > 0 ? String(process.argv[locFlag + 1] ?? "").split(",").filter(Boolean) : [];
+  const loc = genLocSummary({ check: true, worktreeFiles: locWorktree });
   ok((loc.drifted ?? []).length === 0,
     `gen-loc-summary reports drift (${(loc.drifted ?? []).join(", ")}) — import/ must match none of its groups: a converter is not a view-time module and must not move the number approach.html renders`);
 
@@ -16198,7 +16253,7 @@ const synthPng = (w, h, ct, px) => {
       ok(v4.some((x) => x.includes(`fromStep ${n0 + 2} names no earlier line`)), `47.12: verifyBuild passed a verdict naming a LATER line (${deep(v4)})`);
     }
 
-    // --- 47.13 THE lock, both ways (ratify's leg is #313's) --------------------------------------------
+    // --- 47.13 THE lock, both ways (ratify's leg is group 50.13, #313 — both legs now) --------------------------------------------
     {
       const BLUEPRINT = readFileSync(join(ROOT, "import/fixtures/spike-c-instance.blueprint.txt"));
       let release;
@@ -16672,7 +16727,8 @@ const synthPng = (w, h, ct, px) => {
     // 49.9 every write route regenerates the pack, read as SOURCE (server.mjs reaches the SDK; case 21's way).
     const serverSrc = readFileSync(join(ROOT_DIR, "portal/server.mjs"), "utf8").replace(/\/\/[^\n]*/g, "");
     const heads = [...serverSrc.matchAll(/if \(p === '(\/api\/canvas\/[a-z/-]*)' && req\.method === '([A-Z]+)'\) \{/g)];
-    const READ_ONLY = ["/api/canvas/import/binding", "/api/canvas/pack"];
+    // ratify/preview writes nothing (#313): it plans and hashes, and confirm is the write.
+    const READ_ONLY = ["/api/canvas/import/binding", "/api/canvas/pack", "/api/canvas/ratify/preview"];
     const posts = [];
     const unpacked = [];
     heads.forEach((h, i) => {
@@ -16681,16 +16737,429 @@ const synthPng = (w, h, ct, px) => {
       const body = serverSrc.slice(h.index, heads[i + 1]?.index ?? serverSrc.indexOf("\n    if (", h.index + h[0].length + 1));
       if (!READ_ONLY.includes(h[1]) && !body.includes("withPack(")) unpacked.push(h[1]);
     });
-    const EXPECTED_POSTS = ["/api/canvas/save", "/api/canvas/pack", "/api/canvas/compose", "/api/canvas/import", "/api/canvas/import/binding", "/api/canvas/import/drop", "/api/canvas/import/mapping", "/api/canvas/import/measure"];
-    ok(EXPECTED_POSTS.every((r) => posts.includes(r)), `49.9 the POST /api/canvas/* routes found are ${deep(posts)} — the pin must find all eight by name, or it checks nothing`);
+    const EXPECTED_POSTS = ["/api/canvas/save", "/api/canvas/pack", "/api/canvas/compose", "/api/canvas/import", "/api/canvas/import/binding", "/api/canvas/import/drop", "/api/canvas/import/mapping", "/api/canvas/import/measure",
+      "/api/canvas/ratify/preview", "/api/canvas/ratify/confirm"];
+    ok(EXPECTED_POSTS.every((r) => posts.includes(r)), `49.9 the POST /api/canvas/* routes found are ${deep(posts)} — the pin must find all ten by name, or it checks nothing`);
     ok(deep(unpacked) === "[]", `49.9 ${deep(unpacked)} write into a build package without withPack( — the pack would go stale after them`);
 
-    group("build handoff", `agent-layer/gen-build-handoff.mjs (#314): a build package → <pkg>/build/handoff/ · 49.1 its imports node built-ins plus exactly the store, canvas-ops and import/ir.mjs · 49.2 every committed pack (faster-payment and the SYNTHETIC two-lane, both asserted BY NAME) equal to renderPack byte for byte, each file's existence checked before its read, and no committed file the render does not produce · 49.3 AC #1 over two-lane's flow.md: ## Lane b present, its f1 missing line naming error and lane A's not · 49.4–49.7 over the spine's FROZEN first six lines (an owner edit through canvas.html cannot red them): 49.4 lineage.json chaining f1 → 7 → a4 and f1 → 8 → a5 by id, each flagged no-evidence, f2 via f1; decision 3's evidence seqs 1 and 2 resolved by name, an unresolvable "99" KEPT and flagged unresolved-decision, and a package with no transcript flagging every ref no-transcript · 49.5 the spine's drops.md SAYING "No imports", and the committed spike-c-wrong-but-green record rendering all three class headings with 13 + 8 rows and - none under never-read, its md copied byte for byte · 49.6 an agent refusal joined to its transcript reason, an owner verdict, a transcript-only one-per-turn refusal and an import's denied line each in its section, and - none three times for an empty package · 49.7 renderPack deterministic and no Date in the module · 49.8 genBuildHandoff({check: true}) reporting no drift · 49.9 every POST /api/canvas/* route (all eight found by name) except the read-only import/binding and pack answering through withPack(, read as source · 49.10 (PR #491 F1) a newline in a label, a screenId, an override key and a hidden part reaching flow.md as no line of its own and leaving the fences paired, over an in-memory package. CANNOT REACH: whether Mermaid parses flow.md (a human paste into mermaid.live), whether a drop's reason is true (group 42's), whether the page's Write button writes (canvas-journey pass L), whether a decision is a good one (a human read), and whether a jobs-folder package's pack is current (the drift leg sees committed packages only; the portal regenerates after every write route)`);
+    group("build handoff", `agent-layer/gen-build-handoff.mjs (#314): a build package → <pkg>/build/handoff/ · 49.1 its imports node built-ins plus exactly the store, canvas-ops and import/ir.mjs · 49.2 every committed pack (faster-payment and the SYNTHETIC two-lane, both asserted BY NAME) equal to renderPack byte for byte, each file's existence checked before its read, and no committed file the render does not produce · 49.3 AC #1 over two-lane's flow.md: ## Lane b present, its f1 missing line naming error and lane A's not · 49.4–49.7 over the spine's FROZEN first six lines (an owner edit through canvas.html cannot red them): 49.4 lineage.json chaining f1 → 7 → a4 and f1 → 8 → a5 by id, each flagged no-evidence, f2 via f1; decision 3's evidence seqs 1 and 2 resolved by name, an unresolvable "99" KEPT and flagged unresolved-decision, and a package with no transcript flagging every ref no-transcript · 49.5 the spine's drops.md SAYING "No imports", and the committed spike-c-wrong-but-green record rendering all three class headings with 13 + 8 rows and - none under never-read, its md copied byte for byte · 49.6 an agent refusal joined to its transcript reason, an owner verdict, a transcript-only one-per-turn refusal and an import's denied line each in its section, and - none three times for an empty package · 49.7 renderPack deterministic and no Date in the module · 49.8 genBuildHandoff({check: true}) reporting no drift · 49.9 every POST /api/canvas/* route (all ten found by name) except the read-only import/binding, pack and ratify/preview answering through withPack(, read as source · 49.10 (PR #491 F1) a newline in a label, a screenId, an override key and a hidden part reaching flow.md as no line of its own and leaving the fences paired, over an in-memory package. CANNOT REACH: whether Mermaid parses flow.md (a human paste into mermaid.live), whether a drop's reason is true (group 42's), whether the page's Write button writes (canvas-journey pass L), whether a decision is a good one (a human read), and whether a jobs-folder package's pack is current (the drift leg sees committed packages only; the portal regenerates after every write route)`);
+  }
+
+  // --- 50 · ratify (#313) --------------------------------------------------------------------------
+  //
+  // portal/lib/ratify.mjs, system/templates.admitted.mjs and the one interpreter in system/agentic-renderer.mjs:
+  // an import proposal becomes a vocabulary member through six anchored writes, ten spawned gates and the diff.
+  // Written in group 43's voice — controls first, every constructive call folded so a throw is a NAMED failure,
+  // every scratch write under a fresh temp directory, the real tree read and never written (50.12 excepted,
+  // restored in a finally).
+  //
+  // WHAT THIS GROUP CANNOT REACH: the spawned chain itself (every runStep here is injected), git state (every git
+  // call here is a stub), and the page — tooling/ratify-journey.mjs runs the real chain over a scratch clone, reads
+  // the real `git status`, and renders the admitted part on /components and the canvas on three engines.
+  {
+    const { cpSync } = await import("node:fs");
+    const deep = (v) => (v && typeof v === "object" && !Array.isArray(v)
+      ? `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${deep(v[k])}`).join(",")}}`
+      : (Array.isArray(v) ? `[${v.map(deep).join(",")}]` : JSON.stringify(v)));
+    const threw = (fn) => { try { fn(); return null; } catch (e) { return e.message; } };
+    const names = (fn, ...must) => { const m = threw(fn); return m && must.every((w) => m.includes(w)) ? null : `${m ?? "NO THROW"}`; };
+    const fold = (what, fn, fallback = null) => { try { return fn(); } catch (e) { ok(false, `${what} threw instead of answering: ${e.message}`); return fallback; } };
+    const afold = async (what, fn, fallback = null) => { try { return await fn(); } catch (e) { ok(false, `${what} threw instead of answering: ${e.message}`); return fallback; } };
+    const scratch = (tag) => mkdtempSync(join(tmpdir(), `uxf-g50-${tag}-`));
+    const pkgCopy = (tag) => { const d = join(scratch(tag), "pkg"); cpSync(join(ROOT, "discovery/faster-payment"), d, { recursive: true }); return d; };
+    const ledger = (pkg) => readFileSync(join(pkg, "build/ops.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
+    const BLUEPRINT = readFileSync(join(ROOT, "import/fixtures/spike-c-instance.blueprint.txt"));
+
+    // --- 50.1 IMPORTED in CI with no portal/node_modules; no SDK, statically or lazily ------------------
+    let RF = null;
+    try { RF = await import("../portal/lib/ratify.mjs"); }
+    catch (e) { ok(false, `50.1: portal/lib/ratify.mjs did not import (${e.message}) — a static SDK or zod import slipped in, and CI has no portal/node_modules`); }
+    const rfCode = readFileSync(join(ROOT, "portal/lib/ratify.mjs"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+    const rfFrom = [...rfCode.matchAll(/^\s*import\s+(?:[^'"]*?from\s+)?["']([^"']+)["']/gm)].map((m) => m[1]);
+    const RF_ALLOWED = ["../../import/report.mjs", "../../system/canvas-ops.mjs", "../../system/templates.admitted.mjs", "./canvas-store.mjs", "./env.mjs", "./import-run.mjs"];
+    ok(rfFrom.includes("node:child_process") && rfFrom.every((s) => s.startsWith("node:") || RF_ALLOWED.includes(s)),
+      `50.1: portal/lib/ratify.mjs imports ${deep(rfFrom)} — node: built-ins and ${RF_ALLOWED.join(", ")} only (and node:child_process at least, or the parse read nothing)`);
+    ok(!/claude-agent-sdk|@anthropic-ai|@modelcontextprotocol|\bzod\b/.test(rfCode) && !/\bimport\s*\(/.test(rfCode),
+      "50.1: portal/lib/ratify.mjs names the Agent SDK, zod or @modelcontextprotocol, or imports dynamically — nothing drafts at ratify");
+    const TA = await import("../system/templates.admitted.mjs");
+    const AR = await import("../system/agentic-renderer.mjs");
+    const { applyOps: CO_applyOps } = await import("../system/canvas-ops.mjs");
+    const CS = await import("../portal/lib/canvas-store.mjs");
+    const IR = await import("../portal/lib/import-run.mjs");
+    const { checkRecord } = await import("../import/report.mjs");
+    const { genLocSummary } = await import("../agent-layer/gen-loc-summary.mjs");
+
+    if (RF) {
+      // The fixture the rest of the group plans over: spike C dropped into a scratch copy of the spine.
+      const PKG = pkgCopy("plan");
+      const dropped = await afold("the fixture drop (50)", () => IR.runImport({ pkgRoot: PKG, provenance: "real", base: ledger(PKG).length, entrance: "drop",
+        file: { name: "spike-c.txt", bytes: BLUEPRINT }, overridesDir: scratch("ov") }), {});
+      const RECORD = JSON.parse(readFileSync(join(PKG, `build/imports/${dropped.recordId ?? "i1"}.json`), "utf8"));
+      const DRAFTS = Object.fromEntries(["spec.md", "block.css", "template.txt"].map((f) => [f, readFileSync(join(PKG, `build/proposals/${dropped.name ?? "spike-list-row"}/${f}`), "utf8")]));
+      const PROPOSAL = { id: "pr1", name: dropped.name, recordId: dropped.recordId, mode: 1, status: "proposed" };
+      const VOC = JSON.parse(readFileSync(join(ROOT, "handoff/verdant/vocabulary.json"), "utf8")).components;
+      const CTX = {
+        vocabNames: Object.keys(VOC), vocabClasses: Object.values(VOC).map((c) => c.class),
+        containerNames: Object.keys(VOC).filter((n) => VOC[n].childrenCardinality === "many"),
+        proposals: [PROPOSAL], contractTokens: RF.contractTokensOf(readFileSync(join(ROOT, "system/tokens.contract.css"), "utf8")),
+      };
+      const FILES = Object.fromEntries([...Object.values(RF.ANCHORS), "system/specs/stack.md", "system/specs/list.md"].map((p) => [p, readFileSync(join(ROOT, p), "utf8")]));
+      const HEAD = "0".repeat(40);
+      // THE FIXTURE ADMITS "probe-row" OVER THE REAL ANCHOR FILES, so every expectation below is RELATIVE to what is
+      // committed — the pin one past its current value, a sort position read off the neighbours — and a real
+      // admission (a ratify, committed) never reds this group. A committed component of this name would, by name.
+      ok(!Object.hasOwn(VOC, "probe-row"), "50 the fixture name probe-row is now a real vocabulary component — pick another fixture name here");
+      const PIN_NOW = FILES["tooling/build-checks.mjs"].match(/^ {2}const WRAPPER_PIN = \{ with: (\d+), without: (\d+) \}; \/\/ ratify-pin/m) ?? [null, "?", "?"];
+      const sortedAt = (list, name) => { const i = list.indexOf(name); return i >= 0 && (i === 0 || list[i - 1] < name) && (i === list.length - 1 || name < list[i + 1]); };
+      const INPUT = {
+        component: "probe-row", prefix: "ds",
+        props: { name: { type: "string", required: true, description: "the person's name" }, meta: { type: "string", required: false, description: "one line under the name" } },
+        states: ["default"], stateNotes: { default: "the only state — a row is not a control" },
+        usage: "A row naming one person.", accessibility: "Plain text in a div; the row adds no interaction.",
+        structure: { tag: "div", slots: [{ prop: "name", as: "text", tag: "span", suffix: "-name" }, { prop: "meta", as: "text", tag: "span", suffix: "-meta" }], children: "none" },
+        containers: ["stack"],
+        css: [{ suffix: "", decls: [["gap", "var(--spacing-sm)"], ["padding", "var(--spacing-sm)"]] }, { suffix: "-meta", decls: [["color", "var(--color-fg-muted)"]] }],
+        example: { name: "Ada Lovelace", meta: "Payee" }, licence: "the owner's own drawing (spike C fixture)", attribution: "",
+      };
+      const plan = (patch = {}) => RF.planRatify({ head: HEAD, run: "fp-ratify", proposal: PROPOSAL, record: RECORD, drafts: DRAFTS, input: INPUT, files: FILES, ctx: CTX, ...patch });
+      const P = fold("planRatify over the fixture (50.6)", () => plan(), null);
+
+      // --- 50.2 checkAdmitted: the valid def FIRST, then thirteen mutations each named by its field -------
+      const SPEC = { class: "ds-person-row", props: { name: {}, meta: {}, tone: {} } };
+      const DEF = { tag: "div", class: "ds-person-row",
+        slots: [{ prop: "name", as: "text", tag: "span", class: "ds-person-row-name" }, { prop: "tone", as: "attr", attr: "data-tone" }],
+        children: "none", provenance: { from: "import", record: "i1", run: "fp-ratify", line: "imported from brilliant, licence: the owner's" } };
+      ok(threw(() => TA.checkAdmitted("person-row", DEF, SPEC)) === null, `50.2 positive control — the valid def was refused: ${threw(() => TA.checkAdmitted("person-row", DEF, SPEC))}`);
+      const mut = (patch, spec = SPEC) => () => TA.checkAdmitted("person-row", { ...DEF, ...patch }, spec);
+      const slot0 = (p) => ({ slots: [{ ...DEF.slots[0], ...p }, DEF.slots[1]] });
+      for (const [label, fn, ...must] of [
+        ["tag script", mut({ tag: "script" }), "person-row.tag", "\"script\""],
+        ["tag a", mut({ tag: "a" }), "person-row.tag", "\"a\""],
+        ["class x-y", mut({ class: "x-y" }), "person-row.class", "\"x-y\""],
+        ["class not the spec's", mut({ class: "ds-other-row" }), "person-row.class", "ds-other-row", "ds-person-row"],
+        ["slot as html", mut(slot0({ as: "html" })), "slots[0].as", "\"html\""],
+        ["attr onclick", mut({ slots: [DEF.slots[0], { prop: "tone", as: "attr", attr: "onclick" }] }), "slots[1].attr", "onclick"],
+        ["attr data-part, which the renderer sets (PR #492 F5)", mut({ slots: [DEF.slots[0], { prop: "tone", as: "attr", attr: "data-part" }] }), "slots[1].attr", "data-part", "reserved"],
+        ["an unknown prop", mut(slot0({ prop: "nope" })), "slots[0].prop", "\"nope\""],
+        ["a duplicate slot prop", mut({ slots: [DEF.slots[0], { prop: "name", as: "attr", attr: "data-x" }] }), "slots[1].prop", "already slotted"],
+        ["children one", mut({ children: "one" }), "person-row.children", "\"one\""],
+        ["many against a spec without cardinality", mut({ children: "many" }), "person-row.children", "childrenCardinality"],
+        ["an extra key", mut({ html: "<b>" }), "person-row.html", "not a definition key"],
+        ["an empty provenance line", mut({ provenance: { ...DEF.provenance, line: " " } }), "provenance.line"],
+      ]) ok(names(fn, ...must) === null, `50.2 ${label}: the refusal must name ${must.map((w) => JSON.stringify(w)).join(" and ")} — got ${threw(fn) ?? "NO THROW"}`);
+      ok(Object.isFrozen(TA.ADMIT_TAGS) && !TA.ADMIT_TAGS.some((t) => ["a", "button", "input", "img", "script", "style", "iframe"].includes(t)),
+        `50.2 ADMIT_TAGS is ${deep(TA.ADMIT_TAGS)} — frozen, and no a, button, input, img, script, style or iframe`);
+
+      // --- 50.3 the interpreter under the DOM stub: textContent verbatim, attr, null skipped, kids ------
+      domStubControl();
+      globalThis.document = domStub();
+      let one = null;
+      let many = null;
+      try {
+        const t = AR.admittedTemplate(DEF);
+        one = fold("admittedTemplate (50.3)", () => t({ name: "<img src=x onerror=1>", tone: "warn", meta: null }, [], null, "composition"));
+        many = fold("admittedTemplate many (50.3)", () => AR.admittedTemplate({ ...DEF, slots: [], children: "many" })({}, [
+          { id: "k1", name: "text", props: { role: "body", content: "first" } },
+          { id: "k2", name: "text", props: { role: "body", content: "second" } },
+        ], null, "composition"));
+      } finally { delete globalThis.document; }
+      const span = one?.children?.[0];
+      ok(one?.tagName === "DIV" && one?.getAttribute("class") === "ds-person-row", `50.3 the root is ${one?.tagName}.${one?.getAttribute?.("class")} — div.ds-person-row`);
+      ok(span?.tagName === "SPAN" && span.getAttribute("class") === "ds-person-row-name" && span.textContent === "<img src=x onerror=1>" && stubFindAll(one, "img").length === 0,
+        `50.3 a text slot carrying markup rendered ${deep(span && { tag: span.tagName, text: span.textContent })} with ${stubFindAll(one ?? {}, "img").length} img — textContent, verbatim, no element`);
+      ok(one?.getAttribute("data-tone") === "warn", `50.3 the attr slot wrote ${deep(one?.getAttribute?.("data-tone"))} — data-tone="warn"`);
+      ok(one?.children?.length === 1, `50.3 a null prop was not skipped — the root holds ${one?.children?.length} children`);
+      ok(many?.children?.length === 2 && many.children[0].getAttribute("data-part") === "k1" && stubText(many).includes("second"),
+        `50.3 children "many" rendered ${many?.children?.length} kids (data-part ${deep(many?.children?.[0]?.getAttribute?.("data-part"))}) — two, through renderChild`);
+
+      // --- 50.4 a hand-written template always wins, and a collision is named ---------------------------
+      ok(deep(AR.collisionsOf(["list-row", "person-row"], ["card", "list-row"])) === deep(["list-row"]), `50.4 collisionsOf named ${deep(AR.collisionsOf(["list-row", "person-row"], ["card", "list-row"]))} — ["list-row"]`);
+      ok(deep(AR.collisionsOf([], ["card"])) === "[]", "50.4 collisionsOf([]) is not []");
+      ok(deep(AR.admittedCollisions()) === "[]", `50.4 the committed registry collides with a hand-written template: ${deep(AR.admittedCollisions())} — a hand-written template wins, so the admitted entry would be dead`);
+
+      // --- 50.5 every committed entry passes checkAdmitted against its own spec ------------------------
+      const admittedNames = Object.keys(TA.ADMITTED);
+      ok(Object.isFrozen(TA.ADMITTED), "50.5 ADMITTED is not frozen");
+      for (const n of admittedNames) {
+        const head = fold(`the spec of admitted ${n} (50.5)`, () => JSON.parse(readFileSync(join(ROOT, `system/specs/${n}.md`), "utf8").match(/```json\s*\n([\s\S]*?)\n```/)[1]), {});
+        ok(threw(() => TA.checkAdmitted(n, TA.ADMITTED[n], head)) === null, `50.5 the committed admitted entry ${n} fails its spec: ${threw(() => TA.checkAdmitted(n, TA.ADMITTED[n], head))}`);
+      }
+
+      // --- 50.6 planRatify: deterministic, the six writes, the pin, the palette, each rewrite re-parsing --
+      ok(P && deep(P) === deep(fold("planRatify twice (50.6)", () => plan(), {})), "50.6 planRatify is not deterministic — two plans over the same inputs differ");
+      ok(deep(P?.writes?.map((w) => [w.path, w.kind])) === deep([["system/specs/probe-row.md", "create"], ["system/components.css", "append"], ["system/templates.admitted.mjs", "rewrite"],
+        ["system/palette.mjs", "rewrite"], ["tooling/build-checks.mjs", "rewrite"], ["system/specs/stack.md", "rewrite"]]),
+      `50.6 the writes are ${deep(P?.writes?.map((w) => [w.path, w.kind]))} — the six, in order`);
+      ok(P?.pin?.from === `${PIN_NOW[1]}/${PIN_NOW[2]}` && P?.pin?.to === `${PIN_NOW[1]}/${Number(PIN_NOW[2]) + 1}`,
+        `50.6 the pin moves ${P?.pin?.from} → ${P?.pin?.to} — the committed ${PIN_NOW[1]}/${PIN_NOW[2]} to one more without`);
+      const W = Object.fromEntries((P?.writes ?? []).map((w) => [w.path, w.bytes]));
+      const pal = (W["system/palette.mjs"] ?? "").split("\n");
+      const palNames = pal.map((l) => l.match(/^ {2}"([a-z0-9-]+)",$/)?.[1]).filter(Boolean);
+      ok(palNames.filter((n) => n === "probe-row").length === 1 && sortedAt(palNames, "probe-row"),
+        `50.6 the palette does not list probe-row once, in sort order between its neighbours: ${deep(palNames)}`);
+      let regMod = null;
+      try { regMod = await import(`data:text/javascript;base64,${Buffer.from(W["system/templates.admitted.mjs"] ?? "").toString("base64")}`); }
+      catch (e) { ok(false, `50.6 the rewritten registry does not evaluate: ${e.message}`); }
+      ok(Object.isFrozen(regMod?.ADMITTED?.["probe-row"]) && regMod?.ADMITTED?.["probe-row"]?.class === "ds-probe-row" && regMod?.ADMITTED?.["probe-row"]?.provenance?.record === RECORD.id,
+        `50.6 the rewritten registry evaluates to ${deep(regMod?.ADMITTED)} — a frozen probe-row entry with its class and record`);
+      ok(((W["tooling/build-checks.mjs"] ?? "").match(new RegExp(`^ {2}const WRAPPER_PIN = \\{ with: ${PIN_NOW[1]}, without: ${Number(PIN_NOW[2]) + 1} \\}; // ratify-pin`, "gm")) ?? []).length === 1,
+        "50.6 the rewritten build-checks does not carry exactly one pin line, one past the committed without");
+      ok((W["system/components.css"] ?? "").startsWith(FILES["system/components.css"]) && /\/\* -{10} ds-probe-row \(system\/specs\/probe-row\.md\) — admitted by ratify from import i1 -{10} \*\/\n\.ds-probe-row \{\n {2}gap: var\(--spacing-sm\);/.test(W["system/components.css"] ?? ""),
+        "50.6 the CSS write is not the current file plus one ds-probe-row block in the library-primitive header form");
+      const specText = W["system/specs/probe-row.md"] ?? "";
+      const specHead = fold("the planned spec's head (50.6)", () => JSON.parse(specText.match(/```json\s*\n([\s\S]*?)\n```/)[1]), {});
+      ok(specHead.status === "shipped" && specHead.contract === null && deep(specHead.tokens) === deep(["--spacing-sm", "--color-fg-muted"]) && deep(specHead.example) === deep(INPUT.example)
+        && deep(specText.match(/^## .+$/gm)) === deep(["## Usage", "## States", "## Data binding", "## Accessibility"]) && specText.includes("Admitted by ratify (portal/lib/ratify.mjs) from import record `i1` in run `fp-ratify`"),
+      `50.6 the planned spec is not kb-format's shape: head ${deep(specHead)}, sections ${deep(specText.match(/^## .+$/gm))}`);
+
+      // --- 50.7 every hashed input moves the hash; identical input does not ------------------------------
+      const h0 = P?.hash;
+      const hashOf = (patch) => fold("a varied plan (50.7)", () => plan(patch)?.hash, null);
+      ok(hashOf({}) === h0, "50.7 identical input gave a different hash");
+      const inp = (p) => ({ input: { ...INPUT, ...p } });
+      for (const [label, patch] of [
+        ["a HEAD change", { head: "1".repeat(40) }],
+        ["a record change", { record: { ...RECORD, elapsed: { ...RECORD.elapsed, recognition: (RECORD.elapsed.recognition ?? 0) + 1 } } }],
+        ["a draft byte", { drafts: { ...DRAFTS, "block.css": `${DRAFTS["block.css"]} ` } }],
+        ["component", inp({ component: "person-line" })], ["prefix", inp({ prefix: "vd" })],
+        ["props", inp({ props: { ...INPUT.props, meta: { ...INPUT.props.meta, description: "a second line" } } })],
+        ["states", inp({ states: ["default", "quiet"], stateNotes: { ...INPUT.stateNotes, quiet: "muted" } })],
+        ["stateNotes", inp({ stateNotes: { default: "a different note" } })],
+        ["usage", inp({ usage: "Another usage." })], ["accessibility", inp({ accessibility: "Another model." })],
+        ["structure", inp({ structure: { ...INPUT.structure, tag: "section" } })],
+        ["containers", inp({ containers: ["list", "stack"] })],
+        ["css", inp({ css: [{ suffix: "", decls: [["gap", "var(--spacing-md)"]] }] })],
+        ["example", inp({ example: { name: "Grace Hopper" } })],
+        ["licence", inp({ licence: "another licence" })], ["attribution", inp({ attribution: "a designer" })],
+      ]) {
+        const h = hashOf(patch);
+        ok(h && h !== h0, `50.7 ${label} did not change the hash (${h ?? "the plan threw"}) — confirm would accept a plan the preview never showed`);
+      }
+
+      // --- 50.8 refusals by name: literals, a vocabulary name, licence, example, every anchor ----------
+      const refusePlan = (p) => () => plan(inp(p));
+      const cssOf = (v) => ({ css: [{ suffix: "", decls: [["gap", v]] }] });
+      for (const [label, fn, ...must] of [
+        ["a literal colour", refusePlan(cssOf("#fff")), "css[0].decls[0][1]", "#fff", "never a literal"],
+        ["a literal length", refusePlan(cssOf("12px")), "css[0].decls[0][1]", "12px"],
+        ["an unknown token", refusePlan(cssOf("var(--nope)")), "--nope", "not a contract token"],
+        ["a vocabulary name", refusePlan({ component: "list-row" }), "input.component", "already a vocabulary component"],
+        ["no licence", refusePlan({ licence: "  " }), "input.licence", "required"],
+        ["an example missing a required prop", refusePlan({ example: { meta: "x" } }), "input.example.name", "required prop"],
+        ["an empty root rule", refusePlan({ css: [{ suffix: "", decls: [] }] }), "input.css", "root declaration"],
+        ["no container", refusePlan({ containers: [] }), "input.containers"],
+        ["a container that is not one", refusePlan({ containers: ["card"] }), "containers[0]", "\"card\""],
+        ["another proposal's component", () => plan({ ctx: { ...CTX, proposals: [PROPOSAL, { id: "pr2", component: "probe-row" }] } }), "input.component", "another proposal"],
+        ["a slot class components.css already styles (PR #492 F3)", () => plan({ files: { ...FILES, "system/components.css": `${FILES["system/components.css"]}\n.ds-probe-row-name { gap: var(--spacing-sm); }\n` } }),
+          "structure.slots[0].suffix", "ds-probe-row-name", "already styles"],
+        ["a root class components.css already styles (PR #492 F3)", () => plan({ files: { ...FILES, "system/components.css": `${FILES["system/components.css"]}\n.ds-probe-row { gap: var(--spacing-sm); }\n` } }),
+          "input.component", "ds-probe-row", "already styles"],
+        ["a line break in the record's file name (PR #492 F1)", () => plan({ record: { ...RECORD, source: { ...RECORD.source, file: "a\n## Data binding\nb" } } }), "record.source.file", "line break"],
+        ["registry markers missing", () => RF.rewriteRegistry("export const ADMITTED = {};\n", "x-row", {}), "marker", "0 times"],
+        ["registry markers twice", () => RF.rewriteRegistry(FILES["system/templates.admitted.mjs"].repeat(2), "x-row", {}), "marker", "2 times"],
+        ["palette anchor missing", () => RF.rewritePalette("export const X = [];\n", "x-row"), "CATALOG_COMPONENTS", "0 times"],
+        ["palette anchor twice", () => RF.rewritePalette(FILES["system/palette.mjs"].repeat(2), "x-row"), "CATALOG_COMPONENTS", "2 times"],
+        ["pin anchor missing", () => RF.rewritePin("  const X = 1;\n", () => "r"), "ratify-pin", "0 times"],
+        ["pin anchor twice", () => RF.rewritePin(FILES["tooling/build-checks.mjs"].repeat(2), () => "r"), "ratify-pin", "2 times"],
+      ]) ok(names(fn, ...must) === null, `50.8 ${label}: the refusal must name ${must.map((w) => JSON.stringify(w)).join(" and ")} — got ${threw(fn) ?? "NO THROW"}`);
+
+      // --- 50.9 a ratify is never undone through the ledger ---------------------------------------------
+      const L = (op, params, status, seq) => ({ seq, at: "2026-09-30T00:00:00.000Z", source: "owner", op, params, status });
+      const fl = [L("component.propose", { name: "kept-row", recordId: "i1", mode: 1 }, "applied", 1), L("proposal.ratify", { proposalId: "pr1", component: "kept-row" }, "applied", 2)];
+      ok(threw(() => CS.foldLedger(fl)) === null && CS.foldLedger(fl).doc.proposals[0].status === "ratified", `50.9 positive control — the ratify ledger did not fold to ratified: ${threw(() => CS.foldLedger(fl))}`);
+      ok(names(() => CS.foldLedger([...fl, L("proposal.ratify", { proposalId: "pr1", component: "kept-row" }, "undone", 3)]), "proposal.ratify", "git") === null,
+        `50.9 an undone line restating proposal.ratify folded — got ${threw(() => CS.foldLedger([...fl, L("proposal.ratify", { proposalId: "pr1", component: "kept-row" }, "undone", 3)])) ?? "NO THROW"}`);
+
+      // --- 50.14 prose that would break the spec's four sections is refused ------------------------------
+      for (const [label, p, where] of [
+        ["usage with a heading", { usage: "Fine.\n## Sneaky" }, "input.usage"],
+        ["accessibility with a fence", { accessibility: "```json\n{}\n```" }, "input.accessibility"],
+        ["a state note with a heading", { stateNotes: { default: "# nope" } }, "input.stateNotes.default"],
+        ["a prop description with a heading", { props: { ...INPUT.props, name: { ...INPUT.props.name, description: "## x" } } }, "input.props.name.description"],
+      ]) ok(names(refusePlan(p), where, "fence") === null, `50.14 ${label}: the refusal must name ${where} — got ${threw(refusePlan(p)) ?? "NO THROW"}`);
+
+      // --- 50.15 the container rewrite over the REAL stack.md -------------------------------------------
+      const stack2 = fold("rewriteContainerChildren (50.15)", () => RF.rewriteContainerChildren(FILES["system/specs/stack.md"], "stack", "probe-row"), "");
+      const kids = fold("the rewritten stack head (50.15)", () => JSON.parse(stack2.match(/```json\s*\n([\s\S]*?)\n```/)[1]).children, []);
+      ok(kids.filter((k) => k === "probe-row").length === 1 && sortedAt(kids, "probe-row") && kids.indexOf("probe-row") < kids.length - 1,
+        `50.15 stack's children after the insert are ${deep(kids)} — probe-row once, in sort order between two neighbours`);
+      for (const [label, fn, must] of [
+        ["a second insert", () => RF.rewriteContainerChildren(stack2, "stack", "probe-row"), "already allows"],
+        ["no children line", () => RF.rewriteContainerChildren("```json\n{}\n```\n", "stack", "x-row"), "0 times"],
+        ["two children lines", () => RF.rewriteContainerChildren(`${FILES["system/specs/stack.md"]}\n  "children": [],\n`, "stack", "x-row"), "2 times"],
+      ]) ok(names(fn, must) === null, `50.15 ${label}: the refusal must name ${JSON.stringify(must)} — got ${threw(fn) ?? "NO THROW"}`);
+
+      // --- 50.11 the chain: D4's ten, and its pack prefix is drift-check's order -------------------------
+      const D4 = ["agent-layer/gen-handoff.mjs", "agent-layer/gen-vocabulary.mjs", "agent-layer/gen-pack-bundle.mjs", "agent-layer/gen-pack-index.mjs",
+        "agent-layer/gen-system-graph.mjs", "import/regen-expected.mjs", "tooling/regen-import-records.mjs", "agent-layer/gen-loc-summary.mjs", "tooling/token-lint.mjs", "tooling/build-checks.mjs"];
+      ok(deep(RF.CHAIN) === deep(D4.map((s) => [s])) && Object.isFrozen(RF.CHAIN) && RF.CHAIN.every((c) => Object.isFrozen(c)),
+        `50.11 CHAIN is ${deep(RF.CHAIN)} — D4's ten, frozen at both levels, token-lint ninth and build-checks last`);
+      const dc = readFileSync(join(ROOT, "tooling/drift-check.mjs"), "utf8");
+      const dcBody = dc.slice(dc.indexOf("function checkHandoff()"));
+      const dcOrder = [...dcBody.slice(0, dcBody.indexOf("execFileSync")).matchAll(/\b(genHandoff|genVocabulary|genPackBundle|genPackIndex)\(\)/g)].map((m) => m[1]);
+      const toGen = (s) => `gen${s.replace(/^agent-layer\/gen-|\.mjs$/g, "").split("-").map((w) => w[0].toUpperCase() + w.slice(1)).join("")}`;
+      ok(dcOrder.length === 4 && deep(RF.CHAIN.slice(0, 4).map((c) => toGen(c[0]))) === deep(dcOrder),
+        `50.11 CHAIN's pack prefix is ${deep(RF.CHAIN.slice(0, 4).map((c) => toGen(c[0])))} and drift-check's checkHandoff calls ${deep(dcOrder)} — the same order, the index last`);
+
+      // --- 50.16 the clean guard is D5's two argv arrays, with nothing a shell or a request could steer ----
+      const D5 = [["status", "--porcelain", "-uno", "--", ".", ":(exclude).claude", ":(exclude).agents", ":(exclude)docs", ":(exclude,glob)*.md"],
+        ["status", "--porcelain", "-unormal", "--", "system", "handoff", "import", "agent-layer", "portal", "tooling", "discovery", "proto", "scenarios", "worker"]];
+      ok(deep(RF.CLEAN_GUARD) === deep(D5) && Object.isFrozen(RF.CLEAN_GUARD) && RF.CLEAN_GUARD.every((a) => Object.isFrozen(a)),
+        `50.16 CLEAN_GUARD is ${deep(RF.CLEAN_GUARD)} — D5's two argv arrays, frozen at both levels`);
+      ok(RF.CLEAN_GUARD.flat().every((a) => !/[;|&$`<>\n]/.test(a)), "50.16 a CLEAN_GUARD argument carries a command separator or substitution character");
+
+      // --- 50.12 the loc opt-in reads the worktree for the named files only -------------------------------
+      // Over a loc-group file ratify never writes (device-presets.mjs), on top of the same --loc-worktree-files list
+      // 40.8 reads — so the case holds on a committed tree AND inside ratify's own chain, where loc-summary.json was
+      // regenerated from ratify's writes.
+      {
+        const flag = process.argv.indexOf("--loc-worktree-files");
+        const listed = flag > 0 ? String(process.argv[flag + 1] ?? "").split(",").filter(Boolean) : [];
+        const probe = "system/device-presets.mjs";
+        const probePath = join(ROOT, probe);
+        const orig = readFileSync(probePath);
+        let base0 = null;
+        let wt = null;
+        let ix = null;
+        try {
+          base0 = genLocSummary({ check: true, worktreeFiles: listed });
+          writeFileSync(probePath, Buffer.concat([orig, Buffer.from("\n".repeat(150))]));
+          wt = genLocSummary({ check: true, worktreeFiles: [...listed, probe] });
+          ix = genLocSummary({ check: true, worktreeFiles: listed });
+        } catch (e) { ok(false, `50.12 genLocSummary threw: ${e.message}`); }
+        finally { writeFileSync(probePath, orig); }
+        ok(base0?.drifted?.length === 0 && wt?.drifted?.length === 1 && ix?.drifted?.length === 0,
+          `50.12 over a +150-line worktree edit of ${probe}: before ${deep(base0?.drifted)}, the opt-in naming it ${deep(wt?.drifted)}, the index read ${deep(ix?.drifted)} — none, drift, none`);
+        ok(readFileSync(probePath).equals(orig), `50.12 ${probe} was NOT restored byte for byte`);
+        ok(names(() => genLocSummary({ check: true, worktreeFiles: probe }), "worktreeFiles", "array") === null, "50.12 a non-array worktreeFiles was not refused by name");
+      }
+
+      // --- 50.13 THE LOCK, ratify's leg; then the confirm end to end with the chain and git injected -------
+      // A scratch repoDir holding exactly what a plan reads, and the icon dir the preview checks for.
+      const REPO = scratch("repo");
+      for (const rel of [...Object.values(RF.ANCHORS), "system/specs/stack.md", "system/tokens.contract.css", "handoff/verdant/vocabulary.json"]) {
+        mkdirSync(join(REPO, rel, ".."), { recursive: true });
+        cpSync(join(ROOT, rel), join(REPO, rel));
+      }
+      mkdirSync(join(REPO, "tooling/icons/node_modules/@phosphor-icons/core/assets/regular"), { recursive: true });
+      let porcelainCalls = 0;
+      const git = (argv) => {
+        if (argv[0] === "rev-parse") return `${HEAD}\n`;
+        if (argv[0] === "status" && argv.includes("-unormal") && argv.length === 3) { porcelainCalls += 1; return porcelainCalls % 2 === 0 ? " M system/palette.mjs\n?? system/specs/probe-row.md\n" : ""; }
+        return "";
+      };
+      const pkgR = pkgCopy("ratify");
+      const d2 = await afold("the ratify fixture drop (50.13)", () => IR.runImport({ pkgRoot: pkgR, provenance: "real", base: ledger(pkgR).length, entrance: "drop",
+        file: { name: "spike-c.txt", bytes: BLUEPRINT }, overridesDir: scratch("ov2") }), {});
+      const pv = await afold("previewRatify (50.13)", () => RF.previewRatify({ pkgRoot: pkgR, name: d2.name, input: INPUT, repoDir: REPO, git }), {});
+      ok(typeof pv.hash === "string" && pv.plan?.writes?.length === 6 && !pv.refused, `50.13 the scratch preview answered ${deep(pv.refused ?? pv.plan?.writes?.length)} — a plan of six writes and a hash`);
+      // (a) a ratify during a gated import → busy, naming the import.
+      {
+        let release;
+        const gate = new Promise((r) => { release = r; });
+        const pc = pkgCopy("lock-a");
+        const imp = IR.runImport({ pkgRoot: pc, provenance: "real", base: ledger(pc).length, entrance: "selection", overridesDir: scratch("ov3"),
+          reader: async () => { await gate; return { text: BLUEPRINT.toString("utf8"), transcript: [] }; } });
+        let r = null;
+        try { r = await RF.runRatify({ pkgRoot: pkgR, name: d2.name, input: INPUT, hash: pv.hash, base: ledger(pkgR).length, repoDir: REPO, git, runStep: async () => ({ code: 0, ms: 0, tail: "" }) }); }
+        catch (e) { r = { threw: e.message }; }
+        finally { release(); await afold("the gated import (50.13a)", () => imp, {}); }
+        ok(r?.refused?.kind === "busy" && r.refused.message.includes("an import"), `50.13a a ratify during an import answered ${deep(r)} — a busy refusal naming the import`);
+      }
+      // (b) an import during a ratify whose injected runStep awaits a gate → "a ratify is already in flight"; then RED.
+      {
+        let release;
+        const gate = new Promise((r) => { release = r; });
+        const steps = [];
+        const ratify = RF.runRatify({ pkgRoot: pkgR, name: d2.name, input: INPUT, hash: pv.hash, base: ledger(pkgR).length, repoDir: REPO, git,
+          runStep: async (script) => { steps.push(script); await gate; return { code: steps.length === 2 ? 1 : 0, ms: 1, tail: `${script} tail` }; } });
+        let m = null;
+        let red = null;
+        let busyPv = null;
+        try {
+          await new Promise((r) => setTimeout(r, 10));
+          const pd = pkgCopy("lock-b");
+          try { await IR.runImport({ pkgRoot: pd, provenance: "real", base: ledger(pd).length, entrance: "drop", file: { name: "b.txt", bytes: BLUEPRINT } }); }
+          catch (e) { m = e.message; }
+          // A preview while the confirm writes sees a dirty tree; the cause is the run in flight (PR #492 F6).
+          const midGit = (argv) => (argv[0] === "status" && argv.includes("-uno") ? " M system/palette.mjs\n" : git(argv));
+          busyPv = await afold("a preview during a gated ratify (50.13b)", () => RF.previewRatify({ pkgRoot: pkgR, name: d2.name, input: INPUT, repoDir: REPO, git: midGit }), {});
+        } finally { release(); red = await afold("the gated ratify (50.13b)", () => ratify, {}); }
+        ok(busyPv?.refused?.kind === "busy", `50.13b a preview during a ratify answered ${deep(busyPv?.refused?.kind ?? busyPv)} — busy, not dirty (PR #492 F6)`);
+        ok(m?.includes("a ratify is already in flight"), `50.13b an import during a ratify answered ${m ?? "NO REFUSAL"} — "a ratify is already in flight"`);
+        ok(red?.gatesRed === true && red.gates?.length === 2 && red.gates[1].code === 1 && !red.ok, `50.13b a red step 2 answered ${deep({ gatesRed: red?.gatesRed, steps: red?.gates?.length })} — stop at the first red`);
+        ok(red?.revert === "git checkout -- system/palette.mjs && rm -r system/specs/probe-row.md", `50.13b the revert command is ${JSON.stringify(red?.revert)}`);
+        ok(!ledger(pkgR).some((l) => l.op === "proposal.ratify"), "50.13b a red chain appended proposal.ratify — red appends nothing (D7)");
+        ok(existsSync(join(REPO, "system/specs/probe-row.md")) && readFileSync(join(REPO, "system/specs/probe-row.md"), "utf8").includes("Admitted by ratify"), "50.13b a red chain did not leave the spec written for the owner to read (D7)");
+      }
+      const restoreRepo = () => {
+        for (const f of ["system/specs/probe-row.md", ...Object.values(RF.ANCHORS), "system/specs/stack.md"]) {
+          if (f === "system/specs/probe-row.md") rmSync(join(REPO, f), { force: true }); else cpSync(join(ROOT, f), join(REPO, f));
+        }
+      };
+      restoreRepo();
+      // (c) a throw after the first write (a step that cannot spawn) answers the error and the revert, never a bare 500 (PR #492 F2).
+      {
+        let n = 0;
+        const thrown = await afold("a confirm whose step 3 throws (50.13c)", () => RF.runRatify({ pkgRoot: pkgR, name: d2.name, input: INPUT, hash: pv.hash, base: ledger(pkgR).length, repoDir: REPO, git,
+          runStep: async (script) => { n += 1; if (n === 3) throw new Error("step 3 could not spawn"); return { code: 0, ms: 1, tail: `${script} tail` }; } }), {});
+        ok(thrown?.gatesRed === true && thrown.error?.includes("step 3 could not spawn") && thrown.appended === false && thrown.gates?.length === 2,
+          `50.13c a throw at step 3 answered ${deep({ gatesRed: thrown?.gatesRed, error: thrown?.error, appended: thrown?.appended, steps: thrown?.gates?.length })} — the error, two steps, nothing appended`);
+        ok(thrown?.revert === "git checkout -- system/palette.mjs && rm -r system/specs/probe-row.md", `50.13c the revert command after a throw is ${JSON.stringify(thrown?.revert)}`);
+        ok(!ledger(pkgR).some((l) => l.op === "proposal.ratify"), "50.13c a throw mid-chain appended proposal.ratify");
+      }
+      restoreRepo();
+      // A dirty tree answers dirty whatever the hash; a stale hash on a clean tree answers stale.
+      const dirtyGit = (argv) => (argv[0] === "status" && argv.includes("-uno") ? " M agent-layer/lib.mjs\n" : git(argv));
+      const rd = await afold("a dirty confirm (50.13)", () => RF.runRatify({ pkgRoot: pkgR, name: d2.name, input: INPUT, hash: pv.hash, base: ledger(pkgR).length, repoDir: REPO, git: dirtyGit }), {});
+      ok(rd?.refused?.kind === "dirty" && rd.refused.detail.includes("agent-layer/lib.mjs"), `50.13 a dirty tree answered ${deep(rd?.refused?.kind)} — dirty, naming the file`);
+      const rs = await afold("a stale confirm (50.13)", () => RF.runRatify({ pkgRoot: pkgR, name: d2.name, input: { ...INPUT, example: { ...INPUT.example, meta: "Payer" } }, hash: pv.hash, base: ledger(pkgR).length, repoDir: REPO, git }), {});
+      ok(rs?.refused?.kind === "stale" && rs.refused.detail.includes(pv.hash), `50.13 a changed form on a clean tree answered ${deep(rs?.refused?.kind)} — stale, naming the sent hash`);
+      // GREEN: ten steps exit 0 → the op, the record stamped, the mapping read-only.
+      const n0 = ledger(pkgR).length;
+      const green = await afold("a green confirm (50.13)", () => RF.runRatify({ pkgRoot: pkgR, name: d2.name, input: INPUT, hash: pv.hash, base: n0, repoDir: REPO, git,
+        runStep: async () => ({ code: 0, ms: 1, tail: "ok" }) }), {});
+      const L2 = ledger(pkgR);
+      ok(green?.ok === true && green.gates?.length === 10 && L2.length === n0 + 1 && L2[n0].op === "proposal.ratify" && L2[n0].source === "owner"
+        && deep(L2[n0].params) === deep({ proposalId: "pr1", component: "probe-row" }), `50.13 a green chain answered ${deep({ ok: green?.ok, refused: green?.refused, steps: green?.gates?.length })} and the ledger's last line is ${deep(L2.at(-1))}`);
+      const rec = fold("the stamped record (50.13)", () => JSON.parse(readFileSync(join(pkgR, `build/imports/${d2.recordId}.json`), "utf8")), {});
+      const proposedAt = L2.find((l) => l.op === "component.propose" && l.params.name === d2.name)?.at;
+      ok(rec.elapsed?.ratify === Date.parse(L2[n0]?.at) - Date.parse(proposedAt) && rec.elapsed.ratify >= 0 && rec.provenance?.licence === INPUT.licence && threw(() => checkRecord(rec)) === null,
+        `50.13 the record after ratify: elapsed ${deep(rec.elapsed)}, licence ${deep(rec.provenance?.licence)}, checkRecord ${threw(() => checkRecord(rec)) ?? "ok"} — elapsed.ratify the two server stamps apart (D8)`);
+      const iv = fold("importView after a ratify (50.13)", () => IR.importView(pkgR, d2.name), {});
+      ok(iv.status === "ratified" && iv.component === "probe-row", `50.13 the import view reports ${deep({ status: iv.status, component: iv.component })} — ratified as probe-row`);
+
+      // --- 50.10 a ratified proposal's mapping is read-only -----------------------------------------------
+      const mapPath = join(pkgR, `build/proposals/${d2.name}/mapping.json`);
+      const mapBefore = fold("mapping.json before (50.10)", () => readFileSync(mapPath), Buffer.alloc(0));
+      const em = fold("editMapping after a ratify (50.10)", () => IR.editMapping({ pkgRoot: pkgR, provenance: "real", name: d2.name, edit: { path: "ir.children[0]", drop: true }, overridesDir: scratch("ov4") }), {});
+      ok(em?.refused?.kind === "ratified" && fold("mapping.json after (50.10)", () => readFileSync(mapPath), Buffer.from("x")).equals(mapBefore), `50.10 editMapping on a ratified proposal answered ${deep(em?.refused?.kind ?? Object.keys(em ?? {}))} — refused ratified, mapping.json byte-identical`);
+      // --- 50.13d a throw AFTER the op is appended: the chain was green, so the answer offers no revert (PR #492 F2) --
+      // The record's .md is made a directory, so its write fails with EISDIR after saveRun; readState reads the .json only.
+      restoreRepo();
+      {
+        const pkgD = pkgCopy("appended");
+        const d3 = await afold("the appended fixture drop (50.13d)", () => IR.runImport({ pkgRoot: pkgD, provenance: "real", base: ledger(pkgD).length, entrance: "drop",
+          file: { name: "spike-c.txt", bytes: BLUEPRINT }, overridesDir: scratch("ov5") }), {});
+        const pv3 = await afold("the appended preview (50.13d)", () => RF.previewRatify({ pkgRoot: pkgD, name: d3.name, input: INPUT, repoDir: REPO, git }), {});
+        const mdPath = join(pkgD, `build/imports/${d3.recordId}.md`);
+        rmSync(mdPath, { force: true });
+        mkdirSync(mdPath);
+        const late = await afold("a confirm whose record write throws (50.13d)", () => RF.runRatify({ pkgRoot: pkgD, name: d3.name, input: INPUT, hash: pv3.hash, base: ledger(pkgD).length, repoDir: REPO, git,
+          runStep: async () => ({ code: 0, ms: 1, tail: "ok" }) }), {});
+        ok(typeof late?.error === "string" && late.appended === true && !Object.hasOwn(late, "revert") && ledger(pkgD).filter((l) => l.op === "proposal.ratify").length === 1,
+          `50.13d a throw after the append answered ${deep({ error: late?.error, appended: late?.appended, revert: late?.revert, refused: late?.refused?.kind })} with ${ledger(pkgD).filter((l) => l.op === "proposal.ratify").length} proposal.ratify lines — the error, appended, no revert, one op`);
+      }
+      restoreRepo();
+      ok(threw(() => CO_applyOps([])) === null, "50 the canvas-ops import used for the fold stopped answering");
+    }
+
+    group("ratify", `portal/lib/ratify.mjs + system/templates.admitted.mjs + the renderer's one interpreter (#313): 50.1 ratify.mjs IMPORTED in CI with no portal/node_modules, its parsed specifiers node: built-ins plus report, canvas-ops, the registry, the store, env and import-run only, no SDK, zod or MCP SDK and no dynamic import · 50.2 checkAdmitted accepting the valid def FIRST, then thirteen mutations each named by field (tag script and a, class x-y and a class not the spec's, a slot as html, attr onclick, attr data-part as reserved (PR #492 F5), an unknown prop, a duplicate slot prop, children one, many against a spec without cardinality, an extra key, an empty provenance line) and ADMIT_TAGS frozen without a, button, input, img, script, style or iframe · 50.3 admittedTemplate under the DOM stub (positive control first): div.ds-person-row, a text slot carrying <img …> as textContent VERBATIM with no img created, a data-* attr, a null prop skipped, and children many rendering two kids through renderChild with their data-part · 50.4 collisionsOf naming list-row and [] for none, and the committed registry colliding with no hand-written template · 50.5 every committed ADMITTED entry passing checkAdmitted against its spec (${Object.keys(TA.ADMITTED).length} entries${Object.keys(TA.ADMITTED).length ? "" : " — vacuous today, the registry is committed empty"}) · 50.6 planRatify admitting the fixture name probe-row (asserted NOT a vocabulary component, so a real admission never reds this group) over spike C dropped into a scratch spine: deterministic, the six writes in order (spec create, CSS append, registry, palette, pin, stack.md), the pin one past its committed value, the palette listing probe-row once in sort order between its neighbours, the rewritten registry EVALUATED as a module to a frozen entry, one pin line at 3/24, the CSS block in the library-primitive header form, and the spec in kb-format's shape with the four sections in order · 50.7 HEAD, the record, a draft byte and all thirteen input fields each moving the hash, identical input not · 50.8 nineteen refusals by name (a literal colour and length, an unknown token, a vocabulary name, no licence, an example missing a required prop, an empty root rule, no container and a non-container, another proposal's component, a slot class and a root class components.css already styles (PR #492 F3), a line break in the record's source file name (F1), and each of three anchors missing and doubled) · 50.9 foldLedger folding a ratify to ratified and refusing an undone ratify naming proposal.ratify and git · 50.10 editMapping on a ratified proposal refused, mapping.json byte-identical · 50.11 CHAIN D4's ten frozen at both levels, its pack prefix drift-check's checkHandoff order read as source · 50.12 gen-loc-summary's worktreeFiles opt-in reporting drift over a +150-line edit of device-presets.mjs (a loc-group file ratify never writes) that the index read does not, on top of the same --loc-worktree-files list 40.8 reads, the file restored byte for byte, a non-array refused · 50.13 over a scratch repoDir with git and the chain INJECTED: the preview's six writes and hash, a ratify during a gated import busy naming it, an import during a gated ratify "a ratify is already in flight", a preview during that ratify answering busy, not dirty (PR #492 F6), a red step 2 stopping there with the revert command and nothing appended, a step that THROWS at 3 answering the error, two steps and the revert command instead of a 500, and a throw after the op is appended (the record's .md a directory) answering appended with no revert and one op (F2), dirty answered whatever the hash, a changed form on a clean tree stale, and a green chain appending one owner proposal.ratify, stamping elapsed.ratify as the two server stamps apart with the licence, checkRecord passing and the view reporting ratified · 50.14 a heading or fence in usage, accessibility, a state note or a prop description refused · 50.15 the REAL stack.md taking probe-row once in sort order between two neighbours, a second insert, no children line and two refused · 50.16 CLEAN_GUARD D5's two argv arrays exactly, frozen, no separator or substitution character. CANNOT REACH: the spawned chain, the real git state and the page — tooling/ratify-journey.mjs's`);
   }
 
   if (failures) {
     console.error(`\nbuild ✗  ${failures} failure(s)`);
     process.exit(1);
   }
-  console.log("\nbuild ✓  all 49 groups pass");
+  console.log("\nbuild ✓  all 50 groups pass");
 }

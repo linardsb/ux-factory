@@ -139,6 +139,7 @@ const describeOp = (o) => {
     case "frame.remove": return `removed ${p.frameId}`;
     case "frame.size": return `resized ${p.frameId} to ${p.preset ?? `${p.width} px`}`;
     case "component.propose": return `proposed ${p.name} from import ${p.recordId}`;
+    case "proposal.ratify": return `ratified ${p.proposalId} as ${p.component}`;
     case "screen.compose": return `composed ${p.screenId}`;
     case "state.add": return `added the ${p.stateKey} state of ${p.baseId}`;
     case "variant.add": return `kept lane ${p.key}`;

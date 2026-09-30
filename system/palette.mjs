@@ -31,13 +31,35 @@ import { trackToolPalette } from "./analytics.mjs";
 // deliberately: the palette memoizes its command list at first open (#188 measured a dynamic
 // registration racing it by 17–134 ms), so the list is code, and build-checks group 21 pins it
 // against handoff/verdant/vocabulary.json — the dock PACKS / bus-toggles TONES pattern. #220 adds
-// components by editing this list, and the pin is what forces that edit.
+// components by editing this list, and the pin is what forces that edit. One name per line, sorted:
+// portal/lib/ratify.mjs inserts an admitted name here in sort order; the pin below is what refuses a missed one.
 export const CATALOG_COMPONENTS = [
-  "avatar", "card", "care-task-row", "choice", "demo-notice", "empty-state",
-  "ghost-button", "icon", "list", "list-row", "metric-tile", "modal-dialog",
-  "nav-tabs", "plant-card", "primary-button", "progress-indicator", "screen-header",
-  "search-input", "select-field", "sequence-step", "stack", "stat-tile",
-  "status-chip", "text", "text-field", "toggle-switch",
+  "avatar",
+  "card",
+  "care-task-row",
+  "choice",
+  "demo-notice",
+  "empty-state",
+  "ghost-button",
+  "icon",
+  "list",
+  "list-row",
+  "metric-tile",
+  "modal-dialog",
+  "nav-tabs",
+  "plant-card",
+  "primary-button",
+  "progress-indicator",
+  "screen-header",
+  "search-input",
+  "select-field",
+  "sequence-step",
+  "stack",
+  "stat-tile",
+  "status-chip",
+  "text",
+  "text-field",
+  "toggle-switch",
 ];
 
 // --- DOM builder (inspect.mjs / glossary.mjs shape) — text via textContent, never innerHTML.

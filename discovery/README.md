@@ -670,6 +670,14 @@ name is its first node's slug, suffixed `-2`, `-3` when taken or a vocabulary na
   override file instead (`import/overrides/README.md`).
 - **A live record's fidelity is `missing`.** It carries WCAG over the neutral pack and no ΔE measurement;
   the view says "missing — not measured, never a pass".
+- **Ratify (#313) admits a Mode 1 proposal.** The import view's Ratify form (`portal/lib/ratify.mjs`) writes
+  the spec, the CSS block, the admitted-registry entry, the palette line, the wrapper pin and the container's
+  `children`, runs the ten-step chain, and on green appends `proposal.ratify { proposalId, component }` —
+  the proposal's folded `status` becomes `ratified` and it gains `component`. The record gains
+  `elapsed.ratify` (milliseconds between the `component.propose` and `proposal.ratify` lines' server-written
+  `at`) and the owner's `provenance.licence`. A ratified proposal's `mapping.json` is read-only (the mapping
+  editor refuses), a Mode 2 proposal is never ratified (G7), and a ratify is never undone through the ledger —
+  a ratified component leaves through git.
 
 `portal/lib/canvas-store.mjs` is the only writer of `ops.jsonl` and `canvas.json`, with two writers of
 different kinds (#306).

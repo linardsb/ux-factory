@@ -22,6 +22,7 @@
 
 import { renderComposition } from "/system/agentic-renderer.mjs";
 import { getCanvasPage } from "/canvas.mjs";
+import { ratifySection } from "/canvas-ratify.mjs";
 
 const el = (tag, attrs, ...kids) => {
   const n = document.createElement(tag);
@@ -261,6 +262,7 @@ async function edit(name, e) {
     method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ provenance, slug, name, edit: e }),
   });
   if (status !== 200) { statusLine.textContent = `Refused: ${body.error}`; return; }
+  if (body.refused) { statusLine.textContent = `Refused: ${body.refused.message}`; return; }
   statusLine.textContent = "Mapping saved; the record, markdown and drafts were re-derived.";
   // An edit clears any measurement (#474 D6), so the last one's words go too.
   measureStatus.textContent = "";
@@ -286,6 +288,15 @@ function suggestionHint(view, row, s) {
 
 function editorRows(view) {
   const list = el("ul", { class: "cv-import-editor", "data-import-editor": true });
+  // A ratified proposal's mapping is provenance (#313): the rows, read-only.
+  if (view.status === "ratified") {
+    for (const row of view.outline) {
+      const part = view.mapping.parts?.[row.path] ?? {};
+      const to = part.drop ? "dropped" : (part.map ?? row.recognised ?? "not covered");
+      list.appendChild(el("li", { "data-import-row": row.path }, el("span", { class: "cv-import-path", text: `${row.path} · ${row.name ?? row.kind}${part.name ? ` as ${part.name}` : ""} → ${to}` })));
+    }
+    return list;
+  }
   const suggested = new Map((view.record.suggestions ?? []).map((s) => [s.path, s]));
   for (const row of view.outline) {
     const part = view.mapping.parts?.[row.path] ?? {};
@@ -356,6 +367,11 @@ function renderView(view) {
     el("p", { class: "cv-where", "data-import-suggest-status": true, text: r.suggestions?.length
       ? `Machine suggestions (Jev, unratified): ${r.suggestions.length} node(s)`
       : "Machine suggestions: none on this record (see the import transcript)." }),
+    ratifySection(view, {
+      api, provenance, slug, base: () => getCanvasPage().count,
+      // The post-import rule (header call 1): reload at the same ?import= URL.
+      reload: () => { history.replaceState(null, "", `?${new URLSearchParams({ provenance, slug, import: view.name })}`); location.reload(); },
+    }),
     el("h3", { text: "Mapping" }),
     editorRows(view),
   );

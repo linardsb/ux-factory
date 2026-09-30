@@ -205,6 +205,8 @@ variant  {key, overrides: {frameId: override}}
   `build-checks`, and returns the diff. It refuses to start while `git status` shows uncommitted changes
   under `system/` or `handoff/`, so the diff it shows is exactly its own writes. Nothing is committed on
   the owner's behalf. `withRunLock` applies: one ratify, one compose turn or one import at a time.
+  *Amended 2026-09-30 by #313 — see the addendum of that date below: the chain is ten runs, the clean guard
+  spans the code tree, the template is declarative data, and a ratify also lists the part in a container.*
 - **The import is a recorded run, server-side.** "Import selection" asks Brilliant for `get_selection`
   through a direct stdio client, with no model, and reads the ids; "Browse the page" loads the canvas's elements on demand and
   caches them for the session; both hand the same ids to `import/brilliant.mjs`. Not reachable → the
@@ -412,3 +414,31 @@ Brilliant MCP is a local stdio router that needs no model, so `portal/lib/brilli
 newline-delimited JSON-RPC to it with node built-ins, for $0 per import, and the fence moves from two SDK sites
 to the client's one `call()` site. What it does not change: every other agent run (compose, discovery,
 proposals, composition) stays on the SDK, and the op is still the only write path.
+
+## Addendum 2026-09-30: what ratify actually needed (#313)
+
+Four divergences from § Boundaries "Ratify writes, gates, and stops at the diff (G6)", each found by running it
+(`.claude/plans/ratify-write-gate-diff-313.md`, NOTES § Pre-flight):
+
+- **D1 — the template is declarative data (owner's call).** The importer drafts no renderer code (spike C's
+  composition is `[null]` for every committed fixture), so `system/templates.admitted.mjs` holds JSON
+  `{tag, class, slots, children, provenance}`, validated by one `checkAdmitted`, and the renderer gains ONE
+  interpreter (`admittedTemplate`). No request body ever becomes code; a shape the interpreter cannot express is
+  admitted by hand through the spec → CSS → template chain.
+- **D4 — the chain is ten runs, not four.** `gen-handoff` · `gen-vocabulary` · `gen-pack-bundle` · `gen-pack-index`
+  (#419, last of the pack) · `gen-system-graph` · `import/regen-expected` (group 40) · `tooling/regen-import-records`
+  (group 42.6) · `gen-loc-summary --worktree-files <ratify's writes>` · `token-lint` · `build-checks
+  --loc-worktree-files <the same>`, each a spawned `node` child with fixed argv. The loc opt-in reads only the
+  files ratify wrote from the worktree (the index for everything else), so a sibling session's edit cannot leak
+  into the count.
+- **D5 — the clean-tree guard spans the code tree,** not only `system/` and `handoff/`: tracked changes anywhere
+  but prose, plus untracked files under `system handoff import agent-layer portal tooling discovery proto
+  scenarios worker`. Ratify writes `tooling/build-checks.mjs`, the chain writes `import/fixtures/`, and
+  `build-checks` reads the whole tree — a half-done edit anywhere in it would red ratify's gate and read as
+  ratify's fault. Consequence: a ratify over a FICTIONAL package (under `discovery/`) refuses until its import is
+  committed.
+- **D11 — a sixth write: the container's allowed children.** A part no container allows cannot be placed in a
+  screen, so the form's "May sit inside" rewrites each chosen container spec's head `children` (default `stack`).
+
+What it does not change: the op count (`proposal.ratify` is verb twelve; `group.define`/`group.place` remain
+#315's), the origin guard, `withRunLock`, and G6's stop — nothing is committed on the owner's behalf.

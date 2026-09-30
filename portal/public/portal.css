@@ -457,3 +457,18 @@
 .cv-flow-title { margin: 0; font-size: var(--type-caption); }
 .cv-flow-text { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--type-caption); }
 .cv-flow-missing { margin: 0; padding-left: var(--spacing-md); font-size: var(--type-caption); }
+
+/* #313: the ratify form, its plan and its result. Buttons reuse .cv-btn (44×44); every select and checkbox
+   is 44 as well (ratify-journey R12). Fetched text (tails, the diff) wraps inside a scroll box, never the page. */
+.cv-ratify { display: flex; flex-direction: column; gap: var(--spacing-xs); padding: var(--spacing-sm); border: 1px solid var(--color-border); border-radius: var(--radius-sm); }
+.cv-ratify h3, .cv-ratify h4 { margin: 0; font-size: var(--type-caption); }
+.cv-ratify-field { display: flex; flex-direction: column; gap: 2px; font-size: var(--type-caption); }
+.cv-ratify input[type="text"], .cv-ratify select, .cv-ratify textarea { min-height: 44px; min-width: 44px; max-width: 100%; font: inherit; }
+.cv-ratify input[type="checkbox"] { width: 44px; height: 44px; margin: 0; }
+.cv-ratify-multi, .cv-ratify-group { display: flex; flex-direction: column; gap: var(--spacing-xs); margin: 0; padding: var(--spacing-xs); border: 1px solid var(--color-border); border-radius: var(--radius-sm); }
+.cv-ratify-multi label, .cv-ratify-row label { display: inline-flex; align-items: center; gap: var(--spacing-xs); font-size: var(--type-caption); }
+.cv-ratify-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-xs); }
+.cv-ratify-row input[type="text"] { flex: 1 1 8rem; }
+.cv-ratify-pre { margin: 0; max-height: 16rem; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--type-caption); }
+.cv-ratify-steps, .cv-ratify-porcelain, .cv-ratify-checklist, .cv-ratify-plan ul, .cv-ratify-plan ol { margin: 0; padding-left: var(--spacing-md); font-size: var(--type-caption); overflow-wrap: anywhere; }
+.cv-ratify code { overflow-wrap: anywhere; }

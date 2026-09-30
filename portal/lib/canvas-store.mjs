@@ -112,7 +112,9 @@ const canon = (v) => (v && typeof v === "object" && !Array.isArray(v)
 // unchanged; the fold checks it against the TOP of the stack and refuses a mismatch naming both seqs,
 // which is what makes a wrong undo fail loudly. Redo is the same op appended again as `applied`.
 // `proposed` and `refused` lines are skipped: they are a proposal's statuses (#312). An `accepted` line —
-// the owner's verdict, carrying `fromStep` — folds like `applied`.
+// the owner's verdict, carrying `fromStep` — folds like `applied`. A `proposal.ratify` is never undone
+// (#313, D9): its files are in the repo by then, so an undo line restating one is refused and the
+// component leaves through git.
 export function foldLedger(lines) {
   if (!Array.isArray(lines)) throw new Error("foldLedger: lines must be an array");
   const effective = [];
@@ -121,6 +123,7 @@ export function foldLedger(lines) {
     if (status === "applied" || status === "accepted") { effective.push(l); return; }
     if (status === "proposed" || status === "refused") return;
     if (status === "undone") {
+      if (l.op === "proposal.ratify") throw new Error(`foldLedger: line ${i + 1} (seq ${l.seq}) undoes proposal.ratify — a ratified component leaves the system through git, not undo`);
       const top = effective[effective.length - 1];
       if (!top) throw new Error(`foldLedger: line ${i + 1} (seq ${l.seq}) undoes ${l.op} but nothing applied is left to undo`);
       if (canon({ op: top.op, params: top.params }) !== canon({ op: l.op, params: l.params })) {

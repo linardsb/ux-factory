@@ -48,9 +48,9 @@
 
 import { DEVICE_PRESETS, WIDTH_MAX, WIDTH_MIN, presetWidth } from "./device-presets.mjs";
 
-// The six #302 landed, #306's four (frame.remove, frame.link, annotate, variant.add) and #311's
-// component.propose. The architecture projects fourteen; the remaining three (group.define,
-// group.place, proposal.ratify) are #315's and #313's, and THE EPIC HOLDS AN OP-VERB LOCK: two tickets must not
+// The six #302 landed, #306's four (frame.remove, frame.link, annotate, variant.add), #311's
+// component.propose and #313's proposal.ratify. The architecture projects fourteen; the remaining two
+// (group.define, group.place) are #315's, the lock still held: THE EPIC HOLDS AN OP-VERB LOCK: two tickets must not
 // add ops here concurrently, because a verb is four edits in three files and a merge that takes both
 // halves of two of them leaves a verb with no PARAMS entry or a PARAMS entry with no case.
 export const OPS = Object.freeze([
@@ -65,6 +65,7 @@ export const OPS = Object.freeze([
   "annotate",
   "variant.add",
   "component.propose",
+  "proposal.ratify",
 ]);
 
 // EXACT, NOT MINIMAL — an unknown key throws rather than being ignored. discovery/ops.mjs's rule and
@@ -82,6 +83,7 @@ export const PARAMS = Object.freeze({
   annotate: Object.freeze(["noteId", "text"]),
   "variant.add": Object.freeze(["key", "overrides"]),
   "component.propose": Object.freeze(["name", "recordId", "mode"]),
+  "proposal.ratify": Object.freeze(["proposalId", "component"]),
 });
 
 // The params a verb may omit. Everything else in its PARAMS entry is required, which is the half of
@@ -463,7 +465,8 @@ export function applyOp(doc, op) {
     case "component.propose": {
       // The applier sees neither the filesystem nor the vocabulary: that proposals/<name>/ exists and
       // that name is not a vocabulary component are portal/lib/import-run.mjs's checks. status moves
-      // only through proposal.ratify (#313), which is why nothing here reaches the vocabulary.
+      // only through proposal.ratify (#313); the filesystem half of a ratify — the spec, the CSS, the
+      // registry entry — is portal/lib/ratify.mjs's, which is why nothing here reaches the vocabulary.
       if (typeof p.name !== "string" || !PROPOSAL_NAME_RE.test(p.name)) {
         throw new Error(`component.propose: name ${JSON.stringify(p.name)} is not a component name — lowercase letters, digits and hyphens, 2–40, starting with a letter`);
       }
@@ -474,6 +477,30 @@ export function applyOp(doc, op) {
       if (next.proposals.some((x) => x.name === p.name)) throw new Error(`component.propose: duplicate name "${p.name}" — a proposal of that name already exists`);
       if (next.proposals.some((x) => x.recordId === p.recordId)) throw new Error(`component.propose: record "${p.recordId}" already has a proposal — one proposal per import record`);
       next.proposals.push({ id: nextId("pr", new Set(next.proposals.map((x) => x.id))), name: p.name, recordId: p.recordId, mode: p.mode, status: "proposed" });
+      break;
+    }
+    case "proposal.ratify": {
+      // THE LEDGER HALF OF AN ADMISSION (#313, G6). The applier stays filesystem- and vocabulary-blind:
+      // that `component` is not already a vocabulary component, and every byte ratify writes, are
+      // portal/lib/ratify.mjs's. What is refused here is what the document alone can decide.
+      if (typeof p.proposalId !== "string" || !/^pr[1-9][0-9]*$/.test(p.proposalId)) {
+        throw new Error(`proposal.ratify: proposalId ${JSON.stringify(p.proposalId)} is not a proposal id (pr1, pr2, …)`);
+      }
+      const at = next.proposals.findIndex((x) => plainObject(x) && x.id === p.proposalId);
+      if (at < 0) {
+        throw new Error(`proposal.ratify: proposalId "${p.proposalId}" does not resolve — this document holds ${next.proposals.map((x) => x?.id).join(", ") || "no proposals"}`);
+      }
+      const entry = next.proposals[at];
+      if (entry.mode === 2) {
+        throw new Error(`proposal.ratify: "${entry.name}" is a frozen original (Mode 2, ${entry.id}) — it stays beside the flow as an exhibit and never joins the vocabulary (G7)`);
+      }
+      if (entry.status !== "proposed") throw new Error(`proposal.ratify: ${entry.id} is already ${entry.status}`);
+      if (typeof p.component !== "string" || !PROPOSAL_NAME_RE.test(p.component)) {
+        throw new Error(`proposal.ratify: component ${JSON.stringify(p.component)} is not a component name — lowercase letters, digits and hyphens, 2–40, starting with a letter`);
+      }
+      const taken = next.proposals.find((x) => plainObject(x) && x.id !== entry.id && x.component === p.component);
+      if (taken) throw new Error(`proposal.ratify: component "${p.component}" is already ${taken.id}'s — one proposal per component`);
+      next.proposals[at] = { ...entry, status: "ratified", component: p.component };
       break;
     }
     // Unreachable: checkOp refused every verb outside OPS. Kept because the day an eleventh verb is
