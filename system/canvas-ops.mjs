@@ -442,6 +442,17 @@ export function applyOp(doc, op) {
         if (ov.omit === true && Object.keys(ov).length > 1) {
           throw new Error(`variant.add: "${fid}" is left out of lane "${p.key}" and also carries ${Object.keys(ov).filter((k) => k !== "omit").join(", ")} — a frame left out has nothing to set`);
         }
+        // The lane reads skip a malformed part, so a wrong type here would be a lane that changes nothing, refused by
+        // no one (PR #491 F2). add stays an array or an object: refuseFrozen walks both, and neither is rendered.
+        if (ov.set !== undefined && (!plainObject(ov.set) || Object.values(ov.set).some((v) => !plainObject(v)))) {
+          throw new Error(`variant.add: overrides.${fid}.set must be an object of part id → props object — this op carried ${JSON.stringify(ov.set)}`);
+        }
+        if (ov.hide !== undefined && (!Array.isArray(ov.hide) || ov.hide.some((x) => typeof x !== "string"))) {
+          throw new Error(`variant.add: overrides.${fid}.hide must be an array of part ids — this op carried ${JSON.stringify(ov.hide)}`);
+        }
+        if (ov.add !== undefined && !plainObject(ov.add) && !Array.isArray(ov.add)) {
+          throw new Error(`variant.add: overrides.${fid}.add must be a composition node or an array of them — this op carried ${JSON.stringify(ov.add)}`);
+        }
         if (ov.add !== undefined) refuseFrozen("variant.add", ov.add, next);
       }
       // Stored as an override map keyed by frame id (G33). The lane UI and the per-variant

@@ -446,7 +446,10 @@ const server = createServer(async (req, res) => {
     // saved ledger into a 500: the page reads packError and says so. build-checks 49.9 pins every write route.
     const withPack = (root, body) => {
       try { writeBuildHandoff(root); return body; }
-      catch (e) { return { ...(body && typeof body === 'object' ? body : {}), packError: e.message }; }
+      catch (e) {
+        console.error(`handoff pack not written for ${root}: ${e.message}`);   // the body alone reaches one page (PR #491 F4)
+        return { ...(body && typeof body === 'object' ? body : {}), packError: e.message };
+      }
     };
     // --- the canvas page's three routes (#306) ---
     // Every one resolves the package root with the same resolveRunRoot + assertProvenanceRoot pair the

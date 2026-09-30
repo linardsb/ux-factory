@@ -49,12 +49,12 @@ function differences(doc, key) {
   const v = (doc.variants ?? []).find((x) => x && x.key === key);
   const out = [];
   for (const [fid, ov] of Object.entries(v?.overrides ?? {})) {
-    if (ov?.omit === true) { out.push(`- ${fid} · left out of this lane`); continue; }
+    if (ov?.omit === true) { out.push(`- ${one(fid)} · left out of this lane`); continue; }
     for (const [part, props] of Object.entries(ov?.set ?? {})) {
-      for (const [prop, value] of Object.entries(props ?? {})) out.push(`- ${fid} · set ${part}.${prop} → ${JSON.stringify(value)}`);
+      for (const [prop, value] of Object.entries(props ?? {})) out.push(`- ${one(fid)} · set ${one(part)}.${one(prop)} → ${JSON.stringify(value)}`);
     }
-    for (const part of Array.isArray(ov?.hide) ? ov.hide : []) out.push(`- ${fid} · hide ${part}`);
-    if (ov?.add !== undefined) out.push(`- ${fid} · add (not rendered; flagged)`);
+    for (const part of Array.isArray(ov?.hide) ? ov.hide : []) out.push(`- ${one(fid)} · hide ${one(part)}`);
+    if (ov?.add !== undefined) out.push(`- ${one(fid)} · add (not rendered; flagged)`);
   }
   return out.length ? out : ["- none"];
 }
@@ -67,14 +67,14 @@ function renderFlow(slug, doc) {
     out.push("```mermaid", stateDiagram(doc, key), "```", "");
     const edges = flowEdges(doc, key);
     if (!edges.length) out.push("- No arrows in this lane.");
-    for (const e of edges) out.push(`- From ${e.fromLabel} (${e.from}), ${edgePhrase(e)} goes to ${e.toLabel} (${e.to})${e.trigger ? `, when ${one(e.trigger)}` : ""}.`);
+    for (const e of edges) out.push(`- From ${one(e.fromLabel)} (${one(e.from)}), ${one(edgePhrase(e))} goes to ${one(e.toLabel)} (${one(e.to)})${e.trigger ? `, when ${one(e.trigger)}` : ""}.`);
     out.push("", `Missing states (the floor is ${STATE_KEYS.join(" · ")}):`, "");
     const miss = missingStates(doc, key);
     if (!miss.length) out.push("- None — every screen in this lane meets the floor.");
-    for (const m of miss) out.push(`- ${frameLabel(doc, m.frameId)} (${m.frameId}): ${m.missing.join(", ")}`);
+    for (const m of miss) out.push(`- ${one(frameLabel(doc, m.frameId))} (${one(m.frameId)}): ${m.missing.join(", ")}`);
     const flags = laneDoc(doc, key).doc.frames.flatMap((f) => frameTree(doc, f.id, key).flags
       .filter((fl) => ["dangling-set", "dangling-hide", "unsupported-add"].includes(fl.kind))
-      .map((fl) => `- ${f.id} · ${fl.kind}${fl.partId ? ` ${fl.partId}` : ""}`));
+      .map((fl) => `- ${one(f.id)} · ${fl.kind}${fl.partId ? ` ${one(fl.partId)}` : ""}`));
     if (flags.length) out.push("", "Flagged (shown, never dropped):", "", ...flags);
   }
   return out.join("\n") + "\n";
@@ -195,7 +195,10 @@ export function readBuildPackage(pkgRoot) {
     buildTranscript: maybe(join(pkgRoot, "build", "transcript.jsonl")) ?? [],
     imports: ids.map((id) => ({
       id,
-      record: JSON.parse(readFileSync(join(dir, `${id}.json`), "utf8")),
+      record: (() => {
+        try { return JSON.parse(readFileSync(join(dir, `${id}.json`), "utf8")); }
+        catch (e) { throw new Error(`${join(dir, `${id}.json`)}: ${e.message}`); }
+      })(),
       md: existsSync(join(dir, `${id}.md`)) ? readFileSync(join(dir, `${id}.md`), "utf8") : null,
       transcript: maybe(join(dir, `${id}.transcript.jsonl`)) ?? [],
     })),
@@ -213,9 +216,11 @@ export function writeBuildHandoff(pkgRoot) {
   const pkg = readBuildPackage(pkgRoot);
   const dir = join(pkgRoot, "build", PACK_DIR);
   if (!pkg) return { dir, files: [] };
+  // Render BEFORE the rm: a render that throws leaves the old pack whole, never half old and half empty (PR #491 F3).
+  const rendered = renderPack(pkg);
   rmSync(join(dir, "imports"), { recursive: true, force: true });
   const files = [];
-  for (const [rel, text] of Object.entries(renderPack(pkg))) {
+  for (const [rel, text] of Object.entries(rendered)) {
     const p = join(dir, rel);
     mkdirSync(dirname(p), { recursive: true });
     writeFileSync(p, text);
