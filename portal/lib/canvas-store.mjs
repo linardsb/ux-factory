@@ -248,13 +248,14 @@ export function positionsOf(canvas) {
   return out;
 }
 
-// verifyBuild({ ops, canvas, groups?, run? }) → string[] — empty means clean. THE GATE PREDICATE (AC #1): the ledger's
+// verifyBuild({ ops, canvas, groups? }) → string[] — empty means clean. THE GATE PREDICATE (AC #1): the ledger's
 // shape, the fold, and canvas.json equal to what the ops derive under canvas.json's OWN positions. So
 // a moved node can never fail it (positions are authored — #302's inverse case, kept), while any node
 // or edge the ops do not produce, or a width they disagree with, always does. With `groups` (loadBuild's), every
-// groups/ file must equal what the ops derive, none missing and none extra (#315). A position is looked for only in a
+// groups/ file must equal what the ops derive, none missing and none extra, its provenance.run a run slug but not
+// the reading directory's (a renamed copy keeps the run its groups were composed in) (#315). A position is looked for only in a
 // line's own keys and its params' own keys (F10, PR #485), so a part id `x` inside an override is not one.
-export function verifyBuild({ ops, canvas, groups, run } = {}) {
+export function verifyBuild({ ops, canvas, groups } = {}) {
   const out = [];
   if (!Array.isArray(ops)) return ["ops.jsonl did not load as a list of lines"];
   ops.forEach((l, i) => {
@@ -286,12 +287,18 @@ export function verifyBuild({ ops, canvas, groups, run } = {}) {
   catch (e) { out.push(`the ledger does not fold into the arrangement: ${e.message}`); return out; }
   out.push(...laneFlaws(folded));
   // #315: groups/ compared only when the caller passes it (loadBuild does), so a hand-built {ops, canvas} is unaffected.
+  // provenance.run is the run the group was COMPOSED in, not the directory it is read from: a package copied under
+  // another name (every scratch copy here, 36.10's among them) keeps its groups' run, so run is checked as a slug and
+  // everything else is compared to the fold.
   if (groups !== undefined) {
-    const want = groupFiles(folded, run);
+    const want = groupFiles(folded, null);
     const have = groups && typeof groups === "object" ? groups : {};
+    const sansRun = (g) => canon({ ...g, provenance: { ...(g?.provenance ?? {}), run: null } });
     for (const f of Object.keys(have)) {
-      if (!Object.hasOwn(want, f)) out.push(`groups/${f} carries a fact the ops do not`);
-      else if (canon(have[f]) !== canon(want[f])) out.push(`groups/${f} is ${canon(have[f])}, the ops derive ${canon(want[f])}`);
+      if (!Object.hasOwn(want, f)) { out.push(`groups/${f} carries a fact the ops do not`); continue; }
+      if (sansRun(have[f]) !== sansRun(want[f])) out.push(`groups/${f} is ${canon(have[f])}, the ops derive ${canon(want[f])}`);
+      const r = have[f]?.provenance?.run;
+      if (typeof r !== "string" || !RUN_SLUG_RE.test(r)) out.push(`groups/${f}'s provenance.run ${JSON.stringify(r ?? null)} is not a run slug`);
     }
     for (const f of Object.keys(want)) if (!Object.hasOwn(have, f)) out.push(`groups/${f} is missing, which the ops derive`);
   }

@@ -1,0 +1,17 @@
+import subprocess, os, json
+os.chdir("/Users/Berzins/Desktop/Linards_current/wt-315")
+M = [
+ ("J1 saveRun's groups write removed", "portal/lib/canvas-store.mjs", "    for (const [f, v] of Object.entries(gfiles)) writeFileSync(join(gdir, f), groupText(v));\n", ""),
+ ("J2 promote skips source.json", "portal/lib/promote.mjs", '    writeFileSync(targets["source.json"], jsonText(groupFiles(doc, run)[`${groupId}.json`]));\n', ""),
+]
+for name, f, a, b in M:
+    orig = open(f).read(); assert orig.count(a) == 1, name
+    open(f, "w").write(orig.replace(a, b))
+    try:
+        r = subprocess.run(["node", "tooling/canvas-journey.mjs", "chromium"], capture_output=True, text=True, timeout=1500)
+        lines = r.stdout.split("\n")
+        g = [l.strip()[:200] for l in lines if " G" in l and ("✗" in l)]
+        other = [l.strip()[:160] for l in lines if "✗" in l and " G" not in l]
+        print(json.dumps({name: {"exit": r.returncode, "G_failed": g, "other_failed": other[:6], "summary": [l for l in lines if "──" in l]}}, ensure_ascii=False), flush=True)
+    finally:
+        open(f, "w").write(orig)

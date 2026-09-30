@@ -932,3 +932,9 @@ The op-verb lock: this PR holds it. `proposal.ratify` (#313) merged at `b99d9ac`
   3. **Task 6.6 / the journey admits `app-header`** — 50.18 and 50.19 use `app-header` as their fixture name and
      guard that it is NOT a vocabulary member (50's `probe-row` rule), so admitting `app-header` in the ratify
      journey's clone would red chain step 10 on those guards. The journey admits the group as `journey-header`.
+  4. **D7 / Task 2.1 — `verifyBuild` must not compare `provenance.run` to the reading directory.** Found after the
+     build (probe `impl-rename-probe.mjs.txt`, observed): a package holding a group, copied under another name, fails
+     `verifyBuild` on `groups/g1.json`'s run — and every scratch copy in this repo renames the package (36.10's,
+     `pkgCopy`, the journeys'), so the owner's first saved group on `faster-payment` would red them all. The run is
+     where the group was COMPOSED: `verifyBuild` checks it is a run slug and compares everything else to the fold.
+     36.13 gained the renamed-copy and bad-slug cases.

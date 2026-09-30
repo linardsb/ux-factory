@@ -1,0 +1,36 @@
+import subprocess, sys, json, os
+os.chdir("/Users/Berzins/Desktop/Linards_current/wt-315")
+M = [
+ ("M1 OPS back to twelve", "system/canvas-ops.mjs", '  "group.define",\n  "group.place",\n]);', ']);'),
+ ("M2 D4 step 3 (namespacing) removed", "system/canvas-ops.mjs", "        n.id = `${c.id}${PART_SEP}${n.id}`;\n", ""),
+ ("M3 redefine blocker disabled", "system/canvas-ops.mjs", "      if (blockers.length) {\n        throw", "      if (false) {\n        throw"),
+ ("M4 refuseFrozen removed from group.define", "system/canvas-ops.mjs", '      refuseFrozen("group.define", parts, next);\n', ""),
+ ("M5 D4 step 2 (resolve) dropped", "system/canvas-ops.mjs", "      const r = resolve({ parts: map }, plainObject(c.overrides) ? c.overrides : null);", "      const r = resolve({ parts: map }, null);"),
+ ("M6 idProblem slash check removed", "portal/lib/canvas-session.mjs", '    if (typeof n.id === "string" && n.id.includes("/")) return', '    if (false) return'),
+ ("M7 saveRun rmSync of underived removed", "portal/lib/canvas-store.mjs", "    for (const f of readdirSync(gdir)) if (f.endsWith(\".json\") && !Object.hasOwn(gfiles, f)) rmSync(join(gdir, f));\n", ""),
+ ("M8 F10 reverted to the old regex", "portal/lib/canvas-store.mjs", '    if (["x", "y"].some((k) => Object.hasOwn(l ?? {}, k) || (l?.params && typeof l.params === "object" && Object.hasOwn(l.params, k)))) out.push', '    if (/"x"\\s*:|"y"\\s*:/.test(JSON.stringify(l))) out.push'),
+ ("M9 count an unratified proposal", "agent-layer/gen-build-handoff.mjs", '.filter((p) => p && p.status === "ratified");', '.filter((p) => p);'),
+ ("M10 drop the section from renderFlow", "agent-layer/gen-build-handoff.mjs", '  out.push("", "## Composition over admission", "",', '  if (false) out.push("", "## Composition over admission", "",'),
+ ("M11 promote writes mapping.json", "portal/lib/promote.mjs", "    for (const [f, text] of Object.entries(drafts)) writeFileSync(targets[f], text);\n", "    for (const [f, text] of Object.entries(drafts)) writeFileSync(targets[f], text);\n    writeFileSync(path.join(dir, \"mapping.json\"), \"{}\\n\");\n"),
+ ("M12 revert D8 provenanceLine branch", "portal/lib/ratify.mjs", '  const from = o.kind === "group" ? `composed in run ${o.run} from group ${o.id} (${o.group.name})`\n    :', '  const from ='),
+ ("M13 checkAdmitted back to import-only", "system/templates.admitted.mjs", 'export const PROVENANCE_FROM = Object.freeze({ import: /^i[1-9][0-9]*$/, group: /^g[1-9][0-9]*$/ });', 'export const PROVENANCE_FROM = Object.freeze({ import: /^i[1-9][0-9]*$/ });'),
+ ("M14 promote route without withPack", "portal/server.mjs", "      return json(res, 200, withPack(root, await promoteGroup({ pkgRoot: root, base: b.base, groupId: b.groupId })));", "      return json(res, 200, await promoteGroup({ pkgRoot: root, base: b.base, groupId: b.groupId }));"),
+ ("M17 provenance.run slug check removed", "portal/lib/canvas-store.mjs", '      if (typeof r !== "string" || !RUN_SLUG_RE.test(r)) out.push', '      if (false) out.push'),
+ ("M15 promote skips the already-promoted check", "portal/lib/promote.mjs", "    if (held) return", "    if (false) return"),
+]
+only = sys.argv[1:] 
+out = {}
+for name, f, a, b in M:
+    if only and name.split()[0] not in only: continue
+    orig = open(f).read()
+    assert orig.count(a) == 1, (name, orig.count(a))
+    open(f, "w").write(orig.replace(a, b))
+    try:
+        r = subprocess.run(["node", "tooling/build-checks.mjs"], capture_output=True, text=True, timeout=600)
+        lines = (r.stdout + r.stderr).split("\n")
+        fails = [l.strip()[:220] for l in lines if l.startswith("    · ")]
+        tail = [l for l in lines if l.startswith("build ✓") or l.startswith("build ✗")]
+        out[name] = {"exit": r.returncode, "tail": tail[-1] if tail else "", "n": len(fails), "first": fails[:3]}
+    finally:
+        open(f, "w").write(orig)
+    print(json.dumps({name: out[name]}, ensure_ascii=False), flush=True)

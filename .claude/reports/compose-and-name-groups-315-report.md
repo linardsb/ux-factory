@@ -1,7 +1,7 @@
 # Implementation Report — compose-and-name: `group.define` / `group.place`, per-copy overrides, Promote (#315)
 
 **Plan**: `.claude/plans/compose-and-name-groups-315.md`   **Branch**: `feature/compose-and-name-groups-315` (worktree `../wt-315`)
-**Base**: `b99d9ac` (origin/main at start) → `b99d9ac` at report (`git fetch`; main did not move, no merge needed)   **Status**: COMPLETE, one owner step open (the container-admission ticket, below)
+**Base**: `b99d9ac` (origin/main at start) → `b99d9ac` at report (`git fetch`; main did not move, no merge needed)   **Status**: COMPLETE for code and gates. The PR waits on one owner step: the plan requires the container-admission ticket to be opened, with the owner's approval of its text, BEFORE the PR (draft below).
 
 ## Summary
 
@@ -10,7 +10,7 @@ The build grammar gains its last two verbs. The count is final at fourteen. `gro
 ## Tasks completed
 
 - 1.1 + 1.2 → `system/canvas-ops.mjs` (UPDATE). Two verbs, `component.propose {groupId}`, `GROUP_OVERRIDE_KEYS`, `PART_SEP`, `groupInstances`, `expandGroups` inside `frameTree`, and header paragraphs. Started from the probe's `phase1.patch.txt`, then read against D1–D6. Two changes from the patch: the new functions sit above `frameTree`'s header comment rather than splitting it, and the roster comment is rewritten.
-- 2.1 → `portal/lib/canvas-store.mjs` (UPDATE). Adds `GROUPS_DIR` and `groupFiles`. `loadBuild` now returns `groups` and `run`. `saveRun` writes and removes group files. `verifyBuild` compares the group files, and F10 is fixed. Header comments updated.
+- 2.1 → `portal/lib/canvas-store.mjs` (UPDATE). Adds `GROUPS_DIR` and `groupFiles`. `loadBuild` now returns `groups` and `run`. `saveRun` writes and removes group files. `verifyBuild` compares the group files (with `provenance.run` checked as a slug, not compared, per Deviation 7), and F10 is fixed. Header comments updated.
 - 2.2 → `portal/lib/canvas-session.mjs` (UPDATE). `idProblem` refuses `/` in an id.
 - 3.1 → `portal/lib/import-run.mjs` (UPDATE). `ratifyPrefill(name, decls, vocab)` is exported, and the import path's bytes are unchanged.
 - 3.2 → `portal/lib/promote.mjs` (CREATE). Exports `draftFromGroup`, `promoteName`, `promoteGroup` and `promoteView`.
@@ -42,7 +42,7 @@ All cases are in build-checks (`node tooling/build-checks.mjs` → `build ✓  a
   - #475's frozen-original refusal on both verbs, with a Mode 1 control;
   - `component.propose {groupId}` with 5 refusals;
   - reads that are total over junk, and purity.
-- **36.13** covers the `groups/` projection, a hand-edited file, an orphan, a missing file, an `{ops, canvas}`-only caller, AC #4's exact changed-file list and git status, the undo that removes the file, and F10 (one control and two positives).
+- **36.13** covers the `groups/` projection, a hand-edited file, an orphan, a missing file, a non-slug `provenance.run`, a RENAMED copy that still verifies, an `{ops, canvas}`-only caller, AC #4's exact changed-file list and git status, the undo that removes the file, and F10 (one control and two positives).
 - **47.10** covers a slash in an id on the agent path.
 - **49.9** finds eleven routes. **49.11** checks `compositionCount` exactly, the `flow.md` lines, and the committed zero.
 - **50.2** adds three origin mutations plus a group positive control.
@@ -57,7 +57,7 @@ Journeys:
 
 ## Proving the checks
 
-Every row below was observed: the mutation was applied, the gate was run, and the file was restored. The driver scripts are in the session scratchpad and are not committed. After every row, `build-checks` was green again.
+Every row below was observed: the mutation was applied, the gate was run, and the file was restored. The drivers are parked in `.claude/plans/compose-and-name-groups-315-probe/` as `impl-mutate.py.txt` (M1–M15, M17) and `impl-jmutate.py.txt` (J1, J2); M16 and R1 were applied by hand. Build-checks was NOT re-run after each row. The drivers restore each file from memory in a `finally` block. Then `build-checks` was run once after the M1–M15 batch (green) and after M16/M17 (green), and `cmp` confirmed `ratify.mjs` was restored after R1.
 
 | # | Mutation | Case that went red (first message) | Positive control |
 |---|---|---|---|
@@ -75,12 +75,14 @@ Every row below was observed: the mutation was applied, the gate was run, and th
 | M12 | D8's `provenanceLine` branch reverted | 2 failures: "50.19 … imported from an unknown tool …" | 50.6's import-path bytes are unchanged |
 | M13 | `checkAdmitted` back to import-only | 11 failures, the first "50.2 positive control (#315) — a def admitted from group g1 was refused" | 50.2's import def is accepted |
 | M14 | promote route without `withPack(` | 1 failure: "49.9 ["/api/canvas/promote"] write into a build package without withPack(" | 49.9 finds all eleven routes |
+| M16 | `verifyBuild` back to the pre-fix rule (groups compared WITH the reading directory's run) | 1 failure: "36.13 a renamed copy of a package holding a group failed verifyBuild" (the original package still passes) | 36.13: the renamed copy verifies `[]` |
+| M17 | the `provenance.run` slug check removed | 1 failure: "36.13 a groups/g1.json whose run is not a slug passed verifyBuild: []" | 36.13's defined package verifies `[]` |
 | M15 | promote's already-promoted check removed | 2 failures: "50.18 a second promote of g1 answered {}" (the applier then throws after the files are written) | 50.18's first promote |
 | J1 | `saveRun`'s groups write removed | canvas-journey chromium: G2 "build/groups/g1.json exists" red, plus G5 and G6 | G1–G8 green on three engines |
 | J2 | promote skips `source.json` | canvas-journey chromium: G5 red. The route answered 500 because `promoteView` throws on the missing file, and G8 caught the console 500. It reds through the throw, not through the deep-equal line. | G5 green unmutated |
 | R1 | D8's `renderSpec` branch reverted | ratify-journey chromium red, but EARLIER than planned: chain step 10 (build-checks in the clone) runs 50.19, so person-row's own confirm reds before the group section is reached. The group section's Usage assertion is therefore shadowed by 50.19 and was not seen to fire on its own. It is kept because it is the only assertion that reads the spec a real chain wrote. | ratify-journey 52/52 unmutated |
 
-**Driver proof.** The mutation drivers report failures by parsing build-checks' own `    · ` lines and the journeys' `✗` lines. Each driver was seen to report a failure on every mutated tree, and none on the restored tree.
+**Driver proof.** The mutation drivers report failures by parsing build-checks' own `    · ` lines and the journeys' `✗` lines. Each driver was seen to report a failure on every mutated tree. The drivers were NOT run on the restored tree: the clean result comes from `build-checks` and the journeys run directly (above and below). The journey drivers read a stdout-only `✗` count, and every J-row also names the specific G-line that went red.
 
 **Ratify byte-identity (Task 3.3).** The probe's `digest.mjs.txt` was run with `ORIG=1` in a detached worktree at `origin/main` and again on this branch. The plan hash was `3f0e4a12…` on both sides, and the diff of the two outputs was empty: the six write shas, the def and the pin were identical (observed). The hash differs from the probe's `66eaf7e1…` because the HEAD differs. Identity between the two runs is the claim.
 
@@ -94,6 +96,7 @@ Every row below was observed: the mutation was applied, the gate was run, and th
 - `node agent-layer/gen-build-handoff.mjs --check` → drift on both packs before regeneration, then `2 packages, 8 files — no drift` after (observed).
 - `node agent-layer/gen-loc-summary.mjs --check` after staging → `no drift` (observed).
 - `node --check` on every touched `.mjs` → silent (observed).
+- **50.17 with no `portal/node_modules`** (moved aside under a `trap`, then restored) → `build ✓  all 50 groups pass`, with `ratify`, `build package`, `compose session`, `build handoff` and `canvas ops` each ✓ (observed). So the promote import pin holds without the SDK on disk, not only in CI.
 - Portal smoke on port 4931, killed by its own PID (observed):
   - `/api/health` → `ok`, `headSha` equal to this worktree's HEAD, `stale:false`;
   - `GET /api/canvas/promote/view` for an absent name → a named error;
@@ -102,6 +105,7 @@ Every row below was observed: the mutation was applied, the gate was run, and th
   - chromium 188/0 and firefox 187/0, measured on the tree before the docs edits (the code was unchanged apart from comments);
   - webkit 186/1 in that run. The one failure was the leg's own `git status -- discovery/` guard, which caught my `discovery/README.md` edit made during the run;
   - re-run on the committed tree: webkit 187/0.
+  - after Deviation 7's `verifyBuild` fix: chromium 188/0.
 - `node tooling/ratify-journey.mjs all` → `ratify-journey ✓  52 assertions`, including the group admission's 10/10 chain steps (observed).
 - `update:docker` → 33 passed. `git status` in that worktree listed exactly the three approach PNGs (observed).
 
@@ -110,6 +114,7 @@ Every row below was observed: the mutation was applied, the gate was run, and th
 - **CI `visual` and CodeQL** — these run on the PR, not locally. Tracker: the PR's checks.
 - **Level 4 manual click-through in `npm start`.** The canvas-journey groups pass drives the same page and routes on three engines, but no human clicked it. Tracker: owner's call.
 - **Paid table row 2, the container-admission ticket** — not opened. The plan requires the owner to approve the issue text first. A draft is below; tracker: owner's call.
+- **The ratify-journey group section's own Usage assertion** was not seen to fire on its own under R1, because 50.19 in the clone's chain fires first. See R1.
 
 ## Deviations from the plan
 
@@ -119,6 +124,7 @@ Every row below was observed: the mutation was applied, the gate was run, and th
 4. The probe patch's `frameTree` placement split `frameTree`'s header comment from the function. The two new functions were moved above the comment.
 5. The group early-return in `runRatify`'s green branch sits directly after `appended = true`, before the unused `proposedAt` and `ms` lines, rather than after them as in the probe patch.
 6. G8 measures five controls: the part-checkbox label, Save group, Place copy, Promote, and Set on this copy.
+7. **(plan error, D7)** The plan had `verifyBuild` compare `groupFiles(folded, run)` with the run taken from the reading directory. A package holding a group then fails `verifyBuild` once it is copied under another name (observed with `impl-rename-probe.mjs.txt`), and every scratch copy in this repo renames the package: 36.10, `pkgCopy`, and canvas-journey's `fp-*` copies. So the owner's first saved group on `faster-payment` would have turned CI and every journey red. `provenance.run` now records where the group was COMPOSED: it is checked as a run slug, and everything else is compared to the fold. `verifyBuild` no longer takes `run`. 36.13 gains the renamed-copy and bad-slug cases (M16, M17). Logged in AMENDMENTS.
 
 ## Assumptions carried
 
@@ -131,6 +137,8 @@ Every row below was observed: the mutation was applied, the gate was run, and th
 - `groupAdmission()` in ratify-journey commits the person-row admission inside the clone first. Without that commit the clean-tree guard refuses the second ratify.
 
 ## Issues encountered
+
+- **The primary tree** (`ux-factory`, on `fix/importer-reads-icon-name-449`) still holds untracked copies of this plan, its `.html` and the probe dir, taken before the AMENDMENTS. Once this PR merges, they will block a pull there. They were left alone because that tree is shared.
 
 - **Environment:** the fresh worktree needed `npm ci` in `portal/`, `tooling/icons`, `tooling/style-dictionary` and `tooling/visual-regression`. canvas-journey's I12 failed until `tooling/visual-regression` was installed. This was environment, not code.
 

@@ -1,0 +1,15 @@
+import { cpSync, mkdtempSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+const CS = await import(join(process.cwd(), "portal/lib/canvas-store.mjs"));
+const root = mkdtempSync(join(tmpdir(), "p315-rename-"));
+const a = join(root, "fp-groups");
+cpSync(join(process.cwd(), "discovery/faster-payment"), a, { recursive: true });
+const b = CS.loadBuild(join(a, "build"));
+CS.saveRun(a, { base: b.ops.length, positions: { ...CS.positionsOf(b.canvas), f3: { x: 1600, y: 0 } }, decisions: CS.loadDecisions(a), ops: [
+  { op: "screen.compose", status: "applied", params: { screenId: "home", why: "w", decisionRefs: [], composition: { name: "stack", id: "screen", children: [{ name: "screen-header", id: "header", props: { title: "Home" } }] } } },
+  { op: "group.define", status: "applied", params: { name: "app-header", frameId: "f3", partIds: ["header"] } }] });
+console.log("original:", JSON.stringify(CS.verifyBuild(CS.loadBuild(join(a, "build")))));
+const c = join(root, "renamed-copy");
+cpSync(a, c, { recursive: true });
+console.log("renamed copy:", JSON.stringify(CS.verifyBuild(CS.loadBuild(join(c, "build")))));
