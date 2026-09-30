@@ -6,7 +6,10 @@
 // stays honest ("≈") without the drift gate churning on every ordinary edit.
 // Determinism is mandatory: the drift-check gate re-runs this in check mode (no timestamps,
 // fixed group order, sorted file list, trailing newline).
-// Standalone:  node agent-layer/gen-loc-summary.mjs [--check]
+// The default reads every file's INDEX blob (#56, unchanged). `worktreeFiles` / `--worktree-files a,b,c` is an
+// opt-in that reads the working-tree bytes of exactly the files a caller wrote after proving the tree clean
+// (portal/lib/ratify.mjs, #313 D2), and the index for every other one — so no other session's edit leaks in.
+// Standalone:  node agent-layer/gen-loc-summary.mjs [--check] [--worktree-files a,b,c]
 // Paths resolve from this module (NOT cwd) — build.mjs runs from the jobs folder.
 
 import { readFileSync, writeFileSync } from "node:fs";
@@ -29,7 +32,12 @@ const round100 = (n) => Math.round(n / 100) * 100;
 
 // Emit the artifact (or, with {check: true}, compare against disk and report drift).
 // Returns { groups (count), drifted (file names, check mode only) }.
-export function genLocSummary({ check = false } = {}) {
+export function genLocSummary({ check = false, worktreeFiles = [] } = {}) {
+  if (!Array.isArray(worktreeFiles)) throw new Error(`loc-summary: worktreeFiles must be an array of repo paths, not ${JSON.stringify(worktreeFiles)}`);
+  for (const f of worktreeFiles) {
+    if (typeof f !== "string" || !f) throw new Error(`loc-summary: worktreeFiles entry ${JSON.stringify(f)} is not a repo path`);
+  }
+  const fromWorktree = new Set(worktreeFiles);
   const tracked = execFileSync("git", ["ls-files"], { cwd: ROOT, encoding: "utf8" })
     .split("\n")
     .filter(Boolean)
@@ -42,7 +50,10 @@ export function genLocSummary({ check = false } = {}) {
     // Read each file's committed index blob (`git show :<path>`), not the working tree, so the count
     // reflects the same tracked source as the file list (git ls-files) — else a parallel ticket's
     // uncommitted edits in the shared worktree silently poison the artifact (#56; git add before regen).
-    const lines = files.reduce((sum, f) => sum + execFileSync("git", ["show", `:${f}`], { cwd: ROOT, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 }).split("\n").length, 0);
+    const read = (f) => (fromWorktree.has(f)
+      ? readFileSync(join(ROOT, f), "utf8")
+      : execFileSync("git", ["show", `:${f}`], { cwd: ROOT, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 }));
+    const lines = files.reduce((sum, f) => sum + read(f).split("\n").length, 0);
     totalFiles += files.length;
     totalLines += lines;
     return { id: g.id, label: g.label, files: files.length, linesApprox: round100(lines) };
@@ -70,7 +81,9 @@ export function genLocSummary({ check = false } = {}) {
 // import.meta.url percent-encodes — the naive comparison never matches.
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const check = process.argv.includes("--check");
-  const r = genLocSummary({ check });
+  const wi = process.argv.indexOf("--worktree-files");
+  const worktreeFiles = wi > 0 ? String(process.argv[wi + 1] ?? "").split(",").filter(Boolean) : [];
+  const r = genLocSummary({ check, worktreeFiles });
   if (check && r.drifted.length) {
     console.error(`loc summary ✗  drift from tracked source: ${r.drifted.join(", ")} — regenerate with: node agent-layer/gen-loc-summary.mjs`);
     process.exit(1);

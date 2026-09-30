@@ -18,7 +18,8 @@
 //     props cannot inject markup. That IS the "agent never emits raw HTML/CSS" non-goal (PRD §8),
 //     enforced by construction.
 //
-// The twenty-six templates are the canonical DOM realization of the specs' Data binding + Accessibility
+// The templates — one per vocabulary entry: the hand-written map below, plus
+// system/templates.admitted.mjs's ratified entries spread in after it — are the canonical DOM realization of the specs' Data binding + Accessibility
 // prose (system/specs/*.md); their classes are exactly what ticket #8's component CSS styles
 // (system/components.css). Vocabulary in, real components out — the vocabulary is passed as an
 // argument (not fetched here) so the module stays pure and Node-runnable; the caller owns loading.
@@ -37,6 +38,10 @@ import { renderMarkdown } from "./handoff-viewer.mjs";
 // executes nothing at import time, which is what keeps agent-layer/gen-vocabulary.mjs (which
 // imports THIS module under Node) working.
 import { ICONS, ICON_VIEWBOX } from "./icons.mjs";
+
+// The ADMITTED REGISTRY (#313) — components a ratify admitted, as DATA the one interpreter below
+// (admittedTemplate) turns into DOM. Node-safe for the same reason icons.mjs is: a frozen literal.
+import { ADMITTED } from "./templates.admitted.mjs";
 
 // ---------------------------------------------------------------------------
 // validateComposition — pure, DOM-free. Error voice mirrors system/derive.mjs:
@@ -261,8 +266,9 @@ function busEmit(bus, name, e, params) {
 }
 
 // ---------------------------------------------------------------------------
-// Templates — the canonical DOM realization of the twenty-six specs, one per vocabulary
-// entry with no exception since #211 closed demo-notice's gap. Classes match
+// Templates — the canonical DOM realization of the specs, one per vocabulary entry with no
+// exception since #211 closed demo-notice's gap: the hand-written map below, plus
+// system/templates.admitted.mjs's ratified entries spread in after it (#313). Classes match
 // system/components.css (ticket #8); data-driven state rides is-* classes and
 // native attributes, never bespoke state classes.
 // ---------------------------------------------------------------------------
@@ -690,6 +696,34 @@ const TEMPLATES = {
       actions);
   },
 };
+
+// THE ADMITTED SPREAD (#313, G6). Every ratified name the hand-written map does not already hold gets
+// the one interpreter; after this, no admission edits this file. A hand-written template always wins,
+// and a collision is a build-checks red (group 50.4), never a silent swap.
+const HAND_WRITTEN = Object.freeze(Object.keys(TEMPLATES));
+for (const [name, def] of Object.entries(ADMITTED)) if (!Object.hasOwn(TEMPLATES, name)) TEMPLATES[name] = admittedTemplate(def);
+
+// Pure, so group 50 can drive it over a fixture while the committed registry is empty.
+export const collisionsOf = (admittedKeys, handKeys) => admittedKeys.filter((n) => handKeys.includes(n));
+export const admittedCollisions = () => collisionsOf(Object.keys(ADMITTED), HAND_WRITTEN);
+
+// admittedTemplate(def) → a template. THE ONE INTERPRETER of system/templates.admitted.mjs's shape: a
+// root element carrying the class, text slots written through textContent (el's `text`), data-* attr
+// slots, and — for children "many" — each child through renderChild with its `.children[i]` path, the
+// list template's form. It never builds an HTML string, so a prop carrying markup renders as text.
+export function admittedTemplate(def) {
+  return (props, kids, bus, path) => {
+    const root = el(def.tag, { class: def.class });
+    for (const s of def.slots) {
+      const v = props[s.prop];
+      if (v == null) continue;
+      if (s.as === "text") root.appendChild(el(s.tag, { class: s.class, text: String(v) }));
+      else root.setAttribute(s.attr, String(v));
+    }
+    if (def.children === "many") kids.forEach((c, i) => root.appendChild(renderChild(c, bus, `${path}.children[${i}]`)));
+    return root;
+  };
+}
 
 // Does this renderer know how to build that component? The drift `build()` refuses below, asked as
 // a question rather than met on stage: tooling/build-checks.mjs group 3 runs it over EVERY generated

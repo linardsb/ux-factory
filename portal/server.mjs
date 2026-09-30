@@ -43,6 +43,7 @@ import { BROWSE_MAX, bindingStatus, browse, dropTooLarge, editMapping, importVie
 import { suggest as suggestImport, SUGGEST_PROVENANCES } from './lib/import-suggest.mjs';
 // The live fidelity measurement (#474): the renderer is a spawned tooling/ child, so no browser loads here.
 import { measureImport } from './lib/import-measure.mjs';
+import { previewRatify, runRatify } from './lib/ratify.mjs';
 import { writeBuildHandoff } from '../agent-layer/gen-build-handoff.mjs';
 
 const PUBLIC_DIR = path.join(PORTAL_DIR, 'public');
@@ -590,6 +591,30 @@ const server = createServer(async (req, res) => {
       assertProvenanceRoot(b.provenance, root);
       if (!isProposalName(b.name)) return json(res, 400, { error: `name ${JSON.stringify(b.name ?? null)} is not a component name` });
       return json(res, 200, withPack(root, await measureImport({ pkgRoot: root, name: b.name })));
+    }
+    // RATIFY (#313, G6): preview writes nothing (so no withPack — build-checks 49.9's exception list); confirm needs
+    // the hash only preview computes, over bytes that include HEAD, so one request can never write. The origin guard
+    // above already ran. Confirm spawns ten gates (~20 s) and answers one plain JSON body.
+    if (p === '/api/canvas/ratify/preview' && req.method === 'POST') {
+      const b = await readBody(req);
+      const root = resolveRunRoot({ provenance: b.provenance, slug: b.slug });
+      assertProvenanceRoot(b.provenance, root);
+      if (!isProposalName(b.name)) return json(res, 400, { error: `name ${JSON.stringify(b.name ?? null)} is not a component name` });
+      return json(res, 200, await previewRatify({ pkgRoot: root, name: b.name, input: b.input }));
+    }
+    if (p === '/api/canvas/ratify/confirm' && req.method === 'POST') {
+      const b = await readBody(req);
+      const root = resolveRunRoot({ provenance: b.provenance, slug: b.slug });
+      assertProvenanceRoot(b.provenance, root);
+      if (!isProposalName(b.name)) return json(res, 400, { error: `name ${JSON.stringify(b.name ?? null)} is not a component name` });
+      const conflict = saveConflict(path.join(root, 'build'), b.base);
+      if (conflict) return json(res, 409, { error: conflict });
+      try {
+        return json(res, 200, withPack(root, await runRatify({ pkgRoot: root, name: b.name, input: b.input, hash: b.hash, base: b.base })));
+      } catch (e) {
+        if (isSaveConflict(e.message)) return json(res, 409, { error: e.message });
+        throw e;
+      }
     }
 
     // --- embedded site previews: /sites/<slug>/... → the card's site_root on disk ---

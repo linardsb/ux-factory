@@ -3244,3 +3244,5 @@ p, .body {
 }
 .inspect-toggle-row { margin: var(--spacing-md) 0 0; }
 .inspect-toggle[aria-pressed="true"] { border-color: var(--color-accent); color: var(--color-accent); }
+
+/* ---------- admitted components — portal/lib/ratify.mjs appends one block per ratify below this line (#313) ---------- */

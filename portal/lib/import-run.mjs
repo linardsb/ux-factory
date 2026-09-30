@@ -18,7 +18,9 @@
 //      a run that fails at the append leaves its read on disk.
 //   4. THE DRAFTS ARE THE IMPORTER'S OUTPUT, NEVER AN AGENT'S. spec.md, block.css and template.txt
 //      are deterministic strings built from the record; each says so in its first line. Props,
-//      states, behaviour and the accessibility model are the owner's at ratify (#313).
+//      states, behaviour and the accessibility model are the owner's at ratify (#313). ratify (#313,
+//      portal/lib/ratify.mjs) reads them; nothing here reads a ratify, except that a ratified proposal's mapping
+//      is read-only (editMapping refuses) and the view reports the status and the form's prefill.
 //   5. FIDELITY ON A LIVE RUN IS `missing` UNTIL THE OWNER MEASURES IT, AND NEVER A PASS WITHOUT A
 //      MEASUREMENT. runImport writes WCAG only; import-measure.mjs's measureImport adds the ΔE block on the
 //      owner's click (a spawned renderer — this module still loads no browser); any mapping edit rebuilds
@@ -362,6 +364,12 @@ const readJson = (file) => JSON.parse(readFileSync(file, "utf8"));
 export function editMapping({ pkgRoot, provenance, name, edit, inputs = loadInputs(), overridesDir = overridesDirFor(provenance) }) {
   const buildRoot = path.join(pkgRoot, "build");
   if (typeof name !== "string" || !PROPOSAL_NAME_RE.test(name)) throw new Error(`import-run: proposal name ${JSON.stringify(name)} is not a component name`);
+  // A RATIFIED PROPOSAL'S MAPPING IS PROVENANCE (#313): an edit would rebuild the record through recordFor, which
+  // resets elapsed.ratify, and rewrite the drafts the admitted component was made from.
+  const held = proposalOf(buildRoot, name);
+  if (held?.status === "ratified") {
+    return { refused: { kind: "ratified", message: `${name} is ratified as ${held.component} — its mapping is provenance now; a change is a new import.`, action: { label: "Import again" } } };
+  }
   const mapping = readJson(underRoot(buildRoot, `proposals/${name}/mapping.json`));
   const source = readJson(underRoot(buildRoot, `proposals/${name}/source.json`));
   const prior = readJson(underRoot(buildRoot, `imports/${mapping.record}.json`));
@@ -486,6 +494,28 @@ export async function runImport({ pkgRoot, provenance = "fictional", base, entra
 // catch-all's 500; the throws inside importView and editMapping stay as the second line (#462 F4).
 export const isProposalName = (name) => typeof name === "string" && PROPOSAL_NAME_RE.test(name);
 
+// The proposal entry the ledger folds to, or null — its status and (once ratified) its component.
+function proposalOf(buildRoot, name) {
+  const pkg = loadBuild(buildRoot);
+  if (!pkg) return null;
+  return (foldLedger(pkg.ops).doc.proposals ?? []).find((p) => p && p.name === name) ?? null;
+}
+
+// The ratify form's starting state (#313): the importer's drafted root declarations, the containers a part may be
+// listed in (every vocabulary entry that takes many children; stack chosen), and the contract tokens a rule may use.
+function ratifyPrefill(name, record, vocab) {
+  const comps = vocab.components ?? {};
+  const contractCss = readFileSync(path.join(REPO_DIR, "system/tokens.contract.css"), "utf8");
+  return {
+    component: name, prefix: "ds",
+    css: [{ suffix: "", decls: rootDeclarations(record.ir.children[0]) }],
+    props: {}, states: ["default"], example: {},
+    containerChoices: Object.keys(comps).filter((n) => comps[n].childrenCardinality === "many"),
+    containers: ["stack"],
+    contractTokens: [...new Set([...contractCss.matchAll(/^\s*(--[a-z0-9-]+)\s*:/gm)].map((m) => m[1]))],
+  };
+}
+
 export function importView(pkgRoot, name) {
   const buildRoot = path.join(pkgRoot, "build");
   if (typeof name !== "string" || !PROPOSAL_NAME_RE.test(name)) throw new Error(`import-run: proposal name ${JSON.stringify(name)} is not a component name`);
@@ -508,7 +538,9 @@ export function importView(pkgRoot, name) {
     outline.push({ path: p, kind: n.kind, name: n.name, text: n.text?.content ?? null, recognised: v?.covered ? v.name : null,
       snaps: (n.snaps ?? []).map((s) => ({ slot: s.slot, family: s.family, outcome: s.outcome, ref: s.ref, value: s.value })) });
   });
-  const targets = targetsFrom(loadInputs().contract);
+  const inputs = loadInputs();
+  const targets = targetsFrom(inputs.contract);
+  const held = proposalOf(buildRoot, name);
   const worst = record.fidelity.deltaEMin?.worst;
   const fidelity = record.fidelity.verdict === "missing" ? "fidelity: missing — not measured, never a pass"
     : worst ? `fidelity: ${record.fidelity.verdict} (worst ΔE ${worst.value} at ${worst.region}, threshold ${THRESHOLD})` : `fidelity: ${record.fidelity.verdict}`;
@@ -522,6 +554,9 @@ export function importView(pkgRoot, name) {
     // What the editor may offer: only a name with a builder, only a token of the slot's own family.
     builders: Object.keys(BUILDERS),
     snapChoices: Object.fromEntries(Object.entries(targets).map(([f, list]) => [f, list.map((t) => t.ref)])),
+    status: held?.status ?? "proposed",
+    component: held?.status === "ratified" ? held.component : null,
+    ratifyPrefill: ratifyPrefill(name, record, inputs.vocab),
     label: `mode ${record.provenance.mode} · source ${record.source.tool}${record.source.file ? ` (${record.source.file})` : ""} · drafted by the importer, not by an agent · ${fidelity}`,
   };
 }

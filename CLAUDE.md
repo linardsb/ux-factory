@@ -21,8 +21,10 @@ system/                       the shipped design system — brand-agnostic core 
   analytics.mjs               CF Web Analytics beacon + the virtual-route event helpers
   derive.mjs +oklch +wcag +derive.rules   intake answers → token values + WCAG checks + ethics verdict
   agentic-renderer.mjs        vocabulary-validated {name,props,children} → real components; refuses the rest
+  templates.admitted.mjs      the RATIFIED registry — data, spread into the renderer's TEMPLATES by one interpreter;
+                              portal/lib/ratify.mjs rewrites it, nobody else (#313)
   action-bus.mjs              the one bidirectional action contract (agent/click/keyboard, voice-ready)
-  canvas-ops.mjs              the BUILD document's op grammar (ten verbs) + a pure applier (screens, states,
+  canvas-ops.mjs              the BUILD document's op grammar (twelve verbs) + a pure applier (screens, states,
                               overrides, the flow) — the third op layer, beside board-ops' shape and
                               discovery/ops' decisions; no SDK anywhere in its import graph
   device-presets.mjs          the device width table frame.size reads — names are the contract
@@ -108,9 +110,11 @@ portal/                       local-first workbench (127.0.0.1 only, never deplo
   lib/canvas-transport.mjs    the compose loop's ONE SDK file, lazy-imported; --preflight is zero-token (#312)
   lib/import-run.mjs          the RECORDED IMPORT — Brilliant read (stdio client) or a dropped file → record + proposal
   lib/brilliant-mcp.mjs       the Brilliant bridge's stdio JSON-RPC client + its wire shapes; no SDK, no model
+  lib/ratify.mjs              the OWNER'S ADMISSION — a proposal → six anchored writes, the ten-step chain spawned,
+                              the diff returned; never git (#313)
   lib/import-suggest.mjs      Jev's top 3 for the nodes the matcher could not name — beside the verdict, fail-open (#455)
   public/                     vanilla SPA — hash routing, template strings, no framework; plus
-                              canvas.html + canvas.mjs (+ canvas-import.mjs, #311), the one MODULE page (the build canvas, #306)
+                              canvas.html + canvas.mjs (+ canvas-import.mjs, #311; canvas-ratify.mjs, #313), the one MODULE page (the build canvas, #306)
   record-trace.mjs            build-time trace recorder (CLI) — a REAL agent run
   record-composition.mjs      build-time composition runner (CLI) — a REAL Agent SDK run per scenario
   record-build.mjs            build-time INCREMENTAL build recorder (CLI) — one op per tool call
@@ -141,13 +145,14 @@ docs/epics/                   PRD + architecture decisions governing the platfor
 docs/figma-runbook.md         operator steps for the Figma boundary + the request-budget rules
 
 tooling/
-  build-checks.mjs            49 PURE groups, in CI — the repo's main gate  (→ references/gates.md)
+  build-checks.mjs            50 PURE groups, in CI — the repo's main gate  (→ references/gates.md)
   build-journey.mjs           /build ×3 engines, operator-run             (→ references/gates.md)
   proto-journey.mjs           the two proto pages ×3 engines              (→ references/gates.md)
   studio-journey.mjs          the studio ×3 engines + the INP gate        (→ references/gates.md)
   catalog-journey.mjs         /components ×3 engines                      (→ references/gates.md)
   instance-journey.mjs        a BUILT instance dir ×3 engines             (→ references/gates.md)
   canvas-journey.mjs          the canvas page ×3 engines, boots its own portal (→ references/gates.md)
+  ratify-journey.mjs          a real ratify in a scratch CLONE, then the part rendered ×3 (→ references/gates.md)
   vt-verify.mjs               asserts the view-transition morphs OPEN     (→ references/gates.md)
   vt-stack-audit.mjs          run BEFORE naming anything for a transition (→ references/gates.md)
   visual-regression/          isolated Playwright — the CI pixel gate     (→ references/gates.md)
@@ -177,7 +182,8 @@ The kb (`_factory/kb/` in the jobs folder) is the database — record shapes + p
 - **Portal UI feature** → `portal/public/portal.js`: a hash route + render function using the existing `api()` helper; styles in `portal.css`. The one exception is `portal/public/canvas.html` + `canvas.mjs` (+ `canvas-import.mjs`, #311), a module page (the canvas needs `system/` modules a classic script cannot import); the SPA links to it from `#/canvas`.
 - **Machine-layer artifact** → `agent-layer/gen-<output>.mjs` exporting `gen<Name>(ledger)`; register in `build.mjs` (import + call + `✓` log line), keep the standalone-run guard. Shared parsing belongs in `lib.mjs`.
 - **Component** → token-only CSS in `system/components.css`; a new semantic token gets added to `system/tokens.source.json` (contract group) first, then regenerate: `node agent-layer/gen-token-css.mjs`.
-- **New component spec** → `system/specs/<component>.md` (+ `.contract.json` if data-bound) per `.claude/references/kb-format.md`, then regenerate the pack: `node agent-layer/gen-handoff.mjs`. The chain is not finished at the spec: a component also needs its **`components.css` block** (header `/* ---------- <class> (system/specs/<name>.md) ---------- */`, token-only) **and its `agentic-renderer.mjs` template**, because `build-checks` group 3 asserts that EVERY generated vocabulary entry has a render path. A spec with a vocabulary entry and no block and no template is *documented but not composable*, and it is a red build. The optional `example` head key is validated SEMANTICALLY at generation time — it must actually render, or CI `verify` goes red naming the spec. A new spec also moves the **design importer's** committed verdict, because `import/fixtures/spike-c-instance.expected.json` and `import/fixtures/figma/spike-list-row.expected.json` carry a candidates list scored against the WHOLE vocabulary: run `node import/regen-expected.mjs` in the same PR, or build-checks group 40 reds on a ticket that never touched `import/`. The same goes for the two fixture import records under `import/fixtures/records/` (a function of the whole vocabulary and `tokens.source.json`): run `node tooling/regen-import-records.mjs` beside it, or group 42 reds.
+- **New component spec** → `system/specs/<component>.md` (+ `.contract.json` if data-bound) per `.claude/references/kb-format.md`, then regenerate the pack: `node agent-layer/gen-handoff.mjs`. The chain is not finished at the spec: a component also needs its **`components.css` block** (header `/* ---------- <class> (system/specs/<name>.md) ---------- */`, token-only) **and its `agentic-renderer.mjs` template**, because `build-checks` group 3 asserts that EVERY generated vocabulary entry has a render path. A spec with a vocabulary entry and no block and no template is *documented but not composable*, and it is a red build. The optional `example` head key is validated SEMANTICALLY at generation time — it must actually render, or CI `verify` goes red naming the spec. A new spec also moves the **design importer's** committed verdict, because `import/fixtures/spike-c-instance.expected.json` and `import/fixtures/figma/spike-list-row.expected.json` carry a candidates list scored against the WHOLE vocabulary: run `node import/regen-expected.mjs` in the same PR, or build-checks group 40 reds on a ticket that never touched `import/`. The same goes for the two fixture import records under `import/fixtures/records/` (a function of the whole vocabulary and `tokens.source.json`): run `node tooling/regen-import-records.mjs` beside it, or group 42 reds. A component that should be placeable in a screen also adds itself to `system/specs/stack.md`'s head `children` (#305's icon, #313's ratify both do).
+- **Admitting an imported part** → the portal's Ratify form in the import view (`portal/lib/ratify.mjs`), never a hand edit of `system/templates.admitted.mjs`. It writes, runs the chain and returns the diff; the owner commits and regenerates the `/components` baselines. A new admitted-template capability is a `checkAdmitted` + `admittedTemplate` edit together, with a group 50 case.
 - **New icon** → `node agent-layer/gen-icons.mjs --add <phosphor-name>` (Phosphor's own name, not a role word — phosphoricons.com; the command refuses an unknown one and suggests near misses); commit the regenerated `system/icons.mjs`. No spec, no CSS, no template: one manifest line.
 - **New /build pattern** → a rule in `system/pattern-rules.mjs` (the rule NAMES the pattern from the board and the slots are COUNTED from it, never invented) + its entry in `PATTERNS`. Spec-first: it may only compose components that already exist in `system/specs/` and validate against the generated `handoff/verdant/vocabulary.json`. Add a `BOARD_FOR` fixture in `tooling/build-checks.mjs` too — every group iterates `PATTERNS`, so a new entry with no board fails loudly rather than being silently skipped. Then `node tooling/build-checks.mjs` and `node tooling/build-journey.mjs all`.
 - **WC wrapper** → `system/wc/<tag>.mjs`, spec-first (a wrapper exists only for a `system/specs/` component; shadow CSS uses only spec-head tokens, no literals, no var() fallbacks), copied into the pack by `gen-handoff`.
@@ -223,7 +229,7 @@ The kb (`_factory/kb/` in the jobs folder) is the database — record shapes + p
 ## On-demand context
 Route on-demand detail to `.claude/references/` — never back into this file.
 
-- **`gates.md`** — the gate stack: build-checks' 49 groups, the six journey drivers, the pixel gate, the morph gates, and what each one states it CANNOT reach. Read before adding or changing a gate, or before trusting a green run.
+- **`gates.md`** — the gate stack: build-checks' 50 groups, the six journey drivers, the pixel gate, the morph gates, and what each one states it CANNOT reach. Read before adding or changing a gate, or before trusting a green run.
 - **`token-system.md`** — the three-layer mechanic and how to add a token.
 - **`kb-format.md`** — kb record shapes + the ComponentSpec / DataContract format.
 - **`backend-api-best-practices.md`** — API route work · **`frontend-component-best-practices.md`** — UI work.
