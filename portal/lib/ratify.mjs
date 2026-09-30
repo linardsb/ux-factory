@@ -550,7 +550,9 @@ export async function previewRatify({ pkgRoot, name, input, repoDir = REPO_DIR, 
 }
 
 const porcelain = (repoDir, git) => git(["status", "--porcelain", "-unormal"], { cwd: repoDir }).split("\n").filter((l) => l.trim());
-const quote = (p) => `'${p.replace(/'/g, "'\\''")}'`;
+// A path the revert command may name as-is: tested against an allowlist, never escaped. Anything else (git quotes a
+// path with special characters in porcelain, and a rename prints `a -> b`) is left for a revert by hand, by name.
+const PLAIN_PATH_RE = /^[A-Za-z0-9._/-]+$/;
 
 function diffOf({ repoDir, git, before, writes }) {
   const after = porcelain(repoDir, git);
@@ -568,10 +570,13 @@ function diffOf({ repoDir, git, before, writes }) {
 }
 
 function revertOf(changed) {
-  const tracked = changed.filter((l) => !l.startsWith("??")).map((l) => l.slice(3));
-  const created = changed.filter((l) => l.startsWith("??")).map((l) => l.slice(3));
-  return [tracked.length ? `git checkout -- ${tracked.map(quote).join(" ")}` : null, created.length ? `rm -r ${created.map(quote).join(" ")}` : null]
-    .filter(Boolean).join(" && ");
+  const paths = changed.map((l) => ({ created: l.startsWith("??"), path: l.slice(3) }));
+  const plainOnes = paths.filter((p) => PLAIN_PATH_RE.test(p.path));
+  const byHand = paths.filter((p) => !PLAIN_PATH_RE.test(p.path)).map((p) => p.path);
+  const tracked = plainOnes.filter((p) => !p.created).map((p) => p.path);
+  const created = plainOnes.filter((p) => p.created).map((p) => p.path);
+  return [tracked.length ? `git checkout -- ${tracked.join(" ")}` : null, created.length ? `rm -r ${created.join(" ")}` : null,
+    byHand.length ? `# and revert by hand: ${byHand.join(", ")}` : null].filter(Boolean).join(" && ");
 }
 
 // runRatify — the confirm. Everything under the one run lock; a held lock is a `busy` refusal.

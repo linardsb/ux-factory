@@ -17077,7 +17077,7 @@ const synthPng = (w, h, ct, px) => {
         } finally { release(); red = await afold("the gated ratify (50.13b)", () => ratify, {}); }
         ok(m?.includes("a ratify is already in flight"), `50.13b an import during a ratify answered ${m ?? "NO REFUSAL"} — "a ratify is already in flight"`);
         ok(red?.gatesRed === true && red.gates?.length === 2 && red.gates[1].code === 1 && !red.ok, `50.13b a red step 2 answered ${deep({ gatesRed: red?.gatesRed, steps: red?.gates?.length })} — stop at the first red`);
-        ok(red?.revert === "git checkout -- 'system/palette.mjs' && rm -r 'system/specs/probe-row.md'", `50.13b the revert command is ${JSON.stringify(red?.revert)}`);
+        ok(red?.revert === "git checkout -- system/palette.mjs && rm -r system/specs/probe-row.md", `50.13b the revert command is ${JSON.stringify(red?.revert)}`);
         ok(!ledger(pkgR).some((l) => l.op === "proposal.ratify"), "50.13b a red chain appended proposal.ratify — red appends nothing (D7)");
         ok(existsSync(join(REPO, "system/specs/probe-row.md")) && readFileSync(join(REPO, "system/specs/probe-row.md"), "utf8").includes("Admitted by ratify"), "50.13b a red chain did not leave the spec written for the owner to read (D7)");
       }
