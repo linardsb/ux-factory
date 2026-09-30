@@ -220,6 +220,23 @@ function refuseFrozen(verb, tree, doc) {
   walk(tree);
 }
 
+// PART_SEP IS RESERVED WHEREVER AN OP INSERTS PARTS (#315, D4; PR #494 review F3). frameTree names an
+// expanded copy's parts <instanceId>/<partId>, so a raw part called "g1-1/title" would collide with one.
+// canvas-session.mjs's idProblem refuses it on the agent path; this is the applier's own refusal, for
+// every other path. Same walk as refuseFrozen: `children` and an add entry's `part`.
+function refuseReservedId(verb, tree) {
+  const walk = (node) => {
+    if (Array.isArray(node)) { node.forEach(walk); return; }
+    if (!plainObject(node)) return;
+    if (typeof node.id === "string" && node.id.includes(PART_SEP)) {
+      throw new Error(`${verb}: part id "${node.id}" holds "${PART_SEP}", which is reserved — a placed copy's parts are named <copy>${PART_SEP}<part> (#315)`);
+    }
+    if (Array.isArray(node.children)) node.children.forEach(walk);
+    if (plainObject(node.part)) walk(node.part);
+  };
+  walk(tree);
+}
+
 // CONNECT'S TWO ENDPOINTS, EXACT THE WAY PARAMS IS (#302, PR #432's open question 3, owner's call
 // 2026-09-21: close it). The rule this file states about itself — a recorded op never says more than
 // the op that was applied — was enforced on the ENVELOPE and one level down was open: an unknown key
@@ -299,6 +316,7 @@ export function applyOp(doc, op) {
         throw new Error(`screen.compose: "why" must be one sentence naming the decision and the reason — a composition nobody can judge is refused (D4)`);
       }
       refuseFrozen("screen.compose", p.composition, next);
+      refuseReservedId("screen.compose", p.composition);
       next.frames.push({
         id: nextId("f", frameIds()),
         screenId: p.screenId,
@@ -339,7 +357,10 @@ export function applyOp(doc, op) {
       if (twin) {
         throw new Error(`state.add: "${base.id}" already carries a "${p.stateKey}" state (${twin.id}) — one design per state per screen, and missingStates counts distinct keys so a second one would be absorbed rather than reported`);
       }
-      if (plainObject(p.override) && p.override.add !== undefined) refuseFrozen("state.add", p.override.add, next);
+      if (plainObject(p.override) && p.override.add !== undefined) {
+        refuseFrozen("state.add", p.override.add, next);
+        refuseReservedId("state.add", p.override.add);
+      }
       // A STATE IS A SIBLING FRAME CARRYING AN OVERRIDE, never a copy of the base. The architecture's
       // call, and the reason resolve() exists: a copy drifts from its base the first time the base
       // changes, and the whole point of a state is that it IS the base except where it says so.
@@ -502,7 +523,10 @@ export function applyOp(doc, op) {
         if (ov.add !== undefined && !plainObject(ov.add) && !Array.isArray(ov.add)) {
           throw new Error(`variant.add: overrides.${fid}.add must be a composition node or an array of them — this op carried ${JSON.stringify(ov.add)}`);
         }
-        if (ov.add !== undefined) refuseFrozen("variant.add", ov.add, next);
+        if (ov.add !== undefined) {
+          refuseFrozen("variant.add", ov.add, next);
+          refuseReservedId("variant.add", ov.add);
+        }
       }
       // Stored as an override map keyed by frame id (G33). The lane UI and the per-variant
       // completeness check are #314's.
@@ -577,6 +601,14 @@ export function applyOp(doc, op) {
       const edit = p.groupId !== undefined;
       if (edit && !(typeof p.groupId === "string" && Object.hasOwn(next.groups, p.groupId))) {
         throw new Error(`group.define: groupId "${p.groupId}" does not resolve — this document holds ${Object.keys(next.groups).join(", ") || "no groups"}; an op names a group to EDIT, never the id of one it creates`);
+      }
+      // A GROUP A PROPOSAL NAMES IS FIXED (PR #494 review F1). Promote froze its drafts from these parts, and
+      // Ratify reads the LIVE group for the provenance line and the hash, so a redefine would let an admitted
+      // spec name a group its template no longer describes. An import record cannot change after propose;
+      // neither can this. Define a new group to change it.
+      const named = edit ? next.proposals.filter((x) => plainObject(x) && x.groupId === p.groupId) : [];
+      if (named.length) {
+        throw new Error(`group.define: "${p.groupId}" is named by ${named.map((x) => `${x.id} (${x.name}, ${x.status})`).join(", ")} — its drafts were frozen from these parts, so a proposed group is not redefined; define a new group instead`);
       }
       const clash = Object.values(next.groups).find((g) => g.name === p.name && g.id !== p.groupId);
       if (clash) throw new Error(`group.define: name "${p.name}" is already ${clash.id}'s — one group per name`);

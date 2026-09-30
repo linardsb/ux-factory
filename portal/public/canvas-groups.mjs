@@ -114,7 +114,9 @@ export function groupFieldsets(f, { view, doc, emitFrom, lane, getPage, say }) {
     const setBtn = el("button", { type: "button", class: "btn btn-secondary cv-btn", "data-group-override": true, text: "Set on this copy" });
     setBtn.addEventListener("click", (e) => {
       const c = copies.find((x) => x.instanceId === inst.value);
-      const [part, prop] = partSel.value.split(" ");
+      // Split at the LAST space: a prop name never holds one, a part id may (PR #494 review F4).
+      const cut = partSel.value.lastIndexOf(" ");
+      const part = partSel.value.slice(0, cut), prop = partSel.value.slice(cut + 1);
       if (!c || !part) return;
       const ov = c.overrides ?? {};
       const set = { ...(ov.set ?? {}), [part]: { ...(ov.set?.[part] ?? {}), [prop]: valueIn.value } };

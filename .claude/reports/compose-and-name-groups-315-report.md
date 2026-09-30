@@ -1,7 +1,7 @@
 # Implementation Report — compose-and-name: `group.define` / `group.place`, per-copy overrides, Promote (#315)
 
 **Plan**: `.claude/plans/compose-and-name-groups-315.md`   **Branch**: `feature/compose-and-name-groups-315` (worktree `../wt-315`)
-**Base**: `b99d9ac` (origin/main at start) → `b99d9ac` at report (`git fetch`; main did not move, no merge needed)   **Status**: COMPLETE for code and gates. The PR waits on one owner step: the plan requires the container-admission ticket to be opened, with the owner's approval of its text, BEFORE the PR (draft below).
+**Base**: `b99d9ac` (origin/main at start) → `b99d9ac` at report (`git fetch`; main did not move, no merge needed)   **Status**: COMPLETE for code and gates. The container-admission ticket the plan required before the PR is open as #493 (2026-09-30 14:13Z).
 
 ## Summary
 
@@ -113,7 +113,7 @@ Every row below was observed: the mutation was applied, the gate was run, and th
 
 - **CI `visual` and CodeQL** — these run on the PR, not locally. Tracker: the PR's checks.
 - **Level 4 manual click-through in `npm start`.** The canvas-journey groups pass drives the same page and routes on three engines, but no human clicked it. Tracker: owner's call.
-- **Paid table row 2, the container-admission ticket** — not opened. The plan requires the owner to approve the issue text first. A draft is below; tracker: owner's call.
+- **Paid table row 2, the container-admission ticket** — opened as #493 (2026-09-30 14:13Z). The draft it was opened from is below.
 - **The ratify-journey group section's own Usage assertion** was not seen to fire on its own under R1, because 50.19 in the clone's chain fires first. See R1.
 
 ## Deviations from the plan
@@ -142,7 +142,7 @@ Every row below was observed: the mutation was applied, the gate was run, and th
 
 - **Environment:** the fresh worktree needed `npm ci` in `portal/`, `tooling/icons`, `tooling/style-dictionary` and `tooling/visual-regression`. canvas-journey's I12 failed until `tooling/visual-regression` was installed. This was environment, not code.
 
-### Draft: the container-admission ticket (for the owner's approval; not opened)
+### Draft: the container-admission ticket (opened as #493)
 
 Title: `import: an admitted container with a text slot outscores the matcher's stack fallback (groups 40/43/46)`
 
