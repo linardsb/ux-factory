@@ -66,6 +66,9 @@ Each mutation was applied, the named case went red, and the file was restored (r
 
 ## Validation results
 
+**Re-run at the final HEAD `4649b87`, clean tree** (observed): `build-checks` → `build ✓  all 50 groups pass`; `token-lint` ✓; `drift-check ✓ … group-count` (on the COMMITTED tree); `gen-loc-summary --check`, `gen-system-graph --check` and `regen-expected --check` all ✓ no drift; `ratify-journey all` → `✓ 44 assertions`, cloned from a purely committed tree (0 untracked); `/piv-validate` (the verify trio above, plus a portal smoke on a free port killed by PID) → health `bootSha`/`headSha` `4649b87`, `stale:false`, preview `nope` gives a `no-proposal` refusal, a cross-origin confirm gives 403, `canvas.html` 200. The lines below are the first pass, at `a9e4787` or the staged tree.
+
+
 - `node --check` on the three new files → ok (observed).
 - `node tooling/build-checks.mjs` → `build ✓  all 50 groups pass` (observed, on the staged tree and at `a9e4787`).
 - `node tooling/token-lint.mjs` → `✓  63 contract tokens · 0 undeclared · 0 orphan · DTCG valid` (observed).
@@ -81,8 +84,8 @@ Each mutation was applied, the named case went red, and the file was restored (r
 ## Not run
 
 - **CodeQL**: leg 1 runs on the PR (`gh pr checks`). The optional local bundle run was skipped. Tracker: the PR's checks.
-- **`/piv-validate`**: its components (build-checks, drift-check, token-lint and a portal smoke) each ran above; the skill itself was not invoked.
-- **A first real ratify on `main`** and its `/components` ×3 regen are the owner's (plan § Paid and owner-only steps). Tracker: a follow-up "first real admission" ticket, not yet opened (owner's call).
+- **The CI `visual` job** confirming the approach ×3 baselines. Tracker: `gh pr checks` on the PR (compare `headRefOid` to the local HEAD first; a lone approach "two consecutive stable screenshots" failure is the countUp flake).
+- **A first real ratify on `main`** and its `/components` ×3 regen are the owner's (plan § Paid and owner-only steps). The follow-up ticket is listed under Deviations.
 
 ## Deviations from the plan
 
@@ -91,6 +94,9 @@ Each mutation was applied, the named case went red, and the file was restored (r
 - **50.12 mutates `system/device-presets.mjs`, not `palette.mjs` (plan error).** It layers on the same `--loc-worktree-files` list, because the planned form is false inside ratify's chain.
 - **`ratifySection(view, { api, reload, provenance, slug, base })`**, not `{ api, showRefusal, reload }`. canvas-import's `showRefusal` routes its action to the import panel, so the ratify module renders its own refusals. All four are logged under the plan's AMENDMENTS.
 - **CSS rule values in the form are token names** (`--spacing-sm`, space-separated), with a datalist, instead of a single token select. `readForm` wraps each in `var()`. This keeps a multi-token prefill such as `padding` from being truncated silently.
+
+- **The "first real admission" follow-up ticket was not opened before the PR,** as the plan's § Paid and owner-only steps asks. Opening a GitHub issue is outward-facing, so it is put to the owner.
+- **`revertOf` emits allowlisted paths unquoted** (`/^[A-Za-z0-9._/-]+$/`) and lists anything else under a by-hand line, instead of shell-escaping with `.replace`. This follows Task 2.1's no-`.replace`-sanitising rule; 50.13b pins the output.
 
 ## Assumptions carried
 
