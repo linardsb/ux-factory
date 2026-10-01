@@ -333,6 +333,12 @@ The probe's 83 + 32 + 3 reds reduce to five roots (observed, `probe/S1e.txt`, `c
 ### T10 WAIT — #318, #319, #320 merged over PR A
 
 Re-run NOTES §Pre-flight on the new `main` and amend (AMENDMENTS) before T11:
+
+**Status at `9497455` (2026-10-01, observed):** #318 merged (PR #499) — ready check 2 green, spine still 6 lines,
+build-checks 50/50, canvas-journey 212/211/211 with 0 failed. #319 and #320 open, no branch or PR. T10c is
+answered and **adds a dependency**: #318 ships no product path to re-record a decision on a closed run, so D2 in the
+sitting needs #498 (Q2). F4 and the G2 race are still open on `main`, so T10a stands.
+
 - #318's `{id, seq}` pin: `node tooling/build-checks.mjs` green means `seedSpine` still folds the spine; if #318 migrated the spine's `decisionRefs`, confirm it rewrote rather than appended (`wc -l discovery/faster-payment/build/ops.jsonl` → 6).
 - #320's alternatives param beside `states` in PARAMS `:84`; 47.2b re-pinned by #320 over Segment A's value.
 - #319's inbox rows include declared-but-missing states (it reads `missingStates`).
@@ -345,16 +351,25 @@ Re-run NOTES §Pre-flight on the new `main` and amend (AMENDMENTS) before T11:
 - **T10a (agent, $0, one small commit before T11)** — R12 + R13:
   - groups 43 and 50: `ok(false, \`seed failed: …\`)` where the scratch seed returns nothing. REDDENS: make the seed
     copy a non-existent slug → the new case names the seed (expected `seed failed`), not a downstream count.
-  - `tooling/canvas-journey.mjs` G2 (`:807-808` at 694ab91): poll `existsSync(gFile)` every 100 ms up to 6 s before the
-    assertion, mirroring `waitLines` (`:288-292`). REDDENS: point `gFile` at `g2.json` → `G2 · build/groups/g1.json
+  - `tooling/canvas-journey.mjs` G2 (`gFile` `:948`, the assertion `:949` at 9497455): poll `existsSync(gFile)` every
+    100 ms up to 6 s before the assertion, mirroring `waitLines` (`:303`). REDDENS: point `gFile` at `g2.json` → `G2 · build/groups/g1.json
     exists` fails after 6 s. Positive control: `canvas-journey all` 0 failed on three engines.
 - **T10b (agent, $0)** — R9: call #320's fork-list fold on `loadBuild(discovery/faster-payment/build)` plus its
   discovery transcript; print the count. ≥1 → re-pin ready check 4 to "the fork list on faster-payment is non-empty"
   (REDDENS: point it at a copy whose PRD has no open question and whose brief settles every state → red). 0 → stop;
   the owner parks one question in a Grill turn on the discovery drawer, the server-written lines are committed, re-run.
-- **T10c (agent, $0)** — R10: read #318's merged route for re-recording a decision on a **finished** session; record
-  in AMENDMENTS whether it is a paid discovery turn and which files it writes. If it refuses a finished session, Q2
-  goes to the owner before T11.
+  **That fallback needs the same re-open path as D2** (`faster-payment` closed at `2026-09-13T12:50:58.903Z`,
+  `run.json:21`; `runTurn` refuses a closed run, `portal/lib/discovery.mjs` `if (head.endedAt)`), so under Q2b a
+  0-fork count makes T12 step 3 Not run as well.
+- **T10c (agent, $0) — DONE at 9497455, and it refuses.** #318 added no route: its diff touches no file under
+  `portal/lib/discovery*` or `portal/server.mjs`; its journey seeds the superseding decision through
+  `discovery/ops.mjs`'s applier into a scratch copy (`tooling/canvas-journey.mjs` pass B, `seedSupersede`); its report
+  marks AC #2's drawer step **not met** and opens #498 (OPEN: "a closed session refuses turns … there is no product
+  path to re-record one after a build exists"). Q2 goes to the owner before T11. Under **Q2a**, add to this WAIT:
+  #498 merged **with its scope A** (re-open a finished run — a path the owner drives; scope B, a
+  `UXF_DISCOVERY_TRANSPORT` fake, gives the sitting nothing to click), and a ready check 13 pinning that re-open
+  route by name, never a transport seam (REDDENS: today's tree, and a tree carrying only a fake transport);
+  record in AMENDMENTS whether #498's path is a paid turn (option A, a real agent filing) and which files it writes.
 - **T10d (agent, $0)** — R15: `node tooling/<driver>-journey.mjs all` for each journey #318–#320 added; all green on
   `main` before T11.
 - Re-resolve every Segment B `file:line` against the new `main`. T12–T17 cite by **symbol** (`missingStates`,
@@ -363,7 +378,7 @@ Re-run NOTES §Pre-flight on the new `main` and amend (AMENDMENTS) before T11:
 
 ### T11 OWNER — prepare the sitting tree
 
-A dedicated clean worktree of `main` **under `/Users`** (parallel sessions share the primary tree — memory `shared-worktree-parallel-sessions`; ratify needs a clean tree; VR needs Docker sharing). `npm ci` in `portal`, `tooling/icons`, `tooling/visual-regression`, `tooling/style-dictionary`; `git switch -c run/faster-payment-316`; confirm Console spend headroom (memory `api-usage-limit-until-2026-10-01`); `node tooling/run-316-ready.mjs` → `run-316 ready ✓  12 checks`. **Ready red → do not open the canvas.**
+A dedicated clean worktree of `main` **under `/Users`** (parallel sessions share the primary tree — memory `shared-worktree-parallel-sessions`; ratify needs a clean tree; VR needs Docker sharing). `npm ci` in `portal`, `tooling/icons`, `tooling/visual-regression`, `tooling/style-dictionary`; `git switch -c run/faster-payment-316`; confirm Console spend headroom (memory `api-usage-limit-until-2026-10-01`); `node tooling/run-316-ready.mjs` → `run-316 ready ✓  12 checks` (13 under Q2a). **Ready red → do not open the canvas.**
 **Start the portal through the gate (R14)**, never separately:
 `env -u ANTHROPIC_API_KEY sh -c 'node tooling/run-316-ready.mjs && cd portal && npm start'`. This machine's login
 shell exports `ANTHROPIC_API_KEY` (Segment A report §Issues); this way the portal only starts in the environment
@@ -377,7 +392,7 @@ check 8 passed. Console headroom ≥ the paid table's total high figure (R16).
 1. **Screens** (3 agent turns; add-payee is the spine's owner screen): brief in `#cv-brief` (≤500 chars) → **Ask for a screen** → read the `why` and the "States declared" line → **Accept** / **Refuse**. At least one briefed turn (D3). If the CoP or send screen arrives without its declared states, refuse with a brief naming them (R5 fallback); the refusal and the retry are both recorded.
 2. **States**: the `[data-cv-ask-state]` chips, accept/refuse each. Target: `missingStates` on lane A reads zero, or each remaining gap gets the owner's own reason, noted for the report.
 3. **D5 fork** (#320's UI): one flagged-open decision → two lanes → pick one.
-4. **D2** (#318's UI): re-record one decision in the discovery view → the frame flags → re-confirm. This writes to `discovery/faster-payment/` (R10); it must happen before step 7, whose commit includes that directory.
+4. **D2** (#318's flag + Re-confirm; the re-record is #498's path — Q2): re-record one decision in the discovery view → the frame flags → re-confirm. This writes to `discovery/faster-payment/` (R10); it must happen before step 7, whose commit includes that directory. Under Q2b this step is **Not run**, tracked by #498, and the report says so.
 5. **Import (R4 — avoid #493):** in Brilliant, pick an element **the owner did not draw for a test** that is a **leaf** (no nested repeated children: a row, a badge, a banner; not a list or a container). #493 fires only for an admission with `children: "many"` plus a text slot. If the ratify preview's planned spec shows `children: "many"`, stop and pick another element, or proceed knowingly and ask before paying for #493's re-pin. **Check binding** (Re-bind if stale — a 120 s timeout, not an error; memory `brilliant-mcp-binding`) → **Import selection** / **Browse the page** → side-by-side → mapping editor → **Measure fidelity**. Note the grain (static / interactive / data-bound) — the owner's annotation; the code's `grain` is component/screen only (`import/ir.mjs:50`).
 6. Optional: compose-and-name (**Promote**) where a shape repeats.
 7. **Mark the pause, then commit (R3):** **annotate** a note "commit pause before ratify" (an owner op, so its `at` is a server timestamp in the ledger) → **Write handoff pack** → commit `discovery/faster-payment/build/` (ratify's second CLEAN_GUARD call includes `discovery`, `ratify.mjs:71-74`; unavoidable) → return.
@@ -478,7 +493,7 @@ Every added check has a REDDENS row and a positive control: T4 (a declaration-fr
 | #493 re-pin, only if a container is admitted anyway | paid (Jev) | stop and ask | #493 |
 | T9/T13 VR update:docker | Docker, $0, ~2 min each | yes (their PR) | — |
 | R9: a Grill turn to park one open question, only if T10b counts 0 forks | $0.06–0.18 (memory `discovery-run-cache-ttl-cost`) | PR B yes | T12 step 3 Not run, reported |
-| R10: re-recording one decision, if T10c finds it is a discovery turn | $0.06–0.18 | PR B yes | T12 step 4 Not run, reported |
+| R10: re-recording one decision through #498's path (Q2a), if it is a model turn | $0.06–0.18 | PR B yes | T12 step 4 Not run, tracked by #498 |
 | Console spend headroom | owner check, ≥ $4.45 (the $4.09 high plus both rows above at their high) | — | — |
 
 ---
@@ -514,7 +529,7 @@ Every added check has a REDDENS row and a positive control: T4 (a declaration-fr
 | R7 | Environment gaps abort the ratify chain (Style Dictionary, icons) | Ready check 9 requires all four `node_modules` | none |
 | R8 | Uncaught throws in build-checks hide later reds | T7 routes the three observed throws through `fold()`/guards | none |
 | R9 | **The D5 fork has no trigger**: the PRD's Open questions reads "_TBD — the run parked no question._" (observed), and #320's fork list reads open `open_question`s first | T10b: run #320's fork-list fold on `faster-payment`; ≥1 fork (its second kind, a state whose copy or layout the brief leaves unsaid, can supply it) → proceed. 0 forks → the owner parks one question in a Grill turn **before** T11 (paid, row in the paid table), commits it, and T10b re-runs | none: T11 cannot start with 0 forks, because T10b is a precondition of the ready gate going green (check 4 is re-pinned to read the fork list, T10) |
-| R10 | **D2 mutates the discovery package mid-sitting**: re-recording a decision appends server-written lines to `discovery/faster-payment/{transcript,answers}.jsonl` and regenerates `prd.md`, and ratify's `CLEAN_GUARD` covers `discovery` | T12 order: the D2 step (4) runs before the commit pause (7), and step 7's commit includes `discovery/faster-payment/` whole; T10c confirms on #318's merged code which route re-records a decision on a finished session and what it costs | none: the commit pause already exists for R3, and T10c runs before any money is spent |
+| R10 | **D2 mutates the discovery package mid-sitting**: re-recording a decision appends server-written lines to `discovery/faster-payment/{transcript,answers}.jsonl` and regenerates `prd.md`, and ratify's `CLEAN_GUARD` covers `discovery` | T12 order: the D2 step (4) runs before the commit pause (7), and step 7's commit includes `discovery/faster-payment/` whole; T10c read #318's merged code: **no route exists** (#498 OPEN), so Q2 decides — wait for #498 (Q2a) or run D2 as Not run (Q2b) | none: decided before T11, with nothing spent either way |
 | R11 | **Brilliant is the one external dependency** (binding, bridge pairing, a tab on the owner's machine), and it is first touched at step 5, after paid turns | T12 step 0: **Check binding** at $0 before the first compose turn; red → fix the binding (memory `brilliant-mcp-binding`) or stop with nothing spent. The import itself stays at step 5 so `elapsed.ratify` is not inflated by compose time | none: a binding failure is found at $0 |
 | R12 | Groups 43/50 can turn a failed seed into an empty ledger (PR #495 F4) | T10a: one `ok(false, …)` at seed time per group, with its REDDENS | none once T10a's mutation has gone red |
 | R13 | canvas-journey G2 races `saveRun`'s `groups/g1.json` write, so PR B's journey can red for no reason | T10a: G2 polls for the file (≤6 s, the `waitLines` budget) before asserting | none once fixed; T13's re-run rule stays as a fallback |
@@ -534,8 +549,15 @@ Every added check has a REDDENS row and a positive control: T4 (a declaration-fr
   sitting. Running now would meet ACs 1–5 and leave the D1/D2/D5 steps (T12 steps 3, 4, 10) as **Not run**, with
   checks 2–4 waived by the owner in the report. Default: wait. (Confidence 10 holds under **wait** only; running now
 removes R15's closure and puts T12 steps 3, 4 and 10 in Not run.)
-- **Q2 — only if T10c finds #318 refuses to re-record on a finished session:** open a new Grill session on the same
-  package, or report D2 as Not run. Asked at T10c, before T11.
+- **Q2 — D2 has no re-record path (owner's call; T10c fired it 2026-10-01).** #318 flags and re-confirms, but
+  `faster-payment` is a closed run and nothing re-opens it; #498 is that path. "A new Grill session on the same
+  package" is not an option on `main`: a closed run takes no turns, and a new run is a new slug whose decisions the
+  build's `decisionRefs` do not pin.
+  - **Q2a — wait for #498 too, merged with scope A (default).** It joins #319/#320 in the WAIT and can land in
+    parallel with them, so it adds wall time only if it lands last. It unblocks R9's 0-fork fallback only if its
+    re-open also accepts a park turn (#498 words scope A as "one revisited question"; `assertParkable` reads the
+    question on the table) — otherwise R9 still rests on #320's second fork kind.
+  - **Q2b — run without it.** T12 step 4 is Not run (tracked by #498); if T10b counts 0 forks, step 3 is too.
 
 ## NOTES (open canvas)
 
@@ -601,6 +623,27 @@ Ran in a clean detached worktree under `/Users` with `npm ci` in all four module
 Changed because of it: T10 (F3 pointers, F4, re-resolve by symbol), T11 (unset the key in the portal's shell), T13
 (G2 race), T15 (TR5 and F1's limit), Q1.
 
+### Pre-flight (2026-10-01, `origin/main` 9497455 — #318 merged, T10 partly met)
+
+Ran in a fresh worktree under `/Users` (`wt-316-t10`), `npm ci` in all four module dirs (observed):
+- `env -u ANTHROPIC_API_KEY node tooling/run-316-ready.mjs` → `2 of 12 checks red` (3 and 4 only), exit 1. Check 2
+  green: `staleFrames` exported from `system/canvas-ops.mjs` (`:795`), with `reconfirmRefs` (`:818`).
+- `wc -l discovery/faster-payment/build/ops.jsonl` → 6; `git diff 694ab91 9497455 -- …/ops.jsonl` empty. #318 kept
+  `decisionRefs` as seq strings (architecture "D2 as built"), so the spine was not migrated and `seedSpine` is unaffected.
+- `node tooling/build-checks.mjs` → `build ✓  all 50 groups pass`; `node agent-layer/gen-build-handoff.mjs --check` →
+  `2 packages, 8 files — no drift`. #318's lineage keys (`seq`, `stale`, `latest`) and flow.md's "Decisions changed
+  since linked" sit beside Segment A's `partsByProvenance` with no conflict.
+- `node tooling/canvas-journey.mjs all` → chromium 212/0, firefox 211/0, webkit 211/0. R15 is closed for D2's canvas
+  half (flag → Re-confirm, pass B); not for the re-record, which pass B seeds.
+- T10c: no re-record route on `main` (above, T10c) → Q2. `faster-payment/run.json:21` `endedAt 2026-09-13T12:50:58.903Z`.
+- F4: `seed failed` absent from build-checks; G2: no poll before `:949`. Both stay in T10a.
+- PRD `## Open questions` still `_TBD — the run parked no question._` (`prd.md:248`) → R9 still depends on #320's
+  second fork kind, and its fallback now also depends on Q2.
+- #319, #320: OPEN, no PR (`gh pr list --search`). #498: OPEN.
+
+Changed because of it: T10 status block, T10a's G2 citation, T10b's fallback, T10c (done, refuses), T12 step 4, the
+paid table's R10 row, R10, Q2 (rewritten with options), the confidence note.
+
 ### Why confidence is 10 for Segment A
 Every task in Segment A either edits a line read and audited this session, or fixes a red that was **observed**. Its done-condition is mechanical: the same grower that produced 118 reds must produce 0, bar the intended `fake` red. An implementer who meets T8 cannot have missed a fixture, because T8 is the fixture census.
 
@@ -613,6 +656,8 @@ Each risk R1–R16 now closes with an observable gate and none has an open resid
 - **Unmerged tickets (R2, R15):** T11 cannot start until `run-316-ready` is ✓, which needs #318–#320 merged, and T10d
   needs each one's journey — the same gestures T12 uses — green on `main`.
 - **The run's own preconditions (R9, R10):** checked at $0 in T10b/T10c, with a paid fallback costed and owner-gated.
+  T10c has run and fired Q2; confidence 10 holds under Q2a (wait for #498). Under Q2b it holds for execution, with
+  T12 step 4 reported Not run.
 - **The one external service (R11):** proven at $0 as step 0.
 - **Environment (R7, R14, R16):** the portal starts only through the ready gate; headroom is checked against the
   costed total.
@@ -646,3 +691,8 @@ Each risk R1–R16 now closes with an observable gate and none has an open resid
   Brilliant checked at $0 as T12 step 0; R12 F4 and R13 the G2 race fixed in T10a with REDDENS; R14 the portal starts
   through the ready gate; R15 #318–#320's journeys green on `main` (T10d); R16 headroom vs the costed total. R2/R4/R5
   residuals restated as closed procedure. Confidence restated as 10 for execution, with its definition; Q2 added.
+- 2026-10-01 (T10 pre-flight after #318, `origin/main` 9497455) — ready red on 3–4 only; #318's half of T10 met
+  (spine untouched, handoff no drift, canvas-journey 0 failed ×3). T10c answered: #318 has no product path to
+  re-record a decision on a closed run (#498 OPEN), so D2's re-record needs #498 with scope A (R9's Grill fallback too, if that re-open accepts a park); Q2
+  rewritten as Q2a wait for #498 (default) / Q2b run with T12 step 4 Not run. F4 and the G2 race still open → T10a
+  unchanged. No phase, task or AC changed.
