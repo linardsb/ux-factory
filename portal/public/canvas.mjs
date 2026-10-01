@@ -461,7 +461,9 @@ function renderFlow() {
   $("[data-canvas-flow-text]").textContent = stateDiagram(view, lane);
   const list = $("[data-canvas-flow-missing]");
   const miss = missingStates(view, lane);
-  const stale = staleOf().map((x) => el("li", { text: `${frameName(frameOf(x.frameId))}: decision ${x.ref} ${x.status === "stale" ? `changed since linked (now ${x.latest})` : "not found"}` }));
+  // Stale is read from doc, but the panel lists this lane's screens, so a frame the lane omits drops out here.
+  const inLane = new Set(laneDoc(view, lane).doc.frames.map((f) => f.id));
+  const stale = staleOf().filter((x) => inLane.has(x.frameId)).map((x) => el("li", { text: `${frameName(frameOf(x.frameId))}: decision ${x.ref} ${x.status === "stale" ? `changed since linked (now ${x.latest})` : "not found"}` }));
   list.replaceChildren(...(miss.length || stale.length ? [...miss.map((m) => el("li", { text: `${frameName(frameOf(m.frameId))}: ${m.missing.join(", ")} missing` })), ...stale]
     : [el("li", { text: "Every screen in this lane has every state it requires." })]));
   const sel = $("[data-canvas-lane]");

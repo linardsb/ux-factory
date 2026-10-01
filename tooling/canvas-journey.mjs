@@ -74,7 +74,7 @@
 // discovery/ and import/overrides/ unchanged (AC #4); five group controls at 44×44 and no page errors. WHAT IT
 // CANNOT REACH: two copies of one group (35.17a/c prove the namespacing), and whether a group is a good reuse.
 //
-// THE BLAST-RADIUS PASS (#318, B1–B7) over its own copy, fp-stale: f1 shows Decision 7 and 8, none stale, and card d7
+// THE BLAST-RADIUS PASS (#318, B1–B8) over its own copy, fp-stale: f1 shows Decision 7 and 8, none stale, and card d7
 // reads "Embodied by: add-payee" (AC #4), with no save on load; f1 is linked to 7, 8 and 10 by keyboard — the FIRST
 // frame.link, since the spine links f1 through screen.compose. Then a decision superseding 7 is SEEDED into the
 // scratch copy through discovery/ops.mjs's REAL applier (seedSupersede), because a closed session refuses turns and
@@ -892,6 +892,19 @@ async function blastPass(base, page, t, step) {
     const fails = verifyBuild(loadBuild(buildDir("fp-stale")));
     t("B7 · verifyBuild over fp-stale → []", fails.length === 0, fails.join(" | "));
     t("B7 · the page's document equals foldLedger(ops.jsonl)", canon(foldLedger(ledger("fp-stale")).doc) === canon(await pageDoc(page)));
+  });
+  await step("B8 · the flow panel is lane-scoped: a lane that leaves f1 out lists no changed decision (PR #499 F1)", async () => {
+    await page.click("[data-canvas-verb=lane-new]");
+    await page.fill("[data-canvas-lane-key]", "z");
+    await page.click("[data-canvas-verb=lane-create]");
+    t("B8 · draft lane z, f1 still in it: the flow panel lists add-payee's changed decision", (await flowList()).includes("add-payee: decision 7 changed since linked"), await flowList());
+    await openDetails(page, "f1");
+    await page.getByRole("button", { name: "Leave out of lane" }).click();
+    await page.keyboard.press("Escape");
+    t("B8 · f1 left out of lane z: the flow panel lists no changed decision", !(await flowList()).includes("changed since linked"), await flowList());
+    await page.click("[data-canvas-verb=lane-discard]");
+    t("B8 · discarding the draft brings the row back and writes nothing (ledger still 9)",
+      (await flowList()).includes("add-payee: decision 7 changed since linked") && ledger("fp-stale").length === 9, String(ledger("fp-stale").length));
   });
 }
 

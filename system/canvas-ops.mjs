@@ -790,7 +790,8 @@ export function missingStates(doc, lane = null) {
 // record_decision by seq; a later banked answer to its question records `supersedes` (discovery/README.md §Supersede).
 // STALE IS DERIVED, NEVER STORED: `latest` is the chain's head (7 → 31 → 32 answers "32"), what a re-confirm pins. A
 // ref naming no decision (an absent seq, a file_evidence seq, "07") is DANGLING — flagged, never dropped. Reads
-// transcript lines (other ops skipped) or loadDecisions rows; null (a stand-in) answers []. Total over junk.
+// `type: "op"` transcript lines (other ops skipped) or loadDecisions rows — it does not check `type`, so a caller
+// pre-filters; null (a stand-in) answers []. Total over junk.
 export function staleFrames(doc, transcript) {
   if (!Array.isArray(transcript)) return [];
   const known = new Set();
