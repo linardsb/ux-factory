@@ -1635,15 +1635,21 @@ $('#discovery-finish').addEventListener('click', async () => {
 async function renderRuns() {
   state.activeSlug = null;
   updateChatContext();
-  const runs = await api('/api/canvas/runs');
+  // The count is the inbox fold's own `counts` (#319), never a filter over its rows here: a fold written inline in the
+  // browser is a surface no gate reaches.
+  const [runs, waiting] = await Promise.all([api('/api/canvas/runs'), api('/api/inbox')]);
   const section = (provenance, heading) => {
     const rows = runs.filter((r) => r.provenance === provenance);
-    const items = rows.map((r) => `
+    const items = rows.map((r) => {
+      const n = waiting.counts[`${r.provenance}/${r.slug}`] ?? 0;
+      return `
       <li class="cv-run" data-run="${esc(r.provenance)}/${esc(r.slug)}">
         <a href="/canvas.html?provenance=${encodeURIComponent(r.provenance)}&amp;slug=${encodeURIComponent(r.slug)}">${esc(r.slug)}</a>
         <span class="cv-run-meta">${esc(r.label ?? 'no run.json label')}</span>
         <span class="cv-run-meta">${r.hasTranscript ? 'transcript' : 'stand-in: no transcript'}</span>
-      </li>`).join('');
+        ${n > 0 ? `<a class="cv-run-meta" href="#/inbox" data-run-waiting="${n}">${n} waiting</a>` : ''}
+      </li>`;
+    }).join('');
     return `<h2 class="h3">${esc(heading)}</h2>${rows.length ? `<ul class="cv-runs">${items}</ul>` : '<p class="muted">No build packages here yet.</p>'}`;
   };
   $('#main').innerHTML = `
@@ -1652,9 +1658,66 @@ async function renderRuns() {
     ${section('real', 'Real — jobs folder, never committed')}`;
 }
 
+/* ---------- the inbox (#319, D1) — everything waiting on the owner, one row per item ---------- */
+// The rows, their order and every link are portal/lib/inbox.mjs's (build-checks group 51); this only renders them.
+// A run's section leads where its first row falls, so the run holding the top blocker comes first.
+async function renderInbox() {
+  state.activeSlug = null;
+  updateChatContext();
+  const main = $('#main');
+  delete main.dataset.inbox;
+  const { rows, errors } = await api('/api/inbox');
+  const runs = [];
+  for (const r of rows) {
+    const key = `${r.provenance}/${r.slug}`;
+    let run = runs.find((x) => x.key === key);
+    if (!run) runs.push(run = { key, provenance: r.provenance, slug: r.slug, rows: [] });
+    run.rows.push(r);
+  }
+  const row = (r) => `
+      <li class="ib-row" data-inbox-row="${esc(r.kind)} ${esc(r.subject)}" data-blocking="${r.blocking}">
+        <p class="ib-text">${esc(r.text)}</p>
+        ${r.blocking ? '<span class="ib-block">Blocks the run</span>' : ''}
+        <a class="btn btn-secondary ib-verb" href="${esc(r.verb.href)}">${esc(r.verb.label)}</a>
+      </li>`;
+  main.innerHTML = `
+    <h1 class="h3" style="font-size:var(--type-h2)">Waiting on you</h1>
+    ${errors.map((e) => `<p class="cv-flag">Could not read ${esc(e.provenance)}/${esc(e.slug)}: ${esc(e.message)}</p>`).join('')}
+    ${runs.length ? runs.map((run) => `
+    <section class="ib-run" data-inbox-run="${esc(run.key)}">
+      <h2 class="h3">${esc(run.slug)} · ${esc(run.provenance)}</h2>
+      <ol class="ib-rows">${run.rows.map(row).join('')}</ol>
+    </section>`).join('') : '<p class="muted">Nothing is waiting on you.</p>'}`;
+  main.dataset.inbox = 'ready';
+}
+
+// The drawer on one package, opened by URL (#319): the inbox's discovery rows land here.
+async function openDiscoveryFor(provenance, slug) {
+  if (!$('#main').children.length) renderLibrary();
+  $('#discovery-drawer').hidden = false;
+  if (!discovery.config) await loadDiscoveryConfig();
+  $('#discovery-slug').value = slug;
+  // AFTER the config load, or the option does not exist. Not a default (#338 F3): the URL names the package's own
+  // root, and the server's resolveRunRoot + assertProvenanceRoot still refuse a mismatch.
+  $('#discovery-provenance').value = provenance;
+  try {
+    discovery.session = await api(`/api/discovery/session?slug=${encodeURIComponent(slug)}&provenance=${encodeURIComponent(provenance)}`);
+  } catch (err) {
+    $('#discovery-start-status').textContent = `Could not open ${slug}: ${err.message}`;
+    return;
+  }
+  $('#discovery-start').disabled = true;
+  renderDiscoverySession();
+  await loadProposals();
+  $('#discovery-drawer').dataset.discoveryLink = 'ready';
+}
+
 /* ---------- boot + routing ---------- */
 async function loadCards() { state.cards = await api('/api/cards'); }
 async function route() {
+  const d = location.hash.match(/^#\/discovery\/(fictional|real)\/([a-z0-9-]{1,48})$/);
+  if (d) return openDiscoveryFor(d[1], d[2]);
+  if (location.hash === '#/inbox') return renderInbox();
   if (location.hash === '#/canvas') return renderRuns();
   const m = location.hash.match(/^#\/card\/([a-z0-9-]+)/);
   if (m) await renderCard(m[1]);

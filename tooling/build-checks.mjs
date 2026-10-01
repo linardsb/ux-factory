@@ -17873,9 +17873,345 @@ const synthPng = (w, h, ct, px) => {
     group("ratify", `portal/lib/ratify.mjs + system/templates.admitted.mjs + the renderer's one interpreter (#313): 50.1 ratify.mjs IMPORTED in CI with no portal/node_modules, its parsed specifiers node: built-ins plus report, canvas-ops, the registry, the store, env and import-run only, no SDK, zod or MCP SDK and no dynamic import · 50.2 checkAdmitted accepting the valid def FIRST, then sixteen mutations each named by field (tag script and a, class x-y and a class not the spec's, a slot as html, attr onclick, attr data-part as reserved (PR #492 F5), an unknown prop, a duplicate slot prop, children one, many against a spec without cardinality, an extra key, an empty provenance line, and #315's three: from group with an import record, from import with a group id, from made-up) behind the import def and a def admitted from group g1 and ADMIT_TAGS frozen without a, button, input, img, script, style or iframe · 50.3 admittedTemplate under the DOM stub (positive control first): div.ds-person-row, a text slot carrying <img …> as textContent VERBATIM with no img created, a data-* attr, a null prop skipped, and children many rendering two kids through renderChild with their data-part · 50.4 collisionsOf naming list-row and [] for none, and the committed registry colliding with no hand-written template · 50.5 every committed ADMITTED entry passing checkAdmitted against its spec (${Object.keys(TA.ADMITTED).length} entries${Object.keys(TA.ADMITTED).length ? "" : " — vacuous today, the registry is committed empty"}) · 50.6 planRatify admitting the fixture name probe-row (asserted NOT a vocabulary component, so a real admission never reds this group) over spike C dropped into a scratch spine: deterministic, the six writes in order (spec create, CSS append, registry, palette, pin, stack.md), the pin one past its committed value, the palette listing probe-row once in sort order between its neighbours, the rewritten registry EVALUATED as a module to a frozen entry, one pin line at 3/24, the CSS block in the library-primitive header form, and the spec in kb-format's shape with the four sections in order · 50.7 HEAD, the record, a draft byte and all thirteen input fields each moving the hash, identical input not · 50.8 nineteen refusals by name (a literal colour and length, an unknown token, a vocabulary name, no licence, an example missing a required prop, an empty root rule, no container and a non-container, another proposal's component, a slot class and a root class components.css already styles (PR #492 F3), a line break in the record's source file name (F1), and each of three anchors missing and doubled) · 50.9 foldLedger folding a ratify to ratified and refusing an undone ratify naming proposal.ratify and git · 50.10 editMapping on a ratified proposal refused, mapping.json byte-identical · 50.11 CHAIN D4's ten frozen at both levels, its pack prefix drift-check's checkHandoff order read as source · 50.12 gen-loc-summary's worktreeFiles opt-in reporting drift over a +150-line edit of device-presets.mjs (a loc-group file ratify never writes) that the index read does not, on top of the same --loc-worktree-files list 40.8 reads, the file restored byte for byte, a non-array refused · 50.13 over a scratch repoDir with git and the chain INJECTED: the preview's six writes and hash, a ratify during a gated import busy naming it, an import during a gated ratify "a ratify is already in flight", a preview during that ratify answering busy, not dirty (PR #492 F6), a red step 2 stopping there with the revert command and nothing appended, a step that THROWS at 3 answering the error, two steps and the revert command instead of a 500, and a throw after the op is appended (the record's .md a directory) answering appended with no revert and one op (F2), dirty answered whatever the hash, a changed form on a clean tree stale, and a green chain appending one owner proposal.ratify, stamping elapsed.ratify as the two server stamps apart with the licence, checkRecord passing and the view reporting ratified · 50.14 a heading or fence in usage, accessibility, a state note or a prop description refused · 50.15 the REAL stack.md taking probe-row once in sort order between two neighbours, a second insert, no children line and two refused · 50.16 CLEAN_GUARD D5's two argv arrays exactly, frozen, no separator or substitution character · 50.17 #315 promote.mjs IMPORTED in CI, its specifiers node built-ins plus exactly the store, import-run.mjs and env.mjs, no SDK, zod, MCP or dynamic import · 50.18 promoteGroup over a scratch package writing exactly source.json (byte-equal to groups/g1.json), spec.md, block.css and template.txt, each saying promote.mjs drafted it and not an agent, and one component.propose {app-header, g1, mode 1} line; a second promote already-promoted, g9 no-group and a promote during an import busy, each writing nothing; a group named card promoted as card-2; promoteView's shape; system/ and handoff/ untouched (AC #4) · 50.19 planRatify over the group proposal: D8's Usage line verbatim, the CSS header and the pin reason naming group g1, the registry provenance from group g1 passing checkAdmitted, and the group a hashed input. CANNOT REACH: the spawned chain, the real git state and the page — tooling/ratify-journey.mjs's, which also admits a promoted group end to end with children none`);
   }
 
+  // --- 51 · the inbox (#319) -----------------------------------------------------------------------
+  //
+  // portal/lib/inbox.mjs: one read-only list of everything waiting on the owner across every build run, a pure fold
+  // over files that already exist. Written in group 50's voice — every constructive call folded so a throw is a NAMED
+  // failure, every fixture on its OWN scratch copy of the committed spine (one fixture's side effect never feeds
+  // another's assertion), every verb driven through the REAL writer (saveRun, appendAgentLine, editMapping, the
+  // discovery applier), the real tree read and never written.
+  //
+  // WHAT THIS GROUP CANNOT REACH: whether the page renders the rows and whether following one lands on the right
+  // control (canvas-journey pass W), and whether the order is the order the owner wants (a human read).
+  {
+    const deep = (v) => (v && typeof v === "object" && !Array.isArray(v)
+      ? `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${deep(v[k])}`).join(",")}}`
+      : (Array.isArray(v) ? `[${v.map(deep).join(",")}]` : JSON.stringify(v)));
+    const fold = (what, fn, fallback = null) => { try { return fn(); } catch (e) { ok(false, `${what} threw instead of answering: ${e.message}`); return fallback; } };
+    const afold = async (what, fn, fallback = null) => { try { return await fn(); } catch (e) { ok(false, `${what} threw instead of answering: ${e.message}`); return fallback; } };
+    const scratch = (tag) => mkdtempSync(join(tmpdir(), `uxf-g51-${tag}-`));
+    const CS = await import("../portal/lib/canvas-store.mjs");
+    const CO = await import("../system/canvas-ops.mjs");
+    // One scratch ROOT per fixture holding one package named `slug` — inbox() reads roots, not packages. A seed that
+    // throws, or leaves no ledger, reds HERE by name (group 50's PR #495 F4 rule) and still answers its paths.
+    const pkgCopy = (tag, { discovery = true, slug = "spine" } = {}) => {
+      const root = scratch(tag);
+      const pkg = join(root, slug);
+      fold(`51: seed failed for "${tag}"`, () => {
+        const p = CS.seedSpine(join(ROOT, "discovery/faster-payment"), pkg, { discovery });
+        if (p !== pkg || !existsSync(join(p, "build/ops.jsonl"))) throw new Error(`seedSpine answered ${p} with no build/ops.jsonl`);
+      });
+      return { root, pkg, roots: [{ provenance: "real", dir: root }] };
+    };
+    const ledger = (pkg) => !existsSync(join(pkg, "build/ops.jsonl")) ? [] : readFileSync(join(pkg, "build/ops.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
+    const loaded = (pkg) => { const b = CS.loadBuild(join(pkg, "build")); return { b, doc: CS.foldLedger(b.ops).doc, decisions: CS.loadDecisions(pkg) }; };
+    // saveRun through its real checks, base read from disk, positions the committed arrangement's plus `extra`.
+    const save = (pkg, ops, extra = {}, decisions = CS.loadDecisions(pkg)) => {
+      const { b } = loaded(pkg);
+      return CS.saveRun(pkg, { base: b.ops.length, positions: { ...CS.positionsOf(b.canvas), ...extra }, decisions, ops });
+    };
+    const F3 = { f3: { x: 1600, y: 0 } };
+    const STACK = (children, rootId) => ({ name: "stack", ...(rootId && { id: rootId }), props: { direction: "column" }, children });
+    const TWO = () => [{ name: "text", id: "lead", props: { role: "heading", content: "Pay" } }, { name: "primary-button", id: "go", props: { label: "Send" } }];
+    const compose3 = (refs) => ({ op: "screen.compose", params: { screenId: "review", why: "Seq 8.", composition: STACK(TWO()), ...(refs && { decisionRefs: refs }) }, status: "applied" });
+    // The discovery half, filed through discovery/ops.mjs's REAL applier in opLine's exact shape — canvas-journey's
+    // seedSupersede, copied (never portal/lib/discovery.mjs: it imports env.mjs). The answer line names this gate.
+    const jl = (f) => readFileSync(f, "utf8").split("\n").filter((l) => l.trim()).map((l) => JSON.parse(l));
+    const file = (pkg, turn, op, params, questionId) => {
+      const lines = jl(join(pkg, "transcript.jsonl"));
+      const answers = jl(join(pkg, "answers.jsonl"));
+      const state = applyDiscoveryOps(lines.filter((l) => l.type === "op").map((l) => ({ op: l.op, params: l.params, turn: l.turn })), { answers, bank: BANK, turn: null });
+      const ts = new Date().toISOString();
+      const a = { ref: `a${answers.length + 1}`, ts, turn, question_id: questionId, kind: "banked", text: "Seeded by tooling/build-checks.mjs group 51 (#319) — a fixture, not the owner's words." };
+      const r = applyDiscoveryOp(state, { op, params: { ...params, answer_ref: a.ref } }, { answers: [...answers, a], bank: BANK, turn }).ops.at(-1);
+      writeFileSync(join(pkg, "answers.jsonl"), `${readFileSync(join(pkg, "answers.jsonl"), "utf8")}${JSON.stringify(a)}\n`);
+      writeFileSync(join(pkg, "transcript.jsonl"), `${readFileSync(join(pkg, "transcript.jsonl"), "utf8")}${JSON.stringify({ type: "op", ts, seq: r.seq, turn: r.turn, op: r.op, params: r.params, closes: r.closes, flagged: r.flagged, supersedes: r.supersedes })}\n`);
+      return r;
+    };
+    const seven = (pkg) => jl(join(pkg, "transcript.jsonl")).find((l) => l.type === "op" && l.seq === 7);
+    const supersede = (pkg) => file(pkg, "t25", "record_decision", { ...seven(pkg).params, evidence_refs: [], wrong_if: "Gate fixture (#319)." }, seven(pkg).params.question_id);
+    const setEnded = (pkg, endedAt) => { const run = JSON.parse(readFileSync(join(pkg, "run.json"), "utf8")); writeFileSync(join(pkg, "run.json"), `${JSON.stringify({ ...run, endedAt }, null, 2)}\n`); };
+
+    // --- 51.1 IMPORTED in CI with no portal/node_modules; reads only -------------------------------------------
+    let IB = null;
+    try { IB = await import("../portal/lib/inbox.mjs"); }
+    catch (e) { ok(false, `51.1: portal/lib/inbox.mjs did not import (${e.message}) — a static SDK or zod import slipped in, and CI has no portal/node_modules`); }
+    const ibCode = readFileSync(join(ROOT, "portal/lib/inbox.mjs"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+    const ibFrom = [...ibCode.matchAll(/^\s*import\s+(?:[^'"]*?from\s+)?["']([^"']+)["']/gm)].map((m) => m[1]);
+    const IB_ALLOWED = ["../../system/canvas-ops.mjs", "./canvas-store.mjs", "../../discovery/ops.mjs", "../../discovery/proposals.mjs"];
+    ok(ibFrom.includes("node:fs") && ibFrom.every((s) => s.startsWith("node:") || IB_ALLOWED.includes(s)),
+      `51.1: portal/lib/inbox.mjs imports ${deep(ibFrom)} — node: built-ins and ${IB_ALLOWED.join(", ")} only (and node:fs at least, or the parse read nothing)`);
+    ok(!/claude-agent-sdk|@anthropic-ai|@modelcontextprotocol|\bzod\b/.test(ibCode) && !/\bimport\s*\(/.test(ibCode),
+      "51.1: portal/lib/inbox.mjs names the Agent SDK, zod or @modelcontextprotocol, or imports dynamically");
+    // An ALLOWLIST, not a denylist of write names (PR #501 F1): the node: built-ins pinned to exactly the bindings a read
+    // needs, so cpSync, node:fs/promises, a namespace or a default import all red without naming them here.
+    const ibNode = [...ibCode.matchAll(/^\s*import\s+([^'"]*?)\s*from\s+["'](node:[^"']+)["']/gm)]
+      .map((m) => `${m[2]} ${/^\{[^}]*\}$/.test(m[1]) ? `{${m[1].slice(1, -1).split(",").map((x) => x.trim()).filter(Boolean).sort().join(",")}}` : m[1]}`).sort();
+    const IB_NODE = ["node:fs {existsSync,readFileSync}", "node:path {join}"];
+    ok(deep(ibNode) === deep(IB_NODE) && ibFrom.filter((s) => s.startsWith("node:")).length === IB_NODE.length,
+      `51.1: portal/lib/inbox.mjs's node: imports are ${deep(ibNode)} — exactly ${deep(IB_NODE)}; the inbox is a read, and a row is cleared only by its verb on its own page`);
+
+    if (IB) {
+      const { inbox, KINDS, hrefFor, entryFrames } = IB;
+      const seen = new Set();                                  // 51.6: every kind some fixture produced
+      const look = (roots) => { const r = fold("inbox()", () => inbox(roots), { rows: [], counts: {}, errors: [] }); for (const x of r.rows) seen.add(x.kind); return r; };
+      const pick = (r, kind, subject) => r.rows.find((x) => x.kind === kind && x.subject === subject);
+      // 51.4's four-part clear: (a) the row was there, (b) its verb removed it, (c) every other row is unchanged, (d) any
+      // new row is one the case names.
+      const cleared = async (tag, roots, kind, subject, verb, allowNew = () => false) => {
+        const before = look(roots);
+        ok(pick(before, kind, subject), `51.4 ${tag}: no ${kind} ${subject} row before its verb — rows ${deep(before.rows.map((x) => `${x.kind} ${x.subject}`))}, errors ${deep(before.errors)}`);
+        await afold(`51.4 ${tag}: the verb`, verb);
+        const after = look(roots);
+        ok(!pick(after, kind, subject), `51.4 ${tag}: ${kind} ${subject} survived its own verb`);
+        const keep = new Set(after.rows.map(deep));
+        const gone = before.rows.filter((x) => !(x.kind === kind && x.subject === subject) && !keep.has(deep(x)));
+        ok(!gone.length, `51.4 ${tag}: clearing ${kind} ${subject} moved other rows ${deep(gone.map((x) => `${x.kind} ${x.subject}`))}`);
+        const had = new Set(before.rows.map(deep));
+        const extra = after.rows.filter((x) => !had.has(deep(x)) && !allowNew(x));
+        ok(!extra.length, `51.4 ${tag}: clearing ${kind} ${subject} brought rows no case names ${deep(extra.map((x) => `${x.kind} ${x.subject}`))}`);
+        return { before, after };
+      };
+
+      // --- 51.2 empty answers empty, never an error ------------------------------------------------------
+      const none = (r) => r.rows.length === 0 && r.errors.length === 0;
+      const e1 = fold("51.2 inbox([])", () => inbox([]), null);
+      const e2 = fold("51.2 inbox(an absent root)", () => inbox([{ provenance: "real", dir: "/nonexistent-uxf-g51" }]), null);
+      const eRoot = scratch("empty");
+      mkdirSync(join(eRoot, "bare", "build"), { recursive: true });
+      const e3 = fold("51.2 inbox(a package with an empty build/)", () => inbox([{ provenance: "real", dir: eRoot }]), null);
+      ok(e1 && e2 && none(e1) && none(e2), `51.2: an empty root answered ${deep(e1)} / ${deep(e2)}`);
+      ok(e3 && none(e3) && e3.counts["real/bare"] === 0, `51.2: an empty package answered errors ${deep(e3?.errors)}, rows ${deep(e3?.rows)}, count ${deep(e3?.counts)}`);
+
+      // --- 51.3 the spine: three missing states on f1, and the committed tree's shape --------------------
+      const spine = pkgCopy("spine");
+      const sr = look(spine.roots);
+      const spineHref = "/canvas.html?provenance=real&slug=spine&frame=f1";
+      const expect = ["empty", "loading", "partial"].map((k) => ({ provenance: "real", slug: "spine", kind: "missing-state", blocking: false, at: "2026-09-18T00:00:00.000Z",
+        subject: `frame:f1/${k}`, text: `add-payee is missing its ${k} state.`, verb: { label: `Add the ${k} state`, href: spineHref } }));
+      ok(deep(sr.rows) === deep(expect) && deep(sr.counts) === deep({ "real/spine": 3 }) && sr.errors.length === 0,
+        `51.3: the spine answered ${sr.rows.length} rows ${deep(sr.rows)}, counts ${deep(sr.counts)}, errors ${deep(sr.errors)}`);
+      const spineDoc = fold("51.3 the spine's fold", () => loaded(spine.pkg).doc, null);
+      ok(deep(entryFrames(spineDoc)) === deep(["f1"]), `51.3: entryFrames(spine) is ${deep(entryFrames(spineDoc))}, not ["f1"]`);
+      const cyc = { frames: [{ id: "f1", screenId: "a" }, { id: "f2", screenId: "b" }, { id: "f3", baseId: "f1", stateKey: "error" }],
+        arrows: [{ id: "a1", from: { frameId: "f1" }, to: { frameId: "f2" } }, { id: "a2", from: { frameId: "f2" }, to: { frameId: "f1" } }] };
+      ok(deep(entryFrames(cyc)) === deep(["f1"]) && deep(entryFrames(null)) === "[]" && deep(entryFrames({ frames: "x" })) === "[]",
+        `51.3: entryFrames over a cycle / junk answered ${deep(entryFrames(cyc))} / ${deep(entryFrames(null))} — the first base frame, and [] for junk`);
+      const live = fold("51.3 inbox(the committed discovery/)", () => inbox([{ provenance: "fictional", dir: join(ROOT, "discovery") }]), null);
+      ok(live && live.errors.length === 0 && live.rows.every((x) => KINDS.includes(x.kind))
+        && Object.values(live.counts).reduce((a, n) => a + n, 0) === live.rows.length,
+        `51.3: the committed discovery/ answered errors ${deep(live?.errors)}, kinds ${deep([...new Set(live?.rows.map((x) => x.kind))])}, counts ${deep(live?.counts)} for ${live?.rows.length} rows`);
+
+      // --- 51.4 one positive control per kind, each cleared by its own verb ---------------------------
+      // stale-frame — decision 7 superseded; Re-confirm is frame.link with reconfirmRefs.
+      {
+        const c = pkgCopy("stale");
+        const s = fold("51.4 stale: supersede 7", () => supersede(c.pkg), {});
+        const r0 = look(c.roots);
+        const row = pick(r0, "stale-frame", "frame:f1");
+        ok(row?.blocking === true && row.text.includes("decision 7") && row.text.includes(`now ${s.seq}`) && row.verb.label === "Re-confirm" && row.verb.href === spineHref,
+          `51.4 stale: f1's row is ${deep(row)} — blocking (f1 is the entry), naming decision 7 and now ${s.seq}`);
+        await cleared("stale", c.roots, "stale-frame", "frame:f1", () => {
+          const { doc, decisions } = loaded(c.pkg);
+          const f1 = doc.frames.find((f) => f.id === "f1");
+          save(c.pkg, [{ op: "frame.link", params: { frameId: "f1", decisionRefs: CO.reconfirmRefs(f1, CO.staleFrames(doc, decisions)) }, status: "applied" }], { [`d${s.seq}`]: { x: 2000, y: 0, w: 240 } });
+        });
+      }
+      // A stale frame that is NOT an entry: f3 composed with ref 7 and reached from f1, then 7 superseded.
+      {
+        const c = pkgCopy("stale-nonentry");
+        fold("51.4 stale non-entry: compose f3 + connect f1 → f3", () => save(c.pkg, [compose3(["7"]),
+          { op: "connect", params: { from: { frameId: "f1", partId: "account" }, to: { frameId: "f3" }, trigger: "Gate fixture (#319)" }, status: "applied" }], F3));
+        fold("51.4 stale non-entry: supersede 7", () => supersede(c.pkg));
+        const r = look(c.roots);
+        ok(pick(r, "stale-frame", "frame:f1")?.blocking === true && pick(r, "stale-frame", "frame:f3")?.blocking === false,
+          `51.4 stale: f1 blocking ${deep(pick(r, "stale-frame", "frame:f1")?.blocking)} and f3 ${deep(pick(r, "stale-frame", "frame:f3")?.blocking)} — only the entry frame blocks`);
+      }
+      // dangling-ref — a ref the transcript lacks, written with decisions null (saveRun's stand-in path).
+      {
+        const c = pkgCopy("dangling");
+        fold("51.4 dangling: link 99", () => save(c.pkg, [{ op: "frame.link", params: { frameId: "f1", decisionRefs: ["7", "99"] }, status: "applied" }], { d99: { x: 2000, y: 0, w: 240 } }, null));
+        const r = look(c.roots);
+        ok(pick(r, "dangling-ref", "frame:f1")?.text?.includes("99") && !pick(r, "stale-frame", "frame:f1"), `51.4 dangling: rows ${deep(r.rows.map((x) => `${x.kind} ${x.subject}`))} — f1 dangling on 99, not stale`);
+        await cleared("dangling", c.roots, "dangling-ref", "frame:f1",
+          () => save(c.pkg, [{ op: "frame.link", params: { frameId: "f1", decisionRefs: ["7", "8"] }, status: "applied" }], { d8: { x: 2000, y: 400, w: 240 } }));
+      }
+      // missing-state — one state added clears one row; the new state frame is not a base, so it lists nothing.
+      {
+        const c = pkgCopy("missing");
+        await cleared("missing", c.roots, "missing-state", "frame:f1/empty",
+          () => save(c.pkg, [{ op: "state.add", params: { baseId: "f1", stateKey: "empty", override: {} }, status: "applied" }], F3));
+      }
+      // unlinked-frame — f3 composed with no refs; Link a decision clears it, the four missing rows stay.
+      {
+        const c = pkgCopy("unlinked");
+        fold("51.4 unlinked: compose f3", () => save(c.pkg, [compose3(null)], F3));
+        const r = look(c.roots);
+        ok(["error", "empty", "partial", "loading"].every((k) => pick(r, "missing-state", `frame:f3/${k}`)), `51.4 unlinked: f3's four missing-state rows are not all listed — ${deep(r.rows.map((x) => x.subject))}`);
+        await cleared("unlinked", c.roots, "unlinked-frame", "frame:f3",
+          () => save(c.pkg, [{ op: "frame.link", params: { frameId: "f3", decisionRefs: ["8"] }, status: "applied" }]));
+        const s = pkgCopy("unlinked-standin", { discovery: false });
+        fold("51.4 unlinked stand-in: compose f3", () => save(s.pkg, [compose3(null)], F3, null));
+        const rs = look(s.roots);
+        ok(!rs.rows.some((x) => x.kind === "unlinked-frame") && pick(rs, "missing-state", "frame:f3/error"),
+          `51.4 unlinked: a stand-in (no transcript) listed ${deep(rs.rows.map((x) => `${x.kind} ${x.subject}`))} — f3 must not read unlinked where no decision can resolve`);
+      }
+      // ratify-pending + unbound-import — 43.7's SYNTHETIC unbound export (one text size unbound) through runImport.
+      // The gate may import import-run.mjs; the inbox may not (env.mjs).
+      {
+        const M = await import("../portal/lib/import-run.mjs");
+        const figU = JSON.parse(readFileSync(join(ROOT, "import/fixtures/figma/spike-list-row.export.json"), "utf8"));
+        const t1 = figU.selection[0].children[1].children[0];
+        delete t1.boundVariables.fontSize; t1.fontSize = 14;                  // SYNTHETIC: one unbound text size
+        const bytes = Buffer.from(JSON.stringify(figU));
+        const c = pkgCopy("unbound");
+        const ov = join(scratch("ov"), "overrides");
+        const ed = await afold("51.4 unbound: runImport", () => M.runImport({ pkgRoot: c.pkg, provenance: "real", base: ledger(c.pkg).length, entrance: "drop", file: { name: "u.json", bytes }, overridesDir: ov }), {});
+        const r = look(c.roots);
+        const rp = pick(r, "ratify-pending", "proposal:pr1");
+        const ub = pick(r, "unbound-import", `import:${ed.recordId}`);
+        ok(rp?.verb.href === `/canvas.html?provenance=real&slug=spine&import=${ed.name}` && rp.verb.label === "Ratify",
+          `51.4 ratify: the row is ${deep(rp)} — Ratify, linking import=${ed.name}`);
+        ok(ub?.text === `Import ${ed.recordId} has 1 snap nobody confirmed.` && ub.verb.href === rp?.verb.href, `51.4 unbound: the row is ${deep(ub)}`);
+        await cleared("unbound", c.roots, "unbound-import", `import:${ed.recordId}`,
+          () => M.editMapping({ pkgRoot: c.pkg, provenance: "real", name: ed.name, edit: { path: "ir.children[0].children[1].children[0]", slot: "text.size", ref: "--type-body" }, inputs: M.loadInputs(), overridesDir: ov }));
+        // Mode 2: never ratify-pending (proposal.ratify refuses a frozen original), but its snaps still wait.
+        const m2 = pkgCopy("mode2");
+        const e2m = await afold("51.4 mode 2: runImport", () => M.runImport({ pkgRoot: m2.pkg, provenance: "real", base: ledger(m2.pkg).length, entrance: "drop", file: { name: "u.json", bytes }, overridesDir: join(scratch("ov2"), "overrides"), mode: 2 }), {});
+        const r2 = look(m2.roots);
+        ok(!r2.rows.some((x) => x.kind === "ratify-pending") && pick(r2, "unbound-import", `import:${e2m.recordId}`),
+          `51.4 ratify: a Mode 2 proposal listed ${deep(r2.rows.map((x) => `${x.kind} ${x.subject}`))} — never ratify-pending, still unbound-import`);
+        // Ratify itself is not driven here: it spawns the gate chain (group 50's and ratify-journey's). Its clear is
+        // the applier's status move, read through a ledger line restating it.
+        await cleared("ratify", c.roots, "ratify-pending", "proposal:pr1",
+          () => save(c.pkg, [{ op: "proposal.ratify", params: { proposalId: "pr1", component: ed.name }, status: "applied" }]));
+      }
+      // agent-proposal — the LOOP's open line; it BLOCKS and leads even though it is the newest row.
+      {
+        const c = pkgCopy("agent");
+        const params = { screenId: "review", why: "Seq 8.", composition: STACK(TWO()) };
+        const a = fold("51.4 agent: appendAgentLine", () => CS.appendAgentLine(c.pkg, { op: "screen.compose", params, status: "proposed" }), {});
+        const r = look(c.roots);
+        ok(r.rows[0]?.kind === "agent-proposal" && r.rows[0].blocking === true && r.rows[0].subject === `seq:${a.seq}`,
+          `51.4 agent: the first row is ${deep(r.rows[0])} — the open proposal, blocking`);
+        await cleared("agent", c.roots, "agent-proposal", `seq:${a.seq}`,
+          () => save(c.pkg, [{ op: "screen.compose", params, status: "accepted", fromStep: a.seq }], F3),
+          (x) => x.subject.startsWith("frame:f3"));            // the accepted compose's own frame brings its rows
+      }
+      // open-question — SYNTHETIC: the copy's run.json is reopened (endedAt null; a fixture, never the committed file)
+      // and a question this package never decided is parked through the real applier.
+      {
+        const park = (pkg) => file(pkg, "t25", "open_question", { source: "banked", question_id: "s1-choice-cascade", reason: "Gate fixture (#319): parked to come back to." }, "s1-choice-cascade");
+        const c = pkgCopy("park");
+        setEnded(c.pkg, null);
+        const q = fold("51.4 open-question: park", () => park(c.pkg), {});
+        const r = look(c.roots);
+        ok(pick(r, "open-question", `seq:${q.seq}`)?.verb.href === "#/discovery/real/spine", `51.4 open-question: the row is ${deep(pick(r, "open-question", `seq:${q.seq}`))}`);
+        const s7 = seven(c.pkg).params;
+        await cleared("open-question A", c.roots, "open-question", `seq:${q.seq}`,
+          () => file(c.pkg, "t26", "record_decision", { question_id: "s1-choice-cascade", level: s7.level, parent_id: s7.parent_id, evidence_refs: [], wrong_if: "Gate fixture (#319).", off_script: false }, "s1-choice-cascade"));
+        const b = pkgCopy("park-b");
+        setEnded(b.pkg, null);
+        const qb = fold("51.4 open-question B: park", () => park(b.pkg), {});
+        await cleared("open-question B", b.roots, "open-question", `seq:${qb.seq}`, () => setEnded(b.pkg, "2026-10-01T00:00:00.000Z"));
+        const f = pkgCopy("park-finished");
+        fold("51.4 open-question control: park", () => park(f.pkg));
+        const rf = look(f.roots);
+        ok(!rf.rows.some((x) => x.kind === "open-question"), `51.4 open-question: a finished session listed a parked question — ${deep(rf.rows.map((x) => x.subject))}`);
+      }
+      // feature-proposal — the proposal and verdict lines are HAND-AUTHORED, because they are the subject under test
+      // (group 34's precedent), each checked by checkProposalLines first.
+      {
+        const c = pkgCopy("feature");
+        const records = applyDiscoveryOps(jl(join(c.pkg, "transcript.jsonl")).filter((l) => l.type === "op").map((l) => ({ op: l.op, params: l.params, turn: l.turn })), { answers: jl(join(c.pkg, "answers.jsonl")), bank: BANK, turn: null }).ops;
+        const p1 = { type: "proposal", ts: "2026-09-14T10:00:00.000Z", id: "p1", title: "Gate fixture proposal", why: "Seq 7 — a fixture's prose.", rests_on: [7],
+          wrong_if: "p1 is wrong if nobody uses it.", model: "claude-opus-5", fingerprint: "0123456789abcdef0123456789abcdef" };
+        const v1 = { type: "verdict", ts: "2026-09-14T11:00:00.000Z", proposal_id: "p1", verdict: "parked", reason: "Gate fixture (#319): the owner's reason, hand-authored." };
+        fold("51.4 feature: checkProposalLines(p1)", () => checkProposalLines([p1], records));
+        fold("51.4 feature: checkProposalLines(p1, v1)", () => checkProposalLines([p1, v1], records));
+        writeFileSync(join(c.pkg, "proposals.jsonl"), `${JSON.stringify(p1)}\n`);
+        const r = look(c.roots);
+        ok(pick(r, "feature-proposal", "proposal:p1")?.text === 'Feature p1 "Gate fixture proposal" has no verdict.', `51.4 feature: the row is ${deep(pick(r, "feature-proposal", "proposal:p1"))}`);
+        await cleared("feature", c.roots, "feature-proposal", "proposal:p1",
+          () => writeFileSync(join(c.pkg, "proposals.jsonl"), `${JSON.stringify(p1)}\n${JSON.stringify(v1)}\n`));
+      }
+
+      // --- 51.5 order: blocking first by KINDS, then oldest first ----------------------------------------
+      {
+        const c = pkgCopy("order");
+        fold("51.5: supersede 7", () => supersede(c.pkg));
+        fold("51.5: appendAgentLine", () => CS.appendAgentLine(c.pkg, { op: "screen.compose", params: { screenId: "review", why: "Seq 8.", composition: STACK(TWO()) }, status: "proposed" }));
+        const r = look(c.roots);
+        const kinds = r.rows.map((x) => x.kind);
+        const rest = r.rows.slice(2).map((x) => String(x.at));
+        ok(deep(kinds.slice(0, 2)) === deep(["agent-proposal", "stale-frame"]) && rest.every((t, i) => i === 0 || rest[i - 1] <= t),
+          `51.5: the agent proposal is not first, or the rest are not oldest first — ${deep(r.rows.map((x) => `${x.kind} ${x.at}`))}`);
+        const again = look(c.roots);
+        ok(deep(again) === deep(r), "51.5: two reads of one package answered different orders");
+        // PR #501 F3: a row with no `at` sorts after every dated row in its band, never before.
+        const row = (at, blocking = false) => ({ blocking, kind: "missing-state", at, provenance: "real", slug: "s", subject: `x${at}` });
+        const sorted = [row(null), row("2026-02-01T00:00:00Z"), row(null, true), row("2026-01-01T00:00:00Z")].sort(IB.byOrder).map((x) => `${x.blocking ? "B" : "-"} ${x.at}`);
+        ok(deep(sorted) === deep(["B null", "- 2026-01-01T00:00:00Z", "- 2026-02-01T00:00:00Z", "- null"]),
+          `51.5: byOrder put an undated row before a dated one — ${deep(sorted)}`);
+      }
+
+      // --- 51.5b two roots, one provenance/slug: each package read from its own root (PR #501 F2) ----------
+      {
+        const a = pkgCopy("tworoot-a");
+        const b = pkgCopy("tworoot-b");
+        fold("51.5b: state.add on b", () => save(b.pkg, [{ op: "state.add", params: { baseId: "f1", stateKey: "empty", override: {} }, status: "applied" }], F3));
+        const r = look([...a.roots, ...b.roots]);
+        const n = r.rows.filter((x) => x.kind === "missing-state").length;
+        ok(n === 5 && r.counts["real/spine"] === 5 && !r.errors.length,
+          `51.5b: two roots holding real/spine (3 + 2 missing states) answered ${n} rows, counts ${deep(r.counts)}, errors ${deep(r.errors)} — one package read twice and the other never`);
+      }
+
+      // --- 51.6 every kind is covered ------------------------------------------------------------------
+      for (const k of KINDS) ok(seen.has(k), `51.6: kind ${k} has no fixture — no 51.3–51.4 read produced it`);
+      ok(Object.isFrozen(KINDS) && KINDS.length === 9, `51.6: KINDS is ${deep(KINDS)}, frozen ${Object.isFrozen(KINDS)}`);
+
+      // --- 51.7 read-only, measured ----------------------------------------------------------------------
+      {
+        const c = pkgCopy("hash");
+        fold("51.7: supersede 7", () => supersede(c.pkg));
+        const hashes = () => execFileSync("find", [c.root, "-type", "f"], { encoding: "utf8" }).split("\n").filter(Boolean).sort()
+          .map((f) => `${f.slice(c.root.length)} ${createHash("sha256").update(readFileSync(f)).digest("hex")}`).join("\n");
+        const h0 = hashes();
+        look(c.roots);
+        ok(h0 && hashes() === h0, "51.7: a package's files moved across inbox() — the inbox is a read");
+      }
+
+      // --- 51.8 errors are per run ----------------------------------------------------------------------
+      {
+        const c = pkgCopy("errors");
+        const bad = join(c.root, "broken", "build");
+        mkdirSync(bad, { recursive: true });
+        writeFileSync(join(bad, "ops.jsonl"), `${readFileSync(join(c.pkg, "build/ops.jsonl"), "utf8").split("\n")[0]}\nnot json\n`);
+        const r = fold("51.8 inbox(a malformed package beside a good one)", () => inbox(c.roots), null);
+        ok(r && r.errors.length === 1 && r.errors[0].slug === "broken" && r.errors[0].message.includes("line 2") && r.counts["real/broken"] === 0
+          && r.rows.filter((x) => x.slug === "spine").length === 3 && r.rows.every((x) => x.slug === "spine"),
+          `51.8: a malformed package answered errors ${deep(r?.errors)}, ${r?.rows.length} rows — one error naming broken and line 2, the spine's three rows intact`);
+      }
+
+      // --- 51.9 hrefFor ------------------------------------------------------------------------------------
+      const H = (t) => fold(`51.9 hrefFor(${deep(t)})`, () => hrefFor(t), null);
+      const P = { provenance: "real", slug: "spine" };
+      ok(H({ page: "canvas", ...P }) === "/canvas.html?provenance=real&slug=spine"
+        && H({ page: "canvas", ...P, frame: "f1" }) === "/canvas.html?provenance=real&slug=spine&frame=f1"
+        && H({ page: "canvas", ...P, import: "spike-list-row" }) === "/canvas.html?provenance=real&slug=spine&import=spike-list-row"
+        && H({ page: "canvas", ...P, promoted: "app-header" }) === "/canvas.html?provenance=real&slug=spine&promoted=app-header"
+        && H({ page: "discovery", provenance: "fictional", slug: "faster-payment" }) === "#/discovery/fictional/faster-payment",
+        "51.9: hrefFor's five shapes are not the exact strings");
+      const junk = (() => { try { hrefFor({ page: "nope" }); return null; } catch (e) { return e.message; } })();
+      ok(junk?.includes("nope"), `51.9: hrefFor of a junk page answered ${deep(junk)} — a throw naming the page`);
+    }
+
+    group("inbox", `portal/lib/inbox.mjs (#319, D1): every build run's waiting items as rows, a pure read · 51.1 IMPORTED in CI with no portal/node_modules, its parsed specifiers node: built-ins plus exactly canvas-ops, the store, discovery/ops.mjs and discovery/proposals.mjs, no SDK, zod, MCP or dynamic import, and its node: imports exactly node:fs {existsSync, readFileSync} and node:path {join} (an allowlist, so no write call, node:fs/promises, namespace or default import is in reach) · 51.2 no roots, an absent root and a package whose build/ is empty each answering no rows and no errors, the last counted 0 · 51.3 a seeded copy of the spine answering exactly f1's three missing-state rows (empty, loading, partial — field by field, href included), entryFrames ["f1"] there, the first base frame over a cycle and [] over junk, and the committed discovery/ answering no errors, known kinds and counts summing to its rows · 51.4 one positive control per kind, each on its own seeded copy and cleared by its own verb through the real writer with every other row unchanged and no row the case does not name: stale-frame (a REAL discovery-applier supersede, Re-confirm by reconfirmRefs; blocking on the entry f1, not on a non-entry f3), dangling-ref (a 99 saved with decisions null, re-linked), missing-state (one state.add clears one of three), unlinked-frame (a composed f3, linked; a stand-in lists none), unbound-import (43.7's synthetic unbound export, editMapping confirms the snap), ratify-pending (the Mode 1 proposal, a ratify line clears it; a Mode 2 proposal never lists, its snaps still do), agent-proposal (appendAgentLine's open line, first and blocking, accepted), open-question (a park on a reopened copy cleared by a later decision on its question, and by finishing; a finished session lists none), feature-proposal (a hand-authored proposal passed by checkProposalLines, cleared by a parked verdict) · 51.5 blocking first by KINDS (the newest agent proposal before an older stale entry frame) then oldest first, an undated row after every dated one in its band, and two reads equal · 51.5b two roots answering one provenance/slug each read from its own root (3 + 2 rows, counted 5) · 51.6 every one of the nine KINDS produced by some fixture · 51.7 every file of a package hashed unchanged across inbox() · 51.8 a malformed ledger beside the spine answering one error naming its slug and line 2, the spine's three rows intact · 51.9 hrefFor's four canvas shapes and the discovery shape as exact strings, a junk page refused by name. CANNOT REACH: whether the page renders the rows and whether following one lands on the right control (canvas-journey pass W), and whether the order is the order the owner wants (a human read)`);
+  }
+
   if (failures) {
     console.error(`\nbuild ✗  ${failures} failure(s)`);
     process.exit(1);
   }
-  console.log("\nbuild ✓  all 50 groups pass");
+  console.log("\nbuild ✓  all 51 groups pass");
 }
