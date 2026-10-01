@@ -50,7 +50,7 @@ import { mountCanvasVerbs } from "/system/studio-verbs.mjs";
 import { mountCanvasSelect } from "/system/studio-select.mjs";
 import { mountStudioLayers } from "/system/studio-layers.mjs";
 import { mountStudioMinimap } from "/system/studio-minimap.mjs";
-import { applyOp, EXHIBIT_SIZE, exhibitClashes, exhibitsOf, frameTree, groupInstances, laneDoc, laneKeys, missingStates, placeDecision, stateDiagram } from "/system/canvas-ops.mjs";
+import { applyOp, EXHIBIT_SIZE, exhibitClashes, exhibitsOf, frameTree, groupInstances, laneDoc, laneKeys, missingStates, placeDecision, reconfirmRefs, staleFrames, stateDiagram } from "/system/canvas-ops.mjs";
 import { PRESET_NAMES, WIDTH_MAX, WIDTH_MIN, presetWidth } from "/system/device-presets.mjs";
 import { groupFieldsets, mountPromoted } from "/canvas-groups.mjs";
 
@@ -195,7 +195,15 @@ function frameParts(f) {
   }
   const chips = el("span", { class: "cv-chips" });
   if (!(f.decisionRefs ?? []).length) chips.appendChild(el("span", { class: "cv-chip cv-chip-none", text: "No decision linked" }));
-  for (const r of f.decisionRefs ?? []) chips.appendChild(el("span", { class: "cv-chip", text: `Decision ${r}` }));
+  const stale = staleOf().filter((x) => x.frameId === f.id);
+  for (const r of f.decisionRefs ?? []) {
+    const x = stale.find((y) => y.ref === r);
+    if (!x) { chips.appendChild(el("span", { class: "cv-chip", text: `Decision ${r}` })); continue; }
+    chips.appendChild(el("span", { class: "cv-chip cv-chip-stale", text: x.status === "stale" ? `Decision ${r} changed since linked — now ${x.latest}` : `Decision ${r} not found` }));
+  }
+  // D2 (#318): one Re-confirm re-pins every stale ref of this frame to its chain head, in one frame.link.
+  const rows = stale.filter((x) => x.status === "stale");
+  if (rows.length) chips.appendChild(el("button", { type: "button", class: "btn btn-secondary cv-btn cv-reconfirm-btn", "data-cv-reconfirm": f.id, "aria-label": `Re-confirm ${frameName(f)}: ${rows.map((x) => `decision ${x.ref} → ${x.latest}`).join(", ")}`, text: "Re-confirm" }));
   // G27 (#312): each state the completeness check says this base screen lacks is one ask for a proposal.
   const missing = el("span", { class: "cv-missing" });
   for (const key of missingOf(f)) {
@@ -208,7 +216,9 @@ function frameParts(f) {
 
 const groupInstancesOf = (frameId) => groupInstances(doc).filter((i) => i.frameId === frameId).map((i) => i.instanceId);
 const missingOf = (f) => (f.baseId ? [] : missingStates(view, lane).find((m) => m.frameId === f.id)?.missing ?? []);
-const frameSig = (f) => canon({ lane, tree: frameTree(view, f.id, lane), w: f.width, name: frameName(f), refs: f.decisionRefs ?? [], missing: missingOf(f) });
+// Decisions are not lane-scoped, so stale reads doc, never view. A stand-in (decisions null) answers [].
+const staleOf = () => staleFrames(doc, decisions);
+const frameSig = (f) => canon({ lane, tree: frameTree(view, f.id, lane), w: f.width, name: frameName(f), refs: f.decisionRefs ?? [], missing: missingOf(f), stale: staleOf().filter((x) => x.frameId === f.id) });
 
 function fillFrame(entry, f) {
   const { screen, name, chips, missing } = frameParts(f);
@@ -322,6 +332,8 @@ function cardParts(ref) {
     if (d.question) parts.push(el("p", { class: "cv-card-q", text: d.question }));
     if (d.answer) parts.push(el("p", { class: "cv-card-a", text: d.answer }));
     if (d.wrongIf) parts.push(el("p", { class: "cv-card-w", text: `Wrong if: ${d.wrongIf}` }));
+    const x = staleOf().find((y) => y.ref === ref && y.status === "stale");
+    if (x) parts.push(el("p", { class: "cv-flag", text: `Changed since linked — superseded; the latest is decision ${x.latest}. Re-confirm on the frame.` }));
   }
   parts.push(el("p", { class: "cv-card-by", text: `Embodied by: ${by.join(", ") || "no frame"}` }));
   return parts;
@@ -449,7 +461,8 @@ function renderFlow() {
   $("[data-canvas-flow-text]").textContent = stateDiagram(view, lane);
   const list = $("[data-canvas-flow-missing]");
   const miss = missingStates(view, lane);
-  list.replaceChildren(...(miss.length ? miss.map((m) => el("li", { text: `${frameName(frameOf(m.frameId))}: ${m.missing.join(", ")} missing` }))
+  const stale = staleOf().map((x) => el("li", { text: `${frameName(frameOf(x.frameId))}: decision ${x.ref} ${x.status === "stale" ? `changed since linked (now ${x.latest})` : "not found"}` }));
+  list.replaceChildren(...(miss.length || stale.length ? [...miss.map((m) => el("li", { text: `${frameName(frameOf(m.frameId))}: ${m.missing.join(", ")} missing` })), ...stale]
     : [el("li", { text: "Every screen in this lane has every state it requires." })]));
   const sel = $("[data-canvas-lane]");
   const keys = laneKeys(view);
@@ -839,7 +852,8 @@ function openInspector(frameId, trigger) {
     for (const d of decisions) {
       const box = el("input", { type: "checkbox", value: d.id });
       box.checked = (f.decisionRefs ?? []).includes(d.id);
-      list.appendChild(el("label", { class: "cv-check" }, box, `${d.id} · ${d.question ?? d.questionId ?? "unknown question"}`));
+      const head = decisions.some((x) => x.supersedes === d.seq) ? staleFrames({ frames: [{ id: "_", decisionRefs: [d.id] }] }, decisions)[0]?.latest : null;
+      list.appendChild(el("label", { class: "cv-check" }, box, `${d.id} · ${d.question ?? d.questionId ?? "unknown question"}${head ? ` — superseded by ${head}` : ""}`));
     }
     linkBtn.addEventListener("click", (e) => emitFrom("ui.frame-link", e,
       { decisionRefs: [...list.querySelectorAll("input:checked")].map((b) => b.value) }));
@@ -952,6 +966,12 @@ function registerConsumers() {
     drafts.delete(id);
     if (!applyOwnerOp(op)) { if (isNew) removeDraft(id); return; }
     canvas.say(isNew ? `Note ${id} added.` : `Note ${id} saved.`);
+  });
+  document.addEventListener("click", (e) => {
+    const b = e.target?.closest?.("[data-cv-reconfirm]");
+    const f = b && frameOf(b.dataset.cvReconfirm);
+    if (!f) return;
+    bus.emit({ type: "ui.frame-link", source: e.detail === 0 ? "keyboard" : "pointer", target: { component: "frame", id: f.id }, params: { decisionRefs: reconfirmRefs(f, staleOf()) } });
   });
   bus.on("ui.frame-link", (a) => {
     const f = frameOf(a?.target?.id);

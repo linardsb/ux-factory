@@ -310,6 +310,8 @@
   padding: 0 var(--spacing-xs); font-size: var(--type-caption); color: var(--color-fg);
 }
 .cv-chip-none { color: var(--color-fg-muted); font-style: italic; }
+.cv-chip-stale { border-style: dashed; font-weight: 600; }
+.cv-reconfirm-btn { font-size: var(--type-caption); }
 .cv-note, .cv-card {
   background: var(--color-bg-surface); border: 1px solid var(--color-border); border-radius: var(--radius-sm);
   padding: var(--spacing-sm); font-size: var(--type-caption);

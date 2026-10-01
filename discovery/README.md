@@ -189,7 +189,8 @@ stepping up is a new run.
 
 **Supersede.** A **banked** `record_decision` with a non-null `question_id` records `supersedes: <seq>`
 naming the latest earlier **banked** decision on the same question, else `null`. Both records stay;
-nothing is removed. The projection and the canvas read the latest.
+nothing is removed. The projection reads the latest. The canvas pins the version a frame was linked to
+and flags the frame stale once that version is superseded, until the owner re-confirms (#318).
 
 **An off-script decision never supersedes and is never superseded (#289).** A supersede is the latest
 ANSWER to a banked question replacing an earlier one. An off-script decision may NAME the question it

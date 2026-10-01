@@ -786,6 +786,37 @@ export function missingStates(doc, lane = null) {
   return out;
 }
 
+// staleFrames(doc, transcript) → [{ frameId, ref, status: "stale" | "dangling", latest }] (#318, D2). A ref pins one
+// record_decision by seq; a later banked answer to its question records `supersedes` (discovery/README.md §Supersede).
+// STALE IS DERIVED, NEVER STORED: `latest` is the chain's head (7 → 31 → 32 answers "32"), what a re-confirm pins. A
+// ref naming no decision (an absent seq, a file_evidence seq, "07") is DANGLING — flagged, never dropped. Reads
+// transcript lines (other ops skipped) or loadDecisions rows; null (a stand-in) answers []. Total over junk.
+export function staleFrames(doc, transcript) {
+  if (!Array.isArray(transcript)) return [];
+  const known = new Set();
+  const after = new Map();
+  for (const d of transcript) {
+    if (!d || (d.op !== undefined && d.op !== "record_decision") || !Number.isInteger(d.seq)) continue;
+    known.add(d.seq);
+    if (Number.isInteger(d.supersedes)) after.set(d.supersedes, d.seq);
+  }
+  const head = (s) => { const seen = new Set(); while (after.has(s) && !seen.has(s)) { seen.add(s); s = after.get(s); } return s; };
+  const out = [];
+  for (const f of Array.isArray(doc?.frames) ? doc.frames : []) {
+    for (const ref of Array.isArray(f?.decisionRefs) ? f.decisionRefs : []) {
+      const seq = typeof ref === "string" && /^[1-9][0-9]*$/.test(ref) ? Number(ref) : NaN;
+      if (!known.has(seq)) out.push({ frameId: f.id, ref, status: "dangling", latest: null });
+      else if (after.has(seq)) out.push({ frameId: f.id, ref, status: "stale", latest: String(head(seq)) });
+    }
+  }
+  return out;
+}
+
+// reconfirmRefs(frame, rows) → the frame's refs, each STALE one re-pinned to its latest, deduplicated (frame.link
+// refuses a duplicate). A dangling ref stays: re-linking it is the owner's choice of decision.
+export const reconfirmRefs = (frame, rows) => [...new Set((Array.isArray(frame?.decisionRefs) ? frame.decisionRefs : [])
+  .map((r) => (Array.isArray(rows) ? rows : []).find((x) => x?.frameId === frame.id && x.ref === r && x.status === "stale")?.latest ?? r))];
+
 // canDeleteBasePart(doc, baseId, partId) → true, or THROWS naming every state that still overrides it.
 //
 // A REFUSAL, NOT A READ, and the applier's posture is the right one here: deleting a part a state

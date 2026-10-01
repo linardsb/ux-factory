@@ -74,6 +74,18 @@
 // discovery/ and import/overrides/ unchanged (AC #4); five group controls at 44×44 and no page errors. WHAT IT
 // CANNOT REACH: two copies of one group (35.17a/c prove the namespacing), and whether a group is a good reuse.
 //
+// THE BLAST-RADIUS PASS (#318, B1–B7) over its own copy, fp-stale: f1 shows Decision 7 and 8, none stale, and card d7
+// reads "Embodied by: add-payee" (AC #4), with no save on load; f1 is linked to 7, 8 and 10 by keyboard — the FIRST
+// frame.link, since the spine links f1 through screen.compose. Then a decision superseding 7 is SEEDED into the
+// scratch copy through discovery/ops.mjs's REAL applier (seedSupersede), because a closed session refuses turns and
+// the drawer has no scripted-agent seam. On reload f1's chip says "changed since linked — now S", a Re-confirm button
+// measures 44×44, card d7 and the flow panel say so, and nothing saves; Re-confirm by keyboard writes the SECOND
+// frame.link, re-pinning 7 to S and keeping 8 and 10, and the flag, the card and the flow line clear; Cmd+Z writes an
+// undone line and the flag returns (stale is derived, never stored); the pack the portal wrote reads decision 7 stale
+// with latest S and flow.md names add-payee (polled, because withPack writes after the append); verifyBuild [] and
+// the page equal to the disk fold. WHAT IT CANNOT REACH: re-recording a decision in the discovery drawer (the
+// follow-up ticket), and a dangling ref on the page (saveRun refuses an unknown frame.link ref, so 35.19/49.13 hold it).
+//
 // THE COMPOSE PASS (#312). A side portal whose UXF_COMPOSE_TRANSPORT names tooling/fake-compose-agent.mjs —
 // a SCRIPTED stand-in for the model driving the REAL handler and fence; the main portal child never gets
 // it — over fp-compose, the stand-in shape (no transcript.jsonl). Through the page: a briefed turn's card
@@ -126,6 +138,8 @@ import { checkRecord, fidelityVerdict } from "../import/report.mjs";
 import { THRESHOLD } from "../import/fidelity.mjs";
 import { editMapping, runImport } from "../portal/lib/import-run.mjs";
 import { readBuildPackage, renderPack } from "../agent-layer/gen-build-handoff.mjs";
+import { applyOp as applyDiscoveryOp, applyOps as applyDiscoveryOps } from "../discovery/ops.mjs";
+import { QUESTIONS as BANK } from "../discovery/bank.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, "..");
@@ -280,8 +294,9 @@ function seed() {
   seedSpine(src, path.join(DISC(), "fp-import"), { discovery: true });
   // #312's compose pass: the stand-in shape — run.json, prd.md and build/, no transcript.jsonl.
   seedSpine(src, path.join(DISC(), "fp-compose"));
-  // #474's measurement pass, #314's lanes pass and #315's groups pass (its f3 seeded in-process by seedGroups), likewise.
-  for (const slug of ["fp-measure", "fp-lanes", "fp-groups"]) seedSpine(src, path.join(DISC(), slug), { discovery: true });
+  // #474's measurement pass, #314's lanes pass, #315's groups pass (its f3 seeded in-process by seedGroups) and #318's
+  // blast-radius pass (its superseding decision seeded in-process by seedSupersede), likewise.
+  for (const slug of ["fp-measure", "fp-lanes", "fp-groups", "fp-stale"]) seedSpine(src, path.join(DISC(), slug), { discovery: true });
 }
 const buildDir = (slug) => path.join(DISC(), slug, "build");
 const ledger = (slug) => readFileSync(path.join(buildDir(slug), "ops.jsonl"), "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l));
@@ -625,6 +640,7 @@ async function leg(engine, base, results) {
 
     await lanesPass(base, page, t, step);
     await groupsPass(base, page, t, step, errors);
+    await blastPass(base, page, t, step);
 
     await step("15 · 44×44 targets", async () => {
       await openCanvas(page, base, "real", "fp-journey");
@@ -764,6 +780,118 @@ async function lanesPass(base, page, t, step) {
     const fails = verifyBuild(loadBuild(buildDir("fp-lanes")));
     t("L9 · verifyBuild over fp-lanes → []", fails.length === 0, fails.join(" | "));
     t("L9 · the page's document equals foldLedger(ops.jsonl)", canon(foldLedger(ledger("fp-lanes")).doc) === canon(await pageDoc(page)));
+  });
+}
+
+// ---- the blast-radius pass (#318) -----------------------------------------------------------------------
+// A decision re-recorded after a frame was linked to it. The superseding line is SEEDED into fp-stale's scratch copy
+// through discovery/ops.mjs's REAL applier (a closed session refuses turns, and the drawer has no scripted-agent
+// seam), in opLine's exact shape. Never portal/lib/discovery.mjs: it imports env.mjs, which loads portal/.env into
+// this process and every portal child after it. The answer line names this driver as its author.
+function seedSupersede(slug) {
+  const pkg = path.join(DISC(), slug);
+  const jl = (f) => readFileSync(path.join(pkg, f), "utf8").split("\n").filter((l) => l.trim()).map((l) => JSON.parse(l));
+  const lines = jl("transcript.jsonl");
+  const answers = jl("answers.jsonl");
+  const state = applyDiscoveryOps(lines.filter((l) => l.type === "op").map((l) => ({ op: l.op, params: l.params, turn: l.turn })), { answers, bank: BANK, turn: null });
+  const seven = state.ops.find((r) => r.seq === 7);
+  const ts = new Date().toISOString();
+  const a = { ref: `a${answers.length + 1}`, ts, turn: "t25", question_id: seven.params.question_id, kind: "banked",
+    text: "Seeded by tooling/canvas-journey.mjs (#318) to stand in for a re-recorded decision — not the owner's words." };
+  const r = applyDiscoveryOp(state, { op: "record_decision", params: { ...seven.params, answer_ref: a.ref, evidence_refs: [], wrong_if: "Journey fixture (#318)." } }, { answers: [...answers, a], bank: BANK, turn: a.turn }).ops.at(-1);
+  if (r.supersedes !== 7) throw new Error(`seedSupersede: the seeded decision supersedes ${r.supersedes}, not 7`);
+  appendFileSync(path.join(pkg, "answers.jsonl"), `${JSON.stringify(a)}\n`);
+  appendFileSync(path.join(pkg, "transcript.jsonl"), `${JSON.stringify({ type: "op", ts, seq: r.seq, turn: r.turn, op: r.op, params: r.params, closes: r.closes, flagged: r.flagged, supersedes: r.supersedes })}\n`);
+  return r.seq;
+}
+
+async function blastPass(base, page, t, step) {
+  const chips = () => node(page, "f1").locator(".cv-chip").allTextContents();
+  const staleChips = () => node(page, "f1").locator(".cv-chip-stale").count();
+  const reconfirm = () => page.locator('[data-cv-reconfirm="f1"]');
+  const flowList = () => page.locator("[data-canvas-flow-missing]").textContent();
+  const handoff = (f) => path.join(buildDir("fp-stale"), "handoff", f);
+  let S = null;
+  await step("B1 · fp-stale opens current; the card lists its frame; the first frame.link", async () => {
+    await openCanvas(page, base, "real", "fp-stale");
+    const c = await chips();
+    t("B1 · f1 shows Decision 7 and Decision 8, none stale, no Re-confirm",
+      c.includes("Decision 7") && c.includes("Decision 8") && (await staleChips()) === 0 && (await reconfirm().count()) === 0, JSON.stringify(c));
+    const by = await node(page, "d7").locator(".cv-card-by").textContent().catch(() => null);
+    t("B1 · card d7 reads Embodied by: add-payee (AC #4, the reverse index)", by === "Embodied by: add-payee", by);
+    t("B1 · no save on load (the ledger is still 6 lines)", ledger("fp-stale").length === 6, String(ledger("fp-stale").length));
+    await openDetails(page, "f1", "keyboard");
+    const box = page.locator('#cv-inspector input[type="checkbox"][value="10"]');
+    await box.scrollIntoViewIfNeeded();
+    await box.focus();
+    await page.keyboard.press("Space");
+    await page.getByRole("button", { name: "Link decisions" }).focus();
+    await page.keyboard.press("Enter");
+    const l = await waitLines("fp-stale", 7);
+    t("B1 · ledger line 7 is the first frame.link {f1, [7, 8, 10]}",
+      l[6]?.op === "frame.link" && canon(l[6]?.params) === canon({ frameId: "f1", decisionRefs: ["7", "8", "10"] }) && l[6]?.status === "applied", JSON.stringify(l[6]));
+  });
+  await step("B2 · decision 7 is superseded; f1, card d7 and the flow panel say so", async () => {
+    S = seedSupersede("fp-stale");
+    await openCanvas(page, base, "real", "fp-stale");
+    const c = await chips();
+    t(`B2 · f1 shows Decision 7 changed since linked — now ${S}`, c.includes(`Decision 7 changed since linked — now ${S}`) && (await staleChips()) === 1, JSON.stringify(c));
+    await reconfirm().scrollIntoViewIfNeeded();
+    await settleScroll(page);
+    const b = await reconfirm().boundingBox();
+    t("B2 · a Re-confirm button on f1, at least 44×44", (b?.width ?? 0) >= 44 && (b?.height ?? 0) >= 44, JSON.stringify(b));
+    const flag = await node(page, "d7").locator(".cv-flag").allTextContents();
+    t(`B2 · card d7 says it was superseded by ${S}`, flag.some((x) => x.startsWith(`Changed since linked — superseded; the latest is decision ${S}`)), JSON.stringify(flag));
+    const fl = await flowList();
+    t("B2 · the flow panel lists add-payee's changed decision", fl.includes(`add-payee: decision 7 changed since linked (now ${S})`), fl);
+    t("B2 · no save on load (the ledger is still 7 lines)", ledger("fp-stale").length === 7, String(ledger("fp-stale").length));
+  });
+  await step("B3 · Re-confirm by keyboard is the second frame.link", async () => {
+    await reconfirm().focus();
+    await page.keyboard.press("Enter");
+    await waitSaid(page, "now embodies").catch(() => {});
+    t("B3 · the live region announces the re-pin", (await said(page)).includes(`add-payee (f1) now embodies decisions ${S}, 8, 10.`), await said(page));
+    const l = await waitLines("fp-stale", 8);
+    t(`B3 · ledger line 8 is frame.link {f1, [${S}, 8, 10]}, applied, owner`,
+      l[7]?.op === "frame.link" && canon(l[7]?.params) === canon({ frameId: "f1", decisionRefs: [String(S), "8", "10"] }) && l[7]?.status === "applied" && l[7]?.source === "owner", JSON.stringify(l[7]));
+    const links = l.filter((x) => x.op === "frame.link");
+    t("B3 · the ledger holds exactly TWO frame.link lines, the second re-pinning 7 (AC #2)",
+      links.length === 2 && links[0].params.decisionRefs.includes("7") && !links[1].params.decisionRefs.includes("7") && links[1].params.decisionRefs.includes(String(S)), JSON.stringify(links.map((x) => x.params)));
+  });
+  await step("B4 · the flag clears", async () => {
+    await page.waitForFunction(() => !document.querySelector('[data-cv-reconfirm="f1"]'), null, { timeout: 4000 }).catch(() => {});
+    t("B4 · f1 has no stale chip and no Re-confirm", (await staleChips()) === 0 && (await reconfirm().count()) === 0, JSON.stringify(await chips()));
+    t(`B4 · card d${S} is on the stage and card d7 is gone`, (await node(page, `d${S}`).count()) === 1 && (await node(page, "d7").count()) === 0);
+    t("B4 · the flow panel no longer lists a changed decision", !(await flowList()).includes("changed since linked"), await flowList());
+  });
+  await step("B5 · undo brings the flag back (stale is derived, not stored)", async () => {
+    await undo(page);
+    const l = await waitLines("fp-stale", 9);
+    t("B5 · ledger line 9 is undone, restating line 8", l[8]?.status === "undone" && l[8]?.op === "frame.link" && canon(l[8]?.params) === canon(l[7]?.params), JSON.stringify(l[8]));
+    await page.waitForFunction(() => !!document.querySelector('[data-cv-reconfirm="f1"]'), null, { timeout: 4000 }).catch(() => {});
+    t(`B5 · f1 again shows Decision 7 changed since linked — now ${S}`, (await chips()).includes(`Decision 7 changed since linked — now ${S}`) && (await reconfirm().count()) === 1, JSON.stringify(await chips()));
+  });
+  await step("B6 · the pack the portal wrote says decision 7 changed (AC #3)", async () => {
+    const read = (f) => { try { return readFileSync(handoff(f), "utf8"); } catch { return ""; } };
+    let lin = null;
+    for (let i = 0; i < 60; i += 1) {
+      try { lin = JSON.parse(read("lineage.json")); } catch { lin = null; }
+      const d = lin?.decisions?.find((x) => x.id === "7");
+      if (d?.stale === true && lin.frames?.find((f) => f.frameId === "f1")?.stale === true) break;
+      await sleep(100);
+    }
+    const d7 = lin?.decisions?.find((x) => x.id === "7");
+    t(`B6 · lineage.json: decision 7 reads seq 7, stale true, latest ${S}; f1 reads stale`,
+      d7?.seq === 7 && d7?.stale === true && d7?.latest === String(S) && lin.frames.find((f) => f.frameId === "f1")?.stale === true, JSON.stringify(d7));
+    const want = `- add-payee (f1): decision 7 changed since linked — now ${S}.`;
+    let flow = "";
+    for (let i = 0; i < 60 && !flow.includes(want); i += 1) { flow = read("flow.md"); if (!flow.includes(want)) await sleep(100); }
+    t("B6 · flow.md lists add-payee under Decisions changed since linked", flow.includes(want), flow.slice(flow.indexOf("## Decisions changed"), flow.indexOf("## Decisions changed") + 200));
+  });
+  await step("B7 · the package verifies and the page equals the disk fold", async () => {
+    const fails = verifyBuild(loadBuild(buildDir("fp-stale")));
+    t("B7 · verifyBuild over fp-stale → []", fails.length === 0, fails.join(" | "));
+    t("B7 · the page's document equals foldLedger(ops.jsonl)", canon(foldLedger(ledger("fp-stale")).doc) === canon(await pageDoc(page)));
   });
 }
 

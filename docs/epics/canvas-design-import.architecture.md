@@ -397,6 +397,12 @@ projections. Six calls, each changing one paragraph above; tickets on epic #295.
 The op count stays fourteen. Run 1 (#316) exercises D1–D5. The principle the six share: the owner initiates
 and admits; the agent drafts inside fences.
 
+**D2 as built (#318, owner 2026-10-01):** `decisionRefs` stays `string[]` of transcript seqs — the seq is the
+pin. `{id, seq}` is derived on read: `seq = Number(ref)`, and the decision's cross-version identity is its
+`question_id`. `staleFrames(doc, transcript)` also accepts the page's `loadDecisions` rows, which carry `seq` and
+`supersedes`; re-confirm is the existing `frame.link` re-pinning to the head of the supersede chain. The reason:
+three committed ledgers carry string refs, one of them a real recorded run that may never be edited.
+
 ---
 *Decided interactively with the PRD holder, 2026-08-28 (addendum the same day, after the slice) — one round on the shape (in-place swap vs
 board-first vs a second canvas), one on the four calls that change the slicing (the ops' home, the portal

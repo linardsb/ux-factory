@@ -447,7 +447,7 @@ const readJsonl = (file) => readFileSync(file, "utf8").split("\n").flatMap((text
   catch (e) { throw new Error(`${file} line ${i + 1} is not JSON — ${e.message}`); }
 });
 
-// loadDecisions(pkgRoot) → null | [{ id, questionId, answerRef, answer, wrongIf, level }].
+// loadDecisions(pkgRoot) → null | [{ id, seq, supersedes, questionId, answerRef, answer, wrongIf, level }].
 //
 // NULL when the package has no transcript.jsonl — a stand-in, whose decision refs cannot be resolved
 // and are flagged on the page rather than blocked. Otherwise every record_decision op line; its id is
@@ -462,6 +462,8 @@ export function loadDecisions(pkgRoot) {
     .filter((l) => l.type === "op" && l.op === "record_decision")
     .map((l) => ({
       id: String(l.seq),
+      seq: l.seq,
+      supersedes: Number.isInteger(l.supersedes) ? l.supersedes : null,
       questionId: l.params?.question_id ?? null,
       answerRef: l.params?.answer_ref ?? null,
       answer: answers.get(l.params?.answer_ref) ?? null,
