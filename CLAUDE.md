@@ -113,6 +113,7 @@ portal/                       local-first workbench (127.0.0.1 only, never deplo
   lib/ratify.mjs              the OWNER'S ADMISSION — a proposal → six anchored writes, the ten-step chain spawned,
                               the diff returned; never git (#313)
   lib/import-suggest.mjs      Jev's top 3 for the nodes the matcher could not name — beside the verdict, fail-open (#455)
+  lib/inbox.mjs               the INBOX — every build run's waiting items (nine kinds) as rows, a pure read; no SDK (#319)
   public/                     vanilla SPA — hash routing, template strings, no framework; plus
                               canvas.html + canvas.mjs (+ canvas-import.mjs, #311; canvas-ratify.mjs, #313), the one MODULE page (the build canvas, #306)
   record-trace.mjs            build-time trace recorder (CLI) — a REAL agent run
@@ -145,7 +146,7 @@ docs/epics/                   PRD + architecture decisions governing the platfor
 docs/figma-runbook.md         operator steps for the Figma boundary + the request-budget rules
 
 tooling/
-  build-checks.mjs            50 PURE groups, in CI — the repo's main gate  (→ references/gates.md)
+  build-checks.mjs            51 PURE groups, in CI — the repo's main gate  (→ references/gates.md)
   build-journey.mjs           /build ×3 engines, operator-run             (→ references/gates.md)
   proto-journey.mjs           the two proto pages ×3 engines              (→ references/gates.md)
   studio-journey.mjs          the studio ×3 engines + the INP gate        (→ references/gates.md)
@@ -229,7 +230,7 @@ The kb (`_factory/kb/` in the jobs folder) is the database — record shapes + p
 ## On-demand context
 Route on-demand detail to `.claude/references/` — never back into this file.
 
-- **`gates.md`** — the gate stack: build-checks' 50 groups, the seven journey drivers, the pixel gate, the morph gates, and what each one states it CANNOT reach. Read before adding or changing a gate, or before trusting a green run.
+- **`gates.md`** — the gate stack: build-checks' 51 groups, the seven journey drivers, the pixel gate, the morph gates, and what each one states it CANNOT reach. Read before adding or changing a gate, or before trusting a green run.
 - **`token-system.md`** — the three-layer mechanic and how to add a token.
 - **`kb-format.md`** — kb record shapes + the ComponentSpec / DataContract format.
 - **`backend-api-best-practices.md`** — API route work · **`frontend-component-best-practices.md`** — UI work.

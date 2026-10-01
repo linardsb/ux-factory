@@ -31,6 +31,13 @@ import { BOOT_SHA, headSha, isStale } from './lib/version.mjs';
 // The build package (#306): the run list, one run, and the append-only save. Node built-ins plus the
 // SDK-free canvas-ops.mjs, pinned by build-checks group 36.6.
 import { foldLedger, isSaveConflict, listBuilds, loadBuild, loadDecisions, loadExhibits, provenanceLabel, saveConflict, saveRun } from './lib/canvas-store.mjs';
+// The inbox (#319, D1): every build run's waiting items, a pure read over the same roots as the run list.
+import { inbox } from './lib/inbox.mjs';
+// ONE root list for the run list and the inbox, so the two can never disagree about which runs exist.
+const buildRoots = () => [
+  { provenance: 'fictional', dir: path.join(REPO_DIR, 'discovery') },
+  { provenance: 'real', dir: path.join(JOBS_DIR, '_discovery') },
+];
 // The compose loop (#312). SDK-free and zod-free (build-checks 47.1): the transport is a lazy import
 // inside runComposeTurn, after every guard and inside the run lock.
 import { checkComposeRequest, composeRefusal, composeView, runComposeTurn } from './lib/canvas-session.mjs';
@@ -457,11 +464,9 @@ const server = createServer(async (req, res) => {
     // Every one resolves the package root with the same resolveRunRoot + assertProvenanceRoot pair the
     // discovery routes run, so a real package can never be read or written inside the repo.
     if (p === '/api/canvas/runs' && req.method === 'GET') {
-      return json(res, 200, listBuilds([
-        { provenance: 'fictional', dir: path.join(REPO_DIR, 'discovery') },
-        { provenance: 'real', dir: path.join(JOBS_DIR, '_discovery') },
-      ]));
+      return json(res, 200, listBuilds(buildRoots()));
     }
+    if (p === '/api/inbox' && req.method === 'GET') return json(res, 200, inbox(buildRoots()));
     if (p === '/api/canvas/run' && req.method === 'GET') {
       const provenance = url.searchParams.get('provenance');
       const slug = url.searchParams.get('slug');

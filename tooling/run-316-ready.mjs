@@ -6,7 +6,7 @@
 // Twelve checks:
 //   1  discovery/faster-payment/prd.md is tracked and equal to HEAD — the brief every compose turn reads
 //   2  #318 landed: system/canvas-ops.mjs exports staleFrames                      (D2, stale frames)
-//   3  #319 landed: portal/lib/inbox.mjs exists                                    (D1, the inbox)
+//   3  #319 landed: portal/lib/inbox.mjs exports the inbox fold                    (D1, the inbox)
 //   4  #320 landed: PARAMS["screen.compose"] carries a param beyond Segment A's five (D5, forks) — T10 pins its name
 //   5  build/ops.jsonl is exactly the six-line spine and verifyBuild passes          (PRE-RUN: inverts, see below)
 //   6  the tree is clean by ratify's own CLEAN_GUARD, both argv arrays printing nothing
@@ -37,6 +37,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import * as canvasOps from '../system/canvas-ops.mjs';
 import { loadBuild, SPINE_LENGTH, verifyBuild } from '../portal/lib/canvas-store.mjs';
 import { subscriptionEnv } from '../portal/lib/canvas-session.mjs';
+import * as inboxMod from '../portal/lib/inbox.mjs';
 import { TOOLS } from '../portal/lib/brilliant-mcp.mjs';
 import { CLEAN_GUARD } from '../portal/lib/ratify.mjs';
 
@@ -66,7 +67,7 @@ export function runReady() {
     return null;
   });
   check(2, () => (typeof canvasOps.staleFrames === 'function' ? null : '#318 has not landed: system/canvas-ops.mjs exports no staleFrames (D2)'));
-  check(3, () => (existsSync(path.join(ROOT, 'portal/lib/inbox.mjs')) ? null : '#319 has not landed: portal/lib/inbox.mjs does not exist (D1)'));
+  check(3, () => (typeof inboxMod.inbox === 'function' && inboxMod.KINDS?.includes('stale-frame') && inboxMod.KINDS?.includes('missing-state') ? null : '#319 has not landed: portal/lib/inbox.mjs exports no inbox fold with stale-frame and missing-state kinds (D1)'));
   check(4, () => {
     const extra = (canvasOps.PARAMS['screen.compose'] ?? []).filter((k) => !SEGMENT_A_PARAMS.includes(k));
     return extra.length ? null : `#320 has not landed: PARAMS["screen.compose"] is ${JSON.stringify(canvasOps.PARAMS['screen.compose'])}, with no alternatives param beyond Segment A's five (D5)`;

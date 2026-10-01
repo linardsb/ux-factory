@@ -415,6 +415,16 @@
 .cv-run a { display: inline-flex; align-items: center; min-height: 44px; }
 .cv-run-meta { font-size: var(--type-caption); color: var(--color-fg-muted); }
 
+/* the inbox (#/inbox, #319). Mirrors the run list; "Blocks the run" is words, never colour alone. Contract tokens only. */
+.ib-rows { list-style: none; padding: 0; margin: 0 0 var(--spacing-xl); display: flex; flex-direction: column; gap: var(--spacing-sm); }
+.ib-row {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-sm) var(--spacing-md);
+  border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: var(--spacing-sm) var(--spacing-md);
+}
+.ib-text { margin: 0; flex: 1 1 16rem; min-width: 0; overflow-wrap: anywhere; }
+.ib-block { font-size: var(--type-caption); font-weight: 600; color: var(--color-fg); }
+.ib-verb { min-height: 44px; }
+
 /* the import panel, view and mapping editor (#311, canvas-import.mjs). Contract tokens only; 44×44
    targets. The page-wide [hidden] rule above already beats an author display here. */
 .cv-import, .cv-import-view {

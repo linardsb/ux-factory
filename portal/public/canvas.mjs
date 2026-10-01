@@ -1053,6 +1053,20 @@ function renderLabel(run) {
     : "Saves into the jobs folder, never committed.";
 }
 
+// ?frame=<id> (#319): the inbox's frame rows land here — the frame scrolled into view, its Details button focused,
+// one announcement. A frame not on this canvas is SAID, never guessed at. Writes nothing.
+function focusFrameFromQuery() {
+  const want = qs.get("frame");
+  if (!want) return;
+  const f = doc.frames.find((x) => x.id === want);
+  const btn = f && document.querySelector(`[data-cv-details="${CSS.escape(want)}"]`);
+  if (!btn) { canvas.say(`Frame ${want} is not on this canvas.`); return; }
+  document.querySelector(`[data-stx-id="${CSS.escape(want)}"]`)?.scrollIntoView({ block: "center", inline: "center" });
+  btn.focus({ preventScroll: true });
+  document.documentElement.dataset.cvFromInbox = want;   // the journey's handle: set only after focus was called
+  canvas.say(`${frameName(f)} — from the inbox.`);
+}
+
 async function boot() {
   try {
     if (!provenance || !slug) throw new Error("open a run from the portal's Canvas list — this page needs ?provenance=…&slug=…");
@@ -1097,6 +1111,7 @@ async function boot() {
     $("[data-canvas-verb=annotate]").addEventListener("click", addNote);
     renderCompose();
     mountPromoted(getCanvasPage);
+    focusFrameFromQuery();
     lastSavedKey = canon(gatherPositions());
     // LAST, so it runs after every exact consumer (action-bus.mjs: exact handlers, then "*").
     bus.on("*", scheduleSave);

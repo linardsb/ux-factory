@@ -295,8 +295,9 @@ function seed() {
   // #312's compose pass: the stand-in shape — run.json, prd.md and build/, no transcript.jsonl.
   seedSpine(src, path.join(DISC(), "fp-compose"));
   // #474's measurement pass, #314's lanes pass, #315's groups pass (its f3 seeded in-process by seedGroups) and #318's
-  // blast-radius pass (its superseding decision seeded in-process by seedSupersede), likewise.
-  for (const slug of ["fp-measure", "fp-lanes", "fp-groups", "fp-stale"]) seedSpine(src, path.join(DISC(), slug), { discovery: true });
+  // blast-radius pass (its superseding decision seeded in-process by seedSupersede), and #319's inbox pass (the same
+  // seed on fp-inbox), likewise.
+  for (const slug of ["fp-measure", "fp-lanes", "fp-groups", "fp-stale", "fp-inbox"]) seedSpine(src, path.join(DISC(), slug), { discovery: true });
 }
 const buildDir = (slug) => path.join(DISC(), slug, "build");
 const ledger = (slug) => readFileSync(path.join(buildDir(slug), "ops.jsonl"), "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l));
@@ -649,6 +650,7 @@ async function leg(engine, base, results) {
     await lanesPass(base, page, t, step);
     await groupsPass(base, page, t, step, errors);
     await blastPass(base, page, t, step);
+    await inboxPass(base, page, t, step);
 
     await step("15 · 44×44 targets", async () => {
       await openCanvas(page, base, "real", "fp-journey");
@@ -929,6 +931,85 @@ function seedGroups() {
         { name: "ghost-button", id: "help", props: { label: "Help" } },
         { name: "icon", id: "mark", props: { name: "info", size: "md" } }] } } },
   ] });
+}
+
+// #319's inbox: open #/inbox → follow the stale row → Re-confirm → return, and the row is gone with every other row
+// byte-identical. The rows are the fold's (build-checks group 51); this proves the page renders them and that a row's
+// link lands on the control that clears it. The inbox lists EVERY real run in the scratch JOBS_DIR, which earlier
+// passes have mutated — nothing else runs between W1's read and W4's.
+async function inboxPass(base, page, t, step) {
+  const inboxJson = () => page.evaluate(() => fetch("/api/inbox").then((r) => r.json()));
+  const openInbox = async () => {
+    await page.goto(`${base}/#/inbox`, { waitUntil: "load" });
+    await page.waitForSelector('#main[data-inbox="ready"]', { timeout: 20000 });
+  };
+  const runRows = () => page.locator('[data-inbox-run="real/fp-inbox"] [data-inbox-row]');
+  let before = null;
+  let S = null;
+  await step("W1 · #/inbox lists fp-inbox's stale entry frame first, blocking", async () => {
+    S = seedSupersede("fp-inbox");
+    await openInbox();
+    before = await inboxJson();
+    const first = runRows().first();
+    t("W1 · fp-inbox's first row is stale-frame frame:f1, blocking, verb Re-confirm",
+      (await first.getAttribute("data-inbox-row")) === "stale-frame frame:f1" && (await first.getAttribute("data-blocking")) === "true"
+        && (await first.locator(".ib-verb").textContent()) === "Re-confirm", await first.innerHTML().catch(() => "(no row)"));
+    t("W1 · the page's fp-inbox rows equal the fold's count", (await runRows().count()) === before.counts["real/fp-inbox"],
+      `${await runRows().count()} vs ${before.counts["real/fp-inbox"]}`);
+  });
+  await step("W2 · the run list's N waiting is the fold's count", async () => {
+    await page.goto(`${base}/#/canvas`, { waitUntil: "load" });
+    const w = page.locator('[data-run="real/fp-inbox"] [data-run-waiting]');
+    await w.waitFor({ timeout: 20000 });
+    t("W2 · fp-inbox shows N waiting equal to counts", Number(await w.getAttribute("data-run-waiting")) === before.counts["real/fp-inbox"]
+      && (await w.textContent()) === `${before.counts["real/fp-inbox"]} waiting`, await w.textContent());
+  });
+  await step("W3 · following the row lands on f1's Details, and Re-confirm clears it", async () => {
+    await openInbox();
+    await runRows().first().locator(".ib-verb").click();
+    await page.waitForSelector('html[data-canvas-page="ready"]', { timeout: 20000 });
+    t("W3 · the link carries frame=f1", new URL(page.url()).searchParams.get("frame") === "f1", page.url());
+    const focused = await page.waitForFunction(() => document.documentElement.dataset.cvFromInbox === "f1" && document.activeElement?.dataset?.cvDetails === "f1", null, { timeout: 4000 })
+      .then(() => true, () => false);
+    t("W3 · the frame's details button is focused", focused, await page.evaluate(() => document.activeElement?.outerHTML?.slice(0, 120)));
+    await settleScroll(page);
+    const inView = await node(page, "f1").evaluate((n) => { const r = n.getBoundingClientRect(); return r.right > 0 && r.bottom > 0 && r.left < innerWidth && r.top < innerHeight; });
+    t("W3 · f1 intersects the viewport", inView);
+    const heard = await waitSaid(page, "— from the inbox.").then(() => true, () => false);
+    t("W3 · the live region says add-payee — from the inbox.", heard && (await said(page)).includes("add-payee — from the inbox."), await said(page));
+    await page.locator('[data-cv-reconfirm="f1"]').focus();
+    await page.keyboard.press("Enter");
+    const l = await waitLines("fp-inbox", 7);
+    t(`W3 · ledger line 7 is frame.link {f1, [${S}, 8]} applied by owner`,
+      l[6]?.op === "frame.link" && canon(l[6]?.params) === canon({ frameId: "f1", decisionRefs: [String(S), "8"] }) && l[6]?.status === "applied" && l[6]?.source === "owner", JSON.stringify(l[6]));
+  });
+  await step("W4 · back on #/inbox the row is gone and nothing else moved", async () => {
+    await openInbox();
+    const after = await inboxJson();
+    const isIt = (r) => r.provenance === "real" && r.slug === "fp-inbox" && r.kind === "stale-frame" && r.subject === "frame:f1";
+    t("W4 · no stale-frame frame:f1 row for fp-inbox", !after.rows.some(isIt) && (await page.locator('[data-inbox-run="real/fp-inbox"] [data-inbox-row="stale-frame frame:f1"]').count()) === 0);
+    t("W4 · every other row, across every run, is byte-identical", canon(before.rows.filter((r) => !isIt(r))) === canon(after.rows),
+      JSON.stringify(after.rows.map((r) => `${r.slug} ${r.kind} ${r.subject}`)));
+    t("W4 · fp-inbox's count fell by one", after.counts["real/fp-inbox"] === before.counts["real/fp-inbox"] - 1, `${before.counts["real/fp-inbox"]} → ${after.counts["real/fp-inbox"]}`);
+    t("W4 · the ledger holds 7 lines (one save, the Re-confirm)", ledger("fp-inbox").length === 7, String(ledger("fp-inbox").length));
+  });
+  await step("W5 · #/discovery/real/fp-inbox opens the drawer on that package", async () => {
+    await page.goto(`${base}/#/discovery/real/fp-inbox`, { waitUntil: "load" });
+    await page.waitForSelector('#discovery-drawer[data-discovery-link="ready"]', { timeout: 20000 });
+    // The heading is run.json's own slug, and a seeded copy keeps the source's (faster-payment) — so the package the
+    // drawer opened is asserted from the inputs it read the session through, and "finished" from the heading.
+    const pos = await page.locator("#discovery-position").textContent();
+    const opened = await page.evaluate(() => [document.querySelector("#discovery-slug").value, document.querySelector("#discovery-provenance").value]);
+    t("W5 · the drawer is open on real/fp-inbox, reading finished", (await page.locator("#discovery-drawer").isVisible())
+      && canon(opened) === canon(["fp-inbox", "real"]) && pos.includes(" · finished "), `${JSON.stringify(opened)} ${pos}`);
+  });
+  await step("W6 · a frame not on the canvas is said, never guessed at", async () => {
+    await page.goto(`${base}/canvas.html?provenance=real&slug=fp-inbox&frame=nope`, { waitUntil: "load" });
+    await page.waitForSelector('html[data-canvas-page="ready"]', { timeout: 20000 });
+    const heard = await waitSaid(page, "Frame nope is not on this canvas.").then(() => true, () => false);
+    t("W6 · the live region says Frame nope is not on this canvas.", heard, await said(page));
+    t("W6 · the ledger is still 7 lines", ledger("fp-inbox").length === 7, String(ledger("fp-inbox").length));
+  });
 }
 
 async function groupsPass(base, page, t, step, errors) {
