@@ -6,8 +6,8 @@
 // A PURE READ OVER FILES THAT ALREADY EXIST. No op, no write path, no stored state: every row is derived on each call
 // from the run packages through the readers that already own each queue (missingStates, staleFrames, openProposals,
 // ledgerView, foldProposals, an import record's `unbound` block), and a row is cleared only by its verb on its own
-// page. This file writes nothing — build-checks group 51.1 greps for every fs write call and 51.7 hashes a package
-// before and after.
+// page. This file writes nothing — build-checks group 51.1 pins its node: imports to exactly node:fs {existsSync,
+// readFileSync} and node:path {join}, so no write call is in reach, and 51.7 hashes a package before and after.
 //
 // NO SDK, AND NOTHING THAT COULD REACH ONE. It imports node built-ins, ../../system/canvas-ops.mjs,
 // ./canvas-store.mjs, ../../discovery/ops.mjs and ../../discovery/proposals.mjs — all SDK-free, all loaded by
@@ -18,7 +18,8 @@
 // THE RUN SET IS listBuilds'. A discovery-only package (no build/) has no rows (owner, 2026-10-01: the graded-*
 // judge fixtures would add ~75 rows that are not the owner's work). One run whose package throws while loading is
 // reported in `errors` and contributes no rows — an error has no verb — so one bad package never takes the page down.
-// `counts` carries every listed run, zero included.
+// `counts` carries every listed run, zero included. Each root is listed on its own, so a package is read from the root
+// it was found in; two roots answering the same provenance/slug both report, their rows and counts under one key.
 //
 // THE NINE KINDS, in KINDS order, each with the one verb that clears it:
 //   agent-proposal    an agent `proposed` line no verdict answers          Accept or refuse
@@ -44,7 +45,8 @@
 //                     the session finishes (a finished session takes no turns, so no verb could clear it there; it
 //                     stays in prd.md's Open questions). An off-script one (question_id null) clears only by finishing.
 //
-// ORDER: blocking rows first, within them by KINDS order then `at`; the rest oldest first by `at`. Ties: provenance,
+// ORDER: blocking rows first, within them by KINDS order then `at`; the rest oldest first by `at`; a row with no `at`
+// after every dated row in its band. Ties: provenance,
 // slug, KINDS order, subject. Deterministic (group 51.5). `at` is the build ledger line's `at` for build rows (a
 // frame's is the line that first created it) and the transcript or proposal line's `ts` for discovery rows.
 //
@@ -206,10 +208,11 @@ function rowsFor({ provenance, slug, hasTranscript }, pkg) {
   return out;
 }
 
-const byOrder = (a, b) => {
+export const byOrder = (a, b) => {
   if (a.blocking !== b.blocking) return a.blocking ? -1 : 1;
   const k = KINDS.indexOf(a.kind) - KINDS.indexOf(b.kind);
   if (a.blocking && k) return k;
+  if ((a.at == null) !== (b.at == null)) return a.at == null ? 1 : -1;
   const t = String(a.at ?? "").localeCompare(String(b.at ?? ""));
   if (t) return t;
   return a.provenance.localeCompare(b.provenance) || a.slug.localeCompare(b.slug) || k || a.subject.localeCompare(b.subject);
@@ -220,16 +223,17 @@ export function inbox(roots) {
   const rows = [];
   const counts = {};
   const errors = [];
-  for (const r of listBuilds(roots)) {
-    const key = `${r.provenance}/${r.slug}`;
-    counts[key] = 0;
-    const dir = roots.find((x) => x.provenance === r.provenance && existsSync(join(x.dir, r.slug)))?.dir;
-    try {
-      const mine = rowsFor(r, join(dir, r.slug));
-      counts[key] = mine.length;
-      rows.push(...mine);
-    } catch (e) {
-      errors.push({ provenance: r.provenance, slug: r.slug, message: e.message });
+  for (const root of Array.isArray(roots) ? roots : []) {
+    for (const r of listBuilds([root])) {
+      const key = `${r.provenance}/${r.slug}`;
+      counts[key] ??= 0;
+      try {
+        const mine = rowsFor(r, join(root.dir, r.slug));
+        counts[key] += mine.length;
+        rows.push(...mine);
+      } catch (e) {
+        errors.push({ provenance: r.provenance, slug: r.slug, message: e.message });
+      }
     }
   }
   return { rows: rows.sort(byOrder), counts, errors };

@@ -17943,8 +17943,13 @@ const synthPng = (w, h, ct, px) => {
       `51.1: portal/lib/inbox.mjs imports ${deep(ibFrom)} — node: built-ins and ${IB_ALLOWED.join(", ")} only (and node:fs at least, or the parse read nothing)`);
     ok(!/claude-agent-sdk|@anthropic-ai|@modelcontextprotocol|\bzod\b/.test(ibCode) && !/\bimport\s*\(/.test(ibCode),
       "51.1: portal/lib/inbox.mjs names the Agent SDK, zod or @modelcontextprotocol, or imports dynamically");
-    const writes = ibCode.match(/\b(writeFileSync|appendFileSync|mkdirSync|rmSync|copyFileSync|renameSync|unlinkSync)\b/g);
-    ok(!writes, `51.1: portal/lib/inbox.mjs writes (${deep(writes)}) — the inbox is a read; a row is cleared only by its verb on its own page`);
+    // An ALLOWLIST, not a denylist of write names (PR #501 F1): the node: built-ins pinned to exactly the bindings a read
+    // needs, so cpSync, node:fs/promises, a namespace or a default import all red without naming them here.
+    const ibNode = [...ibCode.matchAll(/^\s*import\s+([^'"]*?)\s*from\s+["'](node:[^"']+)["']/gm)]
+      .map((m) => `${m[2]} ${/^\{[^}]*\}$/.test(m[1]) ? `{${m[1].slice(1, -1).split(",").map((x) => x.trim()).filter(Boolean).sort().join(",")}}` : m[1]}`).sort();
+    const IB_NODE = ["node:fs {existsSync,readFileSync}", "node:path {join}"];
+    ok(deep(ibNode) === deep(IB_NODE) && ibFrom.filter((s) => s.startsWith("node:")).length === IB_NODE.length,
+      `51.1: portal/lib/inbox.mjs's node: imports are ${deep(ibNode)} — exactly ${deep(IB_NODE)}; the inbox is a read, and a row is cleared only by its verb on its own page`);
 
     if (IB) {
       const { inbox, KINDS, hrefFor, entryFrames } = IB;
@@ -18143,6 +18148,22 @@ const synthPng = (w, h, ct, px) => {
           `51.5: the agent proposal is not first, or the rest are not oldest first — ${deep(r.rows.map((x) => `${x.kind} ${x.at}`))}`);
         const again = look(c.roots);
         ok(deep(again) === deep(r), "51.5: two reads of one package answered different orders");
+        // PR #501 F3: a row with no `at` sorts after every dated row in its band, never before.
+        const row = (at, blocking = false) => ({ blocking, kind: "missing-state", at, provenance: "real", slug: "s", subject: `x${at}` });
+        const sorted = [row(null), row("2026-02-01T00:00:00Z"), row(null, true), row("2026-01-01T00:00:00Z")].sort(IB.byOrder).map((x) => `${x.blocking ? "B" : "-"} ${x.at}`);
+        ok(deep(sorted) === deep(["B null", "- 2026-01-01T00:00:00Z", "- 2026-02-01T00:00:00Z", "- null"]),
+          `51.5: byOrder put an undated row before a dated one — ${deep(sorted)}`);
+      }
+
+      // --- 51.5b two roots, one provenance/slug: each package read from its own root (PR #501 F2) ----------
+      {
+        const a = pkgCopy("tworoot-a");
+        const b = pkgCopy("tworoot-b");
+        fold("51.5b: state.add on b", () => save(b.pkg, [{ op: "state.add", params: { baseId: "f1", stateKey: "empty", override: {} }, status: "applied" }], F3));
+        const r = look([...a.roots, ...b.roots]);
+        const n = r.rows.filter((x) => x.kind === "missing-state").length;
+        ok(n === 5 && r.counts["real/spine"] === 5 && !r.errors.length,
+          `51.5b: two roots holding real/spine (3 + 2 missing states) answered ${n} rows, counts ${deep(r.counts)}, errors ${deep(r.errors)} — one package read twice and the other never`);
       }
 
       // --- 51.6 every kind is covered ------------------------------------------------------------------
@@ -18185,7 +18206,7 @@ const synthPng = (w, h, ct, px) => {
       ok(junk?.includes("nope"), `51.9: hrefFor of a junk page answered ${deep(junk)} — a throw naming the page`);
     }
 
-    group("inbox", `portal/lib/inbox.mjs (#319, D1): every build run's waiting items as rows, a pure read · 51.1 IMPORTED in CI with no portal/node_modules, its parsed specifiers node: built-ins plus exactly canvas-ops, the store, discovery/ops.mjs and discovery/proposals.mjs, no SDK, zod, MCP or dynamic import, and no fs write call in its source · 51.2 no roots, an absent root and a package whose build/ is empty each answering no rows and no errors, the last counted 0 · 51.3 a seeded copy of the spine answering exactly f1's three missing-state rows (empty, loading, partial — field by field, href included), entryFrames ["f1"] there, the first base frame over a cycle and [] over junk, and the committed discovery/ answering no errors, known kinds and counts summing to its rows · 51.4 one positive control per kind, each on its own seeded copy and cleared by its own verb through the real writer with every other row unchanged and no row the case does not name: stale-frame (a REAL discovery-applier supersede, Re-confirm by reconfirmRefs; blocking on the entry f1, not on a non-entry f3), dangling-ref (a 99 saved with decisions null, re-linked), missing-state (one state.add clears one of three), unlinked-frame (a composed f3, linked; a stand-in lists none), unbound-import (43.7's synthetic unbound export, editMapping confirms the snap), ratify-pending (the Mode 1 proposal, a ratify line clears it; a Mode 2 proposal never lists, its snaps still do), agent-proposal (appendAgentLine's open line, first and blocking, accepted), open-question (a park on a reopened copy cleared by a later decision on its question, and by finishing; a finished session lists none), feature-proposal (a hand-authored proposal passed by checkProposalLines, cleared by a parked verdict) · 51.5 blocking first by KINDS (the newest agent proposal before an older stale entry frame) then oldest first, and two reads equal · 51.6 every one of the nine KINDS produced by some fixture · 51.7 every file of a package hashed unchanged across inbox() · 51.8 a malformed ledger beside the spine answering one error naming its slug and line 2, the spine's three rows intact · 51.9 hrefFor's four canvas shapes and the discovery shape as exact strings, a junk page refused by name. CANNOT REACH: whether the page renders the rows and whether following one lands on the right control (canvas-journey pass W), and whether the order is the order the owner wants (a human read)`);
+    group("inbox", `portal/lib/inbox.mjs (#319, D1): every build run's waiting items as rows, a pure read · 51.1 IMPORTED in CI with no portal/node_modules, its parsed specifiers node: built-ins plus exactly canvas-ops, the store, discovery/ops.mjs and discovery/proposals.mjs, no SDK, zod, MCP or dynamic import, and its node: imports exactly node:fs {existsSync, readFileSync} and node:path {join} (an allowlist, so no write call, node:fs/promises, namespace or default import is in reach) · 51.2 no roots, an absent root and a package whose build/ is empty each answering no rows and no errors, the last counted 0 · 51.3 a seeded copy of the spine answering exactly f1's three missing-state rows (empty, loading, partial — field by field, href included), entryFrames ["f1"] there, the first base frame over a cycle and [] over junk, and the committed discovery/ answering no errors, known kinds and counts summing to its rows · 51.4 one positive control per kind, each on its own seeded copy and cleared by its own verb through the real writer with every other row unchanged and no row the case does not name: stale-frame (a REAL discovery-applier supersede, Re-confirm by reconfirmRefs; blocking on the entry f1, not on a non-entry f3), dangling-ref (a 99 saved with decisions null, re-linked), missing-state (one state.add clears one of three), unlinked-frame (a composed f3, linked; a stand-in lists none), unbound-import (43.7's synthetic unbound export, editMapping confirms the snap), ratify-pending (the Mode 1 proposal, a ratify line clears it; a Mode 2 proposal never lists, its snaps still do), agent-proposal (appendAgentLine's open line, first and blocking, accepted), open-question (a park on a reopened copy cleared by a later decision on its question, and by finishing; a finished session lists none), feature-proposal (a hand-authored proposal passed by checkProposalLines, cleared by a parked verdict) · 51.5 blocking first by KINDS (the newest agent proposal before an older stale entry frame) then oldest first, an undated row after every dated one in its band, and two reads equal · 51.5b two roots answering one provenance/slug each read from its own root (3 + 2 rows, counted 5) · 51.6 every one of the nine KINDS produced by some fixture · 51.7 every file of a package hashed unchanged across inbox() · 51.8 a malformed ledger beside the spine answering one error naming its slug and line 2, the spine's three rows intact · 51.9 hrefFor's four canvas shapes and the discovery shape as exact strings, a junk page refused by name. CANNOT REACH: whether the page renders the rows and whether following one lands on the right control (canvas-journey pass W), and whether the order is the order the owner wants (a human read)`);
   }
 
   if (failures) {
