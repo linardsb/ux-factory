@@ -14598,10 +14598,19 @@ const synthPng = (w, h, ct, px) => {
   const scratch = (tag) => mkdtempSync(join(tmpdir(), `uxf-g43-${tag}-`));
   // A scratch copy of the committed spine — never the committed package itself, which a real run grows (#316: seeded).
   const { seedSpine: seed43 } = await import("../portal/lib/canvas-store.mjs");
-  const pkgCopy = (tag) => seed43(join(ROOT, "discovery/faster-payment"), join(scratch(tag), "pkg"), { discovery: true });
-  // A null package (a seed that failed) reads as an empty ledger, so the case after it fails by name instead of the
-  // whole run dying on a TypeError (#316's probe hit it).
-  const ledger = (pkg) => !pkg ? [] : readFileSync(join(pkg, "build/ops.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
+  // A seed that throws, or leaves no ledger, reds HERE by name (PR #495 F4) — never only downstream as an empty ledger.
+  // A failed seed still answers its scratch PATH (no ledger in it), not null, so later cases fail by name, not on join(null).
+  const pkgCopy = (tag) => {
+    const dest = join(scratch(tag), "pkg");
+    fold(`43: seed failed for "${tag}"`, () => {
+      const p = seed43(join(ROOT, "discovery/faster-payment"), dest, { discovery: true });
+      if (p !== dest || !existsSync(join(p, "build/ops.jsonl"))) throw new Error(`seedSpine answered ${p} with no build/ops.jsonl`);
+    });
+    return dest;
+  };
+  // A package with no ledger (a seed that failed, already red above) reads as an empty ledger, so the case after it
+  // fails by name instead of the whole run dying on a TypeError (#316's probe hit it).
+  const ledger = (pkg) => !pkg || !existsSync(join(pkg, "build/ops.jsonl")) ? [] : readFileSync(join(pkg, "build/ops.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
   const gitSnap = () => execFileSync("git", ["status", "--porcelain", "--", "system", "handoff", "discovery", "import/overrides"], { cwd: ROOT, encoding: "utf8" });
   const GIT_BEFORE = gitSnap();
   const VOCAB_BYTES = readFileSync(join(ROOT, "handoff/verdant/vocabulary.json"));
@@ -17364,9 +17373,18 @@ const synthPng = (w, h, ct, px) => {
     const afold = async (what, fn, fallback = null) => { try { return await fn(); } catch (e) { ok(false, `${what} threw instead of answering: ${e.message}`); return fallback; } };
     const scratch = (tag) => mkdtempSync(join(tmpdir(), `uxf-g50-${tag}-`));
     const { seedSpine: seed50 } = await import("../portal/lib/canvas-store.mjs");
-    const pkgCopy = (tag) => seed50(join(ROOT, "discovery/faster-payment"), join(scratch(tag), "pkg"), { discovery: true });
-    // Null-guarded (#316's probe): a failed setup reads as an empty ledger and fails its case by name.
-    const ledger = (pkg) => !pkg ? [] : readFileSync(join(pkg, "build/ops.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
+    // A seed that throws, or leaves no ledger, reds HERE by name (PR #495 F4) — never only downstream as an empty ledger.
+    // A failed seed still answers its scratch PATH (no ledger in it), not null, so later cases fail by name, not on join(null).
+    const pkgCopy = (tag) => {
+      const dest = join(scratch(tag), "pkg");
+      fold(`50: seed failed for "${tag}"`, () => {
+        const p = seed50(join(ROOT, "discovery/faster-payment"), dest, { discovery: true });
+        if (p !== dest || !existsSync(join(p, "build/ops.jsonl"))) throw new Error(`seedSpine answered ${p} with no build/ops.jsonl`);
+      });
+      return dest;
+    };
+    // Null-guarded (#316's probe): a failed setup (already red above) reads as an empty ledger and fails its case by name.
+    const ledger = (pkg) => !pkg || !existsSync(join(pkg, "build/ops.jsonl")) ? [] : readFileSync(join(pkg, "build/ops.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
     const BLUEPRINT = readFileSync(join(ROOT, "import/fixtures/spike-c-instance.blueprint.txt"));
 
     // --- 50.1 IMPORTED in CI with no portal/node_modules; no SDK, statically or lazily ------------------
