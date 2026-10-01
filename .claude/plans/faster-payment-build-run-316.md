@@ -337,10 +337,22 @@ Re-run NOTES §Pre-flight on the new `main` and amend (AMENDMENTS) before T11:
 - #320's alternatives param beside `states` in PARAMS `:84`; 47.2b re-pinned by #320 over Segment A's value.
 - #319's inbox rows include declared-but-missing states (it reads `missingStates`).
 - Fix checks 2–4's symbol names in `run-316-ready.mjs` from the merged diffs; `node tooling/run-316-ready.mjs` → `✓`.
+  PR #495 review F3 is tracked as a checkbox on #319 (check 3: pin the inbox's export, not the file's existence) and
+  on #320 (check 4: pin the alternatives key by name). If either ticket merged without ticking it, do it here.
+- PR #495 review F4 (Low, **not landed** at 694ab91 — no `#495` reference in groups 43/50): add one `ok(false, …)` at
+  seed time in groups 43 and 50 so a failed seed cannot degrade to an empty ledger. REDDENS: make `seedSpine` throw
+  in the group's scratch dir → the new case names the seed.
+- Re-resolve every Segment B `file:line` against the new `main`. T12–T17 cite by **symbol** (`missingStates`,
+  `stateDiagram`, `frameTree`, `laneDoc`, `compositionCount`, `partProvenance`, `unboundCount`, `CLEAN_GUARD`);
+  the line numbers drifted ~17 lines with Segment A and will move again with #318–#320.
 
 ### T11 OWNER — prepare the sitting tree
 
 A dedicated clean worktree of `main` **under `/Users`** (parallel sessions share the primary tree — memory `shared-worktree-parallel-sessions`; ratify needs a clean tree; VR needs Docker sharing). `npm ci` in `portal`, `tooling/icons`, `tooling/visual-regression`, `tooling/style-dictionary`; `git switch -c run/faster-payment-316`; confirm Console spend headroom (memory `api-usage-limit-until-2026-10-01`); `node tooling/run-316-ready.mjs` → `run-316 ready ✓  12 checks`. **Ready red → do not open the canvas.**
+**GOTCHA**: this machine's login shell exports `ANTHROPIC_API_KEY` (Segment A report §Issues). Run the ready script
+**and** `npm start` from one shell where it is unset (`unset ANTHROPIC_API_KEY`, then both commands), not only the
+ready script under `env -u`. `subscriptionEnv` strips the key from the SDK child, but a portal started from the
+exporting shell is not the environment check 8 proved.
 
 ### T12 OWNER — the sitting (**owner's hands only; the agent writes none of this**)
 
@@ -365,6 +377,10 @@ A dedicated clean worktree of `main` **under `/Users`** (parallel sessions share
 - `node agent-layer/gen-build-handoff.mjs --check`, `node tooling/build-checks.mjs` → green; commit the package + ratify's `system/` writes (ratify commits nothing).
 - VR from a **clean detached worktree under `/Users`** of that commit: `rm tooling/visual-regression/baselines/components-*.png` (memory `vr-update-skips-subperceptual`) and, if `system/loc-summary.json` moved, `rm …/approach-{neutral,saulera,verdant}.png`; `npm ci && npm run update:docker`; copy back; commit. Factory ×3: the system-graph panel renders on pick only (`factory.html:408`), so its at-rest baseline is expected unchanged — if update:docker rewrites it, name it in the report.
 - **VALIDATE**: `build ✓`; `git status` clean apart from `.claude/`.
+- **GOTCHA**: canvas-journey G2 (`build/groups/g1.json exists`) has a known race, unfixed on `main` at 694ab91:
+  `waitLines` (`tooling/canvas-journey.mjs`) returns when `ops.jsonl` has the line, but `saveRun` writes
+  `groups/g1.json` after it (Segment A report §Issues). A lone G2 red in PR B's journey run is re-run once before it
+  is diagnosed; a red that repeats is real.
 - **REGENERATES**: `/components` ×3; approach ×3 if loc moved.
 
 ### T14 READ the numbers (agent, $0) — AC #4
@@ -377,7 +393,9 @@ From the committed package only, **recorded, never judged**:
 - **Cost**: sum `stats.costUsd` over distinct turns (memory `discovery-cost-baselines`); count failed turns separately.
 
 ### T15 CHECK traceability (agent) — AC #5
-`verifyBuild` with `buildTranscript` green; every agent screen has an `accepted` owner verdict; add-payee reported as the spine's owner screen; no owner op labelled agent.
+`verifyBuild` with `buildTranscript` green — the trace rule is TR1–TR5 on `main` (TR5, PR #495 F2: an agent line's
+`params` equal what its transcript op line's `args` project to, so an edited composition or override is caught);
+the report states the rule's limit in F1's words (a transcript hand-written to match is not detectable); every agent screen has an `accepted` owner verdict; add-payee reported as the spine's owner screen; no owner op labelled agent.
 
 ### T16 CHECK completeness (agent) — AC #2
 `missingStates(doc)` on lane A → `[]`, or each gap with the owner's reason (their words; the agent does not write reasons).
@@ -484,6 +502,11 @@ Every added check has a REDDENS row and a positive control: T4 (a declaration-fr
 - **A2 — `states` optional at the tool** (R5).
 - **A3 — declared states are required** by `missingStates`.
 - **A4 — "hand-written" provenance is not derivable**; reported as zero with the reason.
+- **Q1 — wait for the chain, or run without D1/D2/D5? (owner's call, 2026-10-01.)** The five ACs do not name
+  D1/D2/D5; the ticket's Scope ("The owner drives, in this run") and its Depends-on line do. This plan waits (T10),
+  which keeps the ticket as written but puts ~1,300–2,200 lines (the three tickets' own estimates) ahead of the
+  sitting. Running now would meet ACs 1–5 and leave the D1/D2/D5 steps (T12 steps 3, 4, 10) as **Not run**, with
+  checks 2–4 waived by the owner in the report. Default: wait.
 
 ## NOTES (open canvas)
 
@@ -523,6 +546,32 @@ Grower fixes: new frames placed right of every node (the probe's `236 * index` p
 `assertCwd` refuses any cwd inside its own repo, so the scratch worktree needed the probe's `PROBE_ALLOW` bypass
 again (applied there only, never committed).
 
+### Pre-flight (2026-10-01, `origin/main` 694ab91 — after PR A, before T10)
+
+Ran in a clean detached worktree under `/Users` with `npm ci` in all four module dirs (observed):
+- `env -u ANTHROPIC_API_KEY node tooling/run-316-ready.mjs` → red on checks 2, 3, 4 only (`3 of 12 checks red`),
+  exit 1. Check 11 green, so build-checks passes on `main`; check 5 green, so `build/ops.jsonl` is still the 6-line
+  spine (`wc -l` → 6) and Run 1 has not started.
+- #318, #319, #320: OPEN, no PR. #317 OPEN (parked). #493 OPEN (R4 still applies).
+- R2 met: PR A (#495) merged 2026-10-01 07:58Z, before any of #318–#320.
+- PR #495 review: F1 (the rule's wording) and F2 (TR5, params equality) **landed** — `canvas-store.mjs:355-357`,
+  36.14 rows at `build-checks.mjs:12580-12583`. F3 tracked on #319/#320. F4 **not landed** → T10.
+- T12's UI labels all resolve on `main`: `#cv-brief` and **Ask for a screen** (`canvas.mjs`), `[data-cv-ask-state]`,
+  **Add note** (`data-canvas-verb="annotate"`) and **Write handoff pack** (`canvas.html`), **Check binding** /
+  **Re-bind** / **Import selection** / **Browse the page** / **Measure fidelity** (`canvas-import.mjs`), **Preview the
+  ratify** / **Ratify: write, run every gate, show the diff** (`canvas-ratify.mjs`), **Promote** (`canvas-groups.mjs`).
+  `#/inbox` is #319's and does not exist yet.
+- T14's fields resolve: `elapsed.ratify` = last line's `at` − the applied `component.propose`'s `at`
+  (`ratify.mjs:678-686`); `elapsed.recognition` (`import-run.mjs:231`, set from `Date.now() - t0` at `:459`);
+  `unboundCount` (`import-run.mjs:236`); `costUsd` from `total_cost_usd` (`canvas-transport.mjs:93`);
+  `compositionCount` and `partProvenance` exported from `gen-build-handoff.mjs:65`, `:83`.
+- `CLEAN_GUARD` (`ratify.mjs:71-74`) unchanged: the second call still includes `discovery`, so R3's mid-sitting commit stands.
+- Line drift: `missingStates` 758 → 775, `laneDoc` 802 → 820, `groupInstances` 821 → 839, `frameTree` 883 → 901,
+  `stateDiagram` 1065 → 1083. Segment B now cites by symbol (T10).
+
+Changed because of it: T10 (F3 pointers, F4, re-resolve by symbol), T11 (unset the key in the portal's shell), T13
+(G2 race), T15 (TR5 and F1's limit), Q1.
+
 ### Why confidence is 10 for Segment A
 Every task in Segment A either edits a line read and audited this session, or fixes a red that was **observed**. Its done-condition is mechanical: the same grower that produced 118 reds must produce 0, bar the intended `fake` red. An implementer who meets T8 cannot have missed a fixture, because T8 is the fixture census.
 
@@ -545,3 +594,8 @@ The sitting depends on three unmerged tickets and on the owner's choices. The pl
   x-counter per call, so a second accepted screen lands on the first; T8 moved it with a drag. (4) T2 said the
   preflight proves the tool schema lists `states`; PF1 checked `required` only, so PF1 now also pins the property list.
 - 2026-09-30 — plan revised after a grown-package probe (observed red list), a line-by-line citation audit and an open-items pass: added T3 (card, floor wording), T7 (one spine seed), T8 (re-probe as the done-condition), ready checks 9 and 12, the R1–R8 table, merge order and the pause marker; corrected ten citations and the trace rule's transport value.
+- 2026-10-01 (pre-flight after PR A, before T10) — re-ran the ready gate on `main` 694ab91: red on 2–4 only. Recorded
+  PR #495 F1/F2 as landed and F4 as open (added to T10); pointed T10 at F3's checkboxes on #319/#320; Segment B now
+  cites by symbol because Segment A moved the line numbers; T11 unsets `ANTHROPIC_API_KEY` in the portal's shell;
+  T13 carries the canvas-journey G2 race; T15 names TR5; added Q1 (wait for #318–#320 or run without D1/D2/D5).
+  No phase, task or AC changed.
