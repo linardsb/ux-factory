@@ -12,8 +12,10 @@ confirmed. The PR body says `Refs #316`, never `Closes`.
 
 Five things were built. `screen.compose` can now declare states beyond the five-state floor, and `missingStates`
 requires them. The handoff pack classifies each part as imported, admitted, composed or vocabulary. `verifyBuild`
-enforces a trace rule: every agent line must trace to the compose transcript, and a committed turn must have come
-from the real SDK. Every fixture and driver now seeds from the six-line spine instead of copying the committed
+enforces a trace rule: every agent line must trace to the compose transcript with the params its tool call's args
+project to, and a committed turn's stats must name the `sdk` transport or be a crashed turn's. It refuses the `fake`
+and `inline` transports and a ledger that disagrees with its transcript; it does not prove provenance, because a
+transcript hand-written to match is not detectable (PR #495 review F1, A4). Every fixture and driver now seeds from the six-line spine instead of copying the committed
 package whole. `tooling/run-316-ready.mjs` is the pre-sitting gate. The plan's done-condition (T8) was re-run: the
 probe's grown package leaves only the intended `fake`-transport reds.
 

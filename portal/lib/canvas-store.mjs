@@ -353,9 +353,20 @@ export function verifyBuild({ ops, canvas, groups, buildTranscript } = {}) {
 
 // traceFlaws(ops, buildTranscript) → string[] — the trace rule (#316, AC #5): every agent ledger line has exactly one
 // transcript op line at its seq, with its status and a tool that maps to its op (TR1, TR2); every transcript op line
-// with a seq points at an agent ledger line (TR3); every agent refusal has its refused line (TR4). `null` is a
-// package with no build/transcript.jsonl: every agent line is then a flaw. Total over junk.
+// with a seq points at an agent ledger line (TR3); every agent refusal has its refused line (TR4); every agent line
+// that is not refused carries exactly the params fileProposal builds from its op line's args (TR5, PR #495 review
+// F2 — without it an edited composition or override traced cleanly). `null` is a package with no
+// build/transcript.jsonl: every agent line is then a flaw. Total over junk.
 const TOOL_OP = Object.freeze({ screen_compose: "screen.compose", state_add: "state.add" });
+// fileProposal's projection of a tool call's args onto the op's params, undefined values dropped as JSON drops them.
+const TOOL_PARAMS = Object.freeze({
+  screen_compose: (a) => ({ screenId: a.screenId, why: a.why, composition: a.composition, decisionRefs: a.decisionRefs, states: a.states }),
+  state_add: (a) => ({ baseId: a.baseId, stateKey: a.stateKey, override: a.override }),
+});
+const paramsOf = (tool, args) => {
+  const a = args && typeof args === "object" ? args : {};
+  return Object.fromEntries(Object.entries(TOOL_PARAMS[tool](a)).filter(([, v]) => v !== undefined));
+};
 export function traceFlaws(ops, buildTranscript) {
   const lines = Array.isArray(ops) ? ops : [];
   const agent = lines.filter((l) => l?.source === "agent");
@@ -370,6 +381,7 @@ export function traceFlaws(ops, buildTranscript) {
     const t = mine[0];
     if (t.status !== l.status) out.push(`ops.jsonl line ${l.seq}: status ${JSON.stringify(l.status)} but the transcript's op line says ${JSON.stringify(t.status)}`);
     if (TOOL_OP[t.tool] !== l.op) out.push(`ops.jsonl line ${l.seq}: ${l.op} but the transcript's op line is tool ${JSON.stringify(t.tool)}`);
+    else if (l.status !== "refused" && canon(l.params) !== canon(paramsOf(t.tool, t.args))) out.push(`ops.jsonl line ${l.seq}: params ${canon(l.params)} but the transcript's op line's args project to ${canon(paramsOf(t.tool, t.args))}`);
     if (l.status === "refused" && !tx.some((r) => r.type === "refused" && r.seq === l.seq)) out.push(`ops.jsonl line ${l.seq}: an agent refusal with no refused line for seq ${l.seq} in build/${BUILD_TRANSCRIPT_FILE}`);
   }
   for (const t of opLines) {
