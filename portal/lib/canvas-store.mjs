@@ -35,13 +35,15 @@
 //                derived from the fold on every save; a file the fold no longer derives (an undone define)
 //                is removed. It carries no authored part at all.
 
-import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { appendFileSync, copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { applyOp, applyOps, EXHIBIT_SIZE, exhibitClashes, exhibitsOf } from "../../system/canvas-ops.mjs";
 
 export const OPS_FILE = "ops.jsonl";
 export const CANVAS_FILE = "canvas.json";
 export const GROUPS_DIR = "groups";
+// The compose loop's transcript (canvas-session.mjs's TRANSCRIPT_FILE), read here for the trace rule (#316).
+export const BUILD_TRANSCRIPT_FILE = "transcript.jsonl";
 
 // groupFiles(doc, run) → { "<id>.json": {id, name, parts, provenance: {run, composedFrom}} } — the groups/ projection
 // (#315, D7): derived from the fold, rewritten on every save, never a fact the ops do not carry. Id order.
@@ -75,7 +77,9 @@ export function saveBuild(root, canvas, opLines) {
   return { root, ops, canvas: canvasPath };
 }
 
-// loadBuild(root) → { ops, canvas } — the parsed pair, or null when the package has no build half.
+// loadBuild(root) → { ops, canvas, groups, run, buildTranscript } — the parsed package, or null when it has no build half.
+// `buildTranscript` is build/transcript.jsonl parsed, or NULL when the file is absent (#316) — never the package's own
+// transcript.jsonl, which is discovery's.
 //
 // NULL RATHER THAN A THROW for an absent package, because most discovery packages have no build/
 // and asking is a legitimate question. A package that HAS one and is malformed throws naming the
@@ -111,7 +115,33 @@ export function loadBuild(root) {
       catch (e) { throw new Error(`loadBuild: ${join(groupsDir, f)} is not JSON — ${e.message}`); }
     }
   }
-  return { ops, canvas, groups, run: basename(dirname(root)) };
+  const txPath = join(root, BUILD_TRANSCRIPT_FILE);
+  const buildTranscript = existsSync(txPath) ? readJsonl(txPath) : null;
+  return { ops, canvas, groups, run: basename(dirname(root)), buildTranscript };
+}
+
+// ---- #316: the spine seed ------------------------------------------------------------------------
+
+// The spine is MVP 14's first six lines of discovery/faster-payment/build/ops.jsonl (build-checks group 36 pins them
+// as a prefix). Everything a real run appends comes after them.
+export const SPINE_LENGTH = 6;
+
+// seedSpine(srcPkg, destPkg, { discovery }) → destPkg — a scratch package holding the source's SPINE and nothing a run
+// added (#316). Copies run.json and prd.md (with `discovery`, answers.jsonl and the discovery transcript.jsonl too, which
+// loadDecisions reads), then writes build/ through saveBuild: the first SPINE_LENGTH ledger lines and the arrangement
+// they derive under the source canvas.json's own positions. NEVER build/transcript.jsonl, imports/, proposals/ or
+// groups/ — so every fixture that seeds from the committed package starts from the same document however long the
+// committed run grows, and the next id it mints (f3, g1, i1, pr1) is free.
+export function seedSpine(srcPkg, destPkg, { discovery = false } = {}) {
+  const src = loadBuild(join(srcPkg, "build"));
+  if (!src || src.ops.length < SPINE_LENGTH) throw new Error(`seedSpine: ${srcPkg} has no ${SPINE_LENGTH}-line spine in build/${OPS_FILE}`);
+  mkdirSync(destPkg, { recursive: true });
+  for (const f of ["run.json", "prd.md", ...(discovery ? ["answers.jsonl", "transcript.jsonl"] : [])]) {
+    if (existsSync(join(srcPkg, f))) copyFileSync(join(srcPkg, f), join(destPkg, f));
+  }
+  const spine = src.ops.slice(0, SPINE_LENGTH);
+  saveBuild(join(destPkg, "build"), arrangement(foldLedger(spine).doc, positionsOf(src.canvas)), spine);
+  return destPkg;
 }
 
 // ---- #306: the fold, the derivation, the gate ----------------------------------------------------
@@ -255,7 +285,11 @@ export function positionsOf(canvas) {
 // groups/ file must equal what the ops derive, none missing and none extra, its provenance.run a run slug but not
 // the reading directory's (a renamed copy keeps the run its groups were composed in) (#315). A position is looked for only in a
 // line's own keys and its params' own keys (F10, PR #485), so a part id `x` inside an override is not one.
-export function verifyBuild({ ops, canvas, groups } = {}) {
+//
+// THE TRACE RULE (#316): with `buildTranscript` (loadBuild's), every agent line must trace to the compose loop's
+// transcript — traceFlaws below. NULL (the file is absent) flags every agent line, so deleting the transcript cannot
+// hide one; UNDEFINED (a hand-built {ops, canvas} that never passed it) skips the rule, groups' convention.
+export function verifyBuild({ ops, canvas, groups, buildTranscript } = {}) {
   const out = [];
   if (!Array.isArray(ops)) return ["ops.jsonl did not load as a list of lines"];
   ops.forEach((l, i) => {
@@ -286,6 +320,7 @@ export function verifyBuild({ ops, canvas, groups } = {}) {
   try { folded = foldLedger(ops).doc; derived = arrangement(folded, positionsOf(canvas)); }
   catch (e) { out.push(`the ledger does not fold into the arrangement: ${e.message}`); return out; }
   out.push(...laneFlaws(folded));
+  if (buildTranscript !== undefined) out.push(...traceFlaws(ops, buildTranscript));
   // #315: groups/ compared only when the caller passes it (loadBuild does), so a hand-built {ops, canvas} is unaffected.
   // provenance.run is the run the group was COMPOSED in, not the directory it is read from: a package copied under
   // another name (every scratch copy here, 36.10's among them) keeps its groups' run, so run is checked as a slug and
@@ -312,6 +347,48 @@ export function verifyBuild({ ops, canvas, groups } = {}) {
     }
     for (const id of want.keys()) if (!have.has(id)) out.push(`canvas.json is missing ${kind} "${id}", which the ops derive`);
     if (out.length === 0 && canon([...have.keys()]) !== canon([...want.keys()])) out.push(`canvas.json's ${kind} are out of the derivation's order`);
+  }
+  return out;
+}
+
+// traceFlaws(ops, buildTranscript) → string[] — the trace rule (#316, AC #5): every agent ledger line has exactly one
+// transcript op line at its seq, with its status and a tool that maps to its op (TR1, TR2); every transcript op line
+// with a seq points at an agent ledger line (TR3); every agent refusal has its refused line (TR4); every agent line
+// that is not refused carries exactly the params fileProposal builds from its op line's args (TR5, PR #495 review
+// F2 — without it an edited composition or override traced cleanly). `null` is a package with no
+// build/transcript.jsonl: every agent line is then a flaw. Total over junk.
+const TOOL_OP = Object.freeze({ screen_compose: "screen.compose", state_add: "state.add" });
+// fileProposal's projection of a tool call's args onto the op's params, undefined values dropped as JSON drops them.
+const TOOL_PARAMS = Object.freeze({
+  screen_compose: (a) => ({ screenId: a.screenId, why: a.why, composition: a.composition, decisionRefs: a.decisionRefs, states: a.states }),
+  state_add: (a) => ({ baseId: a.baseId, stateKey: a.stateKey, override: a.override }),
+});
+const paramsOf = (tool, args) => {
+  const a = args && typeof args === "object" ? args : {};
+  return Object.fromEntries(Object.entries(TOOL_PARAMS[tool](a)).filter(([, v]) => v !== undefined));
+};
+export function traceFlaws(ops, buildTranscript) {
+  const lines = Array.isArray(ops) ? ops : [];
+  const agent = lines.filter((l) => l?.source === "agent");
+  if (buildTranscript === null) return agent.map((l) => `ops.jsonl line ${l.seq}: source "agent" but the package has no build/${BUILD_TRANSCRIPT_FILE}`);
+  const tx = Array.isArray(buildTranscript) ? buildTranscript.filter((t) => t && typeof t === "object") : [];
+  const opLines = tx.filter((t) => t.type === "op");
+  const out = [];
+  for (const l of agent) {
+    const mine = opLines.filter((t) => t.seq === l.seq);
+    if (!mine.length) { out.push(`ops.jsonl line ${l.seq}: source "agent" but build/${BUILD_TRANSCRIPT_FILE} has no op line for seq ${l.seq}`); continue; }
+    if (mine.length > 1) out.push(`ops.jsonl line ${l.seq}: build/${BUILD_TRANSCRIPT_FILE} has more than one op line for seq ${l.seq}`);
+    const t = mine[0];
+    if (t.status !== l.status) out.push(`ops.jsonl line ${l.seq}: status ${JSON.stringify(l.status)} but the transcript's op line says ${JSON.stringify(t.status)}`);
+    if (TOOL_OP[t.tool] !== l.op) out.push(`ops.jsonl line ${l.seq}: ${l.op} but the transcript's op line is tool ${JSON.stringify(t.tool)}`);
+    else if (l.status !== "refused" && canon(l.params) !== canon(paramsOf(t.tool, t.args))) out.push(`ops.jsonl line ${l.seq}: params ${canon(l.params)} but the transcript's op line's args project to ${canon(paramsOf(t.tool, t.args))}`);
+    if (l.status === "refused" && !tx.some((r) => r.type === "refused" && r.seq === l.seq)) out.push(`ops.jsonl line ${l.seq}: an agent refusal with no refused line for seq ${l.seq} in build/${BUILD_TRANSCRIPT_FILE}`);
+  }
+  for (const t of opLines) {
+    if (t.seq === null || t.seq === undefined) continue;
+    const l = lines.find((x) => x?.seq === t.seq);
+    if (!l) out.push(`transcript op seq ${JSON.stringify(t.seq)} points at no ledger line`);
+    else if (l.source !== "agent") out.push(`transcript op seq ${t.seq} points at an ${l.source} line`);
   }
   return out;
 }

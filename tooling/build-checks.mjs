@@ -11560,7 +11560,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   // nothing was checked.
   const full = fold(STATE_KEYS.slice(1).map((k) => ({ op: "state.add", params: { baseId: "f1", stateKey: k, override: {} } })),
     fold([{ op: "screen.compose", params: VALID_FOR["screen.compose"] }]) ?? emptyDoc()) ?? emptyDoc();
-  ok(missingStates(full).length === 0, `a base with all five states still reported ${deep(missingStates(full))}`);
+  ok(missingStates(full).length === 0, `a base with every floor state and none declared still reported ${deep(missingStates(full))}`);
   for (const junk of [null, undefined, 42, "x", { frames: "no" }, { frames: [null, 7] }]) {
     ok(Array.isArray(missingStates(junk)), `missingStates(${JSON.stringify(junk)}) must answer an array, never throw`);
   }
@@ -12045,7 +12045,57 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     for (const [verb, fn] of ins("g1-1-title")) ok(threw(fn) === null, `35.17l control — ${verb} with part id "g1-1-title" was refused: ${threw(fn)}`);
   }
 
-  group("canvas ops", `#313's proposal.ratify (35.16): a Mode 1 proposal ratified FIRST as the positive control — status "ratified", its component recorded, every other key and pr1 untouched, exhibitsOf still pr1 alone — then seven refusals each matched on what they name: an unknown id (listing pr1, pr2), a Mode 2 proposal (frozen original, G7), a second ratify, a component that is not a name, a proposalId that is not pr<n>, an id slot, and a document with no proposals key · #314's lanes (35.15): variant.add refusing key "a" (lane A is the document), omit other than true, omit beside set, an unknown override key, and a wrong-typed set, hide or add (PR #491 F2: a string or a part of strings for set, a number or a non-string part for hide, null for add, each named by its overrides.<frame>.<key> path) — each named — behind the positive control that {omit: true} alone and {set, hide, add} are ACCEPTED; LANE_OVERRIDE_KEYS frozen as set · hide · add · omit and BASE_LANE null; laneKeys [null] then [null, "b"], total over 5 junk docs; laneDoc omitting a base's states and every arrow touching either, flagging each omitted frame, an unknown lane holding no frames with an unknown-lane flag, and its argument unmutated; frameTree's layer order base.sets → lane[base] → state.overrides → state.sets → lane[state] (lane b's f1 "Check the name", its f2 still "Send anyway" plus the lane's hint, lane A's f1 "Continue") and an omitted frame answering tree null, flagged; missingStates per lane on the committed SYNTHETIC two-lane fixture — empty, partial for A and empty, error, partial for b, the error missing in b ONLY, [] for an unknown lane — and its f3 keeping "Checking the name…" in b; stateDiagram's spine text exact, lane b with no f2 and its arrow relabelled, "a:b;c#d" emitted as abcd; the lane reads total over junk · #475's Mode 2 exhibit (35.13, 35.14): EXHIBIT_SIZE 320×280 frozen by mutation; exhibitsOf answering Mode 2 proposals only, in order, total over 5 junk docs; exhibitClash over six literal boxes — right of the flow clear, below a frame with no authored height REFUSED (it reaches down without end, the only reading Node can compute), below an authored 600 clear, overlapping it refused, touching edges clear, a widened f2 refused — and junk answering null; exhibitClashes, the ONE call the page and arrangement both make, honouring an authored h from positions (the resize escape hatch), skipping an unplaced exhibit and taking a frame's width from the DOCUMENT even when positions says 9999 · the frozen-original refusal in screen.compose (nested two levels), state.add's override.add and variant.add's overrides.<frame>.add — each both bare and in the architecture's {parentId, index, part} wrapper, whose part the walk must reach — each naming the verb, the name, pr1 and G7, behind two kinds of positive control: the same three ops naming a Mode 1 proposal accepted, and a prop called name not mistaken for a node · #311's component.propose (35.12): pr1 minted deterministically and pr2 after it, eight refusals each matched on what they name (a bad name two ways, a duplicate name, a duplicate recordId, a recordId that is not i<n>, mode 3 and mode "1", an id slot), every key but proposals untouched, status "proposed" and proposal.ratify in OPS as the only verb that moves it — and a pre-#311 document with no proposals key folding · #306's four verbs and frame.size's free width: annotate minting n1 and EDITING in place (a noteId that does not resolve is refused, or it is the smuggling slot), frame.link REPLACING the list, frame.size {width} recording preset null, variant.add one lane, frame.remove taking its arrows with it — and 19 refusals naming the blocker (a state or a variant lane overriding the frame), each rule on decisionRefs, blank text, the lane key, the override map, and exactly-one-of preset/width with the 320–2560 bounds · frameTree resolving base sets, then the state\'s override, then its own sets, DROPPING a hidden node rather than writing `+"`"+`hidden`+"`"+` (the real validateComposition refuses that prop, and the returned trees pass it), flagging a dangling set and a hidden root, total over junk · placeDecision right of the anchor\'s whole ROW (894 then 1206 on the spine, where right-of-the-anchor is 422, on top of f2), a lower row ignored, total over junk · non-data inside params (a function, a symbol, nested) refused BY PATH before structuredClone's unnamed DataCloneError can speak (#437) · OPS ↔ PARAMS the same ${COPS.length} verbs in BOTH directions, every list frozen BY MUTATION at both levels (Object.freeze is shallow, and a pushable PARAMS entry lets the frozen case pass for the wrong reason), STATE_KEYS pinned as the five-state floor with "ideal" leading it, and NO PARAMS entry offering an id slot for the thing its op creates — the only way to enforce board-ops' mint-from-the-document rule is on the key set · #315's group.define and group.place (35.17) — the count final at fourteen: a group defined from a selection (the parts DERIVED from the frame's resolved tree), two copies g1-1 and g1-2, a redefine both follow, one copy's title overridden alone, a redefine dropping an overridden part refused naming the copy, twenty-two refusals by name, a redefine of a group a proposal names refused after propose and after ratify (PR #494 F1) and a "/" in a part id refused by screen.compose, state.add and variant.add behind a hyphenated control (F3), frameTree expanding copies before every layer with namespaced ids (a dangling copy override flagged with its copy, an unknown group flagged and dropped, a state and an arrow addressing a copy's part), every expanded tree through the real validateComposition and a list-row copy in a stack refused naming it, #475's frozen-original refusal on both verbs behind a Mode 1 control, and component.propose from a groupId (exactly one of recordId/groupId, Mode 1 only, one proposal per group); whether a group is a GOOD reuse is a human read, and whether the page's selection matches the owner's intent is canvas-journey's · a VALID_FOR fixture per verb so a FIFTEENTH verb with no fixture fails BY NAME, each fixture's keys asserted to be in its own PARAMS entry · EVERY constructive call routed through one fold() that turns a throw into a NAMED failure rather than an uncaught one: ok() only accumulates and group() prints at the end, so an unguarded throw here kills the process before a single named failure speaks — found by mutation (widening a PARAMS entry with an id slot makes 35.1's own assertion false AND makes the fold throw, and unguarded the throw won) · the happy six-op fold: ids minted f1/f2 and a1 with no op carrying one, a state proven to be a SIBLING carrying an override rather than a copy of its base, frame.size recording BOTH the preset name and the width so a later table edit moves new frames and leaves committed ones, and PURITY proven by mutating the input and by mutating the return · 19 refusals each DRIVEN by a broken op and matched on the words it must NAME — including D4's `+"`"+`why`+"`"+` three ways (absent, EMPTY, non-string), a state outside the minimum, a dangling frameId in each of four positions, an unknown verb, an unknown param, an unknown ENVELOPE key, a document that is not one, and PR #432's three open questions as the owner closed them on 2026-09-21: a state OF a state (which missingStates walks base frames only and could never have reported), a DUPLICATE (baseId, stateKey) (which its Set absorbed silently), and an unknown key INSIDE connect's from or to — with ENDPOINT_KEYS frozen at both levels beside PARAMS and `+"`"+`partId`+"`"+` proven to be `+"`"+`from`+"`"+`'s alone — behind the positive control that EVERY verb's minimal valid op is ACCEPTED, without which the battery would pass on an applier that refuses everything, plus applyOps naming the failing INDEX and verb · the TWO-LAYER rule gated: frame.sets (screen.set's) and frame.overrides.set (state.add's) proven to be the SAME SHAPE so ONE resolve applies both, with the state's layer proven to win over the base's — measured rather than assumed, because the spine's first render dropped its screen.set entirely and nothing said who joined the composition to the sets · resolve() proven to FLAG a dangling override and to keep it OUT of the resolved parts (never dropped, because it is a real thing someone wrote) with landing set and hide both applied, total over 6 junk shapes · missingStates as a LIST rather than a count, only BASE frames considered, a base with the floor met OMITTED so an empty answer means met rather than unchecked, total over 6 · canDeleteBasePart refusing by naming the state, its frame and what to do instead, with the part NOTHING overrides proven to pass so the refusal does not fire on everything · the preset table frozen with presetWidth answering NULL rather than a default · and the import graph pinned to device-presets.mjs alone. What it cannot reach: whether a composition RENDERS (group 3's), whether a frame ever reaches the canvas or the page renders frameTree's output (studio-journey's and canvas-journey's), whether the page puts a refused move back (canvas-journey's), whether Mermaid parses the stateDiagram text (a human paste), and whether a `+"`"+`why`+"`"+` is any GOOD — a sentence that says nothing while passing .trim() is a human read`);
+  // --- 35.18 declared states (#316): a screen declares states beyond the floor, and they are REQUIRED ----------
+  {
+    const decl = (states) => ({ op: "screen.compose", params: { ...VALID_FOR["screen.compose"], states } });
+    const addState = (k, base = "f1") => ({ op: "state.add", params: { baseId: base, stateKey: k, override: {} } });
+    // POSITIVE CONTROL: a compose with no `states` stores no `states` key, so the spine's frames stay byte-identical.
+    const plain = fold([{ op: "screen.compose", params: VALID_FOR["screen.compose"] }]) ?? emptyDoc();
+    ok(plain.frames[0] && !Object.hasOwn(plain.frames[0], "states"), `35.18 control — a compose with no states stored ${deep(plain.frames[0])}`);
+    const empty = fold([decl([])]) ?? emptyDoc();
+    ok(empty.frames[0] && !Object.hasOwn(empty.frames[0], "states"), `35.18 control — states: [] stored ${deep(empty.frames[0])}`);
+    // N1 a declared key is REQUIRED by missingStates, accepted by state.add, then no longer listed.
+    const d1 = fold([decl(["close-match"])]) ?? emptyDoc();
+    const m1 = missingStates(d1)[0]?.missing ?? [];
+    ok(m1.includes("close-match"), `35.18 N1 missingStates listed ${deep(m1)} — expected close-match, which f1 declares`);
+    const d1b = fold([addState("close-match")], d1) ?? emptyDoc();
+    const m1b = missingStates(d1b)[0]?.missing ?? [];
+    ok(d1b.frames.some((f) => f.stateKey === "close-match") && !m1b.includes("close-match"),
+      `35.18 N1 after state.add close-match missingStates listed ${deep(m1b)} — close-match must be gone`);
+    // N2 a key is a state of THIS base only when THIS base declares it.
+    ok(names(() => applyOp(d1, addState("no-match")), "state.add", "no-match", "f1", "close-match") === null,
+      `35.18 N2 state.add no-match on a base declaring close-match: ${threw(() => applyOp(d1, addState("no-match"))) ?? "NO THROW"}`);
+    ok(names(() => applyOp(plain, addState("close-match")), "state.add", "close-match", "none") === null,
+      `35.18 N2 state.add close-match on a base declaring none: ${threw(() => applyOp(plain, addState("close-match"))) ?? "NO THROW"}`);
+    // N3 refusals naming the key.
+    for (const [label, states, ...must] of [
+      ["a non-array", "close-match", "screen.compose", "states"],
+      ["a non-string", [7], "screen.compose", "states[0]", "7"],
+      ["Close_Match", ["Close_Match"], "screen.compose", "Close_Match"],
+      ["a one-letter key", ["x"], "screen.compose", "\"x\""],
+      ["25 characters", ["a".repeat(25)], "screen.compose", "a".repeat(25)],
+      ["a duplicate", ["close-match", "close-match"], "screen.compose", "states[1]", "twice"],
+      ["a floor key", ["error"], "screen.compose", "\"error\"", "floor"],
+    ]) ok(names(() => applyOp(emptyDoc(), decl(states)), ...must) === null, `35.18 N3 ${label}: must name ${must.map((w) => JSON.stringify(w)).join(" and ")} — got ${threw(() => applyOp(emptyDoc(), decl(states))) ?? "NO THROW"}`);
+    // N4 missingStates is total over a hand-built junk declaration.
+    for (const junk of ["no", [7], null, { a: 1 }]) {
+      const doc = { frames: [{ id: "f1", screenId: "pay", stateKey: "ideal", states: junk }] };
+      ok(threw(() => missingStates(doc)) === null && Array.isArray(missingStates(doc)), `35.18 N4 missingStates over states ${JSON.stringify(junk)} must answer an array, never throw — ${threw(() => missingStates(doc))}`);
+    }
+    // N5 a declared state's frame is a state, so a state of it is refused as a state of a state.
+    const f2 = d1b.frames.find((f) => f.stateKey === "close-match")?.id ?? "f2";
+    ok(names(() => applyOp(d1b, addState("error", f2)), "state.add", "close-match", "state of a state") === null,
+      `35.18 N5 state.add on the close-match frame: ${threw(() => applyOp(d1b, addState("error", f2))) ?? "NO THROW"}`);
+    // N6 a lane omitting the base reports none of its declared states; a lane that does not omit it reports them.
+    const lanes = fold([
+      { op: "variant.add", params: { key: "b", overrides: { f1: { omit: true } } } },
+      { op: "variant.add", params: { key: "c", overrides: { f1: { set: {} } } } },
+    ], d1) ?? emptyDoc();
+    ok(missingStates(lanes, "b").length === 0, `35.18 N6 lane b omits f1 yet reported ${deep(missingStates(lanes, "b"))}`);
+    ok((missingStates(lanes, "c")[0]?.missing ?? []).includes("close-match"), `35.18 N6 lane c keeps f1 and must report close-match — got ${deep(missingStates(lanes, "c"))}`);
+  }
+
+  group("canvas ops", `#313's proposal.ratify (35.16): a Mode 1 proposal ratified FIRST as the positive control — status "ratified", its component recorded, every other key and pr1 untouched, exhibitsOf still pr1 alone — then seven refusals each matched on what they name: an unknown id (listing pr1, pr2), a Mode 2 proposal (frozen original, G7), a second ratify, a component that is not a name, a proposalId that is not pr<n>, an id slot, and a document with no proposals key · #314's lanes (35.15): variant.add refusing key "a" (lane A is the document), omit other than true, omit beside set, an unknown override key, and a wrong-typed set, hide or add (PR #491 F2: a string or a part of strings for set, a number or a non-string part for hide, null for add, each named by its overrides.<frame>.<key> path) — each named — behind the positive control that {omit: true} alone and {set, hide, add} are ACCEPTED; LANE_OVERRIDE_KEYS frozen as set · hide · add · omit and BASE_LANE null; laneKeys [null] then [null, "b"], total over 5 junk docs; laneDoc omitting a base's states and every arrow touching either, flagging each omitted frame, an unknown lane holding no frames with an unknown-lane flag, and its argument unmutated; frameTree's layer order base.sets → lane[base] → state.overrides → state.sets → lane[state] (lane b's f1 "Check the name", its f2 still "Send anyway" plus the lane's hint, lane A's f1 "Continue") and an omitted frame answering tree null, flagged; missingStates per lane on the committed SYNTHETIC two-lane fixture — empty, partial for A and empty, error, partial for b, the error missing in b ONLY, [] for an unknown lane — and its f3 keeping "Checking the name…" in b; stateDiagram's spine text exact, lane b with no f2 and its arrow relabelled, "a:b;c#d" emitted as abcd; the lane reads total over junk · #475's Mode 2 exhibit (35.13, 35.14): EXHIBIT_SIZE 320×280 frozen by mutation; exhibitsOf answering Mode 2 proposals only, in order, total over 5 junk docs; exhibitClash over six literal boxes — right of the flow clear, below a frame with no authored height REFUSED (it reaches down without end, the only reading Node can compute), below an authored 600 clear, overlapping it refused, touching edges clear, a widened f2 refused — and junk answering null; exhibitClashes, the ONE call the page and arrangement both make, honouring an authored h from positions (the resize escape hatch), skipping an unplaced exhibit and taking a frame's width from the DOCUMENT even when positions says 9999 · the frozen-original refusal in screen.compose (nested two levels), state.add's override.add and variant.add's overrides.<frame>.add — each both bare and in the architecture's {parentId, index, part} wrapper, whose part the walk must reach — each naming the verb, the name, pr1 and G7, behind two kinds of positive control: the same three ops naming a Mode 1 proposal accepted, and a prop called name not mistaken for a node · #311's component.propose (35.12): pr1 minted deterministically and pr2 after it, eight refusals each matched on what they name (a bad name two ways, a duplicate name, a duplicate recordId, a recordId that is not i<n>, mode 3 and mode "1", an id slot), every key but proposals untouched, status "proposed" and proposal.ratify in OPS as the only verb that moves it — and a pre-#311 document with no proposals key folding · #306's four verbs and frame.size's free width: annotate minting n1 and EDITING in place (a noteId that does not resolve is refused, or it is the smuggling slot), frame.link REPLACING the list, frame.size {width} recording preset null, variant.add one lane, frame.remove taking its arrows with it — and 19 refusals naming the blocker (a state or a variant lane overriding the frame), each rule on decisionRefs, blank text, the lane key, the override map, and exactly-one-of preset/width with the 320–2560 bounds · frameTree resolving base sets, then the state\'s override, then its own sets, DROPPING a hidden node rather than writing `+"`"+`hidden`+"`"+` (the real validateComposition refuses that prop, and the returned trees pass it), flagging a dangling set and a hidden root, total over junk · placeDecision right of the anchor\'s whole ROW (894 then 1206 on the spine, where right-of-the-anchor is 422, on top of f2), a lower row ignored, total over junk · non-data inside params (a function, a symbol, nested) refused BY PATH before structuredClone's unnamed DataCloneError can speak (#437) · OPS ↔ PARAMS the same ${COPS.length} verbs in BOTH directions, every list frozen BY MUTATION at both levels (Object.freeze is shallow, and a pushable PARAMS entry lets the frozen case pass for the wrong reason), STATE_KEYS pinned as the five-state floor with "ideal" leading it, and NO PARAMS entry offering an id slot for the thing its op creates — the only way to enforce board-ops' mint-from-the-document rule is on the key set · #315's group.define and group.place (35.17) — the count final at fourteen: a group defined from a selection (the parts DERIVED from the frame's resolved tree), two copies g1-1 and g1-2, a redefine both follow, one copy's title overridden alone, a redefine dropping an overridden part refused naming the copy, twenty-two refusals by name, a redefine of a group a proposal names refused after propose and after ratify (PR #494 F1) and a "/" in a part id refused by screen.compose, state.add and variant.add behind a hyphenated control (F3), frameTree expanding copies before every layer with namespaced ids (a dangling copy override flagged with its copy, an unknown group flagged and dropped, a state and an arrow addressing a copy's part), every expanded tree through the real validateComposition and a list-row copy in a stack refused naming it, #475's frozen-original refusal on both verbs behind a Mode 1 control, and component.propose from a groupId (exactly one of recordId/groupId, Mode 1 only, one proposal per group); whether a group is a GOOD reuse is a human read, and whether the page's selection matches the owner's intent is canvas-journey's · a VALID_FOR fixture per verb so a FIFTEENTH verb with no fixture fails BY NAME, each fixture's keys asserted to be in its own PARAMS entry · EVERY constructive call routed through one fold() that turns a throw into a NAMED failure rather than an uncaught one: ok() only accumulates and group() prints at the end, so an unguarded throw here kills the process before a single named failure speaks — found by mutation (widening a PARAMS entry with an id slot makes 35.1's own assertion false AND makes the fold throw, and unguarded the throw won) · the happy six-op fold: ids minted f1/f2 and a1 with no op carrying one, a state proven to be a SIBLING carrying an override rather than a copy of its base, frame.size recording BOTH the preset name and the width so a later table edit moves new frames and leaves committed ones, and PURITY proven by mutating the input and by mutating the return · 19 refusals each DRIVEN by a broken op and matched on the words it must NAME — including D4's `+"`"+`why`+"`"+` three ways (absent, EMPTY, non-string), a state outside the minimum, a dangling frameId in each of four positions, an unknown verb, an unknown param, an unknown ENVELOPE key, a document that is not one, and PR #432's three open questions as the owner closed them on 2026-09-21: a state OF a state (which missingStates walks base frames only and could never have reported), a DUPLICATE (baseId, stateKey) (which its Set absorbed silently), and an unknown key INSIDE connect's from or to — with ENDPOINT_KEYS frozen at both levels beside PARAMS and `+"`"+`partId`+"`"+` proven to be `+"`"+`from`+"`"+`'s alone — behind the positive control that EVERY verb's minimal valid op is ACCEPTED, without which the battery would pass on an applier that refuses everything, plus applyOps naming the failing INDEX and verb · the TWO-LAYER rule gated: frame.sets (screen.set's) and frame.overrides.set (state.add's) proven to be the SAME SHAPE so ONE resolve applies both, with the state's layer proven to win over the base's — measured rather than assumed, because the spine's first render dropped its screen.set entirely and nothing said who joined the composition to the sets · resolve() proven to FLAG a dangling override and to keep it OUT of the resolved parts (never dropped, because it is a real thing someone wrote) with landing set and hide both applied, total over 6 junk shapes · missingStates as a LIST rather than a count, only BASE frames considered, a base with the floor met OMITTED so an empty answer means met rather than unchecked, total over 6 · canDeleteBasePart refusing by naming the state, its frame and what to do instead, with the part NOTHING overrides proven to pass so the refusal does not fire on everything · the preset table frozen with presetWidth answering NULL rather than a default · and the import graph pinned to device-presets.mjs alone. · #316's declared states (35.18): screen.compose's optional states stored only when non-empty (a compose without them leaves no key — the control), REQUIRED by missingStates (close-match listed, then gone after state.add), accepted by state.add only on the base that declares it (no-match on a close-match base and close-match on an undeclaring base refused, each naming the base's declarations), seven refusals by name (a non-array, a non-string, Close_Match, a one-letter key, 25 characters, a duplicate, a floor key), missingStates total over four junk declarations, a state of the declared state refused as a state of a state, and a lane omitting the base reporting none of its declared states while a lane keeping it reports them. What it cannot reach: whether a composition RENDERS (group 3's), whether a frame ever reaches the canvas or the page renders frameTree's output (studio-journey's and canvas-journey's), whether the page puts a refused move back (canvas-journey's), whether Mermaid parses the stateDiagram text (a human paste), and whether a `+"`"+`why`+"`"+` is any GOOD — a sentence that says nothing while passing .trim() is a human read`);
 }
 
 // --- 36 · the build package's round trip (#302) ----------------------------------------------------
@@ -12071,7 +12121,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
 
 {
   const { applyOps: cApplyOps } = await import("../system/canvas-ops.mjs");
-  const { CANVAS_DESCRIPTION, arrangement, foldLedger, groupFiles, laneFlaws, listBuilds, loadBuild, loadDecisions, placeExhibit, positionsOf, provenanceLabel, saveBuild, saveConflict, saveRun, verifyBuild } =
+  const { CANVAS_DESCRIPTION, arrangement, foldLedger, groupFiles, laneFlaws, listBuilds, loadBuild, loadDecisions, placeExhibit, positionsOf, provenanceLabel, saveBuild, saveConflict, saveRun, seedSpine, verifyBuild } =
     await import("../portal/lib/canvas-store.mjs");
   const { cpSync } = await import("node:fs");
   const deep = (v) => (v && typeof v === "object" && !Array.isArray(v)
@@ -12101,13 +12151,37 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
 
   // --- 36.1 one per-package check, run over EVERY committed package ------------------------------
   // verifyBuild is the gate predicate (the ledger's shape, the fold, and canvas.json equal to the
-  // derivation under its own positions); SOURCE "owner" for every line is the honesty contract's
-  // half — no agent has run for a committed build package, and a line claiming one would be claiming
-  // a run that did not happen.
-  const checkPackage = (slug, p) => {
+  // derivation under its own positions) AND, with loadBuild's buildTranscript, THE TRACE RULE (#316): every
+  // agent line traces to exactly one transcript op line (TR1–TR4). packageFlaws adds the honesty contract's half
+  // over the turns those lines came from: each has its turn line, an init with a session id, and a stats line
+  // whose transport is "sdk" — the fake's "fake" and build-checks' own "inline" are refused. A stats line with no
+  // transport passes only in the crash shape runComposeTurn writes when the transport throws or returns no stats: a
+  // string error and no ok true (it carries no ok key at all). A failed or credit-out turn is committed as it is,
+  // under the no-edit rule. This refuses agent lines from the two known non-SDK
+  // transports and a ledger that disagrees with its transcript; it does NOT prove provenance — a transcript
+  // hand-written to match, in the sdk or the crash shape, is not detectable here (PR #495 review F1).
+  const packageFlaws = (p) => {
     const fails = (() => { try { return verifyBuild(p); } catch (e) { return [`verifyBuild THREW: ${e.message}`]; } })();
+    const tx = Array.isArray(p?.buildTranscript) ? p.buildTranscript : [];
+    const turns = [...new Set((p?.ops ?? []).filter((l) => l?.source === "agent")
+      .map((l) => tx.find((t) => t?.type === "op" && t.seq === l.seq)?.turn).filter((t) => t !== undefined))];
+    for (const turn of turns) {
+      const of = tx.filter((t) => t?.turn === turn);
+      if (!of.some((t) => t.type === "turn")) fails.push(`turn ${turn}: no turn line in build/transcript.jsonl`);
+      if (!of.some((t) => t.type === "init" && typeof t.sessionId === "string")) fails.push(`turn ${turn}: no init line with a session id — no SDK session is on record for its agent lines`);
+      const stats = of.filter((t) => t.type === "stats");
+      if (!stats.length) fails.push(`turn ${turn}: no stats line — the turn never finished on record`);
+      for (const st of stats) {
+        if (st.transport === undefined) {
+          if (!(typeof st.error === "string" && st.ok !== true)) fails.push(`turn ${turn}: a stats line with no transport that is not the crash shape (a string error, never ok true) — only a failed turn may omit it`);
+        } else if (st.transport !== "sdk") fails.push(`turn ${turn}: stats.transport ${JSON.stringify(st.transport)} — a committed agent line comes from the sdk transport only`);
+      }
+    }
+    return fails;
+  };
+  const checkPackage = (slug, p) => {
+    const fails = packageFlaws(p);
     for (const f of fails) ok(false, `${slug}: ${f}`);
-    ok((p?.ops ?? []).every((l) => l.source === "owner"), `${slug}: an op line claims a source other than "owner" — no agent ran for this package, and the contract forbids saying one did`);
     return fails;
   };
   for (const c of committed) {
@@ -12145,7 +12219,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   // re-couples the two files the split exists to separate); a dropped embodies edge and an extra
   // note the ops never made must both fail.
   {
-    const corrupted = { ...pkg, ops: lines.map((l) => (l.op === "screen.compose" ? { ...l, params: { ...l.params, screenId: `${l.params.screenId}-corrupted` } } : l)) };
+    // `l.params &&`: an agent vocabulary refusal is a params-less refused line (PR #485 F2) — observed crashing this on #316's probe.
+    const corrupted = { ...pkg, ops: lines.map((l) => (l.op === "screen.compose" && l.params ? { ...l, params: { ...l.params, screenId: `${l.params.screenId}-corrupted` } } : l)) };
     ok(verifyBuild(corrupted).some((f) => f.includes("screen:add-payee-corrupted") || f.includes("add-payee-corrupted")),
       `a corrupted screenId did not fail verifyBuild naming the ref: ${deep(verifyBuild(corrupted))}`);
     const moved = { ...pkg, canvas: { ...pkg.canvas, nodes: (pkg.canvas?.nodes ?? []).map((n, i) => (i === 0 ? { ...n, x: n.x + 999 } : n)) } };
@@ -12235,11 +12310,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   }
 
   // --- 36.8 saveRun: append-only, atomic on refusal, conflict-checked -----------------------------
-  const scratchSpine = () => {
-    const dir = mkdtempSync(join(tmpdir(), "canvas-run-"));
-    cpSync(join(DISCOVERY_DIR, "faster-payment"), dir, { recursive: true });
-    return dir;
-  };
+  // The SPINE, seeded (#316) — never the committed package, which a real run grows. Its dir is named fp-spine, a slug,
+  // because saveRun stamps a group file's provenance.run with the package dir's name and verifyBuild refuses a non-slug.
+  const scratchSpine = () => seedSpine(join(DISCOVERY_DIR, "faster-payment"), join(mkdtempSync(join(tmpdir(), "canvas-run-")), "fp-spine"), { discovery: true });
   const posOf = (dir) => positionsOf(loadBuild(join(dir, "build")).canvas);
   const decisionsFP = (() => { try { return loadDecisions(join(DISCOVERY_DIR, "faster-payment")); } catch (e) { ok(false, `loadDecisions refused faster-payment (${e.message})`); return []; } })();
   {
@@ -12247,7 +12320,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     const opsPath = join(dir, "build/ops.jsonl");
     const canvasPath = join(dir, "build/canvas.json");
     const before = readFileSync(opsPath, "utf8");
-    const n0 = lines.length;
+    const n0 = loadBuild(join(dir, "build")).ops.length; // the SEED's (#316), never the committed ledger's
     const r = (() => { try { return saveRun(dir, { base: n0, ops: [{ op: "annotate", params: { text: "legal" }, status: "applied" }], positions: { ...posOf(dir), n1: { x: 0, y: 900, w: 240 } }, decisions: decisionsFP }); } catch (e) { return { threw: e.message }; } })();
     ok(r.count === n0 + 1, `saveRun answered ${deep(r)} — the count after one appended line is ${n0 + 1}`);
     const after = readFileSync(opsPath, "utf8");
@@ -12299,7 +12372,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   // --- 36.10 the owner's edit stays green (R2) ----------------------------------------------------
   {
     const dir = scratchSpine();
-    const n0 = lines.length;
+    const n0 = loadBuild(join(dir, "build")).ops.length; // the SEED's (#316), never the committed ledger's
     const pos = { ...posOf(dir), n1: { x: 0, y: 900, w: 240 } };
     const steps = [
       [{ op: "annotate", params: { text: "check the CoP copy" }, status: "applied" }],
@@ -12394,8 +12467,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   // A scratch copy named fp-groups (so the run slug is known), a compose and a define saved through the real saveRun.
   // Only the store is exercised here; the grammar is group 35's (35.17).
   {
-    const dir = join(mkdtempSync(join(tmpdir(), "canvas-groups-")), "fp-groups");
-    cpSync(join(DISCOVERY_DIR, "faster-payment"), dir, { recursive: true });
+    const dir = seedSpine(join(DISCOVERY_DIR, "faster-payment"), join(mkdtempSync(join(tmpdir(), "canvas-groups-")), "fp-groups"), { discovery: true });
     const buildDir = join(dir, "build");
     const gitSnap = () => execFileSync("git", ["status", "--porcelain", "--", "system", "handoff"], { cwd: ROOT_DIR, encoding: "utf8" });
     const gitBefore = gitSnap();
@@ -12466,7 +12538,56 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     rmSync(dirname(dir), { recursive: true, force: true });
   }
 
-  group("build package", `every committed discovery/*/build/ package DISCOVERED by listBuilds (at least one, faster-payment among them) and put through ONE per-package check — the store's own verifyBuild (seqs gapless and 1-based, ISO stamps, source owner|agent and every committed line "owner" because no agent ran and the contract forbids saying one did, a status in the enum, no x or y key on a line or its params (F10, PR #485: a part called x inside an override is not a position), the ledger FOLDING with undo lines included, and canvas.json equal node by node and edge by edge to what the ops derive under its OWN positions) · the spine's first six lines PINNED AS A PREFIX (${lines.length} lines today) rather than a count, so the owner arranging it through canvas.html cannot red CI while a rewritten history still does · D7's positive control computed IN MEMORY from that frozen prefix — d7, d8 and e-f1-d7/e-f1-d8 derived from f1's decisionRefs, never read off the committed file · the mutations, all through verifyBuild: a corrupted screenId fails naming the ref, a MOVED frame still passes (positions are authored), a dropped embodies edge and an extra note the ops never made both fail · the why asserted on the LEDGER (a reason is not geometry) · the committed $description IS the store's CANVAS_DESCRIPTION, naming all four divergences from JSON Canvas 1.0 and the #306 node and edge kinds · the round trip BYTE-identical · the store's imports node built-ins plus exactly canvas-ops.mjs, and its RUN_SLUG_RE byte-equal to discovery.mjs's · foldLedger: apply-undo-redo equals the plain apply, an undone line POPS, a wrong-op undo refused naming both seqs, proposed/refused skipped, an unknown status refused · saveRun on a scratch copy: the original ledger a byte-identical PREFIX after an append, lines stamped owner with gapless seqs, a refused op (frame.remove f1) throwing AND leaving both files byte-identical, proposed refused, an unrecorded frame.link ref refused with a transcript and accepted on a stand-in, a missing position refused by id, saveConflict stale vs current · provenanceLabel preferring run.json's provenance and flagging a disagreeing root · listBuilds skipping a dir with no build/, a capitalised slug, a file and an absent root; loadDecisions 20 on faster-payment (d7 → a4) and null with no transcript · 36.10 the owner's edit stays green: a note, a relink DROPPING decision 7, a remove and its undo saved through the real saveRun, then the per-package check and the prefix pin still pass, and an undo reaching past the page's load refused · 36.11 #475's Mode 2 exhibit, in memory from the prefix plus one component.propose: placeExhibit on the spine at 1518/0 (right of d8, 1206 + 280 + 32), pr1 derived as a 320×280 exhibit with ref proposal:frozen-row and a scratch package written by saveBuild passing verifyBuild (the positive control), a Mode 1 proposal deriving no node, the exhibit moved inside f1 refused naming pr1, f1 and G7, moved clear of both frames still passing (its position is authored), its width edited to 999 refused, an exhibit the ops never made refused, and one with no position refused by arrangement · 36.12 #314: laneFlaws, called by verifyBuild on the folded ledger, naming a lane that overrides a frame the ops do not create (a TRIPWIRE — through the applier it is unreachable, so its positive control is a hand-built document), [] on the SYNTHETIC two-lane fixture which verifyBuild passes whole, total over junk, and loadDecisions carrying evidenceRefs (d7 [], d3 [1, 2]) for the pack's lineage · 36.13 #315: groups/g1.json written by saveRun equal to groupFiles, loadBuild returning it with the run slug, verifyBuild naming a hand-edited, an orphan and a missing file and a provenance.run that is not a slug, not asking an {ops, canvas} caller for one, and passing a RENAMED copy (a group keeps the run it was composed in), define + place changing exactly ops.jsonl, canvas.json and groups/g1.json and nothing under system/ or handoff/ (AC #4), the define's undo removing the file, and F10's x-keyed override passing while a top-level x and a params.y are named. What it cannot reach: the page itself — whether it renders, saves on a gesture and never on load, and whether it renders the exhibit's PNG (canvas-journey's) — and whether the compose op's why is a good reason, which is a human read`);
+  // --- 36.14 THE TRACE RULE (#316, AC #5), on an in-memory spine plus two agent turns --------------------------------
+  // The committed spine has no agent line, so without this the rule would be vacuous on CI. Positive controls first.
+  {
+    const spine = lines.slice(0, 6);
+    let canvas6 = null;
+    try { canvas6 = arrangement(foldLedger(spine).doc, positionsOf(pkg.canvas)); } catch (e) { ok(false, `36.14 the spine's canvas did not derive: ${e.message}`); }
+    const AT = "2026-09-30T00:00:00.000Z";
+    const agentOps = [
+      { seq: 7, at: AT, source: "agent", op: "screen.compose", params: { screenId: "cop", why: "w", composition: { name: "stack", children: [] }, decisionRefs: [] }, status: "proposed" },
+      { seq: 8, at: AT, source: "agent", op: "screen.compose", status: "refused" },
+    ];
+    const TX = () => [
+      { type: "turn", turn: "c1" }, { type: "init", turn: "c1", sessionId: "s1" },
+      { type: "op", turn: "c1", seq: 7, tool: "screen_compose", args: { screenId: "cop", why: "w", composition: { name: "stack", children: [] }, decisionRefs: [] }, status: "proposed" }, { type: "stats", turn: "c1", ok: true, transport: "sdk" },
+      { type: "turn", turn: "c2" }, { type: "init", turn: "c2", sessionId: "s1" },
+      { type: "refused", turn: "c2", kind: "vocabulary", seq: 8 }, { type: "op", turn: "c2", seq: 8, tool: "screen_compose", status: "refused" },
+      // the crash shape, as runComposeTurn writes it when the transport throws: no transport, no cost and no ok key
+      // (stats was null), a string error — committed as-is
+      { type: "stats", turn: "c2", maxTurns: 4, outcome: "failed", error: "Claude Code process exited with code 1", model: "m" },
+    ];
+    const P = (ops = [...spine, ...agentOps], buildTranscript = TX()) => ({ ops, canvas: canvas6, buildTranscript });
+    const flaws = (p) => { try { return packageFlaws(p); } catch (e) { return [`THREW ${e.message}`]; } };
+    ok(deep(flaws(P())) === "[]", `36.14 POSITIVE CONTROL — the spine plus an sdk turn and a crashed turn answered ${deep(flaws(P()))}, want []`);
+    ok(deep(flaws({ ops: spine, canvas: canvas6, buildTranscript: null })) === "[]", `36.14 POSITIVE CONTROL — the owner-only spine with no transcript answered ${deep(flaws({ ops: spine, canvas: canvas6, buildTranscript: null }))}`);
+    const without = (pred) => TX().filter((t) => !pred(t));
+    for (const [label, p, ...must] of [
+      ["the op line for seq 7 deleted", P(undefined, without((t) => t.type === "op" && t.seq === 7)), "line 7", "no op line for seq 7"],
+      ["the op line for seq 7 duplicated", P(undefined, [...TX(), { type: "op", turn: "c1", seq: 7, tool: "screen_compose", status: "proposed" }]), "line 7", "more than one"],
+      ["its status changed", P(undefined, TX().map((t) => (t.type === "op" && t.seq === 7 ? { ...t, status: "accepted" } : t))), "line 7", "status"],
+      ["its seq retargeted to 3 (owner), TR3", P(undefined, TX().map((t) => (t.type === "op" && t.seq === 7 ? { ...t, seq: 3 } : t))), "seq 3 points at an owner line"],
+      ["its seq retargeted to 3 (owner), TR1", P(undefined, TX().map((t) => (t.type === "op" && t.seq === 7 ? { ...t, seq: 3 } : t))), "line 7", "no op line for seq 7"],
+      ["its tool swapped", P(undefined, TX().map((t) => (t.type === "op" && t.seq === 7 ? { ...t, tool: "state_add" } : t))), "line 7", "state_add"],
+      ["an owner line flipped to agent", P([...spine.map((l) => (l.seq === 3 ? { ...l, source: "agent" } : l)), ...agentOps]), "line 3", "no op line for seq 3"],
+      ["the refusal's refused line dropped", P(undefined, without((t) => t.type === "refused")), "line 8", "no refused line"],
+      ["build/transcript.jsonl deleted", P(undefined, null), "line 7", "no build/transcript.jsonl"],
+      ["stats.transport \"fake\"", P(undefined, TX().map((t) => (t.type === "stats" && t.turn === "c1" ? { ...t, transport: "fake" } : t))), "turn c1", "\"fake\""],
+      ["stats.transport \"inline\"", P(undefined, TX().map((t) => (t.type === "stats" && t.turn === "c1" ? { ...t, transport: "inline" } : t))), "turn c1", "\"inline\""],
+      ["the turn's init dropped", P(undefined, without((t) => t.type === "init" && t.turn === "c1")), "turn c1", "init"],
+      ["the turn's stats dropped", P(undefined, without((t) => t.type === "stats" && t.turn === "c1")), "turn c1", "stats"],
+      ["stats with no transport and ok true (F1, PR #495)", P(undefined, TX().map((t) => (t.type === "stats" && t.turn === "c1" ? { type: "stats", turn: "c1", ok: true } : t))), "turn c1", "not the crash shape"],
+      ["the crash shape's error dropped (F1, PR #495)", P(undefined, TX().map((t) => (t.type === "stats" && t.turn === "c2" ? { type: "stats", turn: "c2", maxTurns: 4, outcome: "failed", model: "m" } : t))), "turn c2", "not the crash shape"],
+      ["its params edited, the composition (F2, PR #495)", P([...spine, { ...agentOps[0], params: { ...agentOps[0].params, composition: { name: "stack", children: [{ name: "button" }] } } }, agentOps[1]]), "line 7", "params"],
+      ["its params gain a key the args never had (F2, PR #495)", P([...spine, { ...agentOps[0], params: { ...agentOps[0].params, states: ["empty"] } }, agentOps[1]]), "line 7", "params"],
+    ]) {
+      const f = flaws(p);
+      ok(f.some((x) => must.every((w) => x.includes(w))), `36.14 ${label}: no flaw names ${must.map((w) => JSON.stringify(w)).join(" and ")} — got ${deep(f)}`);
+    }
+  }
+
+  group("build package", `every committed discovery/*/build/ package DISCOVERED by listBuilds (at least one, faster-payment among them) and put through ONE per-package check — the store's own verifyBuild (seqs gapless and 1-based, ISO stamps, source owner|agent, THE TRACE RULE (#316): every agent line traced to exactly one build/transcript.jsonl op line with its status and a tool mapping to its op, every transcript op seq pointing at an agent line, every agent refusal with its refused line, every agent line that is not refused carrying exactly the params its op line's args project to (TR5, PR #495 F2), a missing transcript flagging every agent line, and each agent line's turn carrying a turn line, an init with a session id and a stats line whose transport is "sdk", or no transport only in the crash shape (a string error, never ok true) — 36.14 drives seventeen mutations over an in-memory spine plus an sdk turn and a crashed turn (stats with no transport, green), a status in the enum, no x or y key on a line or its params (F10, PR #485: a part called x inside an override is not a position), the ledger FOLDING with undo lines included, and canvas.json equal node by node and edge by edge to what the ops derive under its OWN positions) · the spine's first six lines PINNED AS A PREFIX (${lines.length} lines today) rather than a count, so the owner arranging it through canvas.html cannot red CI while a rewritten history still does · D7's positive control computed IN MEMORY from that frozen prefix — d7, d8 and e-f1-d7/e-f1-d8 derived from f1's decisionRefs, never read off the committed file · the mutations, all through verifyBuild: a corrupted screenId fails naming the ref, a MOVED frame still passes (positions are authored), a dropped embodies edge and an extra note the ops never made both fail · the why asserted on the LEDGER (a reason is not geometry) · the committed $description IS the store's CANVAS_DESCRIPTION, naming all four divergences from JSON Canvas 1.0 and the #306 node and edge kinds · the round trip BYTE-identical · the store's imports node built-ins plus exactly canvas-ops.mjs, and its RUN_SLUG_RE byte-equal to discovery.mjs's · foldLedger: apply-undo-redo equals the plain apply, an undone line POPS, a wrong-op undo refused naming both seqs, proposed/refused skipped, an unknown status refused · saveRun on a scratch copy: the original ledger a byte-identical PREFIX after an append, lines stamped owner with gapless seqs, a refused op (frame.remove f1) throwing AND leaving both files byte-identical, proposed refused, an unrecorded frame.link ref refused with a transcript and accepted on a stand-in, a missing position refused by id, saveConflict stale vs current · provenanceLabel preferring run.json's provenance and flagging a disagreeing root · listBuilds skipping a dir with no build/, a capitalised slug, a file and an absent root; loadDecisions 20 on faster-payment (d7 → a4) and null with no transcript · 36.10 the owner's edit stays green: a note, a relink DROPPING decision 7, a remove and its undo saved through the real saveRun, then the per-package check and the prefix pin still pass, and an undo reaching past the page's load refused · 36.11 #475's Mode 2 exhibit, in memory from the prefix plus one component.propose: placeExhibit on the spine at 1518/0 (right of d8, 1206 + 280 + 32), pr1 derived as a 320×280 exhibit with ref proposal:frozen-row and a scratch package written by saveBuild passing verifyBuild (the positive control), a Mode 1 proposal deriving no node, the exhibit moved inside f1 refused naming pr1, f1 and G7, moved clear of both frames still passing (its position is authored), its width edited to 999 refused, an exhibit the ops never made refused, and one with no position refused by arrangement · 36.12 #314: laneFlaws, called by verifyBuild on the folded ledger, naming a lane that overrides a frame the ops do not create (a TRIPWIRE — through the applier it is unreachable, so its positive control is a hand-built document), [] on the SYNTHETIC two-lane fixture which verifyBuild passes whole, total over junk, and loadDecisions carrying evidenceRefs (d7 [], d3 [1, 2]) for the pack's lineage · 36.13 #315: groups/g1.json written by saveRun equal to groupFiles, loadBuild returning it with the run slug, verifyBuild naming a hand-edited, an orphan and a missing file and a provenance.run that is not a slug, not asking an {ops, canvas} caller for one, and passing a RENAMED copy (a group keeps the run it was composed in), define + place changing exactly ops.jsonl, canvas.json and groups/g1.json and nothing under system/ or handoff/ (AC #4), the define's undo removing the file, and F10's x-keyed override passing while a top-level x and a params.y are named. What it cannot reach: provenance — the trace rule refuses the fake and inline transports and a ledger that disagrees with its transcript, but a transcript hand-written to match is not detectable (PR #495 F1) — and the page itself — whether it renders, saves on a gesture and never on load, and whether it renders the exhibit's PNG (canvas-journey's) — and whether the compose op's why is a good reason, which is a human read`);
 }
 
 // --- 37 · the ledger (#434) ------------------------------------------------------------------------
@@ -14391,9 +14512,12 @@ const synthPng = (w, h, ct, px) => {
   const BLUEPRINT = fx("spike-c-instance.blueprint.txt");
   const FIGMA = fx("figma/spike-list-row.export.json");
   const scratch = (tag) => mkdtempSync(join(tmpdir(), `uxf-g43-${tag}-`));
-  // A scratch copy of the committed spine — never the committed package itself.
-  const pkgCopy = (tag) => { const d = join(scratch(tag), "pkg"); cpSync(join(ROOT, "discovery/faster-payment"), d, { recursive: true }); return d; };
-  const ledger = (pkg) => readFileSync(join(pkg, "build/ops.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
+  // A scratch copy of the committed spine — never the committed package itself, which a real run grows (#316: seeded).
+  const { seedSpine: seed43 } = await import("../portal/lib/canvas-store.mjs");
+  const pkgCopy = (tag) => seed43(join(ROOT, "discovery/faster-payment"), join(scratch(tag), "pkg"), { discovery: true });
+  // A null package (a seed that failed) reads as an empty ledger, so the case after it fails by name instead of the
+  // whole run dying on a TypeError (#316's probe hit it).
+  const ledger = (pkg) => !pkg ? [] : readFileSync(join(pkg, "build/ops.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
   const gitSnap = () => execFileSync("git", ["status", "--porcelain", "--", "system", "handoff", "discovery", "import/overrides"], { cwd: ROOT, encoding: "utf8" });
   const GIT_BEFORE = gitSnap();
   const VOCAB_BYTES = readFileSync(join(ROOT, "handoff/verdant/vocabulary.json"));
@@ -15850,7 +15974,8 @@ const synthPng = (w, h, ct, px) => {
   const sha = (s) => createHash("sha256").update(s).digest("hex");
   const temps = [];
   const scratch = (tag) => { const d = mkdtempSync(join(tmpdir(), `uxf-g46-${tag}-`)); temps.push(d); return d; };
-  const pkgCopy = (tag) => { const d = join(scratch(tag), "pkg"); cpSync(join(ROOT, "discovery/faster-payment"), d, { recursive: true }); return d; };
+  const { seedSpine: seed46 } = await import("../portal/lib/canvas-store.mjs");
+  const pkgCopy = (tag) => seed46(join(ROOT, "discovery/faster-payment"), join(scratch(tag), "pkg"), { discovery: true });
   const ledger = (pkg) => readFileSync(join(pkg, "build/ops.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
   const noTs = (list) => (list ?? []).map(({ ts, ...rest }) => rest);
   const decomment = (file) => readFileSync(join(ROOT, file), "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
@@ -16196,15 +16321,11 @@ const synthPng = (w, h, ct, px) => {
   const temps = [];
   const scratch = (tag) => { const d = mkdtempSync(join(tmpdir(), `uxf-g47-${tag}-`)); temps.push(d); return d; };
   // THE STAND-IN SHAPE: run.json, prd.md and build/ — no transcript.jsonl, so loadDecisions is null.
-  const pkgCopy = (tag) => {
-    const d = join(scratch(tag), "pkg");
-    mkdirSync(d);
-    for (const f of ["run.json", "prd.md"]) cpSync(join(ROOT, "discovery/faster-payment", f), join(d, f));
-    cpSync(join(ROOT, "discovery/faster-payment/build"), join(d, "build"), { recursive: true });
-    return d;
-  };
+  // Both SEEDED from the spine (#316), never copied whole: a real run grows the committed package.
+  const { seedSpine: seed47 } = await import("../portal/lib/canvas-store.mjs");
+  const pkgCopy = (tag) => seed47(join(ROOT, "discovery/faster-payment"), join(scratch(tag), "pkg"));
   // The whole spine, for the import half of 47.13.
-  const fullCopy = (tag) => { const d = join(scratch(tag), "pkg"); cpSync(join(ROOT, "discovery/faster-payment"), d, { recursive: true }); return d; };
+  const fullCopy = (tag) => seed47(join(ROOT, "discovery/faster-payment"), join(scratch(tag), "pkg"), { discovery: true });
   const ledger = (pkg) => readFileSync(join(pkg, "build/ops.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
   const tx = (pkg) => (existsSync(join(pkg, "build/transcript.jsonl"))
     ? readFileSync(join(pkg, "build/transcript.jsonl"), "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l)) : []);
@@ -16253,9 +16374,12 @@ const synthPng = (w, h, ct, px) => {
     const s6 = sha16([S.ROLE, S.LOOP, S.ESCAPE, S.TURN_ASK, FORK].join("\n"));
     ok(FORK && s6 === "c903170484396973", `47.2: the four S6 constants no longer reproduce S6's fingerprint c903170484396973 (got ${s6}) — a change to LOOP or ESCAPE re-opens S6`);
     ok(S.FORK_ASK === undefined && S.YIELD_CONTRACT === undefined, "47.2: canvas-session.mjs exports FORK_ASK or YIELD_CONTRACT — the first is #320's, the second branch 1 did not need");
-    // --- 47.2b the whole prompt surface is probe run 4's ------------------------------------------------
+    // --- 47.2b the whole prompt surface is #316 Segment A's -----------------------------------------------
+    // Probe run 4 observed 9690d4c955be652c (canvas-compose-loop-312-probe/raw/run-4/T1.jsonl). #316 added `states` to
+    // the screen tool's description, so this pin is Segment A's surface, UNPROBED by a paid run: Run 1's first
+    // owner-watched turn is its first observation.
     const fp = S.promptFingerprint();
-    ok(fp === "9690d4c955be652c", `47.2b: the prompt surface's fingerprint is ${fp}, not probe run 4's 9690d4c955be652c (canvas-compose-loop-312-probe/raw/run-4/T1.jsonl) — a change to BRIEF_LEAD, STATE_ASK, either tool description or the four S6 constants re-opens the probe`);
+    ok(fp === "f7e7f54e5a5c5809", `47.2b: the prompt surface's fingerprint is ${fp}, not #316 Segment A's f7e7f54e5a5c5809 (probe run 4 observed 9690d4c955be652c; Segment A's surface is unprobed by a paid run) — a change to BRIEF_LEAD, STATE_ASK, either tool description or the four S6 constants moves it`);
 
     // --- 47.3 the vocabulary context is GENERATED from vocabulary.json -------------------------------
     const ctx = S.vocabContext(VOCAB, "x");
@@ -16639,13 +16763,36 @@ const synthPng = (w, h, ct, px) => {
           `47.17 F4: a turn answered count ${r.count}/added ${r.added} over base ${b}, and with a second writer ${rq.count}/${rq.added} over ${bq}`);
       }
     }
+    // --- 47.18 declared states through the session (#316) -----------------------------------------------
+    {
+      const p = pkgCopy("declared");
+      const b = ledger(p).length;
+      // b. a compose carrying `states` lands them on the ledger line, deep-equal — fileProposal must not drop them.
+      await afold("a compose declaring close-match (47.18)", () => S.runComposeTurn({ pkgRoot: p, base: b, ask: { kind: "screen" },
+        transport: inline([{ screenId: "cop", why: "Seq 7.", composition: STACK(TWO(), "screen"), decisionRefs: [], states: ["close-match"] }]) }));
+      const prop = ledger(p).at(-1);
+      ok(prop?.status === "proposed" && deep(prop?.params?.states) === deep(["close-match"]),
+        `47.18b: the compose with states filed ${deep(prop).slice(0, 200)} — want params.states ["close-match"] on the proposed line`);
+      // a. accepted, the declared key is a state the session asks for and the agent's state turn files.
+      const pos = { ...St.positionsOf(St.loadBuild(join(p, "build")).canvas), f3: { x: 1600, y: 0 } };
+      fold("saveRun accepted (47.18)", () => St.saveRun(p, { base: b + 1, ops: [{ op: prop.op, params: prop.params, status: "accepted", fromStep: prop.seq }], positions: pos, decisions: St.loadDecisions(p) }));
+      const { missingStates } = await import("../system/canvas-ops.mjs");
+      const miss = fold("missingStates (47.18)", () => missingStates(St.foldLedger(ledger(p)).doc), []);
+      ok(miss.find((m) => m.frameId === "f3")?.missing.includes("close-match"), `47.18a: missingStates after accept is ${deep(miss)} — f3 must miss close-match`);
+      const n = ledger(p).length;
+      await afold("a state turn for close-match (47.18)", () => S.runComposeTurn({ pkgRoot: p, base: n, ask: { kind: "state", baseId: "f3", stateKey: "close-match" },
+        transport: inline([{ baseId: "f3", stateKey: "close-match", why: "Seq 7.", override: { set: { lead: { content: "Did you mean J. Smith?" } } } }]) }));
+      const sp = ledger(p).at(-1);
+      ok(ledger(p).length === n + 1 && sp?.status === "proposed" && sp?.params?.stateKey === "close-match" && sp?.params?.baseId === "f3",
+        `47.18a: the state turn for a declared key filed ${deep(sp).slice(0, 200)} over ${n} lines — want a proposed state.add close-match of f3`);
+    }
   }
 
   // --- 47.15 nothing tracked moved -------------------------------------------------------------------
   for (const d of temps) rmSync(d, { recursive: true, force: true });
   ok(gitSnap() === GIT_BEFORE, `47.15: the group moved a tracked path — git status for discovery portal/lib system handoff went from ${JSON.stringify(GIT_BEFORE)} to ${JSON.stringify(gitSnap())}`);
 
-  group("compose session", `portal/lib/canvas-session.mjs + the store's verdict lines (#312): IMPORTED in CI with no portal/node_modules, statically SDK- and zod-free with ONE dynamic import naming ./canvas-transport.mjs, the only canvas-*.mjs naming the SDK · S6's four constants reproduce c903170484396973 and the whole prompt surface probe run 4's 9690d4c955be652c, FORK_ASK and YIELD_CONTRACT unshipped · the vocabulary context generated from vocabulary.json (a synthetic entry in, a removed one out) · ESCAPE_RE after numbering and markup, never mid-sentence, the old regex's miss as the control · the fence: one predicate, two sites, Write/WebFetch/MCP each denied with a denied line at both, a warmup Glob denied with none, a hostile allow-set denied · a fake turn's lines in order (turn → owner brief → init → op → stats), maxTurns on the stats line, no second turn while a proposal waits, one call per turn, every refusal kind by the ledger-or-transcript list, the root exempt from the id rule and a / in an id refused as reserved for a placed copy's parts (#315), the outcome from the lines never the words, subtype success + is_error as failed · subscriptionEnv drops every ANTHROPIC_* and CLAUDE_CODE_USE_* name (the API key, an auth token, a base URL, Bedrock/Vertex/Foundry) and keeps CLAUDE_CODE_OAUTH_TOKEN · the AC #1 ledger proposed → accepted → proposed → refused → undone, agent/owner sourced, verifyBuild [] and a mutated ledger refused, the gate's own duplicate-verdict and forward-fromStep clauses included · PR #485's review cases (47.17): a refused x-keyed proposal leaves a params-less line and a clean gate, the state tree's vocabulary check, the not-missing guard, the fake's cwd guard, a refusing transport before any transcript line, session-reset after a resume that fails before init, isSaveConflict on the in-lock conflict, added exposing a second writer · the run lock both ways with an import (ratify's leg is #313's) · the transport's option block and the route pinned as source. Every agent line here is the fake's or an inline script's, in a scratch copy. CANNOT REACH: a model's behaviour (whether it yields, names the brief in its why, or escapes), the SDK's option handling, hook delivery by the CLI, and the page — those are the preflight's, the journey compose pass's and --live-compose's`);
+  group("compose session", `portal/lib/canvas-session.mjs + the store's verdict lines (#312): IMPORTED in CI with no portal/node_modules, statically SDK- and zod-free with ONE dynamic import naming ./canvas-transport.mjs, the only canvas-*.mjs naming the SDK · S6's four constants reproduce c903170484396973 and the whole prompt surface #316 Segment A's f7e7f54e5a5c5809 (probe run 4's was 9690d4c955be652c; Segment A's is unprobed by a paid run), FORK_ASK and YIELD_CONTRACT unshipped · the vocabulary context generated from vocabulary.json (a synthetic entry in, a removed one out) · ESCAPE_RE after numbering and markup, never mid-sentence, the old regex's miss as the control · the fence: one predicate, two sites, Write/WebFetch/MCP each denied with a denied line at both, a warmup Glob denied with none, a hostile allow-set denied · a fake turn's lines in order (turn → owner brief → init → op → stats), maxTurns on the stats line, no second turn while a proposal waits, one call per turn, every refusal kind by the ledger-or-transcript list, the root exempt from the id rule and a / in an id refused as reserved for a placed copy's parts (#315), the outcome from the lines never the words, subtype success + is_error as failed · subscriptionEnv drops every ANTHROPIC_* and CLAUDE_CODE_USE_* name (the API key, an auth token, a base URL, Bedrock/Vertex/Foundry) and keeps CLAUDE_CODE_OAUTH_TOKEN · the AC #1 ledger proposed → accepted → proposed → refused → undone, agent/owner sourced, verifyBuild [] and a mutated ledger refused, the gate's own duplicate-verdict and forward-fromStep clauses included · PR #485's review cases (47.17): a refused x-keyed proposal leaves a params-less line and a clean gate, the state tree's vocabulary check, the not-missing guard, the fake's cwd guard, a refusing transport before any transcript line, session-reset after a resume that fails before init, isSaveConflict on the in-lock conflict, added exposing a second writer · the run lock both ways with an import (ratify's leg is #313's) · the transport's option block and the route pinned as source. Every agent line here is the fake's or an inline script's, in a scratch copy. CANNOT REACH: a model's behaviour (whether it yields, names the brief in its why, or escapes), the SDK's option handling, hook delivery by the CLI, and the page — those are the preflight's, the journey compose pass's and --live-compose's`);
 }
 
 // ===================================================================================================
@@ -16983,7 +17130,53 @@ const synthPng = (w, h, ct, px) => {
         && cFlow.includes("- Admitted through the chain: 2 (1 from imports, 1 from promoted groups).") && cFlow.indexOf("## Composition over admission") < cFlow.indexOf("## Lane A"),
         `49.11 flow.md does not print the count before the lanes: ${JSON.stringify(cFlow.slice(0, 600))}`);
       const fpFlow = existsSync(join(ROOT_DIR, "discovery/faster-payment/build/handoff/flow.md")) ? readFileSync(join(ROOT_DIR, "discovery/faster-payment/build/handoff/flow.md"), "utf8") : "";
-      ok(fpFlow.includes("- Composed and named: 0 group(s), 0 placed cop"), "49.11 the committed faster-payment flow.md does not print a zero count — a zero is printed, never omitted");
+      // #316: the ZERO is asserted on the spine's frozen six lines, which a real run cannot move; the committed flow.md is
+      // asserted to print the count its own fold derives, whatever the run made.
+      ok((spine6r["flow.md"] ?? "").includes("- Composed and named: 0 group(s), 0 placed cop"), "49.11 the spine's flow.md does not print a zero count — a zero is printed, never omitted");
+      const fpOps = spine.pkg?.ops ?? [];
+      const fpCount = (() => { try { return HB.compositionCount(foldLedger(fpOps).doc); } catch (e) { ok(false, `49.11 the committed ledger did not fold: ${e.message}`); return null; } })();
+      const fpLine = fpCount && `- Composed and named: ${fpCount.composed} group(s), ${fpCount.placed} placed ${fpCount.placed === 1 ? "copy" : "copies"}.`;
+      ok(fpLine && fpFlow.includes(fpLine), `49.11 the committed faster-payment flow.md does not print its own fold's count ${JSON.stringify(fpLine)}`);
+    }
+
+    // 49.12 #316 (AC #3/#4): partProvenance — every place a part enters a frame, classified by the RATIFIED proposals.
+    {
+      const { foldLedger } = await import("../portal/lib/canvas-store.mjs");
+      const L = (seq, op, params) => ({ seq, source: "owner", op, params, status: "applied" });
+      const composition = { name: "stack", id: "screen", children: [
+        { name: "screen-header", id: "header", props: { title: "Home" } }, { name: "person-row", id: "row", props: {} }, { name: "app-header", id: "hdr2", props: {} }] };
+      const pOps = [
+        L(1, "screen.compose", { screenId: "home", why: "w", composition }),
+        L(2, "group.define", { name: "app-header", frameId: "f1", partIds: ["header"] }),
+        L(3, "group.define", { name: "row-group", frameId: "f1", partIds: ["row"] }),
+        L(4, "group.place", { frameId: "f1", groupId: "g1", parentId: "screen" }),
+        L(5, "group.place", { frameId: "f1", groupId: "g2", parentId: "screen" }),
+        L(6, "component.propose", { name: "person-row", recordId: "i1", mode: 1 }),
+        L(7, "proposal.ratify", { proposalId: "pr1", component: "person-row" }),
+        L(8, "component.propose", { name: "app-header", groupId: "g1", mode: 1 }),
+        L(9, "proposal.ratify", { proposalId: "pr2", component: "app-header" }),
+        // the imported component entering a frame ONLY through a state's override.add
+        L(10, "state.add", { baseId: "f1", stateKey: "error", override: { add: [{ parentId: "screen", index: 0, part: { name: "person-row", id: "added", props: {} } }] } }),
+      ];
+      const pDoc = (() => { try { return foldLedger(pOps).doc; } catch (e) { ok(false, `49.12 the provenance package did not fold: ${e.message}`); return null; } })();
+      const rows = pDoc ? (() => { try { return HB.partProvenance(pDoc); } catch (e) { ok(false, `49.12 partProvenance threw: ${e.message}`); return []; } })() : [];
+      const row = (frameId, partId) => rows.find((r) => r.frameId === frameId && r.partId === partId) ?? null;
+      ok(deep(row("f1", "row")) === deep({ frameId: "f1", partId: "row", name: "person-row", provenance: "imported", via: { proposalId: "pr1", recordId: "i1" } }),
+        `49.12 a frame node named the ratified import's component reads ${deep(row("f1", "row"))} — want imported via pr1/i1`);
+      ok(row("f2", "added")?.provenance === "imported", `49.12 the component added only through state.add's override.add reads ${deep(row("f2", "added"))} — want imported`);
+      ok(row("f1", "g2-1/row")?.provenance === "imported" && row("f1", "g2-1/row")?.via?.groupId === "g2",
+        `49.12 the component inside a group definition reads ${deep(row("f1", "g2-1/row"))} — want imported with via.groupId g2`);
+      ok(row("f1", "hdr2")?.provenance === "admitted" && row("f1", "hdr2")?.via?.groupId === "g1", `49.12 a node named a ratified promoted group reads ${deep(row("f1", "hdr2"))} — want admitted via g1`);
+      ok(rows.filter((r) => r.provenance === "composed").map((r) => r.partId).join(",") === "g1-1,g2-1", `49.12 the composed rows are ${deep(rows.filter((r) => r.provenance === "composed"))} — want the two copies g1-1 and g2-1`);
+      ok(row("f1", "header")?.provenance === "vocabulary", `49.12 a plain vocabulary node reads ${deep(row("f1", "header"))}`);
+      for (const junk of [null, 7, { frames: "no" }, { frames: [null, { id: "f1", composition: 3 }] }, { frames: [], variants: [7], proposals: "x" }]) {
+        ok((() => { try { return Array.isArray(HB.partProvenance(junk)); } catch { return false; } })(), `49.12 partProvenance(${JSON.stringify(junk)}) must answer an array, never throw`);
+      }
+      const pPack = render({ slug: "prov", transcript: null, answers: null, buildTranscript: [], imports: [], ops: pOps }, "the provenance package");
+      const lin = (() => { try { return JSON.parse(pPack["lineage.json"] ?? "null"); } catch { return null; } })();
+      ok(deep(lin?.partsByProvenance) === deep({ imported: 3, admitted: 1, composed: 2, vocabulary: 3 }) && lin?.frames?.find((f) => f.frameId === "f2")?.parts?.[0]?.partId === "added",
+        `49.12 lineage.json's partsByProvenance is ${deep(lin?.partsByProvenance)} and f2's parts ${deep(lin?.frames?.find((f) => f.frameId === "f2")?.parts)} — want 3 imported · 1 admitted · 2 composed · 3 vocabulary and f2 carrying "added"`);
+      ok((pPack["flow.md"] ?? "").includes("- Parts by provenance: 3 imported · 1 admitted · 2 composed · 3 vocabulary."), `49.12 flow.md does not print the provenance line: ${JSON.stringify((pPack["flow.md"] ?? "").slice(0, 700))}`);
     }
 
     // 49.7 determinism.
@@ -17013,7 +17206,7 @@ const synthPng = (w, h, ct, px) => {
     ok(EXPECTED_POSTS.every((r) => posts.includes(r)), `49.9 the POST /api/canvas/* routes found are ${deep(posts)} — the pin must find all eleven by name, or it checks nothing`);
     ok(deep(unpacked) === "[]", `49.9 ${deep(unpacked)} write into a build package without withPack( — the pack would go stale after them`);
 
-    group("build handoff", `agent-layer/gen-build-handoff.mjs (#314): a build package → <pkg>/build/handoff/ · 49.1 its imports node built-ins plus exactly the store, canvas-ops and import/ir.mjs · 49.2 every committed pack (faster-payment and the SYNTHETIC two-lane, both asserted BY NAME) equal to renderPack byte for byte, each file's existence checked before its read, and no committed file the render does not produce · 49.3 AC #1 over two-lane's flow.md: ## Lane b present, its f1 missing line naming error and lane A's not · 49.4–49.7 over the spine's FROZEN first six lines (an owner edit through canvas.html cannot red them): 49.4 lineage.json chaining f1 → 7 → a4 and f1 → 8 → a5 by id, each flagged no-evidence, f2 via f1; decision 3's evidence seqs 1 and 2 resolved by name, an unresolvable "99" KEPT and flagged unresolved-decision, and a package with no transcript flagging every ref no-transcript · 49.5 the spine's drops.md SAYING "No imports", and the committed spike-c-wrong-but-green record rendering all three class headings with 13 + 8 rows and - none under never-read, its md copied byte for byte · 49.6 an agent refusal joined to its transcript reason, an owner verdict, a transcript-only one-per-turn refusal and an import's denied line each in its section, and - none three times for an empty package · 49.7 renderPack deterministic and no Date in the module · 49.8 genBuildHandoff({check: true}) reporting no drift · 49.9 every POST /api/canvas/* route (all eleven found by name (promote among them) · 49.11 #315 (AC #3): compositionCount over an in-memory package — composed 2, placed 2, admitted 2 (1 from an import, 1 from a promoted group, the unratified proposal not counted) — flow.md printing ## Composition over admission before the lanes, and the committed faster-payment flow.md printing a zero rather than omitting it) except the read-only import/binding, pack and ratify/preview answering through withPack(, read as source · 49.10 (PR #491 F1) a newline in a label, a screenId, an override key and a hidden part reaching flow.md as no line of its own and leaving the fences paired, over an in-memory package. CANNOT REACH: whether Mermaid parses flow.md (a human paste into mermaid.live), whether a drop's reason is true (group 42's), whether the page's Write button writes (canvas-journey pass L), whether a decision is a good one (a human read), and whether a jobs-folder package's pack is current (the drift leg sees committed packages only; the portal regenerates after every write route)`);
+    group("build handoff", `agent-layer/gen-build-handoff.mjs (#314): a build package → <pkg>/build/handoff/ · 49.1 its imports node built-ins plus exactly the store, canvas-ops and import/ir.mjs · 49.2 every committed pack (faster-payment and the SYNTHETIC two-lane, both asserted BY NAME) equal to renderPack byte for byte, each file's existence checked before its read, and no committed file the render does not produce · 49.3 AC #1 over two-lane's flow.md: ## Lane b present, its f1 missing line naming error and lane A's not · 49.4–49.7 over the spine's FROZEN first six lines (an owner edit through canvas.html cannot red them): 49.4 lineage.json chaining f1 → 7 → a4 and f1 → 8 → a5 by id, each flagged no-evidence, f2 via f1; decision 3's evidence seqs 1 and 2 resolved by name, an unresolvable "99" KEPT and flagged unresolved-decision, and a package with no transcript flagging every ref no-transcript · 49.5 the spine's drops.md SAYING "No imports", and the committed spike-c-wrong-but-green record rendering all three class headings with 13 + 8 rows and - none under never-read, its md copied byte for byte · 49.6 an agent refusal joined to its transcript reason, an owner verdict, a transcript-only one-per-turn refusal and an import's denied line each in its section, and - none three times for an empty package · 49.7 renderPack deterministic and no Date in the module · 49.8 genBuildHandoff({check: true}) reporting no drift · 49.9 every POST /api/canvas/* route (all eleven found by name (promote among them) · 49.11 #315 (AC #3): compositionCount over an in-memory package — composed 2, placed 2, admitted 2 (1 from an import, 1 from a promoted group, the unratified proposal not counted) — flow.md printing ## Composition over admission before the lanes, and the committed faster-payment flow.md printing a zero rather than omitting it) · 49.12 #316 (AC #3/#4): partProvenance over an in-memory package — a frame node named a ratified import's component imported via its proposal and record, the same component entering ONLY through a state's override.add still imported, inside a group definition imported with via.groupId and named <copy>/<part>, a node named a ratified promoted group admitted, the two copies composed, a plain node vocabulary, total over five junk docs — and lineage.json's partsByProvenance (3 · 1 · 2 · 3) with each frame's parts, and flow.md's "Parts by provenance" line except the read-only import/binding, pack and ratify/preview answering through withPack(, read as source · 49.10 (PR #491 F1) a newline in a label, a screenId, an override key and a hidden part reaching flow.md as no line of its own and leaving the fences paired, over an in-memory package. CANNOT REACH: whether Mermaid parses flow.md (a human paste into mermaid.live), whether a drop's reason is true (group 42's), whether the page's Write button writes (canvas-journey pass L), whether a decision is a good one (a human read), and whether a jobs-folder package's pack is current (the drift leg sees committed packages only; the portal regenerates after every write route)`);
   }
 
   // --- 50 · ratify (#313) --------------------------------------------------------------------------
@@ -17038,8 +17231,10 @@ const synthPng = (w, h, ct, px) => {
     const fold = (what, fn, fallback = null) => { try { return fn(); } catch (e) { ok(false, `${what} threw instead of answering: ${e.message}`); return fallback; } };
     const afold = async (what, fn, fallback = null) => { try { return await fn(); } catch (e) { ok(false, `${what} threw instead of answering: ${e.message}`); return fallback; } };
     const scratch = (tag) => mkdtempSync(join(tmpdir(), `uxf-g50-${tag}-`));
-    const pkgCopy = (tag) => { const d = join(scratch(tag), "pkg"); cpSync(join(ROOT, "discovery/faster-payment"), d, { recursive: true }); return d; };
-    const ledger = (pkg) => readFileSync(join(pkg, "build/ops.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
+    const { seedSpine: seed50 } = await import("../portal/lib/canvas-store.mjs");
+    const pkgCopy = (tag) => seed50(join(ROOT, "discovery/faster-payment"), join(scratch(tag), "pkg"), { discovery: true });
+    // Null-guarded (#316's probe): a failed setup reads as an empty ledger and fails its case by name.
+    const ledger = (pkg) => !pkg ? [] : readFileSync(join(pkg, "build/ops.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
     const BLUEPRINT = readFileSync(join(ROOT, "import/fixtures/spike-c-instance.blueprint.txt"));
 
     // --- 50.1 IMPORTED in CI with no portal/node_modules; no SDK, statically or lazily ------------------
@@ -17447,8 +17642,7 @@ const synthPng = (w, h, ct, px) => {
         { name: "icon", id: "mark", props: { name: "info", size: "md" } },
       ] };
       const groupPkg = (tag, name = "app-header") => {
-        const d = join(scratch(tag), "fp-groups");
-        cpSync(join(ROOT, "discovery/faster-payment"), d, { recursive: true });
+        const d = seed50(join(ROOT, "discovery/faster-payment"), join(scratch(tag), "fp-groups"), { discovery: true });
         const b = CS.loadBuild(join(d, "build"));
         CS.saveRun(d, { base: b.ops.length, positions: { ...CS.positionsOf(b.canvas), f3: { x: 1600, y: 0 } }, decisions: CS.loadDecisions(d), ops: [
           { op: "screen.compose", status: "applied", params: { screenId: "home", why: "the header case: a title, a help button and a mark shared by every screen", decisionRefs: [], composition: HEADER } },
@@ -17494,7 +17688,7 @@ const synthPng = (w, h, ct, px) => {
           try { r = await PM.promoteGroup({ pkgRoot: pl, base: ledger(pl).length, groupId: "g1" }); }
           catch (e) { r = { threw: e.message }; }
           finally { release(); await afold("the gated import (50.18)", () => imp, {}); }
-          ok(r?.refused?.kind === "busy" && !existsSync(join(pl, "build/proposals/app-header")), `50.18 a promote during an import answered ${deep(r)} — busy, nothing written`);
+          ok(r?.refused?.kind === "busy" && !(pl && existsSync(join(pl, "build/proposals/app-header"))), `50.18 a promote during an import answered ${deep(r)} — busy, nothing written`);
         }
         const v = pg && fold("promoteView (50.18)", () => PM.promoteView(pg, "app-header"), {});
         ok(v?.groupId === "g1" && v?.mode === 1 && v?.status === "proposed" && v?.dir === "build/proposals/app-header/" && v?.label?.includes("not by an agent") && v?.ratifyPrefill?.component === "app-header",

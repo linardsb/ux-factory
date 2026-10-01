@@ -73,6 +73,48 @@ export function compositionCount(doc) {
   };
 }
 
+// partProvenance(doc) → [{ frameId, partId, name, provenance, via }] — the PRD's "Supply" metric per part (#316), derived,
+// never stored, total over junk. Every place a part enters a frame: a base frame's composition, a state's
+// overrides.add, a lane's add, and each placed copy's definition parts (their `via` carries the groupId). A `group`
+// node is `composed`; a node named a RATIFIED proposal's component is `imported` (from a record) or `admitted` (from
+// a group); anything else is `vocabulary`. A copy's parts are named `<instanceId>/<partId>`, frameTree's naming. Here rather than in system/canvas-ops.mjs because this file is its only
+// reader (compositionCount's precedent), which keeps it out of the runtime lines approach.html renders. "Hand-written"
+// is NOT derivable: component.propose takes exactly one of recordId and groupId, so no proposal records a hand.
+export function partProvenance(doc) {
+  const obj = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
+  const ratified = new Map((Array.isArray(doc?.proposals) ? doc.proposals : [])
+    .filter((p) => obj(p) && p.status === "ratified" && typeof p.component === "string").map((p) => [p.component, p]));
+  const groups = obj(doc?.groups) ? doc.groups : {};
+  const out = [];
+  const walk = (node, frameId, via, pre = "") => {
+    if (Array.isArray(node)) { node.forEach((n) => walk(n, frameId, via, pre)); return; }
+    if (!obj(node)) return;
+    if (obj(node.part)) { walk(node.part, frameId, via, pre); return; } // an add entry's {parentId, index, part} wrapper
+    if (typeof node.id === "string") {
+      const pr = ratified.get(node.name);
+      const [provenance, own] = node.name === "group" ? ["composed", { groupId: node.props?.groupId ?? null, instanceId: node.id }]
+        : !pr ? ["vocabulary", null]
+        : typeof pr.recordId === "string" ? ["imported", { proposalId: pr.id, recordId: pr.recordId }]
+        : ["admitted", { proposalId: pr.id, groupId: pr.groupId ?? null }];
+      out.push({ frameId, partId: `${pre}${node.id}`, name: node.name ?? null, provenance, via: own || via ? { ...via, ...own } : null });
+    }
+    if (node.name === "group" && obj(groups[node.props?.groupId])) walk(groups[node.props.groupId].parts, frameId, { groupId: node.props.groupId }, `${pre}${node.id}/`);
+    if (Array.isArray(node.children)) walk(node.children, frameId, via, pre);
+  };
+  for (const f of Array.isArray(doc?.frames) ? doc.frames : []) {
+    if (!obj(f)) continue;
+    walk(f.composition, f.id, null);
+    if (obj(f.overrides)) walk(f.overrides.add, f.id, null);
+  }
+  for (const v of Array.isArray(doc?.variants) ? doc.variants : []) {
+    for (const [fid, ov] of Object.entries(obj(v?.overrides) ? v.overrides : {})) if (obj(ov)) walk(ov.add, fid, { lane: v.key });
+  }
+  return out;
+}
+
+const PROVENANCES = Object.freeze(["imported", "admitted", "composed", "vocabulary"]);
+const byProvenance = (rows) => Object.fromEntries(PROVENANCES.map((k) => [k, rows.filter((r) => r.provenance === k).length]));
+
 function renderFlow(slug, doc) {
   const out = [`# Flow — ${slug}`, "", `${provenance("`build/ops.jsonl`")} Lane A is the document; every other lane is its differences on A (G33).`];
   const c = compositionCount(doc);
@@ -80,6 +122,8 @@ function renderFlow(slug, doc) {
     `- Composed and named: ${c.composed} group(s), ${c.placed} placed ${c.placed === 1 ? "copy" : "copies"}.`,
     `- Admitted through the chain: ${c.admitted.total} (${c.admitted.fromImport} from imports, ${c.admitted.fromGroup} from promoted groups).`,
     "", "A promoted group that is ratified counts in both lines (PRD § Success metrics, \"Composition over admission\" — reported, no target).");
+  const pp = byProvenance(partProvenance(doc));
+  out.push(`- Parts by provenance: ${PROVENANCES.map((k) => `${pp[k]} ${k}`).join(" · ")}.`);
   for (const key of laneKeys(doc)) {
     out.push("", key === null ? "## Lane A (base)" : `## Lane ${key}`, "");
     if (key !== null) out.push("Differences from lane A:", "", ...differences(doc, key), "");
@@ -87,9 +131,9 @@ function renderFlow(slug, doc) {
     const edges = flowEdges(doc, key);
     if (!edges.length) out.push("- No arrows in this lane.");
     for (const e of edges) out.push(`- From ${one(e.fromLabel)} (${one(e.from)}), ${one(edgePhrase(e))} goes to ${one(e.toLabel)} (${one(e.to)})${e.trigger ? `, when ${one(e.trigger)}` : ""}.`);
-    out.push("", `Missing states (the floor is ${STATE_KEYS.join(" · ")}):`, "");
+    out.push("", `Missing states (the floor is ${STATE_KEYS.join(" · ")}, plus any state a screen declares):`, "");
     const miss = missingStates(doc, key);
-    if (!miss.length) out.push("- None — every screen in this lane meets the floor.");
+    if (!miss.length) out.push("- None — every screen in this lane has every state it requires.");
     for (const m of miss) out.push(`- ${one(frameLabel(doc, m.frameId))} (${one(m.frameId)}): ${m.missing.join(", ")}`);
     const flags = laneDoc(doc, key).doc.frames.flatMap((f) => frameTree(doc, f.id, key).flags
       .filter((fl) => ["dangling-set", "dangling-hide", "unsupported-add"].includes(fl.kind))
@@ -141,17 +185,19 @@ function renderRefusals(slug, pkg) {
 
 // ---- lineage.json ------------------------------------------------------------------------------------
 
-export const LINEAGE_DESCRIPTION = "Frame → decision → answer → evidence, by id: a decision is a record_decision line in the package's transcript.jsonl (its seq), an answer is an answers.jsonl ref, evidence is a file_evidence line (its seq). A broken link is a flag on its row, never a missing row. A state frame with no decision of its own is `via` its base. Generated by agent-layer/gen-build-handoff.mjs (#314) — do not edit.";
+export const LINEAGE_DESCRIPTION = "Frame → decision → answer → evidence, by id: a decision is a record_decision line in the package's transcript.jsonl (its seq), an answer is an answers.jsonl ref, evidence is a file_evidence line (its seq). A broken link is a flag on its row, never a missing row. A state frame with no decision of its own is `via` its base. Each frame's `parts` are partProvenance's rows (#316): imported, admitted, composed or vocabulary; `partsByProvenance` counts them. Generated by agent-layer/gen-build-handoff.mjs (#314) — do not edit.";
 
 function renderLineage(doc, pkg) {
   const t = pkg.transcript;
   const bySeq = new Map((t ?? []).filter((l) => l?.type === "op").map((l) => [l.seq, l]));
   const answers = new Set((pkg.answers ?? []).map((a) => a?.ref));
+  const parts = partProvenance(doc);
   const frames = doc.frames.filter((f) => f && typeof f.id === "string").map((f) => {
     const refs = Array.isArray(f.decisionRefs) ? f.decisionRefs : [];
     const isState = f.baseId != null;
     return { frameId: f.id, label: frameLabel(doc, f.id), baseId: f.baseId ?? null, decisionRefs: [...refs],
-      via: isState && !refs.length ? f.baseId : null, flags: !isState && !refs.length ? ["no-decision"] : [] };
+      via: isState && !refs.length ? f.baseId : null, flags: !isState && !refs.length ? ["no-decision"] : [],
+      parts: parts.filter((r) => r.frameId === f.id).map(({ frameId, ...r }) => r) };
   });
   const ids = [];
   for (const f of frames) for (const r of f.decisionRefs) if (!ids.includes(r)) ids.push(r);
@@ -172,7 +218,7 @@ function renderLineage(doc, pkg) {
     return { id, questionId: d.params?.question_id ?? null, answerRef, answer: answers.has(answerRef) ? "resolved" : null, evidence, flags };
   });
   const embodies = frames.flatMap((f) => f.decisionRefs.map((decisionId) => ({ frameId: f.frameId, decisionId })));
-  return JSON.stringify({ $description: LINEAGE_DESCRIPTION, transcript: t === null ? "absent" : "present", frames, decisions, embodies }, null, 2) + "\n";
+  return JSON.stringify({ $description: LINEAGE_DESCRIPTION, transcript: t === null ? "absent" : "present", frames, decisions, embodies, partsByProvenance: byProvenance(parts) }, null, 2) + "\n";
 }
 
 // ---- the pure core -----------------------------------------------------------------------------------

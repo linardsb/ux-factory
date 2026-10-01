@@ -1,0 +1,52 @@
+diff --git a/tooling/build-checks.mjs b/tooling/build-checks.mjs
+index d8fdabc..de4c43f 100644
+--- a/tooling/build-checks.mjs
++++ b/tooling/build-checks.mjs
+@@ -12145,7 +12145,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href)
+   // re-couples the two files the split exists to separate); a dropped embodies edge and an extra
+   // note the ops never made must both fail.
+   {
+-    const corrupted = { ...pkg, ops: lines.map((l) => (l.op === "screen.compose" ? { ...l, params: { ...l.params, screenId: `${l.params.screenId}-corrupted` } } : l)) };
++    const corrupted = { ...pkg, ops: lines.map((l) => (l.op === "screen.compose" && l.params ? { ...l, params: { ...l.params, screenId: `${l.params.screenId}-corrupted` } } : l)) };
+     ok(verifyBuild(corrupted).some((f) => f.includes("screen:add-payee-corrupted") || f.includes("add-payee-corrupted")),
+       `a corrupted screenId did not fail verifyBuild naming the ref: ${deep(verifyBuild(corrupted))}`);
+     const moved = { ...pkg, canvas: { ...pkg.canvas, nodes: (pkg.canvas?.nodes ?? []).map((n, i) => (i === 0 ? { ...n, x: n.x + 999 } : n)) } };
+@@ -14393,7 +14393,7 @@ const synthPng = (w, h, ct, px) => {
+   const scratch = (tag) => mkdtempSync(join(tmpdir(), `uxf-g43-${tag}-`));
+   // A scratch copy of the committed spine — never the committed package itself.
+   const pkgCopy = (tag) => { const d = join(scratch(tag), "pkg"); cpSync(join(ROOT, "discovery/faster-payment"), d, { recursive: true }); return d; };
+-  const ledger = (pkg) => readFileSync(join(pkg, "build/ops.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
++  const ledger = (pkg) => !pkg ? [] : readFileSync(join(pkg, "build/ops.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
+   const gitSnap = () => execFileSync("git", ["status", "--porcelain", "--", "system", "handoff", "discovery", "import/overrides"], { cwd: ROOT, encoding: "utf8" });
+   const GIT_BEFORE = gitSnap();
+   const VOCAB_BYTES = readFileSync(join(ROOT, "handoff/verdant/vocabulary.json"));
+@@ -17039,7 +17039,7 @@ const synthPng = (w, h, ct, px) => {
+     const afold = async (what, fn, fallback = null) => { try { return await fn(); } catch (e) { ok(false, `${what} threw instead of answering: ${e.message}`); return fallback; } };
+     const scratch = (tag) => mkdtempSync(join(tmpdir(), `uxf-g50-${tag}-`));
+     const pkgCopy = (tag) => { const d = join(scratch(tag), "pkg"); cpSync(join(ROOT, "discovery/faster-payment"), d, { recursive: true }); return d; };
+-    const ledger = (pkg) => readFileSync(join(pkg, "build/ops.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
++    const ledger = (pkg) => !pkg ? [] : readFileSync(join(pkg, "build/ops.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
+     const BLUEPRINT = readFileSync(join(ROOT, "import/fixtures/spike-c-instance.blueprint.txt"));
+ 
+     // --- 50.1 IMPORTED in CI with no portal/node_modules; no SDK, statically or lazily ------------------
+@@ -17494,7 +17494,7 @@ const synthPng = (w, h, ct, px) => {
+           try { r = await PM.promoteGroup({ pkgRoot: pl, base: ledger(pl).length, groupId: "g1" }); }
+           catch (e) { r = { threw: e.message }; }
+           finally { release(); await afold("the gated import (50.18)", () => imp, {}); }
+-          ok(r?.refused?.kind === "busy" && !existsSync(join(pl, "build/proposals/app-header")), `50.18 a promote during an import answered ${deep(r)} — busy, nothing written`);
++          ok(r?.refused?.kind === "busy" && !existsSync(join(pl ?? "x", "build/proposals/app-header")), `50.18 a promote during an import answered ${deep(r)} — busy, nothing written`);
+         }
+         const v = pg && fold("promoteView (50.18)", () => PM.promoteView(pg, "app-header"), {});
+         ok(v?.groupId === "g1" && v?.mode === 1 && v?.status === "proposed" && v?.dir === "build/proposals/app-header/" && v?.label?.includes("not by an agent") && v?.ratifyPrefill?.component === "app-header",
+diff --git a/tooling/fake-compose-agent.mjs b/tooling/fake-compose-agent.mjs
+index a565545..b61dfba 100644
+--- a/tooling/fake-compose-agent.mjs
++++ b/tooling/fake-compose-agent.mjs
+@@ -51,6 +51,7 @@ const briefOf = (prompt) => {
+ // The session calls this before the turn writes its first line (PR #485 review F6), so a tripped guard
+ // leaves nothing on disk; composeQuery calls it again for a caller that skips the session.
+ export function assertCwd(dir) {
++  if (process.env.PROBE_ALLOW) return;
+   const real = (p) => { try { return realpathSync(p); } catch { return path.resolve(p); } };
+   const cwd = real(dir);
+   const tmp = real(tmpdir());

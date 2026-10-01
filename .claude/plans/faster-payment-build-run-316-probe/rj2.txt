@@ -1,0 +1,83 @@
+ratify-journey — scratch /private/var/folders/qc/r_gfk_sx0zlgzjfd6bhvjyg40000gn/T/ratify-journey-luV91w
+  ✓ tree · the clone (HEAD + diff + 12 untracked) starts with an empty git status
+  ✓ tree · the portal is the clone's: jobsDir, HEAD, not stale
+  ✗ setup · the Mode 1 drop answers spike-list-row, i1  {"name":"spike-list-row-2","recordId":"i2","count":15,"binding":null,"view":{"name":"spike-list-row-2","recordId":"i2","record":{"drops":[{"class":"read-then-dropped","kind":"literal-size","path":"ir.
+  ✗ setup · the Mode 2 drop answers its own proposal  {"name":"spike-list-row-3","recordId":"i3","count":16,"binding":null,"view":{"name":"spike-list-row-3","recordId":"i3","record":{"drops":[{"class":"read-then-dropped","kind":"literal-size","path":"ir.
+  ✓ setup · the clone is still clean after both drops (the package is in JOBS_DIR)
+  ✓ R1 · a Mode 2 proposal shows NO Ratify section
+  ✓ R1 · a Mode 1 proposal shows the Ratify section
+  ✓ R2 · prefilled: component spike-list-row, prefix ds, containers stack
+  ✓ R4 · preview lists the six writes
+  ✓ R4 · the pin moves 3/23 → 3/24, ten steps
+  ✓ R4 · the clone is still clean after the preview
+  ✓ R12 · every visible Ratify button, select and checkbox is at least 44×44
+  ✓ R5 · a changed form on a clean tree → refused stale
+  ✓ R6 · a cross-origin confirm → 403, the tree clean
+  ✗ the journey ran to the end  Error: the confirm did not go green — tooling/build-checks.mjs exit 1:
+    · faster-payment: an op line claims a source other than "owner" — no agent ran for this package, and the contract forbids saying one did
+    · 36.10 owner-edited spine: groups/g1.json's provenance.run "canvas-run-ThQZlX" is not a run slug
+    · 36.10 owner-edited spine: an op line claims a source other than "owner" — no agent ran for this package, and the contract forbids saying one did
+    · the owner's edits (a note, dropping decision 7, a remove and its undo) turned the per-package check red — CI would red on the owner's first save
+    · 36.13 a compose and a define was refused by saveRun (op 11 (group.define): group.define: part "header" does not resolve in "f3" — it holds title, amount, continue)
+    · 36.13 groups/g1.json after a define is {
+    · 36.13 the define's undo was refused by saveRun (foldLedger: line 17 (seq 17) undoes group.define but the last applied op is seq 14 (group.place) — undo is last-in-first-out)
+    · 36.13 after undoing the define, groups/g1.json is STILL there and verifyBuild says []
+build import run     ✗  17 failure(s)
+    · 43.8: the run appended 1 lines, the last {"at":"2026-09-30T18:55:28.871Z","op":"component.propose","params":{"mode":1,"name":"spike-list-row-2","recordId":"i2"},"seq":15,"source":"owner","status":"applied"}
+    · 43.8: a second run during the first answered builder: an import is already in flight — wait for it to finish (the portal holds one run at a time); the first returned "i2"
+    · 43.8: a refused read answered {"refused":{"action":{"label":"y"},"kind":"nothing-selected","message":"x"}} and WROTE an imports/ dir
+    · 43.8: a PNG drop answered {"refused":{"action":{"label":"Drop a Brilliant blueprint export or a Figma house-plugin export"},"kind":"not-an-export","message":"x.png: x.png: not a text file — neither a Brilliant blueprint export nor a Figma house-plugin export"}} — refused naming the file, nothi
+    · 43.15: canvas.json carries pr1 as undefined — an exhibit at 1518/0, right of d8 (1206 + 280 + 32)
+    · 43.15: loadExhibits answered [{"attribution":null,"file":null,"id":"pr2","licence":null,"name":"spike-list-row-2","recordId":"i2","reference":"data:image/png;base64,iVBORw0K","tool":"brilliant"}] — pr1 with the live read's PNG as a data URL
+    · 43.15: the second Mode 2 exhibit is {"height":280,"id":"pr2","ref":"proposal:spike-list-row-2","type":"exhibit","width":320,"x":1518,"y":0} — at 1870/0, right of the first (1518 + 320 + 32)
+    · 43.12: the paired read over the fake answered {"binding":{"otherTabs":0,"project":null,"surface":"web","tabId":"tab-222a9bd0-eade-49a3-a33b-de0c8e409d4b","viewOnly":false},"count":15,"name":"rectangle-1","recordId":"i2","view":{"builders":["stack","text","list-row","status-chip","icon","list"]
+    · 43.12: two selected wrote source.ids ["1db1b29957b949ca","d9512c65b8ba59a7","4e5f949b06664b86","0677e5352f9b7e97","ce6edd5ebb75ca12","4678ba04551aae0f","573be45a182c5b97","ee43cdb97fffec7b"] — exactly the two element ids (40.28's annotation rule, end to end)
+    · 43.12: an ids read (Browse → import) answered "i2" with 0 get_selection calls — the ids skip it, the binding comes from the lookup reply
+    · 43.12: SYNTHETIC — a capture whose _meta names project "Faster Payment" wrote source.project null — the binding's project reaches the record
+    · 43.12: mode unpaired answered {"refused":{"action":{"label":"Import again","retry":true},"detail":"No Brilliant surface is connected yet. A browser tab to brilliant.design should have opened — grant the one-time local-connection prompt and click Connect, or open the Brilliant desktop app. Then
+    · 43.12: mode exit answered {"refused":{"action":{"hint":"npx -y @brilliant-hq/mcp","label":"Check it runs"},"kind":"not-running","message":"The Brilliant MCP server did not start (exit unknown)."}} and WROTE build/imports/ — expected the not-running refusal and nothing on disk
+    · 43.12: mode none-selected answered {"refused":{"action":{"label":"Select a component, then Import selection"},"kind":"nothing-selected","message":"Nothing is selected in Brilliant."}} and WROTE build/imports/ — expected the nothing-selected refusal and nothing on disk
+    · 43.12: mode hang-call answered {"refused":{"action":{"label":"Re-bind","route":"binding"},"kind":"stale-binding","message":"The binding did not answer."}} and WROTE build/imports/ — expected the stale-binding refusal and nothing on disk
+    · 43.12: mode hang-init answered {"refused":{"action":{"hint":"npx -y @brilliant-hq/mcp","label":"Check it runs"},"kind":"not-answering","message":"The Brilliant bridge did not answer."}} and WROTE build/imports/ — expected the not-answering refusal and nothing on disk
+    · 43.12: a bridge writing "hello" on stdout answered "brilliant-mcp: stdout carried a non-JSON line (\"hello\") — a protocol error" — a protocol error must throw naming the non-JSON line, and nothing is written
+build import suggest ✗  5 failure(s)
+    · 46.8: the record's suggestions [] are not the committed ones
+    · 46.8: the transcripts' suggest lines are {"nodes":0,"ran":false,"reason":"suggestions are off on this call","requests":0,"ts":"2026-09-30T18:48:19.434Z","type":"suggest","usage":null} and {"nodes":0,"ran":false,"reason":"suggestions are off on this call","requests":0,"ts":"2026-09-30T18:48:19.
+    · 46.9: the replayed record carries 0 suggestions, not 2 — the cases below need both
+    · 46.10: the edit wrote {"map":"stack"}, the node reads via structural-fallback, checkRecord passes
+    · 46.10: an edit over a suggestion on a now-scored node kept [{"path":"ir.children[0].children[2]"}], not the unnamed ones []
+build compose session ✗  33 failure(s)
+    · 47.6: the three tools at two sites wrote 24 lines, not six
+    · 47.6: the own tool must be allowed with no line and a warmup Glob denied with no line (the control) — the transcript went 24 → 24
+    · 47.7: the owner's brief was not recorded verbatim on turn c1: {"source":"owner","text":"confirm the payee before sending","ts":"2026-09-30T18:48:19.313Z","turn":"c1","type":"text"}
+    · 47.7: composeView does not show the open proposal with its brief: {"last":{"briefed":true,"outcome":"proposed","turn":"c4"},"open":{"brief":"payee form, no dialog","op":"screen.compose","params":{"composition":{"children":[{"id":"title","name":"screen-header","props
+    · 47.7: an un-briefed turn recorded [{"ask":{"kind":"screen"},"briefed":true,"ts":"2026-09-30T18:48:19.312Z","turn":"c1","type":"turn"},{"source":"owner","text":"confirm the payee before sending","ts":"2026-09-30T18:48:19.313Z","turn":"c1","type":"text"}]
+    · 47.9: a second call in one turn gave 1 ops lines and refusals [{"error":"composition.children[1]: \"hero-banner\" is not an allowed child of stack (allowed: card | choice | ghost-button | icon | list | modal-dialog | nav-tabs | primary-button | screen-header | select-field | stack | text | tex
+    · 47.10: invalid: gave 1 ops lines (last {"at":"2026-09-30T18:55:31.849Z","op":"screen.compose","seq":15,"source":"agent","status":"refused"}) and refusal {"error":"composition.children[1]: \"hero-banner\" is not an allowed child of stack (allowed: card | choice | ghost-button | icon | list | mo
+    · 50.6 the planned spec is not kb-format's shape: head {"children":[],"class":"ds-probe-row","component":"probe-row","contract":null,"example":{"meta":"Payee","name":"Ada Lovelace"},"props":{"meta":{"description":"one line under the name","required":false,"type":"string"},"name":{"description":"
+    · 50.13 a green chain answered {"ok":true,"refused":undefined,"steps":10} and the ledger's last line is {"at":"2026-09-30T18:55:36.503Z","op":"proposal.ratify","params":{"component":"probe-row","proposalId":"pr2"},"seq":16,"source":"owner","status":"applied"}
+    · the group fixture (50.18) threw instead of answering: op 11 (group.define): group.define: part "header" does not resolve in "f3" — it holds title, amount, continue
+    · 50.18 promoteGroup answered {"groupId":undefined,"name":undefined} — app-header from g1
+    · 50.18 the proposal dir holds NOTHING — exactly block.css, source.json, spec.md, template.txt (no mapping.json: a group has no read to map)
+    · 50.18 source.json is not byte-equal to groups/g1.json — the group IS the proposal's source
+    · 50.18 spec.md's first line does not say who drafted it: 
+    · 50.18 block.css's first line does not say who drafted it: 
+    · template.txt parses (50.18) threw instead of answering: Unexpected end of JSON input
+    · 50.18 template.txt's first line does not say who drafted it: 
+    · 50.18 the ledger's last line is undefined — component.propose {name: app-header, groupId: g1, mode: 1}
+    · 50.18 a second promote of g1 answered null with ? new lines — already-promoted, nothing written
+    · 50.18 a promote of g9 answered null — no-group
+    · the card fixture (50.18) threw instead of answering: op 11 (group.define): group.define: part "header" does not resolve in "f3" — it holds title, amount, continue
+    · 50.18 a group named card (a vocabulary component) promoted as undefined — card-2
+    · the lock fixture (50.18) threw instead of answering: op 11 (group.define): group.define: part "header" does not resolve in "f3" — it holds title, amount, continue
+    · the gated import (50.18) threw instead of answering: The "path" argument must be of type string. Received null
+    · 50.18 promoteView answered {"dir":undefined,"groupId":undefined,"label":undefined,"mode":undefined,"status":undefined}
+
+build ✗  83 failure(s)
+    at pagePass (file:///Users/Berzins/wt316-probe/tooling/ratify-journey.mjs:222:13)
+    at async file:///Users/Berzins/wt316-probe/tooling/ratify-journey.mjs:414:35
+  ✓ main tree · git status unchanged
+  ✓ main tree · .git/info/exclude byte-identical
+
+ratify-journey ✗  3 assertion(s) failed (14 passed)
+exit 1

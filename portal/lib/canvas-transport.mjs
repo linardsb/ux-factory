@@ -24,20 +24,24 @@
 //   6. strictMcpConfig IS LOAD-BEARING (#352): a fictional package's build/ sits inside this repo, below
 //      .mcp.json, and without it whether the CLI merges that file into the advertised tools is the SDK's
 //      call. The canvas server is the turn's whole MCP surface.
+//   7. states IS OPTIONAL AT THE TOOL (#316), unlike decisionRefs: most screens declare none, and a required field
+//      invites invented states. Unprobed by a paid run; if the agent omits a state the PRD names, the owner refuses
+//      with a brief naming it (the plan's R5 fallback), and both turns are recorded.
 //
 // Zero-token pre-flight:  cd portal && node lib/canvas-transport.mjs --preflight
 
-import { cpSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { createSdkMcpServer, query, tool } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
 // subscriptionEnv lives in the SDK-free session module so group 47.16 can drive it in CI (observation 5).
 import { fileProposal, MCP_SERVER, SCREEN_TOOL, SCREEN_TOOL_DESCRIPTION, STATE_TOOL, STATE_TOOL_DESCRIPTION, subscriptionEnv, VOCAB_PATH } from "./canvas-session.mjs";
+import { seedSpine } from "./canvas-store.mjs";
 import { REPO_DIR } from "./env.mjs";
 
 const SHAPES = {
-  [SCREEN_TOOL]: () => ({ screenId: z.string(), why: z.string(), composition: z.looseObject({ name: z.string() }), decisionRefs: z.array(z.string()) }),
+  [SCREEN_TOOL]: () => ({ screenId: z.string(), why: z.string(), composition: z.looseObject({ name: z.string() }), decisionRefs: z.array(z.string()), states: z.array(z.string()).optional() }),
   [STATE_TOOL]: () => ({ baseId: z.string(), stateKey: z.string(), override: z.looseObject({}), why: z.string() }),
 };
 
@@ -105,7 +109,8 @@ export async function composeQuery({ systemPrompt, prompt, cwd, resume, model, m
 
 // ---- the zero-token pre-flight ------------------------------------------------------------------------
 // Calls the REAL server's own tools/list and tools/call handlers in this process — no query(), no model,
-// no cost. Every row gets a FRESH copy of discovery/faster-payment and a fresh handler context, because
+// no cost. Every row gets a FRESH seed of discovery/faster-payment's spine (#316: the committed package grows with a
+// real run, and PF3 must file seq 7 however long it gets) and a fresh handler context, because
 // a filed proposal would otherwise refuse the next row (one call per turn, one open proposal). It reads
 // a PRIVATE API (Protocol._requestHandlers): if that is gone it prints PF0 unreachable and exits 2,
 // never passing vacuously.
@@ -116,7 +121,7 @@ export async function preflight() {
     const dir = mkdtempSync(path.join(tmpdir(), "canvas-preflight-"));
     temps.push(dir);
     const pkgRoot = path.join(dir, "pkg");
-    cpSync(path.join(REPO_DIR, "discovery/faster-payment"), pkgRoot, { recursive: true });
+    seedSpine(path.join(REPO_DIR, "discovery/faster-payment"), pkgRoot, { discovery: true });
     const ctx = { pkgRoot, turn: "pf", ask, vocab, calls: [] };
     let handlerCalls = 0;
     const server = buildComposeServer({
@@ -142,7 +147,8 @@ export async function preflight() {
     }
     const listed = (await p1.direct("tools/list", {}))?.tools ?? [];
     const req = [...(listed[0]?.inputSchema?.required ?? [])].sort().join(",");
-    row("PF1", listed.length === 1 && listed[0].name === SCREEN_TOOL && req === "composition,decisionRefs,screenId,why", `tools/list → [${listed.map((t) => t.name)}] required [${req}]`);
+    const props = Object.keys(listed[0]?.inputSchema?.properties ?? {}).sort().join(",");
+    row("PF1", listed.length === 1 && listed[0].name === SCREEN_TOOL && req === "composition,decisionRefs,screenId,why" && props === "composition,decisionRefs,screenId,states,why", `tools/list → [${listed.map((t) => t.name)}] required [${req}] properties [${props}]`);
 
     const p2 = fresh(SCREEN_TOOL);
     const deep = { name: "stack", props: { direction: "column" }, children: [

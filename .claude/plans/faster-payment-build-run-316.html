@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Run 1 brief</title>
+<style>
+  :root { --bg:#fbfaf7; --fg:#1d1d1b; --muted:#6b6a64; --line:#dedbd2; --box:#f1efe8; --accent:#3d6b5a; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#161615; --fg:#ecebe6; --muted:#9c9a92; --line:#34332f; --box:#201f1d; --accent:#8fbfa9; } }
+  * { box-sizing: border-box }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, -apple-system, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 26px; margin: 0 0 6px } h2 { font-size: 18px; margin: 36px 0 10px }
+  .src { color:var(--muted); font-size:14px } a { color:var(--accent) }
+  .concept { border:1px solid var(--line); border-radius:8px; padding:14px 16px; margin:12px 0; background:var(--box) }
+  .concept h3 { margin:0 0 6px; font-size:16px }
+  pre { background:var(--bg); border:1px solid var(--line); border-radius:6px; padding:10px 12px; overflow-x:auto; font-size:13px; margin:8px 0 0 }
+  .flow { display:grid; grid-template-columns: repeat(auto-fit, minmax(150px,1fr)); gap:10px }
+  .flow div { border:1px solid var(--line); border-radius:8px; padding:10px; background:var(--box); font-size:14px }
+  .flow b { display:block; color:var(--accent) }
+  table { border-collapse:collapse; width:100%; font-size:14px } td { border-top:1px solid var(--line); padding:6px 8px; vertical-align:top }
+  ul.prompts { list-style:none; padding:0 } ul.prompts li { display:flex; justify-content:space-between; gap:12px; border-top:1px solid var(--line); padding:8px 0 }
+  .copy { opacity:.35; border:0; background:none; color:inherit; cursor:pointer; font-size:15px; line-height:1 }
+  .copy:hover, .copy:focus-visible { opacity:1 } .copy::before { content:'⧉' } .copy.copied::before { content:'✓' }
+</style>
+</head>
+<body><main>
+<h1>Run 1: Faster Payment on the canvas</h1>
+<p class="src">Full plan: <a href="faster-payment-build-run-316.md">faster-payment-build-run-316.md</a></p>
+
+<h2>What we're building and why</h2>
+<p>Every piece of the canvas exists, but nobody has built a real flow with it yet. After this, a four-screen payment flow sits on the canvas: the agent proposed it, the owner decided every step, and one part came from a real design import.</p>
+
+<h2>The concepts this rests on</h2>
+<div class="concept">
+  <h3>A ledger, not a picture</h3>
+  <p>The canvas is saved as a list of actions, not a drawing. That list is an append-only log (lines are added, never changed). Each line says who did it: owner or agent. This build needs it because the run's honesty claim is "every screen traces to a recorded line".</p>
+  <pre>7  agent  compose "confirm-payee"   proposed
+8  owner  accept 7
+9  agent  add state "close-match"   proposed</pre>
+</div>
+<div class="concept">
+  <h3>Screens declare their states</h3>
+  <p>A screen needs more than its happy version: loading, error, empty. A payment check also has "close match" and "unavailable". Today only five fixed states are allowed. So a screen will list its own extra states when it is made, and the checker will then ask for each one.</p>
+</div>
+<div class="concept">
+  <h3>A check that allows the agent, but only with a receipt</h3>
+  <p>A test currently fails if any saved line says "agent", because no agent had ever run. Now one will. The new rule: an agent line is fine only if the session transcript (the run's log of what the agent did) has the matching entry.</p>
+</div>
+<div class="concept">
+  <h3>Where each part came from</h3>
+  <p>Each piece on a screen gets a derived label: imported, admitted, composed or stock. Nothing stores the label. It is worked out from the log each time, like a bank balance computed from the transactions. The run must show at least one "imported".</p>
+</div>
+
+<h2>How the pieces fit</h2>
+<div class="flow">
+  <div><b>1. Prep</b>states, labels, the new check</div>
+  <div><b>2. Ready check</b>one command says "go"</div>
+  <div><b>3. Wait</b>three other tickets land</div>
+  <div><b>4. The sitting</b>owner drives, agent proposes</div>
+  <div><b>5. Import + admit</b>one real design part joins the system</div>
+  <div><b>6. Read the numbers</b>report, never judge</div>
+</div>
+
+<h2>The plan at a glance</h2>
+<table>
+  <tr><td>Segment A</td><td>declared states, part labels, gate reshape, ready script. Proven by re-growing a test copy: 118 reds today must become 0. Own PR, lands first.</td></tr>
+  <tr><td>Wait</td><td>#318, #319, #320 merge, then re-check the plan.</td></tr>
+  <tr><td>The sitting</td><td>owner only, about $0.8–4.1 of agent turns.</td></tr>
+  <tr><td>Segment B</td><td>numbers, checks, report. Second PR closes #316.</td></tr>
+</table>
+<pre>system/canvas-ops.mjs              # screens declare states; part labels
+portal/lib/canvas-session.mjs      # state asks accept declared keys
+portal/lib/canvas-store.mjs        # agent lines need a transcript entry
+agent-layer/gen-build-handoff.mjs  # pack prints the part labels
+tooling/build-checks.mjs           # new cases; copies start from the 6-line spine
+tooling/run-316-ready.mjs          # NEW: may the sitting start?
+discovery/faster-payment/build/    # the run itself (generated)</pre>
+<table>
+  <tr><td>AC 1</td><td>The run package is committed and its log matches the canvas.</td></tr>
+  <tr><td>AC 2</td><td>No missing states, or each gap named.</td></tr>
+  <tr><td>AC 3</td><td>At least one imported part on a screen, with an honest fidelity check.</td></tr>
+  <tr><td>AC 4</td><td>Import time, admissions, unused primitives recorded.</td></tr>
+  <tr><td>AC 5</td><td>Every agent screen traces to a recorded line.</td></tr>
+</table>
+
+<h2>Go deeper</h2>
+<ul class="prompts">
+  <li data-prompt="/learn append-only event logs as the source of truth"><span><b>/learn append-only event logs as the source of truth</b></span><button class="copy" aria-label="Copy prompt"></button></li>
+  <li data-prompt="/learn UI state coverage: designing every screen state"><span><b>/learn UI state coverage: designing every screen state</b></span><button class="copy" aria-label="Copy prompt"></button></li>
+  <li data-prompt="/learn provenance tracing in audit trails"><span><b>/learn provenance tracing in audit trails</b></span><button class="copy" aria-label="Copy prompt"></button></li>
+  <li data-prompt="/learn derived state versus stored state"><span><b>/learn derived state versus stored state</b></span><button class="copy" aria-label="Copy prompt"></button></li>
+</ul>
+</main>
+<script>
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.copy')
+  if (!btn) return
+  const text = btn.closest('[data-prompt]').dataset.prompt
+  try {
+    await navigator.clipboard.writeText(text)
+  } catch {
+    const ta = Object.assign(document.createElement('textarea'), { value: text })
+    ta.style.cssText = 'position:fixed;opacity:0'
+    document.body.append(ta)
+    ta.select()
+    document.execCommand('copy')
+    ta.remove()
+  }
+  btn.classList.add('copied')
+  setTimeout(() => btn.classList.remove('copied'), 1200)
+})
+</script>
+</body></html>

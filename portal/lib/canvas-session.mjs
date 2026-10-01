@@ -43,7 +43,7 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
 import { pathToFileURL } from "node:url";
-import { applyOp, frameTree, missingStates, STATE_KEYS } from "../../system/canvas-ops.mjs";
+import { applyOp, frameTree, missingStates, STATE_KEY_RE, STATE_KEYS } from "../../system/canvas-ops.mjs";
 import { validateComposition } from "../../system/agentic-renderer.mjs";
 import { appendAgentLine, foldLedger, loadBuild, openProposals, saveConflict } from "./canvas-store.mjs";
 import { withRunLock } from "./builder.mjs";
@@ -61,7 +61,7 @@ export const ESCAPE = 'If a part the screen needs is not in the vocabulary, comp
 export const TURN_ASK = 'Propose the next screen.';
 export const BRIEF_LEAD = "The owner's brief for this turn, in their words:";
 export const STATE_ASK = ({ frameId, screenId, stateKey }) => `Next: the ${stateKey} state of ${screenId} (${frameId}). Call \`state_add\` once with baseId "${frameId}", stateKey "${stateKey}", an override that sets or hides parts by the ids in the base screen below, and a \`why\` naming the PRD decision (by seq) it serves and the reason.`;
-export const SCREEN_TOOL_DESCRIPTION = 'Propose one screen for the build canvas. screenId: a short slug naming the screen. why: one sentence naming the PRD decision (by seq) it serves and the reason. composition: one node tree from the vocabulary. decisionRefs: optional list of seq references.' + ' Give every part an id (a short slug) so a later state can address it.' + ' decisionRefs is required here: the seq(s) your why names, as strings ("7"), or [] if none.';
+export const SCREEN_TOOL_DESCRIPTION = 'Propose one screen for the build canvas. screenId: a short slug naming the screen. why: one sentence naming the PRD decision (by seq) it serves and the reason. composition: one node tree from the vocabulary. decisionRefs: optional list of seq references.' + ' Give every part an id (a short slug) so a later state can address it.' + ' decisionRefs is required here: the seq(s) your why names, as strings ("7"), or [] if none.' + ' states: optional list of extra state keys this screen needs beyond the five-state floor, kebab-case (e.g. close-match) — declare only states the PRD names.';
 export const STATE_TOOL_DESCRIPTION = "Propose one missing state of a screen already on the canvas. baseId: the screen's frame id. stateKey: the state asked for. override: { set: { partId: { prop: value } }, hide: [partId] } naming parts by their ids. why: one sentence naming the PRD decision (by seq) it serves and the reason.";
 
 export const MODEL = "claude-sonnet-5";
@@ -293,7 +293,7 @@ export function fileProposal(ctx, tool, args) {
 
     if (tool === SCREEN_TOOL) {
       const op = "screen.compose";
-      const params = Object.fromEntries(Object.entries({ screenId: a.screenId, why: a.why, composition: a.composition, decisionRefs: a.decisionRefs }).filter(([, v]) => v !== undefined));
+      const params = Object.fromEntries(Object.entries({ screenId: a.screenId, why: a.why, composition: a.composition, decisionRefs: a.decisionRefs, states: a.states }).filter(([, v]) => v !== undefined));
       try { validateComposition(ctx.vocab, params.composition); } catch (e) { return refuse("vocabulary", e.message, op, params); }
       const idp = idProblem(params.composition);
       if (idp) return refuse("ids", `${idp} — every part below the root needs an id so its states can address it`, op, params);
@@ -389,7 +389,8 @@ export function checkComposeRequest({ ask, brief } = {}) {
   } else if (ask.kind === "state") {
     if (keys !== "baseId,kind,stateKey") throw new Error(`canvas-session: a state ask carries kind, baseId and stateKey exactly (got ${keys})`);
     if (typeof ask.baseId !== "string" || !ask.baseId) throw new Error("canvas-session: a state ask's baseId must name a frame");
-    if (!STATE_KEYS.includes(ask.stateKey)) throw new Error(`canvas-session: stateKey ${JSON.stringify(ask.stateKey)} is not one of ${STATE_KEYS.join(" · ")}`);
+    // A shape check only (#316): a declared state is a kebab key; whether THIS base misses it is runComposeTurn's check.
+    if (!STATE_KEYS.includes(ask.stateKey) && !(typeof ask.stateKey === "string" && STATE_KEY_RE.test(ask.stateKey))) throw new Error(`canvas-session: stateKey ${JSON.stringify(ask.stateKey)} is not one of ${STATE_KEYS.join(" · ")} or a declared state's kebab-case key`);
   } else {
     throw new Error(`canvas-session: ask.kind ${JSON.stringify(ask.kind)} is not screen or state`);
   }
