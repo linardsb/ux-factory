@@ -305,6 +305,14 @@ async function waitLines(slug, n, ms = 6000) {
   while (Date.now() < until) { if (ledger(slug).length >= n) return ledger(slug); await sleep(100); }
   return ledger(slug);
 }
+// saveRun writes groups/<id>.json AFTER the ledger line waitLines sees, with a plain writeFileSync, so a file
+// assertion polls until the file parses (#316 T10a). null when it never does.
+const readJson = (file) => { try { return JSON.parse(readFileSync(file, "utf8")); } catch { return null; } };
+async function waitJson(file, ms = 6000) {
+  const until = Date.now() + ms;
+  while (Date.now() < until) { const v = readJson(file); if (v) return v; await sleep(100); }
+  return readJson(file);
+}
 const gitDiscovery = () => execFileSync("git", ["status", "--porcelain", "--", "discovery/"], { cwd: REPO, encoding: "utf8" });
 const gitImportScope = () => execFileSync("git", ["status", "--porcelain", "--", "system/", "handoff/", "discovery/", "import/overrides/"], { cwd: REPO, encoding: "utf8" });
 
@@ -946,7 +954,7 @@ async function groupsPass(base, page, t, step, errors) {
     t("G2 · ledger +1: group.define {app-header, f3, header help mark}", l.length === n + 1 && l.at(-1)?.op === "group.define"
       && canon(l.at(-1)?.params) === canon({ name: "app-header", frameId: "f3", partIds: ["header", "help", "mark"] }), JSON.stringify(l.at(-1)));
     const gFile = path.join(buildDir("fp-groups"), "groups", "g1.json");
-    t("G2 · build/groups/g1.json exists with three parts", existsSync(gFile) && JSON.parse(readFileSync(gFile, "utf8")).parts?.length === 3);
+    t("G2 · build/groups/g1.json exists with three parts", (await waitJson(gFile))?.parts?.length === 3);
   });
   await step("G3 · place g1 into f1's screen", async () => {
     const n = ledger("fp-groups").length;

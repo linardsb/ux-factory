@@ -696,3 +696,12 @@ Each risk R1–R16 now closes with an observable gate and none has an open resid
   re-record a decision on a closed run (#498 OPEN), so D2's re-record needs #498 with scope A (R9's Grill fallback too, if that re-open accepts a park); Q2
   rewritten as Q2a wait for #498 (default) / Q2b run with T12 step 4 Not run. F4 and the G2 race still open → T10a
   unchanged. No phase, task or AC changed.
+- 2026-10-01 (T10a implemented, base 9497455) — citations re-resolved: G2's `gFile`/assertion still at
+  `canvas-journey.mjs:948`/`:949`; the group seeds at `build-checks.mjs:14600` (43) and `:17366` (50). Plan error: T10a
+  said "`ok(false, …)` where the scratch seed returns nothing", but `seedSpine` never returns nothing (it returns
+  `destPkg` or throws), and an `ok(false)` alone did not surface — with the seed returning `null`, a downstream
+  `join(null, …)` at 43.8 aborted the run before group 43 printed (observed). Done instead: a failed seed records
+  `<group>: seed failed for "<tag>"` and answers its scratch path with no ledger, and `ledger()` reads a missing
+  `ops.jsonl` as `[]`, so both groups print by name. G2 polls until `groups/g1.json` parses (`waitJson`), because
+  `saveRun` writes it with a plain `writeFileSync`. 50.18's `groupPkg` was already `fold()`-wrapped at every call and is unchanged.
+  Report: `.claude/reports/faster-payment-build-run-316-t10a-report.md`. T10b–T10d still wait on #319, #320, #498.
