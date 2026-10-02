@@ -408,6 +408,12 @@ three committed ledgers carry string refs, one of them a real recorded run that 
 same applier rule — and canvas-journey drives it at $0 through the `UXF_DISCOVERY_TRANSPORT` env seam and
 `tooling/fake-discovery-agent.mjs`.
 
+**D5 as built (#320, owner 2026-10-02):** a fork is an open question no later decision closed, or a decision the
+owner flags when asking (a `fork` turn line) — the ticket's second kind, a state the brief leaves unsaid, was not
+derivable and was replaced. `screen.compose` carries `alternative {turn, option a|b, fork}`, set by the server; the
+two options are sibling proposals answered in one save; not-picked is derived (`notPickedOf`), never stored; the fork
+turn allows five SDK turns. The unpicked option is refused, never kept as a lane.
+
 ---
 *Decided interactively with the PRD holder, 2026-08-28 (addendum the same day, after the slice) — one round on the shape (in-place swap vs
 board-first vs a second canvas), one on the four calls that change the slicing (the ops' home, the portal

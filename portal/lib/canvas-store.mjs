@@ -315,6 +315,27 @@ export function verifyBuild({ ops, canvas, groups, buildTranscript } = {}) {
       }
     } else if (l?.status === "accepted") out.push(`${at}: an accepted line names the proposal it answers (fromStep)`);
   });
+  // #320 (D5): the same-save witness — a fork verdict's sibling is answered at the same `at`, never both accepted — and
+  // an applied compose carrying a fork option restates an earlier accepted verdict (a redo).
+  ops.forEach((v) => {
+    if (v?.source !== "owner" || !Number.isInteger(v.fromStep)) return;
+    const p = ops[v.fromStep - 1];
+    const alt = altOf(p);
+    if (!alt || p.source !== "agent") return;
+    for (const s of siblingsOf(ops, p)) {
+      const w = ops.find((l) => l?.source === "owner" && l.fromStep === s.seq);
+      const at = `ops.jsonl line ${v.seq}: answers seq ${p.seq}, option ${alt.option} of fork turn ${alt.turn}, but`;
+      if (!w) out.push(`${at} its sibling seq ${s.seq} has no verdict — a fork's options are answered together (D5)`);
+      else if (w.at !== v.at) out.push(`${at} seq ${s.seq} was answered in another save (${w.at}) — a pick refuses the other in the same save (D5)`);
+      else if (v.status === "accepted" && w.status === "accepted") out.push(`${at} both options were accepted (D5)`);
+    }
+  });
+  ops.forEach((l, i) => {
+    if (l?.status !== "applied" || !altOf(l)) return;
+    if (!ops.slice(0, i).some((x) => x?.status === "accepted" && canon({ op: x.op, params: x.params }) === canon({ op: l.op, params: l.params }))) {
+      out.push(`ops.jsonl line ${l.seq}: an owner line carries fork option ${altOf(l).option} of ${altOf(l).turn}, which no verdict picked (D5)`);
+    }
+  });
   let derived;
   let folded;
   try { folded = foldLedger(ops).doc; derived = arrangement(folded, positionsOf(canvas)); }
@@ -360,12 +381,12 @@ export function verifyBuild({ ops, canvas, groups, buildTranscript } = {}) {
 const TOOL_OP = Object.freeze({ screen_compose: "screen.compose", state_add: "state.add" });
 // fileProposal's projection of a tool call's args onto the op's params, undefined values dropped as JSON drops them.
 const TOOL_PARAMS = Object.freeze({
-  screen_compose: (a) => ({ screenId: a.screenId, why: a.why, composition: a.composition, decisionRefs: a.decisionRefs, states: a.states }),
+  screen_compose: (a, t) => ({ screenId: a.screenId, why: a.why, composition: a.composition, decisionRefs: a.decisionRefs, states: a.states, alternative: t?.alternative }),
   state_add: (a) => ({ baseId: a.baseId, stateKey: a.stateKey, override: a.override }),
 });
-const paramsOf = (tool, args) => {
+const paramsOf = (tool, args, line) => {
   const a = args && typeof args === "object" ? args : {};
-  return Object.fromEntries(Object.entries(TOOL_PARAMS[tool](a)).filter(([, v]) => v !== undefined));
+  return Object.fromEntries(Object.entries(TOOL_PARAMS[tool](a, line)).filter(([, v]) => v !== undefined));
 };
 export function traceFlaws(ops, buildTranscript) {
   const lines = Array.isArray(ops) ? ops : [];
@@ -381,7 +402,7 @@ export function traceFlaws(ops, buildTranscript) {
     const t = mine[0];
     if (t.status !== l.status) out.push(`ops.jsonl line ${l.seq}: status ${JSON.stringify(l.status)} but the transcript's op line says ${JSON.stringify(t.status)}`);
     if (TOOL_OP[t.tool] !== l.op) out.push(`ops.jsonl line ${l.seq}: ${l.op} but the transcript's op line is tool ${JSON.stringify(t.tool)}`);
-    else if (l.status !== "refused" && canon(l.params) !== canon(paramsOf(t.tool, t.args))) out.push(`ops.jsonl line ${l.seq}: params ${canon(l.params)} but the transcript's op line's args project to ${canon(paramsOf(t.tool, t.args))}`);
+    else if (l.status !== "refused" && canon(l.params) !== canon(paramsOf(t.tool, t.args, t))) out.push(`ops.jsonl line ${l.seq}: params ${canon(l.params)} but the transcript's op line's args project to ${canon(paramsOf(t.tool, t.args, t))}`);
     if (l.status === "refused" && !tx.some((r) => r.type === "refused" && r.seq === l.seq)) out.push(`ops.jsonl line ${l.seq}: an agent refusal with no refused line for seq ${l.seq} in build/${BUILD_TRANSCRIPT_FILE}`);
   }
   for (const t of opLines) {
@@ -406,6 +427,15 @@ export function laneFlaws(doc) {
     }
   }
   return out;
+}
+
+// loadOpenQuestions(pkgRoot) → null | [{ seq, ts, source, questionId, reason }] (#320) — the projection's Open questions,
+// read from the lines prd-projection.mjs renders them from (every open_question op). NULL for a stand-in.
+export function loadOpenQuestions(pkgRoot) {
+  const tPath = join(pkgRoot, "transcript.jsonl");
+  if (!existsSync(tPath)) return null;
+  return readJsonl(tPath).filter((l) => l.type === "op" && l.op === "open_question")
+    .map((l) => ({ seq: l.seq, ts: l.ts ?? null, source: l.params?.source ?? null, questionId: l.params?.question_id ?? null, reason: l.params?.reason ?? null }));
 }
 
 // ---- #306: the run list, the decisions, the label, the live save ----------------------------------
@@ -528,6 +558,22 @@ export function openProposals(lines) {
   return list.filter((l) => l?.status === "proposed" && l?.source === "agent" && !answered.has(l.seq));
 }
 
+// #320: an agent's proposed screen.compose lines carrying the same fork turn as `p`, `p` excluded.
+const altOf = (l) => (l?.op === "screen.compose" && l.params && typeof l.params.alternative === "object" && l.params.alternative ? l.params.alternative : null);
+const siblingsOf = (lines, p) => lines.filter((l) => l?.source === "agent" && l.status === "proposed" && l.seq !== p.seq && altOf(l)?.turn === altOf(p)?.turn);
+
+// notPickedOf(lines) → the seqs of owner refused verdicts whose fork sibling was accepted (#320). NOT PICKED IS DERIVED:
+// the line shape stays {seq, at, source, op, params, status, fromStep?}; Neither refuses both and neither reads so.
+export function notPickedOf(lines) {
+  const list = Array.isArray(lines) ? lines : [];
+  const verdictOf = (seq) => list.find((l) => l?.source === "owner" && l.fromStep === seq);
+  return list.filter((v) => {
+    if (v?.source !== "owner" || v.status !== "refused" || !Number.isInteger(v.fromStep)) return false;
+    const p = list[v.fromStep - 1];
+    return altOf(p) && siblingsOf(list, p).some((s) => verdictOf(s.seq)?.status === "accepted");
+  }).map((v) => v.seq);
+}
+
 // The owner's verdict on the page (accepted | refused) must name an agent proposal by fromStep, restate
 // it exactly, and be the only verdict on it — in the ledger or earlier in this batch.
 function checkVerdict(existing, batch, i) {
@@ -542,6 +588,16 @@ function checkVerdict(existing, batch, i) {
   const prior = existing.find((l) => l?.fromStep === n);
   if (prior) throw new Error(`saveRun: op ${i} answers seq ${n}, but seq ${n} already has a verdict (seq ${prior.seq})`);
   if (batch.slice(0, i).some((x) => x?.fromStep === n)) throw new Error(`saveRun: op ${i} answers seq ${n}, but seq ${n} already has a verdict (op ${batch.findIndex((x) => x?.fromStep === n)} of this save)`);
+  // #320 (D5): a fork's options are answered in ONE save — a pick refuses the other, Neither refuses both.
+  const alt = altOf(p);
+  if (alt) {
+    for (const s of siblingsOf(existing, p)) {
+      if (existing.some((l) => l?.fromStep === s.seq)) continue;
+      const v = batch.find((x) => x?.fromStep === s.seq);
+      if (!v) throw new Error(`saveRun: op ${i} answers seq ${n}, option ${alt.option} of fork turn ${alt.turn} — its sibling seq ${s.seq} must be answered in the same save: a pick refuses the other, Neither refuses both (D5)`);
+      if (o.status === "accepted" && v.status !== "refused") throw new Error(`saveRun: op ${i} accepts seq ${n} and the same save ${v.status} seq ${s.seq} — a fork lands one option (D5)`);
+    }
+  }
 }
 
 // appendAgentLine(pkgRoot, { op, params, status }, { now }) → { seq, count } — THE SERVER'S WRITER of
@@ -560,7 +616,11 @@ export function appendAgentLine(pkgRoot, { op, params, status } = {}, { now = ()
     throw new Error(`appendAgentLine: status ${JSON.stringify(status)} — an agent line is proposed or refused; accepted, applied and undone are the owner's`);
   }
   if (status === "proposed") {
-    const open = openProposals(existing)[0];
+    // #320: the one exception to one-open-proposal is the other option of the same fork turn and screen.
+    const opens = openProposals(existing);
+    const alt = op === "screen.compose" && params && typeof params.alternative === "object" ? params.alternative : null;
+    const sibling = (o) => alt && altOf(o)?.turn === alt.turn && o.params?.screenId === params.screenId && altOf(o).option !== alt.option;
+    const open = opens.every(sibling) ? null : opens[0];
     if (open) {
       const what = open.op === "state.add" ? `${open.params?.stateKey} of ${open.params?.baseId}` : open.params?.screenId;
       throw new Error(`appendAgentLine: seq ${open.seq} (${open.op} ${what}) is still waiting for the owner's verdict — one open proposal at a time (LOOP)`);
@@ -579,7 +639,8 @@ export function appendAgentLine(pkgRoot, { op, params, status } = {}, { now = ()
 // THE LIVE WRITER, APPEND-ONLY AND ALL SYNCHRONOUS (D10). Nothing awaits between the server's
 // saveConflict and the append, which is what makes two tabs get a 409 rather than an interleaved
 // ledger. Every refusal — a status the page never writes, an op the applier refuses, a frame.link
-// ref the transcript does not hold, a node with no position — throws BEFORE any byte is written.
+// ref the transcript does not hold, an applied fork option no accepted line restates, a node with no
+// position — throws BEFORE any byte is written.
 // `decisions` is loadDecisions' answer: an array checks frame.link refs; null (a stand-in) accepts any.
 // The lines land in ONE append; a crash between it and the canvas.json write leaves canvas.json one save
 // behind, which the next save re-derives from the whole ledger.
@@ -594,6 +655,11 @@ export function saveRun(pkgRoot, { base, ops, positions, decisions } = {}, { now
     const status = o?.status;
     if (status === "applied" || status === "undone") {
       if (o.fromStep !== undefined) throw new Error(`saveRun: op ${i} is ${status} and carries fromStep — only a verdict (accepted, refused) names the proposal it answers`);
+      // PR #516 F1: verifyBuild's redo rule at write time — an applied fork option restates an accepted line, or it is a forged tag.
+      const alt = status === "applied" ? altOf(o) : null;
+      if (alt && ![...existing, ...ops.slice(0, i)].some((x) => x?.status === "accepted" && canon({ op: x.op, params: x.params }) === canon({ op: o.op, params: o.params }))) {
+        throw new Error(`saveRun: op ${i} applies fork option ${alt.option} of ${alt.turn}, which no verdict picked — only the owner's pick lands a fork option (D5)`);
+      }
     } else if (status === "accepted" || status === "refused") {
       checkVerdict(existing, ops, i);
     } else {

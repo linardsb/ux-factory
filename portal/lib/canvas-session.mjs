@@ -43,9 +43,9 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
 import { pathToFileURL } from "node:url";
-import { applyOp, frameTree, missingStates, STATE_KEY_RE, STATE_KEYS } from "../../system/canvas-ops.mjs";
+import { ALTERNATIVE_OPTIONS, applyOp, forkList, frameTree, missingStates, STATE_KEY_RE, STATE_KEYS } from "../../system/canvas-ops.mjs";
 import { validateComposition } from "../../system/agentic-renderer.mjs";
-import { appendAgentLine, foldLedger, loadBuild, openProposals, saveConflict } from "./canvas-store.mjs";
+import { appendAgentLine, foldLedger, loadBuild, loadDecisions, loadOpenQuestions, notPickedOf, openProposals, saveConflict } from "./canvas-store.mjs";
 import { withRunLock } from "./builder.mjs";
 import { allowsPath, isMcpToolName, READ_TOOLS } from "./discovery.mjs";
 import { REPO_DIR } from "./env.mjs";
@@ -61,6 +61,10 @@ export const ESCAPE = 'If a part the screen needs is not in the vocabulary, comp
 export const TURN_ASK = 'Propose the next screen.';
 export const BRIEF_LEAD = "The owner's brief for this turn, in their words:";
 export const STATE_ASK = ({ frameId, screenId, stateKey }) => `Next: the ${stateKey} state of ${screenId} (${frameId}). Call \`state_add\` once with baseId "${frameId}", stateKey "${stateKey}", an override that sets or hides parts by the ids in the base screen below, and a \`why\` naming the PRD decision (by seq) it serves and the reason.`;
+// #320 (D5): the fork turn's ask. S6's FORK_ASK named one screen and missed its target (S6 Q5); this one is generic and
+// carries the fork. LOOP is untouched (47.2): the turn ask says twice where LOOP says once.
+export const FORK_LEAD = "This turn is a fork:";
+export const FORK_ASK = ({ what }) => `${FORK_LEAD} the PRD leaves ${what} open. Propose ONE screen in TWO options: call \`screen_compose\` twice with the same screenId, each option a different answer to that open point, each \`why\` naming the answer it takes and the reason. The owner picks one; the other is recorded as not picked.`;
 export const SCREEN_TOOL_DESCRIPTION = 'Propose one screen for the build canvas. screenId: a short slug naming the screen. why: one sentence naming the PRD decision (by seq) it serves and the reason. composition: one node tree from the vocabulary. decisionRefs: optional list of seq references.' + ' Give every part an id (a short slug) so a later state can address it.' + ' decisionRefs is required here: the seq(s) your why names, as strings ("7"), or [] if none.' + ' states: optional list of extra state keys this screen needs beyond the five-state floor, kebab-case (e.g. close-match) — declare only states the PRD names.';
 export const STATE_TOOL_DESCRIPTION = "Propose one missing state of a screen already on the canvas. baseId: the screen's frame id. stateKey: the state asked for. override: { set: { partId: { prop: value } }, hide: [partId] } naming parts by their ids. why: one sentence naming the PRD decision (by seq) it serves and the reason.";
 
@@ -68,6 +72,9 @@ export const MODEL = "claude-sonnet-5";
 // num_turns is 1 plus the number of tool calls: a clean turn is 2, and a turn whose second call the
 // handler refuses is 3. 4 leaves one spare, and a turn that hits it is `failed`, never a retry.
 export const MAX_TURNS = 4;
+// A fork turn: 1 + two calls = 3, a refused third = 4, one spare (#320).
+export const FORK_MAX_TURNS = 5;
+export const maxTurnsFor = (ask) => (ask?.kind === "fork" ? FORK_MAX_TURNS : MAX_TURNS);
 export const MCP_SERVER = "canvas";
 export const SCREEN_TOOL = "screen_compose";
 export const STATE_TOOL = "state_add";
@@ -120,18 +127,19 @@ export function buildSystemPrompt({ vocab, vocabSha, prd }) {
 
 const baseFrames = (doc) => (doc?.frames ?? []).filter((f) => f && f.baseId == null);
 
-export function turnPrompt({ doc, ask, brief = null }) {
+export function turnPrompt({ doc, ask, brief = null, fork = null }) {
   const bases = baseFrames(doc);
   const holds = bases.length ? bases.map((f) => `${f.screenId} — ${f.why}`).join("\n") : "nothing yet";
   let s = `The canvas holds:\n${holds}`;
   if (brief !== null) s += `\n\n${BRIEF_LEAD}\n"${brief}"`;
   if (ask.kind === "screen") return `${s}\n\n${TURN_ASK}`;
+  if (ask.kind === "fork") return `${s}\n\n${FORK_ASK({ what: fork?.what ?? `seq ${ask.fork}` })}`;
   const base = doc.frames.find((f) => f.id === ask.baseId);
   return `${s}\n\n${STATE_ASK({ frameId: ask.baseId, screenId: base?.screenId ?? ask.baseId, stateKey: ask.stateKey })}\n\nThe base screen:\n${JSON.stringify(frameTree(doc, ask.baseId).tree, null, 2)}`;
 }
 
 // The prompt surface's fingerprint, carried on every stats line; 47.2b pins it to probe run 4's.
-export const promptFingerprint = () => sha16([ROLE, LOOP, ESCAPE, TURN_ASK, STATE_ASK({ frameId: "f0", screenId: "s", stateKey: "error" }), BRIEF_LEAD, SCREEN_TOOL_DESCRIPTION, STATE_TOOL_DESCRIPTION].join("\n"));
+export const promptFingerprint = () => sha16([ROLE, LOOP, ESCAPE, TURN_ASK, STATE_ASK({ frameId: "f0", screenId: "s", stateKey: "error" }), FORK_ASK({ what: "x" }), BRIEF_LEAD, SCREEN_TOOL_DESCRIPTION, STATE_TOOL_DESCRIPTION].join("\n"));
 
 // ---- build/transcript.jsonl ------------------------------------------------------------------------
 // NOT the package's transcript.jsonl (G4, the owner's call): writing there would give a stand-in a
@@ -168,7 +176,8 @@ export const turnLine = ({ turn, ask, briefed }) => ({ type: "turn", turn, ask, 
 export const briefLine = ({ turn, text }) => ({ type: "text", source: "owner", turn, text });
 export const agentText = ({ turn, text }) => ({ type: "text", source: "agent", turn, text });
 export const initLine = ({ turn, sessionId, model, tools }) => ({ type: "init", turn, sessionId, model: model ?? null, tools: tools ?? null });
-export const opLine = ({ turn, seq, tool, args, status }) => ({ type: "op", turn, seq: seq ?? null, tool, args, status });
+export const opLine = ({ turn, seq, tool, args, status, alternative }) => ({ type: "op", turn, seq: seq ?? null, tool, args, status, ...(alternative && { alternative }) });
+export const notDraftedLine = ({ turn, fork, filed }) => ({ type: "not-drafted", turn, fork, filed });
 export const deniedLine = ({ turn, tool, input, error, via }) => {
   if (!FENCE_SITES.includes(via)) throw new Error(`canvas-session: deniedLine needs "via", one of ${FENCE_SITES.join(" · ")} (got ${JSON.stringify(via)})`);
   return { type: "denied", turn, tool: tool ?? null, input: input ?? null, error, via };
@@ -286,8 +295,8 @@ export function fileProposal(ctx, tool, args) {
   const a = args && typeof args === "object" ? args : {};
   try {
     ctx.calls.push(structuredClone(a));
-    if (ctx.calls.length > 1) return refuse("one-per-turn", "this turn already made its one proposal call — the owner decides before the next turn (LOOP)");
-    const want = ctx.ask.kind === "screen" ? SCREEN_TOOL : STATE_TOOL;
+    if (ctx.ask.kind !== "fork" && ctx.calls.length > 1) return refuse("one-per-turn", "this turn already made its one proposal call — the owner decides before the next turn (LOOP)");
+    const want = ctx.ask.kind === "state" ? STATE_TOOL : SCREEN_TOOL;
     if (tool !== want) return refuse("wrong-target", `this turn asks for ${want}, not ${tool}`);
     const doc = readDoc(ctx.pkgRoot);
 
@@ -297,9 +306,17 @@ export function fileProposal(ctx, tool, args) {
       try { validateComposition(ctx.vocab, params.composition); } catch (e) { return refuse("vocabulary", e.message, op, params); }
       const idp = idProblem(params.composition);
       if (idp) return refuse("ids", `${idp} — every part below the root needs an id so its states can address it`, op, params);
+      // #320: the tag is the server's, set after the vocabulary and ids refusals (a refused call spends no option) and
+      // before applyOp, so a third option's "c" is refused BY THE APPLIER.
+      if (ctx.ask.kind === "fork") {
+        ctx.filed ??= [];
+        if (ctx.filed.length && params.screenId !== ctx.filed[0].screenId) return refuse("wrong-target", `a fork's two options are one screen — option a is "${ctx.filed[0].screenId}", not "${params.screenId}"`);
+        params.alternative = { turn: ctx.turn, option: ALTERNATIVE_OPTIONS[ctx.filed.length] ?? String.fromCharCode(97 + ctx.filed.length), fork: ctx.ask.fork };
+      }
       try { applyOp(doc, { op, params }); } catch (e) { return refuse("applier", e.message, op, params); }
       const { seq } = appendAgentLine(ctx.pkgRoot, { op, params, status: "proposed" }, ctx.now ? { now: ctx.now } : {});
-      write(opLine({ turn: ctx.turn, seq, tool, args: a, status: "proposed" }));
+      write(opLine({ turn: ctx.turn, seq, tool, args: a, status: "proposed", alternative: params.alternative }));
+      if (params.alternative) { ctx.filed.push({ seq, screenId: params.screenId }); return answer(`filed seq ${seq}: ${op} "${params.screenId}" option ${params.alternative.option} (proposed — the owner picks one)`); }
       return answer(`filed seq ${seq}: ${op} "${params.screenId}" (proposed — the owner decides)`);
     }
 
@@ -351,20 +368,23 @@ export function classifyComposeTurn(lines, stats = undefined) {
 export function composeView(pkgRoot) {
   const ops = loadBuild(path.join(pkgRoot, "build"))?.ops ?? [];
   const tx = readComposeTranscript(pkgRoot);
-  const o = openProposals(ops)[0] ?? null;
-  let open = null;
-  if (o) {
+  const opens = openProposals(ops);
+  const entry = (o) => {
     const line = tx.find((l) => l.type === "op" && l.status === "proposed" && l.seq === o.seq);
     const turn = line?.turn ?? null;
     const owner = tx.find((l) => l.type === "text" && l.source === "owner" && l.turn === turn);
-    open = {
+    return {
       seq: o.seq, op: o.op, params: o.params, turn,
       why: o.op === "state.add" ? (line?.args?.why ?? null) : (o.params?.why ?? null),
       brief: owner ? owner.text : null,
+      option: o.params?.alternative?.option ?? null, fork: o.params?.alternative?.fork ?? null,
     };
-  }
+  };
+  const open = opens.length ? entry(opens[0]) : null;
+  const options = opens.length && opens[0].params?.alternative ? opens.map(entry) : null;
+  const forks = forkList(foldLedger(ops).doc, { questions: loadOpenQuestions(pkgRoot), decisions: loadDecisions(pkgRoot), buildTx: tx });
   const turnLines = tx.filter((l) => l.type === "turn");
-  if (!turnLines.length) return { open, last: null, turns: 0 };
+  if (!turnLines.length) return { open, options, forks, last: null, turns: 0 };
   const lt = turnLines.at(-1);
   const of = tx.filter((l) => l.turn === lt.turn);
   const stats = of.find((l) => l.type === "stats");
@@ -374,7 +394,17 @@ export function composeView(pkgRoot) {
   else if (stats.outcome === "failed") last.error = stats.error ?? stats.result ?? "the SDK reported an error";
   else if (stats.outcome === "refused") last.error = refusal?.error ?? null;
   else if (stats.outcome === "escape") last.text = refusal?.text ?? null;
-  return { open, last, turns: turnLines.length };
+  if (lt.ask?.kind === "fork") {
+    const mine = of.filter((l) => l.type === "op" && l.status === "proposed" && Number.isInteger(l.seq));
+    const verdict = (seq) => ops.find((l) => l?.source === "owner" && l.fromStep === seq);
+    const np = new Set(notPickedOf(ops));
+    last.fork = {
+      ref: lt.ask.fork, filed: mine.length, notDrafted: of.some((l) => l.type === "not-drafted"),
+      picked: mine.find((l) => verdict(l.seq)?.status === "accepted")?.alternative?.option ?? null,
+      notPicked: mine.filter((l) => np.has(verdict(l.seq)?.seq)).map((l) => l.alternative?.option),
+    };
+  }
+  return { open, options, forks, last, turns: turnLines.length };
 }
 
 // ---- the turn --------------------------------------------------------------------------------------
@@ -391,8 +421,11 @@ export function checkComposeRequest({ ask, brief } = {}) {
     if (typeof ask.baseId !== "string" || !ask.baseId) throw new Error("canvas-session: a state ask's baseId must name a frame");
     // A shape check only (#316): a declared state is a kebab key; whether THIS base misses it is runComposeTurn's check.
     if (!STATE_KEYS.includes(ask.stateKey) && !(typeof ask.stateKey === "string" && STATE_KEY_RE.test(ask.stateKey))) throw new Error(`canvas-session: stateKey ${JSON.stringify(ask.stateKey)} is not one of ${STATE_KEYS.join(" · ")} or a declared state's kebab-case key`);
+  } else if (ask.kind === "fork") {
+    if (keys !== "fork,kind") throw new Error(`canvas-session: a fork ask carries kind and fork exactly (got ${keys})`);
+    if (typeof ask.fork !== "string" || !/^[1-9][0-9]*$/.test(ask.fork)) throw new Error(`canvas-session: a fork ask's fork must be a seq as a string ("11")`);
   } else {
-    throw new Error(`canvas-session: ask.kind ${JSON.stringify(ask.kind)} is not screen or state`);
+    throw new Error(`canvas-session: ask.kind ${JSON.stringify(ask.kind)} is not screen, state or fork`);
   }
   if (brief !== null && (typeof brief !== "string" || brief.trim().length < 1 || brief.trim().length > BRIEF_MAX)) {
     throw new Error(`canvas-session: brief must be null or 1–${BRIEF_MAX} characters of the owner's words (send null for no brief)`);
@@ -407,6 +440,7 @@ export function composeRefusal(message) {
   if (m.includes("already in flight")) return { kind: "busy", message: m };
   if (m.includes("is waiting for your verdict")) return { kind: "open-proposal", message: m };
   if (m.includes("has no prd.md")) return { kind: "no-prd", message: m };
+  if (m.includes("a fork names one") || m.includes("is already picked")) return { kind: "fork", message: m };
   return null;
 }
 
@@ -433,6 +467,16 @@ export async function runComposeTurn({ pkgRoot, base, ask, brief = null, transpo
       const miss = missingStates(doc).find((m) => m.frameId === ask.baseId);
       if (!miss?.missing.includes(ask.stateKey)) throw new Error(`canvas-session: ${ask.baseId} is not missing its ${ask.stateKey} state — the ask names a base screen and a state missingStates lists for it`);
     }
+    // #320 (D5): a fork names an open question, a current decision, or — on a stand-in, which has neither — any seq.
+    let fork = null;
+    if (ask.kind === "fork") {
+      const decisions = loadDecisions(pkgRoot);
+      const row = forkList(doc, { questions: loadOpenQuestions(pkgRoot), decisions, buildTx: readComposeTranscript(pkgRoot) }).find((r) => r.ref === ask.fork);
+      if (row?.status === "picked") throw new Error(`canvas-session: fork ${ask.fork} is already picked as ${row.frameId} — undo the pick to fork it again`);
+      const current = decisions?.find((d) => d.id === ask.fork && !decisions.some((x) => x.supersedes === d.seq)) ?? null;
+      if (decisions !== null && row?.kind !== "open-question" && !current) throw new Error(`canvas-session: seq ${ask.fork} is neither an open question nor a current decision in this package's transcript — a fork names one (D5)`);
+      fork = { what: row?.kind === "open-question" ? `the question ${row.questionId ?? "off-script"} (seq ${ask.fork})` : current ? `decision seq ${ask.fork} (${current.questionId ?? "off-script"})` : `seq ${ask.fork}` };
+    }
 
     // Loaded BEFORE the first append (PR #485 review F6): a transport that refuses this package (the fake's
     // scratch-only guard, `assertCwd`) refuses before the turn's owner lines are on disk.
@@ -453,7 +497,7 @@ export async function runComposeTurn({ pkgRoot, base, ask, brief = null, transpo
     const vocab = JSON.parse(vocabBytes);
     const vocabSha = sha16(vocabBytes);
     const prd = readFileSync(path.join(pkgRoot, "prd.md"), "utf8");
-    const name = ask.kind === "screen" ? SCREEN_TOOL : STATE_TOOL;
+    const name = ask.kind === "state" ? STATE_TOOL : SCREEN_TOOL;
     const fullName = toolNameFor(name);
     const ctx = { pkgRoot, turn, ask, vocab, calls: [], now };
 
@@ -462,11 +506,11 @@ export async function runComposeTurn({ pkgRoot, base, ask, brief = null, transpo
     try {
       const out = await composeQuery({
         systemPrompt: buildSystemPrompt({ vocab, vocabSha, prd }),
-        prompt: turnPrompt({ doc, ask, brief }),
+        prompt: turnPrompt({ doc, ask, brief, fork }),
         cwd: buildRoot,
         resume: resume || undefined,
         model: MODEL,
-        maxTurns: MAX_TURNS,
+        maxTurns: maxTurnsFor(ask),
         tool: { name, fullName, description: name === SCREEN_TOOL ? SCREEN_TOOL_DESCRIPTION : STATE_TOOL_DESCRIPTION, handler: (args) => fileProposal(ctx, name, args) },
         ...composeFence({ pkgRoot, turn, ownTools: [fullName] }),
         onInit: ({ sessionId, model, tools }) => appendComposeLine(pkgRoot, initLine({ turn, sessionId, model, tools })),
@@ -486,12 +530,15 @@ export async function runComposeTurn({ pkgRoot, base, ask, brief = null, transpo
     if (resume && outcome === "failed" && !lines.some((l) => l.type === "init")) {
       appendComposeLine(pkgRoot, sessionResetLine({ turn, sessionId: resume, error }));
     }
+    if (ask.kind === "fork" && lines.filter((l) => l.type === "op" && l.status === "proposed").length === 1) {
+      appendComposeLine(pkgRoot, notDraftedLine({ turn, fork: ask.fork, filed: "a" }));
+    }
     if (outcome === "escape") {
       const text = lines.find((l) => l.type === "text" && l.source === "agent" && ESCAPE_RE.test(l.text)).text;
       appendComposeLine(pkgRoot, refusedLine({ turn, kind: "not-covered", text }));
     }
     appendComposeLine(pkgRoot, statsLine({
-      turn, ...(stats ?? {}), maxTurns: MAX_TURNS, outcome, ...(error !== null && { error }),
+      turn, ...(stats ?? {}), maxTurns: maxTurnsFor(ask), outcome, ...(error !== null && { error }),
       promptFingerprint: promptFingerprint(), vocabSha, model: MODEL,
     }));
     // `added` is the ledger lines THIS turn wrote (each op line with a seq). The page checks

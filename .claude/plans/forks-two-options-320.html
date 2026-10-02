@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Forks brief</title>
+<style>
+  :root { --bg:#fafaf8; --ink:#1d1d1b; --muted:#6b6b66; --line:#e3e2dc; --card:#fff; --accent:#3b5bdb; --ok:#2b8a3e; --no:#c92a2a; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#161615; --ink:#ecebe6; --muted:#9a9993; --line:#2e2e2b; --card:#1f1f1d; --accent:#8ea6ff; --ok:#69db7c; --no:#ff8787; } }
+  * { box-sizing:border-box }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.55 system-ui, sans-serif; }
+  main { max-width:860px; margin:0 auto; padding:32px 16px 64px; }
+  h1 { font-size:26px; margin:0 0 6px } h2 { font-size:18px; margin:36px 0 10px }
+  .muted { color:var(--muted) } a { color:var(--accent) }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:12px }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; min-width:0 }
+  .card h3 { margin:0 0 6px; font-size:15px }
+  pre { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:10px 12px; overflow-x:auto; font-size:13px; margin:8px 0 0 }
+  .flow { display:flex; flex-wrap:wrap; gap:8px; align-items:center }
+  .box { border:1px solid var(--line); background:var(--card); border-radius:8px; padding:8px 10px; font-size:14px }
+  .arrow { color:var(--muted) }
+  .pick { border-color:var(--ok) } .drop { border-color:var(--no); text-decoration:line-through; color:var(--muted) }
+  table { width:100%; border-collapse:collapse; font-size:14px } td { border-top:1px solid var(--line); padding:6px 4px; vertical-align:top }
+  ul.prompts { list-style:none; padding:0; margin:0 } ul.prompts li { display:flex; justify-content:space-between; gap:12px; padding:8px 0; border-top:1px solid var(--line) }
+  .copy { opacity:.35; border:0; background:none; color:inherit; cursor:pointer; font-size:15px; line-height:1; min-width:44px; min-height:44px }
+  .copy:hover, .copy:focus-visible { opacity:1 } .copy::before { content:'⧉' } .copy.copied::before { content:'✓' }
+</style>
+</head>
+<body>
+<main>
+  <h1>Two options at a fork</h1>
+  <p class="muted">Build brief for ticket #320. The full plan: <a href="forks-two-options-320.md">forks-two-options-320.md</a></p>
+
+  <h2>What we're building and why</h2>
+  <p>Today, when the PRD (the product requirements document) leaves a decision open, the agent quietly picks an answer and writes it into a screen. After this change, it drafts two versions of that screen, you pick one, and the record keeps both.</p>
+
+  <h2>The concepts this rests on</h2>
+  <div class="grid">
+    <div class="card">
+      <h3>A fork</h3>
+      <p>A spot where the plan has not decided yet. Here that means an open question nobody answered, or a decision you mark as open when you ask. Like a road sign with no arrow.</p>
+      <pre>fork 11: "first-payment limit?"
+  → nobody decided it</pre>
+    </div>
+    <div class="card">
+      <h3>Sibling proposals</h3>
+      <p>Normally the agent proposes one screen at a time. A fork allows exactly two at once: the same screen, labelled option A and option B. The server adds the labels, not the agent, so they can be trusted.</p>
+    </div>
+    <div class="card">
+      <h3>One save, two verdicts</h3>
+      <p>Picking B saves "accept B" and "refuse A" together, as one atomic write (both land or neither does). It is like signing a contract that cancels the other offer in the same signature.</p>
+      <pre>accepted  B  at 10:02:07
+refused   A  at 10:02:07</pre>
+    </div>
+    <div class="card">
+      <h3>Derived, not stored</h3>
+      <p>Nothing writes the word "not-picked". The system works it out: A was refused, and its sibling was accepted. So the fork list and the "not-picked" label are worked out from the record each time, and can't drift out of step with it.</p>
+    </div>
+  </div>
+
+  <h2>How the pieces fit</h2>
+  <div class="flow">
+    <span class="box">Open question or your flag</span><span class="arrow">→</span>
+    <span class="box">Fork turn: agent drafts twice</span><span class="arrow">→</span>
+    <span class="box">Option A</span><span class="box pick">Option B</span><span class="arrow">→</span>
+    <span class="box">You pick B, one save</span><span class="arrow">→</span>
+    <span class="box pick">B becomes the screen</span>
+    <span class="box drop">A: refused, not-picked</span>
+  </div>
+
+  <h2>The plan at a glance</h2>
+  <table>
+    <tr><td>1 · Grammar</td><td>The <code>alternative</code> tag and the fork list. Pure, no files.</td></tr>
+    <tr><td>2 · Store</td><td>Allow two sibling proposals, require one save. Needs 1.</td></tr>
+    <tr><td>3 · Session</td><td>The fork turn, the tagging, the "one option only" fallback. Needs 2.</td></tr>
+    <tr><td>4 · Readers</td><td>Inbox row, handoff wording, ready check. Needs 1–3.</td></tr>
+    <tr><td>5 · Page</td><td>Two cards, Pick A / Pick B / Neither, the fork chip. Needs 3.</td></tr>
+    <tr><td>6 · Gates</td><td>build-checks cases and a journey pass. Needs 1–5.</td></tr>
+    <tr><td>7 · Docs + regen</td><td>Architecture note, line count, approach screenshots. Last.</td></tr>
+  </table>
+<pre>system/canvas-ops.mjs          # the tag, its refusals, forkList
+portal/lib/canvas-store.mjs    # siblings, one-save pick, notPickedOf
+portal/lib/canvas-session.mjs  # the fork turn and FORK_ASK
+portal/lib/inbox.mjs           # the "fork" row
+portal/public/canvas.mjs       # the two cards and the pick
+agent-layer/gen-build-handoff.mjs  # "refused: not-picked" in the pack
+tooling/fake-compose-agent.mjs # a scripted fork turn
+tooling/build-checks.mjs · canvas-journey.mjs · run-316-ready.mjs</pre>
+  <ul>
+    <li>Both options are recorded as proposed; picking one refuses the other in the same save; a third option is refused.</li>
+    <li>On the canvas: fork → two options → pick B → A reads "refused: not-picked" → the diagram and the checks use B.</li>
+    <li>The fork list matches the PRD's open questions on real fixtures.</li>
+  </ul>
+
+  <h2>Go deeper</h2>
+  <ul class="prompts">
+    <li data-prompt="/learn forks in a design process — options instead of answers"><span><b>/learn forks in a design process</b> — why options beat a silent default.</span><button class="copy" aria-label="Copy prompt"></button></li>
+    <li data-prompt="/learn append-only ledgers and sibling proposals"><span><b>/learn sibling proposals</b> — holding two drafts in an append-only record.</span><button class="copy" aria-label="Copy prompt"></button></li>
+    <li data-prompt="/learn atomic writes — answering two things in one save"><span><b>/learn atomic writes</b> — why the pick and the refusal land together.</span><button class="copy" aria-label="Copy prompt"></button></li>
+    <li data-prompt="/learn derived state versus stored state"><span><b>/learn derived state</b> — computing "not picked" instead of writing it.</span><button class="copy" aria-label="Copy prompt"></button></li>
+  </ul>
+</main>
+<script>
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.copy')
+  if (!btn) return
+  const text = btn.closest('[data-prompt]').dataset.prompt
+  try {
+    await navigator.clipboard.writeText(text)
+  } catch {
+    const ta = Object.assign(document.createElement('textarea'), { value: text })
+    ta.style.cssText = 'position:fixed;opacity:0'
+    document.body.append(ta)
+    ta.select()
+    document.execCommand('copy')
+    ta.remove()
+  }
+  btn.classList.add('copied')
+  setTimeout(() => btn.classList.remove('copied'), 1200)
+})
+</script>
+</body>
+</html>

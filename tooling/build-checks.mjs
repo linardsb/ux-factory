@@ -11568,7 +11568,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
 // was demanded and that an empty one is refused, and a sentence that says nothing while passing
 // `.trim()` is a human read. Nor, for #315's groups (35.17), whether a group is a GOOD reuse (a human read) or
 // whether the page's selection matches the owner's intent (canvas-journey's groups pass). Nor, for #318's
-// staleFrames (35.19), whether the page shows the flag and re-confirms (canvas-journey pass B).
+// staleFrames (35.19), whether the page shows the flag and re-confirms (canvas-journey pass B). Nor, for #320's fork
+// tag and fork list (35.20), whether a model files two options (the paid sitting), or the page (canvas-journey pass F).
 
 {
   const { OPS: COPS, PARAMS: CPARAMS, ENDPOINT_KEYS, EXHIBIT_SIZE, GROUP_OVERRIDE_KEYS, STATE_KEYS, applyOp, applyOps, canDeleteBasePart, emptyDoc, exhibitClash, exhibitClashes, exhibitsOf, flowEdges, frameTree, groupInstances, missingStates, placeDecision, reconfirmRefs, resolve, staleFrames } =
@@ -12486,7 +12487,72 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     // (i) no op was added for any of this: COPS.length === 14 is 35.1's assertion.
   }
 
-  group("canvas ops", `#313's proposal.ratify (35.16): a Mode 1 proposal ratified FIRST as the positive control — status "ratified", its component recorded, every other key and pr1 untouched, exhibitsOf still pr1 alone — then seven refusals each matched on what they name: an unknown id (listing pr1, pr2), a Mode 2 proposal (frozen original, G7), a second ratify, a component that is not a name, a proposalId that is not pr<n>, an id slot, and a document with no proposals key · #314's lanes (35.15): variant.add refusing key "a" (lane A is the document), omit other than true, omit beside set, an unknown override key, and a wrong-typed set, hide or add (PR #491 F2: a string or a part of strings for set, a number or a non-string part for hide, null for add, each named by its overrides.<frame>.<key> path) — each named — behind the positive control that {omit: true} alone and {set, hide, add} are ACCEPTED; LANE_OVERRIDE_KEYS frozen as set · hide · add · omit and BASE_LANE null; laneKeys [null] then [null, "b"], total over 5 junk docs; laneDoc omitting a base's states and every arrow touching either, flagging each omitted frame, an unknown lane holding no frames with an unknown-lane flag, and its argument unmutated; frameTree's layer order base.sets → lane[base] → state.overrides → state.sets → lane[state] (lane b's f1 "Check the name", its f2 still "Send anyway" plus the lane's hint, lane A's f1 "Continue") and an omitted frame answering tree null, flagged; missingStates per lane on the committed SYNTHETIC two-lane fixture — empty, partial for A and empty, error, partial for b, the error missing in b ONLY, [] for an unknown lane — and its f3 keeping "Checking the name…" in b; stateDiagram's spine text exact, lane b with no f2 and its arrow relabelled, "a:b;c#d" emitted as abcd; the lane reads total over junk · #475's Mode 2 exhibit (35.13, 35.14): EXHIBIT_SIZE 320×280 frozen by mutation; exhibitsOf answering Mode 2 proposals only, in order, total over 5 junk docs; exhibitClash over six literal boxes — right of the flow clear, below a frame with no authored height REFUSED (it reaches down without end, the only reading Node can compute), below an authored 600 clear, overlapping it refused, touching edges clear, a widened f2 refused — and junk answering null; exhibitClashes, the ONE call the page and arrangement both make, honouring an authored h from positions (the resize escape hatch), skipping an unplaced exhibit and taking a frame's width from the DOCUMENT even when positions says 9999 · the frozen-original refusal in screen.compose (nested two levels), state.add's override.add and variant.add's overrides.<frame>.add — each both bare and in the architecture's {parentId, index, part} wrapper, whose part the walk must reach — each naming the verb, the name, pr1 and G7, behind two kinds of positive control: the same three ops naming a Mode 1 proposal accepted, and a prop called name not mistaken for a node · #311's component.propose (35.12): pr1 minted deterministically and pr2 after it, eight refusals each matched on what they name (a bad name two ways, a duplicate name, a duplicate recordId, a recordId that is not i<n>, mode 3 and mode "1", an id slot), every key but proposals untouched, status "proposed" and proposal.ratify in OPS as the only verb that moves it — and a pre-#311 document with no proposals key folding · #306's four verbs and frame.size's free width: annotate minting n1 and EDITING in place (a noteId that does not resolve is refused, or it is the smuggling slot), frame.link REPLACING the list, frame.size {width} recording preset null, variant.add one lane, frame.remove taking its arrows with it — and 19 refusals naming the blocker (a state or a variant lane overriding the frame), each rule on decisionRefs, blank text, the lane key, the override map, and exactly-one-of preset/width with the 320–2560 bounds · frameTree resolving base sets, then the state\'s override, then its own sets, DROPPING a hidden node rather than writing `+"`"+`hidden`+"`"+` (the real validateComposition refuses that prop, and the returned trees pass it), flagging a dangling set and a hidden root, total over junk · placeDecision right of the anchor\'s whole ROW (894 then 1206 on the spine, where right-of-the-anchor is 422, on top of f2), a lower row ignored, total over junk · non-data inside params (a function, a symbol, nested) refused BY PATH before structuredClone's unnamed DataCloneError can speak (#437) · OPS ↔ PARAMS the same ${COPS.length} verbs in BOTH directions, every list frozen BY MUTATION at both levels (Object.freeze is shallow, and a pushable PARAMS entry lets the frozen case pass for the wrong reason), STATE_KEYS pinned as the five-state floor with "ideal" leading it, and NO PARAMS entry offering an id slot for the thing its op creates — the only way to enforce board-ops' mint-from-the-document rule is on the key set · #315's group.define and group.place (35.17) — the count final at fourteen: a group defined from a selection (the parts DERIVED from the frame's resolved tree), two copies g1-1 and g1-2, a redefine both follow, one copy's title overridden alone, a redefine dropping an overridden part refused naming the copy, twenty-two refusals by name, a redefine of a group a proposal names refused after propose and after ratify (PR #494 F1) and a "/" in a part id refused by screen.compose, state.add and variant.add behind a hyphenated control (F3), frameTree expanding copies before every layer with namespaced ids (a dangling copy override flagged with its copy, an unknown group flagged and dropped, a state and an arrow addressing a copy's part), every expanded tree through the real validateComposition and a list-row copy in a stack refused naming it, #475's frozen-original refusal on both verbs behind a Mode 1 control, and component.propose from a groupId (exactly one of recordId/groupId, Mode 1 only, one proposal per group); whether a group is a GOOD reuse is a human read, and whether the page's selection matches the owner's intent is canvas-journey's · a VALID_FOR fixture per verb so a FIFTEENTH verb with no fixture fails BY NAME, each fixture's keys asserted to be in its own PARAMS entry · EVERY constructive call routed through one fold() that turns a throw into a NAMED failure rather than an uncaught one: ok() only accumulates and group() prints at the end, so an unguarded throw here kills the process before a single named failure speaks — found by mutation (widening a PARAMS entry with an id slot makes 35.1's own assertion false AND makes the fold throw, and unguarded the throw won) · the happy six-op fold: ids minted f1/f2 and a1 with no op carrying one, a state proven to be a SIBLING carrying an override rather than a copy of its base, frame.size recording BOTH the preset name and the width so a later table edit moves new frames and leaves committed ones, and PURITY proven by mutating the input and by mutating the return · 19 refusals each DRIVEN by a broken op and matched on the words it must NAME — including D4's `+"`"+`why`+"`"+` three ways (absent, EMPTY, non-string), a state outside the minimum, a dangling frameId in each of four positions, an unknown verb, an unknown param, an unknown ENVELOPE key, a document that is not one, and PR #432's three open questions as the owner closed them on 2026-09-21: a state OF a state (which missingStates walks base frames only and could never have reported), a DUPLICATE (baseId, stateKey) (which its Set absorbed silently), and an unknown key INSIDE connect's from or to — with ENDPOINT_KEYS frozen at both levels beside PARAMS and `+"`"+`partId`+"`"+` proven to be `+"`"+`from`+"`"+`'s alone — behind the positive control that EVERY verb's minimal valid op is ACCEPTED, without which the battery would pass on an applier that refuses everything, plus applyOps naming the failing INDEX and verb · the TWO-LAYER rule gated: frame.sets (screen.set's) and frame.overrides.set (state.add's) proven to be the SAME SHAPE so ONE resolve applies both, with the state's layer proven to win over the base's — measured rather than assumed, because the spine's first render dropped its screen.set entirely and nothing said who joined the composition to the sets · resolve() proven to FLAG a dangling override and to keep it OUT of the resolved parts (never dropped, because it is a real thing someone wrote) with landing set and hide both applied, total over 6 junk shapes · missingStates as a LIST rather than a count, only BASE frames considered, a base with the floor met OMITTED so an empty answer means met rather than unchecked, total over 6 · canDeleteBasePart refusing by naming the state, its frame and what to do instead, with the part NOTHING overrides proven to pass so the refusal does not fire on everything · the preset table frozen with presetWidth answering NULL rather than a default · and the import graph pinned to device-presets.mjs alone. · #316's declared states (35.18): screen.compose's optional states stored only when non-empty (a compose without them leaves no key — the control), REQUIRED by missingStates (close-match listed, then gone after state.add), accepted by state.add only on the base that declares it (no-match on a close-match base and close-match on an undeclaring base refused, each naming the base's declarations), seven refusals by name (a non-array, a non-string, Close_Match, a one-letter key, 25 characters, a duplicate, a floor key), missingStates total over four junk declarations, a state of the declared state refused as a state of a state, and a lane omitting the base reporting none of its declared states while a lane keeping it reports them. What it cannot reach: whether a composition RENDERS (group 3's), whether a frame ever reaches the canvas or the page renders frameTree's output (studio-journey's and canvas-journey's), whether the page puts a refused move back (canvas-journey's), whether Mermaid parses the stateDiagram text (a human paste), and whether a `+"`"+`why`+"`"+` is any GOOD — a sentence that says nothing while passing .trim() is a human read · #318's staleFrames (35.19): the REAL discovery applier over faster-payment's transcript plus two banked answers to seq 7's question builds the chain 7 → S1 → S2 (asserted first), then a frame pinned to 7 reads stale with latest S2, the middle of the chain re-pins to the head not its successor, a frame pinned to S2 is not flagged (the positive control), "99", "1" (a file_evidence seq), "07", "" and the number 7 each read dangling and are kept, staleFrames' stale set equals ledgerView's not-latest set over a frame pinning every decision (the vacuity guard read off the fixture's own supersedes), reconfirmRefs re-pins to the head, dedupes and keeps a dangling ref, and the read answers [] for a stand-in and an array over junk and a 2-cycle — no op added (35.1's fourteen). What 35.19 cannot reach: whether the page shows the flag and re-confirms (canvas-journey pass B), and whether the pack says so (49.13)`);
+  // --- 35.20 #320 (D5): the fork tag on screen.compose, and the fork list -------------------------------------
+  // The tag is the SERVER's (canvas-session.mjs sets it); the applier checks it exactly, refuses a third option and a
+  // second option of one turn reaching the document. forkList is a READ over loader rows, total over junk.
+  {
+    const { ALTERNATIVE_KEYS, ALTERNATIVE_OPTIONS, forkFrame, forkList } = await import("../system/canvas-ops.mjs");
+    ok(deep(ALTERNATIVE_KEYS) === deep(["turn", "option", "fork"]) && Object.isFrozen(ALTERNATIVE_KEYS)
+      && deep(ALTERNATIVE_OPTIONS) === deep(["a", "b"]) && Object.isFrozen(ALTERNATIVE_OPTIONS),
+      `35.20 ALTERNATIVE_KEYS ${deep(ALTERNATIVE_KEYS)} / ALTERNATIVE_OPTIONS ${deep(ALTERNATIVE_OPTIONS)} — want turn, option, fork and a, b, both frozen`);
+    const compose = (alternative, screenId = "pay") => ({ op: "screen.compose", params: { ...VALID_FOR["screen.compose"], screenId, ...(alternative !== undefined && { alternative }) } });
+    // (a) stored as given; without it, no key (the control).
+    const withA = fold([compose({ turn: "c4", option: "a", fork: "11" })]);
+    ok(deep(withA?.frames?.[0]?.alternative) === deep({ turn: "c4", option: "a", fork: "11" }), `35.20a the tag must be stored on the frame — got ${deep(withA?.frames?.[0]?.alternative)}`);
+    const plain = fold([compose(undefined)]);
+    ok(plain && !("alternative" in plain.frames[0]), "35.20a control — a compose with no alternative must leave no alternative key");
+    // (b) refusals, each matched on its words.
+    for (const [label, alt, ...words] of [
+      ["option \"c\"", { turn: "c4", option: "c", fork: "11" }, "a third", "(D5)"],
+      ["an extra key x", { turn: "c4", option: "a", fork: "11", x: 1 }, "unknown key \"x\"", "turn, option, fork"],
+      ["a missing fork", { turn: "c4", option: "a" }, "alternative.fork is required"],
+      ["turn \"t4\"", { turn: "t4", option: "a", fork: "11" }, "alternative.turn", "compose turn id"],
+      ["fork \"07\"", { turn: "c4", option: "a", fork: "07" }, "alternative.fork", "is not a seq"],
+      ["alternative \"a\"", "a", "\"alternative\" must be { turn, option, fork }"],
+    ]) {
+      const m = names(() => applyOp(emptyDoc(), compose(alt)), ...words);
+      ok(m === null, `35.20b ${label} must be refused naming ${words.join(" + ")} — ${m === "NO THROW" ? `option "c" was accepted — a fork offers two` : m}`);
+    }
+    if (withA) {
+      const twin = threw(() => applyOp(withA, compose({ turn: "c4", option: "b", fork: "11" })));
+      ok(twin !== null && twin.includes("already landed as f1"), `35.20b option b of c4 landed beside option a — ${twin ?? "NO THROW"}`);
+      const other = threw(() => applyOp(withA, compose({ turn: "c5", option: "b", fork: "11" })));
+      ok(other === null, `35.20b control — option b of ANOTHER turn (c5) must be accepted: ${other}`);
+    }
+    // (c) forkList on literal rows.
+    const doc = withA ?? emptyDoc();
+    const rows = forkList(emptyDoc(), {
+      questions: [
+        { seq: 17, questionId: "q-closed", reason: "r" },        // closed by decision 20 on its id: omitted
+        { seq: 18, questionId: "q-early", reason: null },        // a decision on it at 9, BEFORE it: listed
+        { seq: 19, questionId: null, reason: "off-script" },     // off-script: never closed by a decision
+      ],
+      decisions: [{ seq: 20, questionId: "q-closed" }, { seq: 9, questionId: "q-early" }, { seq: 11, questionId: "s4" }, { seq: 21, questionId: null }],
+      buildTx: [
+        { type: "turn", turn: "c2", ask: { kind: "fork", fork: "11" } },   // a flagged decision
+        { type: "turn", turn: "c3", ask: { kind: "fork", fork: "18" } },   // a flag on an open question: deduped
+        { type: "turn", turn: "c4", ask: { kind: "screen" } },
+      ],
+    });
+    const want = [["18", "open-question", "q-early", "open"], ["19", "open-question", null, "open"], ["11", "flagged", "s4", "open"]];
+    ok(!rows.some((r) => r.ref === "17"), `35.20c seq 17 listed, closed by decision 20 — got ${deep(rows.map((r) => r.ref))}`);
+    ok(rows.filter((r) => r.ref === "18").length === 1, `35.20c seq 18 listed twice — got ${deep(rows.map((r) => r.ref))}`);
+    ok(deep(rows.map((r) => [r.ref, r.kind, r.questionId, r.status])) === deep(want), `35.20c forkList answered ${deep(rows.map((r) => [r.ref, r.kind, r.questionId, r.status]))}, want ${deep(want)}`);
+    ok(rows.find((r) => r.ref === "11")?.turn === "c2" && rows.find((r) => r.ref === "18")?.turn === null, "35.20c a flagged row carries its turn; an open question flagged again keeps its own row (turn null)");
+    const picked = forkList(doc, { questions: null, decisions: null, buildTx: [{ type: "turn", turn: "c4", ask: { kind: "fork", fork: "11" } }] });
+    ok(deep(picked) === deep([{ ref: "11", kind: "flagged", questionId: null, reason: null, turn: "c4", status: "picked", frameId: "f1", option: "a" }]),
+      `35.20c the stand-in (questions and decisions null) lists its flags only, picked by the frame carrying fork 11 — got ${deep(picked)}`);
+    ok(forkFrame(doc, "11")?.id === "f1" && forkFrame(doc, "12") === null && forkFrame(null, "11") === null, "35.20c forkFrame finds the frame carrying the fork, null otherwise");
+    for (const [label, d, a] of [["null", null, null], ["{}", {}, {}], ["questions \"x\"", emptyDoc(), { questions: "x" }],
+      ["rows of null", { frames: [null] }, { questions: [null], decisions: [null], buildTx: [null] }], ["a turn line with no ask", emptyDoc(), { buildTx: [{ type: "turn", turn: "c1" }] }]]) {
+      const m = threw(() => forkList(d, a ?? undefined));
+      ok(m === null && Array.isArray(forkList(d, a ?? undefined)) && forkList(d, a ?? undefined).length === 0, `35.20c forkList over ${label} must answer [] and never throw — ${m ?? deep(forkList(d, a ?? undefined))}`);
+    }
+    // (d) still no id slot, and still fourteen verbs: 35.1 holds with six keys on screen.compose.
+    ok(CPARAMS["screen.compose"].length === 6 && CPARAMS["screen.compose"].includes("alternative"), `35.20d PARAMS["screen.compose"] is ${deep(CPARAMS["screen.compose"])} — six keys, alternative among them`);
+  }
+
+  group("canvas ops", `#313's proposal.ratify (35.16): a Mode 1 proposal ratified FIRST as the positive control — status "ratified", its component recorded, every other key and pr1 untouched, exhibitsOf still pr1 alone — then seven refusals each matched on what they name: an unknown id (listing pr1, pr2), a Mode 2 proposal (frozen original, G7), a second ratify, a component that is not a name, a proposalId that is not pr<n>, an id slot, and a document with no proposals key · #314's lanes (35.15): variant.add refusing key "a" (lane A is the document), omit other than true, omit beside set, an unknown override key, and a wrong-typed set, hide or add (PR #491 F2: a string or a part of strings for set, a number or a non-string part for hide, null for add, each named by its overrides.<frame>.<key> path) — each named — behind the positive control that {omit: true} alone and {set, hide, add} are ACCEPTED; LANE_OVERRIDE_KEYS frozen as set · hide · add · omit and BASE_LANE null; laneKeys [null] then [null, "b"], total over 5 junk docs; laneDoc omitting a base's states and every arrow touching either, flagging each omitted frame, an unknown lane holding no frames with an unknown-lane flag, and its argument unmutated; frameTree's layer order base.sets → lane[base] → state.overrides → state.sets → lane[state] (lane b's f1 "Check the name", its f2 still "Send anyway" plus the lane's hint, lane A's f1 "Continue") and an omitted frame answering tree null, flagged; missingStates per lane on the committed SYNTHETIC two-lane fixture — empty, partial for A and empty, error, partial for b, the error missing in b ONLY, [] for an unknown lane — and its f3 keeping "Checking the name…" in b; stateDiagram's spine text exact, lane b with no f2 and its arrow relabelled, "a:b;c#d" emitted as abcd; the lane reads total over junk · #475's Mode 2 exhibit (35.13, 35.14): EXHIBIT_SIZE 320×280 frozen by mutation; exhibitsOf answering Mode 2 proposals only, in order, total over 5 junk docs; exhibitClash over six literal boxes — right of the flow clear, below a frame with no authored height REFUSED (it reaches down without end, the only reading Node can compute), below an authored 600 clear, overlapping it refused, touching edges clear, a widened f2 refused — and junk answering null; exhibitClashes, the ONE call the page and arrangement both make, honouring an authored h from positions (the resize escape hatch), skipping an unplaced exhibit and taking a frame's width from the DOCUMENT even when positions says 9999 · the frozen-original refusal in screen.compose (nested two levels), state.add's override.add and variant.add's overrides.<frame>.add — each both bare and in the architecture's {parentId, index, part} wrapper, whose part the walk must reach — each naming the verb, the name, pr1 and G7, behind two kinds of positive control: the same three ops naming a Mode 1 proposal accepted, and a prop called name not mistaken for a node · #311's component.propose (35.12): pr1 minted deterministically and pr2 after it, eight refusals each matched on what they name (a bad name two ways, a duplicate name, a duplicate recordId, a recordId that is not i<n>, mode 3 and mode "1", an id slot), every key but proposals untouched, status "proposed" and proposal.ratify in OPS as the only verb that moves it — and a pre-#311 document with no proposals key folding · #306's four verbs and frame.size's free width: annotate minting n1 and EDITING in place (a noteId that does not resolve is refused, or it is the smuggling slot), frame.link REPLACING the list, frame.size {width} recording preset null, variant.add one lane, frame.remove taking its arrows with it — and 19 refusals naming the blocker (a state or a variant lane overriding the frame), each rule on decisionRefs, blank text, the lane key, the override map, and exactly-one-of preset/width with the 320–2560 bounds · frameTree resolving base sets, then the state\'s override, then its own sets, DROPPING a hidden node rather than writing `+"`"+`hidden`+"`"+` (the real validateComposition refuses that prop, and the returned trees pass it), flagging a dangling set and a hidden root, total over junk · placeDecision right of the anchor\'s whole ROW (894 then 1206 on the spine, where right-of-the-anchor is 422, on top of f2), a lower row ignored, total over junk · non-data inside params (a function, a symbol, nested) refused BY PATH before structuredClone's unnamed DataCloneError can speak (#437) · OPS ↔ PARAMS the same ${COPS.length} verbs in BOTH directions, every list frozen BY MUTATION at both levels (Object.freeze is shallow, and a pushable PARAMS entry lets the frozen case pass for the wrong reason), STATE_KEYS pinned as the five-state floor with "ideal" leading it, and NO PARAMS entry offering an id slot for the thing its op creates — the only way to enforce board-ops' mint-from-the-document rule is on the key set · #315's group.define and group.place (35.17) — the count final at fourteen: a group defined from a selection (the parts DERIVED from the frame's resolved tree), two copies g1-1 and g1-2, a redefine both follow, one copy's title overridden alone, a redefine dropping an overridden part refused naming the copy, twenty-two refusals by name, a redefine of a group a proposal names refused after propose and after ratify (PR #494 F1) and a "/" in a part id refused by screen.compose, state.add and variant.add behind a hyphenated control (F3), frameTree expanding copies before every layer with namespaced ids (a dangling copy override flagged with its copy, an unknown group flagged and dropped, a state and an arrow addressing a copy's part), every expanded tree through the real validateComposition and a list-row copy in a stack refused naming it, #475's frozen-original refusal on both verbs behind a Mode 1 control, and component.propose from a groupId (exactly one of recordId/groupId, Mode 1 only, one proposal per group); whether a group is a GOOD reuse is a human read, and whether the page's selection matches the owner's intent is canvas-journey's · a VALID_FOR fixture per verb so a FIFTEENTH verb with no fixture fails BY NAME, each fixture's keys asserted to be in its own PARAMS entry · EVERY constructive call routed through one fold() that turns a throw into a NAMED failure rather than an uncaught one: ok() only accumulates and group() prints at the end, so an unguarded throw here kills the process before a single named failure speaks — found by mutation (widening a PARAMS entry with an id slot makes 35.1's own assertion false AND makes the fold throw, and unguarded the throw won) · the happy six-op fold: ids minted f1/f2 and a1 with no op carrying one, a state proven to be a SIBLING carrying an override rather than a copy of its base, frame.size recording BOTH the preset name and the width so a later table edit moves new frames and leaves committed ones, and PURITY proven by mutating the input and by mutating the return · 19 refusals each DRIVEN by a broken op and matched on the words it must NAME — including D4's `+"`"+`why`+"`"+` three ways (absent, EMPTY, non-string), a state outside the minimum, a dangling frameId in each of four positions, an unknown verb, an unknown param, an unknown ENVELOPE key, a document that is not one, and PR #432's three open questions as the owner closed them on 2026-09-21: a state OF a state (which missingStates walks base frames only and could never have reported), a DUPLICATE (baseId, stateKey) (which its Set absorbed silently), and an unknown key INSIDE connect's from or to — with ENDPOINT_KEYS frozen at both levels beside PARAMS and `+"`"+`partId`+"`"+` proven to be `+"`"+`from`+"`"+`'s alone — behind the positive control that EVERY verb's minimal valid op is ACCEPTED, without which the battery would pass on an applier that refuses everything, plus applyOps naming the failing INDEX and verb · the TWO-LAYER rule gated: frame.sets (screen.set's) and frame.overrides.set (state.add's) proven to be the SAME SHAPE so ONE resolve applies both, with the state's layer proven to win over the base's — measured rather than assumed, because the spine's first render dropped its screen.set entirely and nothing said who joined the composition to the sets · resolve() proven to FLAG a dangling override and to keep it OUT of the resolved parts (never dropped, because it is a real thing someone wrote) with landing set and hide both applied, total over 6 junk shapes · missingStates as a LIST rather than a count, only BASE frames considered, a base with the floor met OMITTED so an empty answer means met rather than unchecked, total over 6 · canDeleteBasePart refusing by naming the state, its frame and what to do instead, with the part NOTHING overrides proven to pass so the refusal does not fire on everything · the preset table frozen with presetWidth answering NULL rather than a default · and the import graph pinned to device-presets.mjs alone. · #316's declared states (35.18): screen.compose's optional states stored only when non-empty (a compose without them leaves no key — the control), REQUIRED by missingStates (close-match listed, then gone after state.add), accepted by state.add only on the base that declares it (no-match on a close-match base and close-match on an undeclaring base refused, each naming the base's declarations), seven refusals by name (a non-array, a non-string, Close_Match, a one-letter key, 25 characters, a duplicate, a floor key), missingStates total over four junk declarations, a state of the declared state refused as a state of a state, and a lane omitting the base reporting none of its declared states while a lane keeping it reports them. What it cannot reach: whether a composition RENDERS (group 3's), whether a frame ever reaches the canvas or the page renders frameTree's output (studio-journey's and canvas-journey's), whether the page puts a refused move back (canvas-journey's), whether Mermaid parses the stateDiagram text (a human paste), and whether a `+"`"+`why`+"`"+` is any GOOD — a sentence that says nothing while passing .trim() is a human read · #318's staleFrames (35.19): the REAL discovery applier over faster-payment's transcript plus two banked answers to seq 7's question builds the chain 7 → S1 → S2 (asserted first), then a frame pinned to 7 reads stale with latest S2, the middle of the chain re-pins to the head not its successor, a frame pinned to S2 is not flagged (the positive control), "99", "1" (a file_evidence seq), "07", "" and the number 7 each read dangling and are kept, staleFrames' stale set equals ledgerView's not-latest set over a frame pinning every decision (the vacuity guard read off the fixture's own supersedes), reconfirmRefs re-pins to the head, dedupes and keeps a dangling ref, and the read answers [] for a stand-in and an array over junk and a 2-cycle — no op added (35.1's fourteen). What 35.19 cannot reach: whether the page shows the flag and re-confirms (canvas-journey pass B), and whether the pack says so (49.13) · #320's fork tag (35.20): screen.compose's optional alternative {turn, option, fork} stored as given (a compose without it leaves no key — the control), ALTERNATIVE_KEYS and ALTERNATIVE_OPTIONS frozen, six refusals by name (option "c" as "a third", an extra key, a missing fork, turn "t4", fork "07", a non-object), option b of a turn whose option a already landed refused naming the frame behind the control that another turn's option is accepted, and forkList over literal rows — a question closed by a later decision on its id omitted, one with an earlier decision listed, an off-script question listed, a flagged decision joined to its questionId, a flag on an open question deduped, a frame carrying the fork reading picked, the stand-in listing its flags only, [] over five junk shapes — with PARAMS["screen.compose"] at six keys and no id slot. What 35.20 cannot reach: whether a model files two options (the paid sitting), and the page (canvas-journey pass F)`);
 }
 
 // --- 36 · the build package's round trip (#302) ----------------------------------------------------
@@ -12509,7 +12575,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
 //
 // WHAT IT CANNOT REACH: whether the spine RENDERS — that needs a browser and is studio-journey's and
 // canvas-journey's; and whether the `why` on the compose op is a good reason, which is a human read.
-// Nor, for #318's loadDecisions rows (36.15), whether the page derives stale from them (canvas-journey pass B).
+// Nor, for #318's loadDecisions rows (36.15), whether the page derives stale from them (canvas-journey pass B). Nor,
+// for #320's forks in the store (36.16), whether the page pushes a pick's two verdicts into one save (canvas-journey F3).
 
 {
   const { applyOps: cApplyOps } = await import("../system/canvas-ops.mjs");
@@ -12994,7 +13061,172 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     ok(rowsOk && Array.isArray(ctl) && ctl[0]?.supersedes === null && ctl[1]?.supersedes === 1 && ctl[1]?.seq === 2,
       `36.15 loadDecisions must carry seq and supersedes (null on faster-payment, 1 on the control) — faster-payment ${rowsOk ? "ok" : deep(decisionsFP?.find((d) => !(Number.isInteger(d.seq) && String(d.seq) === d.id && d.supersedes === null)))}, control ${deep(ctl)}`);
   }
-  group("build package", `every committed discovery/*/build/ package DISCOVERED by listBuilds (at least one, faster-payment among them) and put through ONE per-package check — the store's own verifyBuild (seqs gapless and 1-based, ISO stamps, source owner|agent, THE TRACE RULE (#316): every agent line traced to exactly one build/transcript.jsonl op line with its status and a tool mapping to its op, every transcript op seq pointing at an agent line, every agent refusal with its refused line, every agent line that is not refused carrying exactly the params its op line's args project to (TR5, PR #495 F2), a missing transcript flagging every agent line, and each agent line's turn carrying a turn line, an init with a session id and a stats line whose transport is "sdk", or no transport only in the crash shape (a string error, never ok true) — 36.14 drives seventeen mutations over an in-memory spine plus an sdk turn and a crashed turn (stats with no transport, green), a status in the enum, no x or y key on a line or its params (F10, PR #485: a part called x inside an override is not a position), the ledger FOLDING with undo lines included, and canvas.json equal node by node and edge by edge to what the ops derive under its OWN positions) · the spine's first six lines PINNED AS A PREFIX (${lines.length} lines today) rather than a count, so the owner arranging it through canvas.html cannot red CI while a rewritten history still does · D7's positive control computed IN MEMORY from that frozen prefix — d7, d8 and e-f1-d7/e-f1-d8 derived from f1's decisionRefs, never read off the committed file · the mutations, all through verifyBuild: a corrupted screenId fails naming the ref, a MOVED frame still passes (positions are authored), a dropped embodies edge and an extra note the ops never made both fail · the why asserted on the LEDGER (a reason is not geometry) · the committed $description IS the store's CANVAS_DESCRIPTION, naming all four divergences from JSON Canvas 1.0 and the #306 node and edge kinds · the round trip BYTE-identical · the store's imports node built-ins plus exactly canvas-ops.mjs, and its RUN_SLUG_RE byte-equal to discovery.mjs's · foldLedger: apply-undo-redo equals the plain apply, an undone line POPS, a wrong-op undo refused naming both seqs, proposed/refused skipped, an unknown status refused · saveRun on a scratch copy: the original ledger a byte-identical PREFIX after an append, lines stamped owner with gapless seqs, a refused op (frame.remove f1) throwing AND leaving both files byte-identical, proposed refused, an unrecorded frame.link ref refused with a transcript and accepted on a stand-in, a missing position refused by id, saveConflict stale vs current · provenanceLabel preferring run.json's provenance and flagging a disagreeing root · listBuilds skipping a dir with no build/, a capitalised slug, a file and an absent root; loadDecisions 20 on faster-payment (d7 → a4) and null with no transcript · 36.10 the owner's edit stays green: a note, a relink DROPPING decision 7, a remove and its undo saved through the real saveRun, then the per-package check and the prefix pin still pass, and an undo reaching past the page's load refused · 36.11 #475's Mode 2 exhibit, in memory from the prefix plus one component.propose: placeExhibit on the spine at 1518/0 (right of d8, 1206 + 280 + 32), pr1 derived as a 320×280 exhibit with ref proposal:frozen-row and a scratch package written by saveBuild passing verifyBuild (the positive control), a Mode 1 proposal deriving no node, the exhibit moved inside f1 refused naming pr1, f1 and G7, moved clear of both frames still passing (its position is authored), its width edited to 999 refused, an exhibit the ops never made refused, and one with no position refused by arrangement · 36.12 #314: laneFlaws, called by verifyBuild on the folded ledger, naming a lane that overrides a frame the ops do not create (a TRIPWIRE — through the applier it is unreachable, so its positive control is a hand-built document), [] on the SYNTHETIC two-lane fixture which verifyBuild passes whole, total over junk, and loadDecisions carrying evidenceRefs (d7 [], d3 [1, 2]) for the pack's lineage · 36.13 #315: groups/g1.json written by saveRun equal to groupFiles, loadBuild returning it with the run slug, verifyBuild naming a hand-edited, an orphan and a missing file and a provenance.run that is not a slug, not asking an {ops, canvas} caller for one, and passing a RENAMED copy (a group keeps the run it was composed in), define + place changing exactly ops.jsonl, canvas.json and groups/g1.json and nothing under system/ or handoff/ (AC #4), the define's undo removing the file, and F10's x-keyed override passing while a top-level x and a params.y are named. What it cannot reach: provenance — the trace rule refuses the fake and inline transports and a ledger that disagrees with its transcript, but a transcript hand-written to match is not detectable (PR #495 F1) — and the page itself — whether it renders, saves on a gesture and never on load, and whether it renders the exhibit's PNG (canvas-journey's) — and whether the compose op's why is a good reason, which is a human read · #318's loadDecisions rows (36.15): every faster-payment row carries an integer seq equal to its id and supersedes null, and a temp package whose second record_decision supersedes the first reads supersedes 1 — what it cannot reach: whether the page derives stale from them (canvas-journey pass B)`);
+  // --- 36.16 #320 (D5): forks in the store — the open questions, the sibling rule, the same-save pick ----------------
+  // Every fixture on its own scratch copy; every constructive call guarded so a throw reds by name.
+  {
+    const CS16 = await import("../portal/lib/canvas-store.mjs");
+    const { emptyDoc: cEmpty, forkList: cForkList } = await import("../system/canvas-ops.mjs");
+    const g = (what, fn, fallback = null) => { try { return fn(); } catch (e) { ok(false, `36.16 ${what} threw: ${e.message}`); return fallback; } };
+    const jl16 = (f) => readFileSync(f, "utf8").split("\n").filter((l) => l.trim()).map((l) => JSON.parse(l));
+    const seqs = (xs) => (Array.isArray(xs) ? xs.map((x) => x.seq) : xs);
+    // (a) AC #3 — the cross-reader case on every committed package with open questions: the loader, ledgerView and the
+    // headings prd.md renders agree, and forkList lists the same seqs (none of the three closes one by a decision).
+    for (const slug of ["later-not-never-1", "partner-audit-1", "graded-opus-a"]) {
+      const dir = join(DISCOVERY_DIR, slug);
+      ok(existsSync(join(dir, "transcript.jsonl")) && existsSync(join(dir, "prd.md")), `36.16a ${slug} is not a committed package with a transcript and a prd.md`);
+      if (!existsSync(join(dir, "transcript.jsonl"))) continue;
+      const loaderSeqs = seqs(g(`loadOpenQuestions(${slug})`, () => CS16.loadOpenQuestions(dir), []));
+      const viewSeqs = seqs(ledgerView(jl16(join(dir, "transcript.jsonl")).filter((l) => l.type === "op")).openQuestions);
+      const prd = readFileSync(join(dir, "prd.md"), "utf8");
+      const section = prd.split(/^## /m).find((x) => x.startsWith("Open questions")) ?? "";
+      const prdSeqs = [...section.matchAll(/^#### seq (\d+) · /gm)].map((m) => Number(m[1]));
+      const forkSeqs = g(`forkList(${slug})`, () => cForkList(cEmpty(), { questions: CS16.loadOpenQuestions(dir), decisions: CS16.loadDecisions(dir) }), []).map((r) => Number(r.ref));
+      ok(prdSeqs.length > 0 && deep(loaderSeqs) === deep(viewSeqs) && deep(viewSeqs) === deep(prdSeqs) && deep(forkSeqs) === deep(prdSeqs),
+        `36.16a ${slug}: loadOpenQuestions ${deep(loaderSeqs)}, ledgerView ${deep(viewSeqs)}, prd.md ${deep(prdSeqs)}, forkList ${deep(forkSeqs)} — the readers of the open questions disagree`);
+    }
+    ok(CS16.loadOpenQuestions(join(tmpdir(), "uxf-no-such-package")) === null, "36.16a loadOpenQuestions on a package with no transcript (a stand-in) must answer null");
+    // The seeded copy: a park through the REAL discovery applier lists; a later decision on its question omits it from
+    // forkList while the projection's source (loadOpenQuestions) still lists it — "not closed" is the fork list's rule.
+    {
+      const dir = scratchSpine();
+      const file16 = (turn, op, params, questionId) => {
+        const lines = jl16(join(dir, "transcript.jsonl"));
+        const answers = jl16(join(dir, "answers.jsonl"));
+        const state = applyDiscoveryOps(lines.filter((l) => l.type === "op").map((l) => ({ op: l.op, params: l.params, turn: l.turn })), { answers, bank: BANK, turn: null });
+        const ts = new Date().toISOString();
+        const a = { ref: `a${answers.length + 1}`, ts, turn, question_id: questionId, kind: "banked", text: "Seeded by tooling/build-checks.mjs 36.16 (#320) — a fixture, not the owner's words." };
+        const r = applyDiscoveryOp(state, { op, params: { ...params, answer_ref: a.ref } }, { answers: [...answers, a], bank: BANK, turn }).ops.at(-1);
+        writeFileSync(join(dir, "answers.jsonl"), `${readFileSync(join(dir, "answers.jsonl"), "utf8")}${JSON.stringify(a)}\n`);
+        writeFileSync(join(dir, "transcript.jsonl"), `${readFileSync(join(dir, "transcript.jsonl"), "utf8")}${JSON.stringify({ type: "op", ts, seq: r.seq, turn: r.turn, op: r.op, params: r.params, closes: r.closes, flagged: r.flagged, supersedes: r.supersedes })}\n`);
+        return r;
+      };
+      const q = g("the park", () => file16("t25", "open_question", { source: "banked", question_id: "s1-choice-cascade", reason: "Gate fixture (#320)." }, "s1-choice-cascade"), {});
+      const list = () => g("forkList on the seeded copy", () => cForkList(cEmpty(), { questions: CS16.loadOpenQuestions(dir), decisions: CS16.loadDecisions(dir) }), []);
+      ok(list().some((r) => r.ref === String(q.seq) && r.kind === "open-question" && r.questionId === "s1-choice-cascade"),
+        `36.16a the seeded park not listed on a finished copy — forkList ${deep(list())}`);
+      ok(seqs(CS16.loadOpenQuestions(dir)).includes(q.seq), `36.16a loadOpenQuestions does not return the seeded park seq ${q.seq}`);
+      const s7 = jl16(join(dir, "transcript.jsonl")).find((l) => l.type === "op" && l.seq === 7).params;
+      g("the closing decision", () => file16("t26", "record_decision", { question_id: "s1-choice-cascade", level: s7.level, parent_id: s7.parent_id, evidence_refs: [], wrong_if: "Gate fixture (#320).", off_script: false }, "s1-choice-cascade"));
+      ok(!list().some((r) => r.ref === String(q.seq)), `36.16a a later decision on s1-choice-cascade did not close fork ${q.seq} — forkList ${deep(list())}`);
+      ok(seqs(CS16.loadOpenQuestions(dir)).includes(q.seq), `36.16a loadOpenQuestions dropped seq ${q.seq} after a decision — it reads the projection's lines, which keep it`);
+      rmSync(dirname(dir), { recursive: true, force: true });
+    }
+
+    // A stand-in copy holding one fork turn's two options, a then b, of one screen.
+    const ALT = (option, turn = "c1") => ({ turn, option, fork: "11" });
+    const COMP = (title) => ({ name: "stack", props: { direction: "column" }, children: [{ name: "text", id: "lead", props: { role: "heading", content: title } }] });
+    const optParams = (option, { screenId = "choose-amount", turn = "c1" } = {}) => ({ screenId, why: `Option ${option}.`, composition: COMP(`Option ${option}`), decisionRefs: [], alternative: ALT(option, turn) });
+    const standIn = (tag) => seedSpine(join(DISCOVERY_DIR, "faster-payment"), join(mkdtempSync(join(tmpdir(), `canvas-fork-${tag}-`)), "fp-fork"));
+    const pair = (dir) => ({
+      a: g("option a", () => CS16.appendAgentLine(dir, { op: "screen.compose", params: optParams("a"), status: "proposed" }), {}),
+      b: g("option b", () => CS16.appendAgentLine(dir, { op: "screen.compose", params: optParams("b"), status: "proposed" }), {}),
+    });
+    const bytes = (dir) => readFileSync(join(dir, "build/ops.jsonl"), "utf8");
+    const save16 = (dir, ops) => {
+      const b = loadBuild(join(dir, "build"));
+      return saveRun(dir, { base: b.ops.length, positions: { ...positionsOf(b.canvas), f3: { x: 1600, y: 0 } }, decisions: CS16.loadDecisions(dir), ops });
+    };
+    const verdict = (seq, option, status) => ({ op: "screen.compose", params: optParams(option), status, fromStep: seq });
+
+    // (b) the sibling rule: a then b both proposed; each other second proposal refused as still waiting, bytes unchanged.
+    {
+      const dir = standIn("b");
+      const { a, b } = pair(dir);
+      ok(Number.isInteger(a.seq) && Number.isInteger(b.seq), `36.16b option b refused as still waiting — a ${deep(a)}, b ${deep(b)}`);
+      ok(CS16.openProposals(loadBuild(join(dir, "build")).ops).length === 2, "36.16b two sibling options must both be open proposals");
+      const before = bytes(dir);
+      for (const [label, params, op = "screen.compose"] of [
+        ["a second option a", optParams("a")],
+        ["option b naming another screen", optParams("b", { screenId: "review" })],
+        ["a plain proposal", { screenId: "x", why: "w", composition: COMP("x"), decisionRefs: [] }],
+        ["an option of another turn", optParams("b", { turn: "c2" })],
+      ]) {
+        const m = threw(() => CS16.appendAgentLine(dir, { op, params, status: "proposed" }));
+        ok(m !== null && m.includes("still waiting") && bytes(dir) === before, `36.16b ${label} must be refused as still waiting with the ledger unchanged — ${m ?? "NO THROW"}`);
+      }
+      rmSync(dirname(dir), { recursive: true, force: true });
+    }
+
+    // (c) saveRun's same-save rule, bytes unchanged on each refusal; then the pick and Neither save.
+    const picked = standIn("c");
+    const { a: pa, b: pb } = pair(picked);
+    {
+      const before = bytes(picked);
+      for (const [label, ops, ...words] of [
+        ["accept b alone", [verdict(pb.seq, "b", "accepted")], "must be answered in the same save"],
+        ["refuse a alone", [verdict(pa.seq, "a", "refused")], "must be answered in the same save"],
+        ["accept both", [verdict(pb.seq, "b", "accepted"), verdict(pa.seq, "a", "accepted")], "lands one option"],
+      ]) {
+        const m = threw(() => save16(picked, ops));
+        ok(m !== null && words.every((w) => m.includes(w)) && bytes(picked) === before, `36.16c ${label} was saved, or refused without naming ${words.join(" + ")} — ${m ?? "NO THROW"}`);
+      }
+      const ok1 = threw(() => save16(picked, [verdict(pb.seq, "b", "accepted"), verdict(pa.seq, "a", "refused")]));
+      ok(ok1 === null, `36.16c POSITIVE CONTROL — accept b + refuse a in one save was refused: ${ok1}`);
+      const neither = standIn("neither");
+      const nn = pair(neither);
+      const ok2 = threw(() => save16(neither, [verdict(nn.a.seq, "a", "refused"), verdict(nn.b.seq, "b", "refused")]));
+      ok(ok2 === null, `36.16c POSITIVE CONTROL — Neither (both refused in one save) was refused: ${ok2}`);
+      // (e) notPickedOf: the pick names a's verdict; Neither names none; the spine none.
+      const nLedger = loadBuild(join(neither, "build")).ops;
+      ok(deep(CS16.notPickedOf(nLedger)) === "[]", `36.16e notPickedOf after Neither must be [] — got ${deep(CS16.notPickedOf(nLedger))}`);
+      rmSync(dirname(neither), { recursive: true, force: true });
+    }
+    const pk = loadBuild(join(picked, "build"));
+    const aVerdict = pk.ops.find((l) => l.fromStep === pa.seq);
+    ok(deep(CS16.notPickedOf(pk.ops)) === deep([aVerdict?.seq]), `36.16e notPickedOf after the pick must be [${aVerdict?.seq}] (a's verdict) — got ${deep(CS16.notPickedOf(pk.ops))}`);
+    ok(deep(CS16.notPickedOf(lines)) === "[]" && deep(CS16.notPickedOf(null)) === "[]" && deep(CS16.notPickedOf([null, 3, {}])) === "[]", "36.16e notPickedOf must be [] on the spine and over junk");
+
+    // (d) verifyBuild's witness over the picked ledger, and its mutations. Only the D5 flaws are read on mutations.
+    {
+      const P16 = (ops) => ({ ops, canvas: pk.canvas });
+      const d5 = (ops) => verifyBuild(P16(ops)).filter((f) => f.includes("(D5)"));
+      ok(deep(verifyBuild(P16(pk.ops))) === "[]", `36.16d POSITIVE CONTROL — the picked ledger answered ${deep(verifyBuild(P16(pk.ops)))}`);
+      const bSeq = pk.ops.find((l) => l.fromStep === pb.seq)?.seq;
+      const moved = pk.ops.map((l) => (l.seq === aVerdict?.seq ? { ...l, at: "2026-01-01T00:00:00.000Z" } : l));
+      ok(d5(moved).some((f) => f.includes("another save")), `36.16d an answer in another save passed — ${deep(d5(moved))}`);
+      const dropped = pk.ops.filter((l) => l.seq !== aVerdict?.seq);
+      ok(aVerdict?.seq === pk.ops.length && d5(dropped).some((f) => f.includes(`line ${bSeq}`) && f.includes("has no verdict")), `36.16d a pick with its sibling's verdict removed passed — ${deep(d5(dropped))}`);
+      const both = pk.ops.map((l) => (l.seq === aVerdict?.seq ? { ...l, status: "accepted" } : l));
+      ok(verifyBuild(P16(both)).some((f) => f.includes("both options were accepted")), `36.16d both options accepted passed — ${deep(verifyBuild(P16(both)))}`);
+      const stamp = (o) => ({ at: "2026-10-02T00:00:00.000Z", source: "owner", ...o });
+      const stray = [...pk.ops, stamp({ seq: pk.ops.length + 1, op: "screen.compose", params: optParams("a", { turn: "c9" }), status: "applied" })];
+      ok(d5(stray).some((f) => f.includes("which no verdict picked")), `36.16d an applied compose carrying a fork option nobody picked passed — ${deep(d5(stray))}`);
+      const bOp = { op: "screen.compose", params: optParams("b") };
+      const redo = [...pk.ops, stamp({ seq: pk.ops.length + 1, ...bOp, status: "undone" }), stamp({ seq: pk.ops.length + 2, ...bOp, status: "applied" })];
+      ok(deep(verifyBuild(P16(redo))) === "[]", `36.16d POSITIVE CONTROL — an undo + redo of the picked option answered ${deep(verifyBuild(P16(redo)))}`);
+    }
+
+    // (f) the trace rule projects the server's tag: op lines carrying `alternative` trace; one stripped is a TR5 flaw.
+    {
+      const opLine16 = (seq, option) => ({ type: "op", turn: "c1", seq, tool: "screen_compose", args: { screenId: "choose-amount", why: `Option ${option}.`, composition: COMP(`Option ${option}`), decisionRefs: [] }, status: "proposed", alternative: ALT(option) });
+      const tx = [opLine16(pa.seq, "a"), opLine16(pb.seq, "b")];
+      ok(deep(CS16.traceFlaws(pk.ops, tx)) === "[]", `36.16f two proposals whose op lines carry alternative must trace — got ${deep(CS16.traceFlaws(pk.ops, tx))}`);
+      const { alternative, ...stripped } = tx[1];
+      const f = CS16.traceFlaws(pk.ops, [tx[0], stripped]);
+      ok(f.some((x) => x.includes(`line ${pb.seq}`) && x.includes("params")), `36.16f an op line with its alternative stripped must be a TR5 flaw naming line ${pb.seq}'s params — got ${deep(f)}`);
+    }
+
+    // (g) PR #516 F1: saveRun refuses an applied compose carrying a fork tag no accepted line restates, before
+    // any byte lands (verifyBuild's redo rule, run at write time); the redo of the picked option still saves.
+    {
+      const open = standIn("g");
+      pair(open);
+      const before = bytes(open);
+      for (const [label, params] of [["option a of the open fork c1", optParams("a")], ["an option of a turn with no proposal", optParams("a", { turn: "c9" })]]) {
+        const m = threw(() => save16(open, [{ op: "screen.compose", params, status: "applied" }]));
+        ok(m !== null && m.includes("no verdict picked") && bytes(open) === before, `36.16g an applied compose tagged as ${label} was saved, or refused without naming it — ${m ?? "NO THROW"}`);
+      }
+      rmSync(dirname(open), { recursive: true, force: true });
+      const bOp = { op: "screen.compose", params: optParams("b") };
+      const redo = threw(() => save16(picked, [{ ...bOp, status: "undone" }, { ...bOp, status: "applied" }]));
+      ok(redo === null, `36.16g POSITIVE CONTROL — an undo + redo of the picked option was refused: ${redo}`);
+      const d5 = verifyBuild(loadBuild(join(picked, "build"))).filter((f) => f.includes("(D5)"));
+      ok(redo === null && deep(d5) === "[]", `36.16g the redone ledger must carry no D5 flaw — got ${deep(d5)}`);
+    }
+    rmSync(dirname(picked), { recursive: true, force: true });
+  }
+
+  group("build package", `every committed discovery/*/build/ package DISCOVERED by listBuilds (at least one, faster-payment among them) and put through ONE per-package check — the store's own verifyBuild (seqs gapless and 1-based, ISO stamps, source owner|agent, THE TRACE RULE (#316): every agent line traced to exactly one build/transcript.jsonl op line with its status and a tool mapping to its op, every transcript op seq pointing at an agent line, every agent refusal with its refused line, every agent line that is not refused carrying exactly the params its op line's args project to (TR5, PR #495 F2), a missing transcript flagging every agent line, and each agent line's turn carrying a turn line, an init with a session id and a stats line whose transport is "sdk", or no transport only in the crash shape (a string error, never ok true) — 36.14 drives seventeen mutations over an in-memory spine plus an sdk turn and a crashed turn (stats with no transport, green), a status in the enum, no x or y key on a line or its params (F10, PR #485: a part called x inside an override is not a position), the ledger FOLDING with undo lines included, and canvas.json equal node by node and edge by edge to what the ops derive under its OWN positions) · the spine's first six lines PINNED AS A PREFIX (${lines.length} lines today) rather than a count, so the owner arranging it through canvas.html cannot red CI while a rewritten history still does · D7's positive control computed IN MEMORY from that frozen prefix — d7, d8 and e-f1-d7/e-f1-d8 derived from f1's decisionRefs, never read off the committed file · the mutations, all through verifyBuild: a corrupted screenId fails naming the ref, a MOVED frame still passes (positions are authored), a dropped embodies edge and an extra note the ops never made both fail · the why asserted on the LEDGER (a reason is not geometry) · the committed $description IS the store's CANVAS_DESCRIPTION, naming all four divergences from JSON Canvas 1.0 and the #306 node and edge kinds · the round trip BYTE-identical · the store's imports node built-ins plus exactly canvas-ops.mjs, and its RUN_SLUG_RE byte-equal to discovery.mjs's · foldLedger: apply-undo-redo equals the plain apply, an undone line POPS, a wrong-op undo refused naming both seqs, proposed/refused skipped, an unknown status refused · saveRun on a scratch copy: the original ledger a byte-identical PREFIX after an append, lines stamped owner with gapless seqs, a refused op (frame.remove f1) throwing AND leaving both files byte-identical, proposed refused, an unrecorded frame.link ref refused with a transcript and accepted on a stand-in, a missing position refused by id, saveConflict stale vs current · provenanceLabel preferring run.json's provenance and flagging a disagreeing root · listBuilds skipping a dir with no build/, a capitalised slug, a file and an absent root; loadDecisions 20 on faster-payment (d7 → a4) and null with no transcript · 36.10 the owner's edit stays green: a note, a relink DROPPING decision 7, a remove and its undo saved through the real saveRun, then the per-package check and the prefix pin still pass, and an undo reaching past the page's load refused · 36.11 #475's Mode 2 exhibit, in memory from the prefix plus one component.propose: placeExhibit on the spine at 1518/0 (right of d8, 1206 + 280 + 32), pr1 derived as a 320×280 exhibit with ref proposal:frozen-row and a scratch package written by saveBuild passing verifyBuild (the positive control), a Mode 1 proposal deriving no node, the exhibit moved inside f1 refused naming pr1, f1 and G7, moved clear of both frames still passing (its position is authored), its width edited to 999 refused, an exhibit the ops never made refused, and one with no position refused by arrangement · 36.12 #314: laneFlaws, called by verifyBuild on the folded ledger, naming a lane that overrides a frame the ops do not create (a TRIPWIRE — through the applier it is unreachable, so its positive control is a hand-built document), [] on the SYNTHETIC two-lane fixture which verifyBuild passes whole, total over junk, and loadDecisions carrying evidenceRefs (d7 [], d3 [1, 2]) for the pack's lineage · 36.13 #315: groups/g1.json written by saveRun equal to groupFiles, loadBuild returning it with the run slug, verifyBuild naming a hand-edited, an orphan and a missing file and a provenance.run that is not a slug, not asking an {ops, canvas} caller for one, and passing a RENAMED copy (a group keeps the run it was composed in), define + place changing exactly ops.jsonl, canvas.json and groups/g1.json and nothing under system/ or handoff/ (AC #4), the define's undo removing the file, and F10's x-keyed override passing while a top-level x and a params.y are named. What it cannot reach: provenance — the trace rule refuses the fake and inline transports and a ledger that disagrees with its transcript, but a transcript hand-written to match is not detectable (PR #495 F1) — and the page itself — whether it renders, saves on a gesture and never on load, and whether it renders the exhibit's PNG (canvas-journey's) — and whether the compose op's why is a good reason, which is a human read · #318's loadDecisions rows (36.15): every faster-payment row carries an integer seq equal to its id and supersedes null, and a temp package whose second record_decision supersedes the first reads supersedes 1 — what it cannot reach: whether the page derives stale from them (canvas-journey pass B) · #320's forks in the store (36.16): AC #3's cross-reader case — loadOpenQuestions, ledgerView's openQuestions, prd.md's Open questions headings and forkList agree on later-not-never-1, partner-audit-1 and graded-opus-a (each asserted by name), a park filed through the REAL discovery applier on a finished copy is listed, and a later decision on its question omits it from forkList while loadOpenQuestions keeps it, null on a stand-in; appendAgentLine admitting exactly the sibling option (a second option a, option b of another screen, a plain proposal and another turn's option each refused as still waiting, bytes unchanged); saveRun answering a fork's options in ONE save (accept b alone, refuse a alone and accept both each refused naming D5, bytes unchanged; the pick and Neither saved) and refusing an applied compose carrying a fork tag no accepted line restates (an option of an open fork, an option of a turn with no proposal; bytes unchanged) while an undo + redo of the picked option saves (PR #516 F1); verifyBuild's same-save witness (an answer in another save, a sibling with no verdict, both accepted, an applied compose carrying an option nobody picked, each named; an undo + redo of the picked option []); notPickedOf naming a's verdict after the pick and [] after Neither, on the spine and over junk; and the trace rule projecting the server's tag (an op line with its alternative stripped is a TR5 flaw). What 36.16 cannot reach: whether the page pushes a pick's two verdicts into one save (canvas-journey F3)`);
 }
 
 // --- 37 · the ledger (#434) ------------------------------------------------------------------------
@@ -16718,6 +16950,7 @@ const synthPng = (w, h, ct, px) => {
 // tooling/fake-compose-agent.mjs or an inline scripted transport, inside a scratch copy — never a model,
 // never a committed package. CANNOT REACH (the fake's header and gates.md carry the same clause):
 // a model's behaviour (whether it yields, names the brief in its why, or escapes), the SDK's option handling, hook delivery by the CLI, and the page — those are the preflight's, the journey compose pass's and --live-compose's.
+// For #320's fork turn (47.19): whether a model files two options under FORK_ASK while LOOP says once — the sitting's.
 // Every case RUNS the function; 47.14 alone is a source pin, and says so.
 {
   const { cpSync } = await import("node:fs");
@@ -16784,18 +17017,19 @@ const synthPng = (w, h, ct, px) => {
     const IR = await import("../portal/lib/import-run.mjs");
     const SCREEN_FULL = S.toolNameFor(S.SCREEN_TOOL);
 
-    // --- 47.2 S6's four constants reproduce S6's fingerprint; FORK_ASK and YIELD_CONTRACT do not ship --
+    // --- 47.2 S6's four constants reproduce S6's fingerprint; S6's FORK_ASK and YIELD_CONTRACT do not ship --
     const driver = readFileSync(join(ROOT, ".claude/plans/canvas-spike-s6/driver.txt"), "utf8");
     const FORK = driver.match(/^const FORK_ASK = '([^']*)';$/m)?.[1];
     const s6 = sha16([S.ROLE, S.LOOP, S.ESCAPE, S.TURN_ASK, FORK].join("\n"));
     ok(FORK && s6 === "c903170484396973", `47.2: the four S6 constants no longer reproduce S6's fingerprint c903170484396973 (got ${s6}) — a change to LOOP or ESCAPE re-opens S6`);
-    ok(S.FORK_ASK === undefined && S.YIELD_CONTRACT === undefined, "47.2: canvas-session.mjs exports FORK_ASK or YIELD_CONTRACT — the first is #320's, the second branch 1 did not need");
-    // --- 47.2b the whole prompt surface is #316 Segment A's -----------------------------------------------
+    ok(typeof S.FORK_ASK === "function" && S.FORK_ASK({ what: "x" }) !== FORK && S.YIELD_CONTRACT === undefined,
+      "47.2: FORK_ASK is #320's generic ask, never S6's screen-specific string; YIELD_CONTRACT does not ship");
+    // --- 47.2b the whole prompt surface is #320's -------------------------------------------------------------
     // Probe run 4 observed 9690d4c955be652c (canvas-compose-loop-312-probe/raw/run-4/T1.jsonl). #316 added `states` to
-    // the screen tool's description, so this pin is Segment A's surface, UNPROBED by a paid run: Run 1's first
-    // owner-watched turn is its first observation.
+    // the screen tool's description (f7e7f54e5a5c5809) and #320 added FORK_ASK to the surface, so this pin is #320's,
+    // UNPROBED by a paid run: Run 1's first owner-watched turn is its first observation.
     const fp = S.promptFingerprint();
-    ok(fp === "f7e7f54e5a5c5809", `47.2b: the prompt surface's fingerprint is ${fp}, not #316 Segment A's f7e7f54e5a5c5809 (probe run 4 observed 9690d4c955be652c; Segment A's surface is unprobed by a paid run) — a change to BRIEF_LEAD, STATE_ASK, either tool description or the four S6 constants moves it`);
+    ok(fp === "32e186e7fedd687d", `47.2b: the prompt surface's fingerprint is ${fp}, not #320's 32e186e7fedd687d (probe run 4 observed 9690d4c955be652c; #316 Segment A's was f7e7f54e5a5c5809; #320's surface is unprobed by a paid run) — a change to BRIEF_LEAD, STATE_ASK, FORK_ASK, either tool description or the four S6 constants moves it`);
 
     // --- 47.3 the vocabulary context is GENERATED from vocabulary.json -------------------------------
     const ctx = S.vocabContext(VOCAB, "x");
@@ -17202,13 +17436,111 @@ const synthPng = (w, h, ct, px) => {
       ok(ledger(p).length === n + 1 && sp?.status === "proposed" && sp?.params?.stateKey === "close-match" && sp?.params?.baseId === "f3",
         `47.18a: the state turn for a declared key filed ${deep(sp).slice(0, 200)} over ${n} lines — want a proposed state.add close-match of f3`);
     }
+
+    // --- 47.19 the fork turn (#320, D5): two options of one screen, tagged by the server -------------------------------
+    {
+      const FORK11 = { kind: "fork", fork: "11" };
+      // a. the request shape.
+      ok(threw(() => S.checkComposeRequest({ ask: FORK11, brief: null })) === null, `47.19a: a fork ask was refused: ${threw(() => S.checkComposeRequest({ ask: FORK11, brief: null }))}`);
+      for (const [label, ask, word] of [["an extra key", { ...FORK11, x: 1 }, "kind and fork exactly"], ["fork \"x\"", { kind: "fork", fork: "x" }, "a seq as a string"], ["fork 11 (a number)", { kind: "fork", fork: 11 }, "a seq as a string"]]) {
+        const m = threw(() => S.checkComposeRequest({ ask, brief: null }));
+        ok(m?.includes(word), `47.19a: a fork ask with ${label} must be refused naming "${word}" — ${m ?? "NO THROW"}`);
+      }
+      // h. the prompt carries the fork lead and the what.
+      const tp = S.turnPrompt({ doc: { frames: [] }, ask: FORK11, fork: { what: "decision seq 11 (s4-limit)" } });
+      ok(tp.includes(S.FORK_LEAD) && tp.includes("decision seq 11 (s4-limit)") && tp.endsWith(S.FORK_ASK({ what: "decision seq 11 (s4-limit)" })), `47.19h: the fork turn's prompt does not end in FORK_ASK with its what: ${tp.slice(-200)}`);
+      // b. a fake fork turn on a stand-in: two proposed agent lines, options a and b, one screen.
+      const pb = pkgCopy("fork-b");
+      const bb = ledger(pb).length;
+      await afold("a fake fork turn (47.19b)", () => S.runComposeTurn({ pkgRoot: pb, base: bb, ask: FORK11, transport: F.composeQuery }));
+      const lb = ledger(pb).slice(bb);
+      const alts = lb.map((l) => l.params?.alternative);
+      ok(lb.length === 2 && lb.every((l) => l.status === "proposed" && l.source === "agent" && l.op === "screen.compose") && new Set(lb.map((l) => l.params.screenId)).size === 1
+        && deep(alts) === deep([{ turn: "c1", option: "a", fork: "11" }, { turn: "c1", option: "b", fork: "11" }]),
+        `47.19b: the fork turn filed ${deep(lb).slice(0, 300)} — want two proposed agent composes of one screen, tagged c1 a/b fork 11`);
+      const sb = tx(pb).find((l) => l.type === "stats");
+      ok(sb?.maxTurns === S.FORK_MAX_TURNS && sb?.outcome === "proposed", `47.19b: stats.maxTurns ${sb?.maxTurns}, want ${S.FORK_MAX_TURNS}; outcome ${sb?.outcome}`);
+      ok(tx(pb).filter((l) => l.type === "op").every((l) => l.alternative?.fork === "11"), "47.19b: the transcript's op lines must carry the server's tag (the trace rule reads it)");
+      const vb = S.composeView(pb);
+      ok(vb.options?.length === 2 && vb.options.map((o) => o.option).join() === "a,b" && vb.forks?.some((r) => r.ref === "11" && r.kind === "flagged" && r.status === "open"),
+        `47.19b: composeView.options ${deep(vb.options?.map((o) => o.option))}, forks ${deep(vb.forks)}`);
+      const next = await athrew(() => S.runComposeTurn({ pkgRoot: pb, base: ledger(pb).length, ask: { kind: "screen" }, transport: F.composeQuery }));
+      ok(next?.includes("is waiting for your verdict"), `47.19b: a turn ran while a fork's options were open — ${next ?? "no refusal"}`);
+      // g. the verdict path: accept b + refuse a in one save → last.fork, and verifyBuild [] with the trace rule on.
+      const pos = { ...St.positionsOf(St.loadBuild(join(pb, "build")).canvas), f3: { x: 1600, y: 0 } };
+      fold("saveRun pick b (47.19g)", () => St.saveRun(pb, { base: ledger(pb).length, positions: pos, decisions: St.loadDecisions(pb),
+        ops: [{ op: lb[1].op, params: lb[1].params, status: "accepted", fromStep: lb[1].seq }, { op: lb[0].op, params: lb[0].params, status: "refused", fromStep: lb[0].seq }] }));
+      const vg = S.composeView(pb);
+      ok(deep(vg.last?.fork) === deep({ ref: "11", filed: 2, notDrafted: false, picked: "b", notPicked: ["a"] }) && vg.options === null,
+        `47.19g: composeView.last.fork after the pick is ${deep(vg.last?.fork)} — want picked b, notPicked [a]`);
+      const vf = fold("verifyBuild (47.19g)", () => St.verifyBuild(St.loadBuild(join(pb, "build"))), ["threw"]);
+      ok(deep(vf) === "[]", `47.19g: verifyBuild over the picked fork package (trace rule on) answered ${deep(vf)}`);
+      // c. one option only → a not-drafted line.
+      const pc = pkgCopy("fork-c");
+      const bc = ledger(pc).length;
+      await afold("a one-option fork turn (47.19c)", () => S.runComposeTurn({ pkgRoot: pc, base: bc, ask: FORK11, brief: "one-option: only A", transport: F.composeQuery }));
+      const nd = tx(pc).filter((l) => l.type === "not-drafted").map(({ ts, ...l }) => l);
+      ok(ledger(pc).length === bc + 1 && deep(nd) === deep([{ type: "not-drafted", turn: "c1", fork: "11", filed: "a" }]) && S.composeView(pc).last?.fork?.notDrafted === true,
+        `47.19c: a one-option turn left ${ledger(pc).length - bc} lines and not-drafted lines ${deep(nd)}`);
+      // d. a third option reaches the applier, which refuses "c" — an agent refused ledger line.
+      const pd = pkgCopy("fork-d");
+      const bd = ledger(pd).length;
+      await afold("a three-options fork turn (47.19d)", () => S.runComposeTurn({ pkgRoot: pd, base: bd, ask: FORK11, brief: "three-options: a, b, and a third", transport: F.composeQuery }));
+      const ld = ledger(pd).slice(bd);
+      const rd = tx(pd).filter((l) => l.type === "refused");
+      ok(ld.filter((l) => l.status === "proposed").length === 2, `47.19d: want two proposed lines for a three-options turn — got ${deep(ld.map((l) => l.status))}`);
+      ok(ld.filter((l) => l.status === "refused" && l.source === "agent").length === 1, `47.19d: want one agent refused ledger line for the third option — got ${deep(ld.map((l) => `${l.source}:${l.status}`))}`);
+      ok(rd.length === 1 && rd[0].kind === "applier" && rd[0].error?.includes("a third"), `47.19d: the third option's refusal is ${deep(rd)} — want kind applier naming "a third"`);
+      // e. option a then another screenId → one proposed, a transcript-only wrong-target.
+      const pe = pkgCopy("fork-e");
+      const be = ledger(pe).length;
+      const optE = (screenId) => ({ screenId, why: "Seq 11.", composition: STACK(TWO(), "screen"), decisionRefs: ["11"] });
+      await afold("a two-screen fork turn (47.19e)", () => S.runComposeTurn({ pkgRoot: pe, base: be, ask: FORK11, transport: inline([optE("choose-amount"), optE("review")]) }));
+      const re = tx(pe).filter((l) => l.type === "refused");
+      ok(ledger(pe).length === be + 1 && re.length === 1 && re[0].kind === "wrong-target" && re[0].seq === undefined && re[0].error?.includes("one screen"),
+        `47.19e: a second option naming another screen left ${ledger(pe).length - be} lines and refusals ${deep(re)}`);
+      // f. fork validation on a package with a transcript, each ask on a fresh full copy (an open fork would meet the
+      // open-proposal refusal first — runComposeTurn's order).
+      const jl47 = (f) => readFileSync(f, "utf8").split("\n").filter((l) => l.trim()).map((l) => JSON.parse(l));
+      const file47 = (pkg, turn, op, params, questionId) => {
+        const lines = jl47(join(pkg, "transcript.jsonl"));
+        const answers = jl47(join(pkg, "answers.jsonl"));
+        const state = applyDiscoveryOps(lines.filter((l) => l.type === "op").map((l) => ({ op: l.op, params: l.params, turn: l.turn })), { answers, bank: BANK, turn: null });
+        const ts = new Date().toISOString();
+        const a = { ref: `a${answers.length + 1}`, ts, turn, question_id: questionId, kind: "banked", text: "Seeded by tooling/build-checks.mjs 47.19 (#320) — a fixture, not the owner's words." };
+        const r = applyDiscoveryOp(state, { op, params: { ...params, answer_ref: a.ref } }, { answers: [...answers, a], bank: BANK, turn }).ops.at(-1);
+        writeFileSync(join(pkg, "answers.jsonl"), `${readFileSync(join(pkg, "answers.jsonl"), "utf8")}${JSON.stringify(a)}\n`);
+        writeFileSync(join(pkg, "transcript.jsonl"), `${readFileSync(join(pkg, "transcript.jsonl"), "utf8")}${JSON.stringify({ type: "op", ts, seq: r.seq, turn: r.turn, op: r.op, params: r.params, closes: r.closes, flagged: r.flagged, supersedes: r.supersedes })}\n`);
+        return r;
+      };
+      const refusedFork = async (label, pkg, fork, word) => {
+        const before = [readFileSync(join(pkg, "build/ops.jsonl"), "utf8"), tx(pkg).length];
+        const m = await athrew(() => S.runComposeTurn({ pkgRoot: pkg, base: ledger(pkg).length, ask: { kind: "fork", fork }, transport: F.composeQuery }));
+        ok(m?.includes(word) && S.composeRefusal(m)?.kind === "fork" && readFileSync(join(pkg, "build/ops.jsonl"), "utf8") === before[0] && tx(pkg).length === before[1],
+          `47.19f: fork "${fork}" (${label}) ran a turn, or was refused without naming "${word}" as a fork refusal with nothing written — ${m ?? "NO THROW"}`);
+      };
+      await refusedFork("a file_evidence seq", fullCopy("fork-f1"), "1", "a fork names one");
+      const pSup = fullCopy("fork-f7");
+      const s7 = jl47(join(pSup, "transcript.jsonl")).find((l) => l.type === "op" && l.seq === 7).params;
+      fold("a supersede of decision 7 (47.19f)", () => file47(pSup, "t25", "record_decision", { ...s7, evidence_refs: [], wrong_if: "Gate fixture (#320)." }, s7.question_id));
+      await refusedFork("a superseded decision", pSup, "7", "a fork names one");
+      await refusedFork("an already-picked fork", pb, "11", "is already picked as f3");
+      for (const [label, prep] of [["a current decision", () => "11"],
+        ["a parked question", (pkg) => String(file47(pkg, "t25", "open_question", { source: "banked", question_id: "s1-choice-cascade", reason: "Gate fixture (#320)." }, "s1-choice-cascade").seq)]]) {
+        const pkg = fullCopy(`fork-ok-${label.length}`);
+        const fork = fold(`47.19f ${label}: prep`, () => prep(pkg), "0");
+        const b0 = ledger(pkg).length;
+        await afold(`a fork on ${label} (47.19f)`, () => S.runComposeTurn({ pkgRoot: pkg, base: b0, ask: { kind: "fork", fork }, transport: F.composeQuery }));
+        ok(ledger(pkg).length === b0 + 2 && ledger(pkg).slice(b0).every((l) => l.params?.alternative?.fork === fork), `47.19f: a fork on ${label} (seq ${fork}) filed ${ledger(pkg).length - b0} lines — want its two options`);
+      }
+    }
   }
 
   // --- 47.15 nothing tracked moved -------------------------------------------------------------------
   for (const d of temps) rmSync(d, { recursive: true, force: true });
   ok(gitSnap() === GIT_BEFORE, `47.15: the group moved a tracked path — git status for discovery portal/lib system handoff went from ${JSON.stringify(GIT_BEFORE)} to ${JSON.stringify(gitSnap())}`);
 
-  group("compose session", `portal/lib/canvas-session.mjs + the store's verdict lines (#312): IMPORTED in CI with no portal/node_modules, statically SDK- and zod-free with ONE dynamic import naming ./canvas-transport.mjs, the only canvas-*.mjs naming the SDK · S6's four constants reproduce c903170484396973 and the whole prompt surface #316 Segment A's f7e7f54e5a5c5809 (probe run 4's was 9690d4c955be652c; Segment A's is unprobed by a paid run), FORK_ASK and YIELD_CONTRACT unshipped · the vocabulary context generated from vocabulary.json (a synthetic entry in, a removed one out) · ESCAPE_RE after numbering and markup, never mid-sentence, the old regex's miss as the control · the fence: one predicate, two sites, Write/WebFetch/MCP each denied with a denied line at both, a warmup Glob denied with none, a hostile allow-set denied · a fake turn's lines in order (turn → owner brief → init → op → stats), maxTurns on the stats line, no second turn while a proposal waits, one call per turn, every refusal kind by the ledger-or-transcript list, the root exempt from the id rule and a / in an id refused as reserved for a placed copy's parts (#315), the outcome from the lines never the words, subtype success + is_error as failed · subscriptionEnv drops every ANTHROPIC_* and CLAUDE_CODE_USE_* name (the API key, an auth token, a base URL, Bedrock/Vertex/Foundry) and keeps CLAUDE_CODE_OAUTH_TOKEN · the AC #1 ledger proposed → accepted → proposed → refused → undone, agent/owner sourced, verifyBuild [] and a mutated ledger refused, the gate's own duplicate-verdict and forward-fromStep clauses included · PR #485's review cases (47.17): a refused x-keyed proposal leaves a params-less line and a clean gate, the state tree's vocabulary check, the not-missing guard, the fake's cwd guard, a refusing transport before any transcript line, session-reset after a resume that fails before init, isSaveConflict on the in-lock conflict, added exposing a second writer · the run lock both ways with an import (ratify's leg is #313's) · the transport's option block and the route pinned as source. Every agent line here is the fake's or an inline script's, in a scratch copy. CANNOT REACH: a model's behaviour (whether it yields, names the brief in its why, or escapes), the SDK's option handling, hook delivery by the CLI, and the page — those are the preflight's, the journey compose pass's and --live-compose's`);
+  group("compose session", `portal/lib/canvas-session.mjs + the store's verdict lines (#312): IMPORTED in CI with no portal/node_modules, statically SDK- and zod-free with ONE dynamic import naming ./canvas-transport.mjs, the only canvas-*.mjs naming the SDK · S6's four constants reproduce c903170484396973 and the whole prompt surface #320's 32e186e7fedd687d (probe run 4's was 9690d4c955be652c, #316 Segment A's f7e7f54e5a5c5809; #320's is unprobed by a paid run), FORK_ASK #320's generic ask and never S6's screen-specific string, YIELD_CONTRACT unshipped · the vocabulary context generated from vocabulary.json (a synthetic entry in, a removed one out) · ESCAPE_RE after numbering and markup, never mid-sentence, the old regex's miss as the control · the fence: one predicate, two sites, Write/WebFetch/MCP each denied with a denied line at both, a warmup Glob denied with none, a hostile allow-set denied · a fake turn's lines in order (turn → owner brief → init → op → stats), maxTurns on the stats line, no second turn while a proposal waits, one call per turn, every refusal kind by the ledger-or-transcript list, the root exempt from the id rule and a / in an id refused as reserved for a placed copy's parts (#315), the outcome from the lines never the words, subtype success + is_error as failed · subscriptionEnv drops every ANTHROPIC_* and CLAUDE_CODE_USE_* name (the API key, an auth token, a base URL, Bedrock/Vertex/Foundry) and keeps CLAUDE_CODE_OAUTH_TOKEN · the AC #1 ledger proposed → accepted → proposed → refused → undone, agent/owner sourced, verifyBuild [] and a mutated ledger refused, the gate's own duplicate-verdict and forward-fromStep clauses included · PR #485's review cases (47.17): a refused x-keyed proposal leaves a params-less line and a clean gate, the state tree's vocabulary check, the not-missing guard, the fake's cwd guard, a refusing transport before any transcript line, session-reset after a resume that fails before init, isSaveConflict on the in-lock conflict, added exposing a second writer · the run lock both ways with an import (ratify's leg is #313's) · the transport's option block and the route pinned as source. Every agent line here is the fake's or an inline script's, in a scratch copy. CANNOT REACH: a model's behaviour (whether it yields, names the brief in its why, or escapes), the SDK's option handling, hook delivery by the CLI, and the page — those are the preflight's, the journey compose pass's and --live-compose's · #320's fork turn (47.19): a fork ask's exact shape (an extra key, a non-seq and a number refused), its prompt ending in FORK_ASK with the fork named; a fake fork turn filing two proposed composes of one screen tagged c1 a/b fork 11 on the ledger and the transcript, maxTurns FORK_MAX_TURNS, composeView's options and forks, the next turn refused while they wait; one option leaving a not-drafted line; a third reaching the APPLIER as an agent refused line naming "a third"; a second screen a transcript-only wrong-target; a file_evidence seq, a superseded decision and a picked fork each refused as a fork refusal with nothing written, a current decision and a parked question each running; and the pick (accept b + refuse a in one save) reading last.fork picked b, notPicked [a], verifyBuild [] with the trace rule on. CANNOT REACH (47.19): whether a model files two options under FORK_ASK while LOOP says once — the sitting's`);
 }
 
 // ===================================================================================================
@@ -17392,6 +17724,8 @@ const synthPng = (w, h, ct, px) => {
   // refusals.md, lineage.json and imports/<id>.md. The committed packs are compared to the PURE renderPack in process
   // (group 39's pattern), never by calling the writing generator; the mutations run over in-memory packages.
   // CANNOT REACH (49.13, #318): the pack the portal writes after a real re-confirm — canvas-journey pass B, B6.
+  // 49.14 (#320): refusals.md's "refused: not-picked" over an in-memory fork pair; the pack the portal writes after a
+  // real pick is canvas-journey F4's.
   {
     const HB = await import("../agent-layer/gen-build-handoff.mjs");
     const { DROP_CLASSES: DC } = await import("../import/ir.mjs");
@@ -17670,7 +18004,26 @@ const synthPng = (w, h, ct, px) => {
     ok((tl.rendered["flow.md"] ?? "").includes("## Decisions changed since linked\n\n- Not checked — this package has no transcript.jsonl (a stand-in)."),
       "49.13 the two-lane fixture's flow.md must say Not checked — it has no transcript.jsonl");
 
-    group("build handoff", `agent-layer/gen-build-handoff.mjs (#314): a build package → <pkg>/build/handoff/ · 49.1 its imports node built-ins plus exactly the store, canvas-ops and import/ir.mjs · 49.2 every committed pack (faster-payment and the SYNTHETIC two-lane, both asserted BY NAME) equal to renderPack byte for byte, each file's existence checked before its read, and no committed file the render does not produce · 49.3 AC #1 over two-lane's flow.md: ## Lane b present, its f1 missing line naming error and lane A's not · 49.4–49.7 over the spine's FROZEN first six lines (an owner edit through canvas.html cannot red them): 49.4 lineage.json chaining f1 → 7 → a4 and f1 → 8 → a5 by id, each flagged no-evidence, f2 via f1; decision 3's evidence seqs 1 and 2 resolved by name, an unresolvable "99" KEPT and flagged unresolved-decision, and a package with no transcript flagging every ref no-transcript · 49.5 the spine's drops.md SAYING "No imports", and the committed spike-c-wrong-but-green record rendering all three class headings with 13 + 8 rows and - none under never-read, its md copied byte for byte · 49.6 an agent refusal joined to its transcript reason, an owner verdict, a transcript-only one-per-turn refusal and an import's denied line each in its section, and - none three times for an empty package · 49.7 renderPack deterministic and no Date in the module · 49.8 genBuildHandoff({check: true}) reporting no drift · 49.9 every POST /api/canvas/* route (all eleven found by name (promote among them) · 49.11 #315 (AC #3): compositionCount over an in-memory package — composed 2, placed 2, admitted 2 (1 from an import, 1 from a promoted group, the unratified proposal not counted) — flow.md printing ## Composition over admission before the lanes, and the committed faster-payment flow.md printing a zero rather than omitting it) · 49.12 #316 (AC #3/#4): partProvenance over an in-memory package — a frame node named a ratified import's component imported via its proposal and record, the same component entering ONLY through a state's override.add still imported, inside a group definition imported with via.groupId and named <copy>/<part>, a node named a ratified promoted group admitted, the two copies composed, a plain node vocabulary, total over five junk docs — and lineage.json's partsByProvenance (3 · 1 · 2 · 3) with each frame's parts, and flow.md's "Parts by provenance" line except the read-only import/binding, pack and ratify/preview answering through withPack(, read as source · 49.10 (PR #491 F1) a newline in a label, a screenId, an override key and a hidden part reaching flow.md as no line of its own and leaving the fences paired, over an in-memory package. CANNOT REACH: whether Mermaid parses flow.md (a human paste into mermaid.live), whether a drop's reason is true (group 42's), whether the page's Write button writes (canvas-journey pass L), whether a decision is a good one (a human read), and whether a jobs-folder package's pack is current (the drift leg sees committed packages only; the portal regenerates after every write route) · #318 (49.13): lineage decision 7 reads seq 7, stale false, latest null and f1/f2 not stale on the spine (the control); one banked answer to 7's question filed by the REAL discovery applier makes 7 stale with latest the new seq, f1 stale and f2 stale via its base, and flow.md's "Decisions changed since linked" names add-payee (f1); a dangling "99" reads seq 99, stale false, keeps unresolved-decision and is listed as not resolving; a stand-in and the committed two-lane fixture say "Not checked". CANNOT REACH (49.13): the pack the portal writes after a real re-confirm (canvas-journey pass B, B6)`);
+    // 49.14 #320 (D5): a fork's unpicked option reads "refused: not-picked" in refusals.md — derived from its sibling's
+    // verdict (notPickedOf), never stored. A Neither pair carries no suffix (the control).
+    {
+      const AT1 = "2026-10-02T00:00:01.000Z";
+      const AT2 = "2026-10-02T00:00:02.000Z";
+      const opt = (option, turn) => ({ screenId: "s", why: `Option ${option}.`, composition: { name: "stack", id: "r" }, alternative: { turn, option, fork: "11" } });
+      const prop = (seq, option, turn) => ({ seq, at: AT1, source: "agent", op: "screen.compose", params: opt(option, turn), status: "proposed" });
+      const verdict = (seq, fromStep, option, turn, status, at) => ({ seq, at, source: "owner", op: "screen.compose", params: opt(option, turn), status, fromStep });
+      const forkPkg = { slug: "fork", transcript: null, answers: null, buildTranscript: [], imports: [], ops: [
+        prop(1, "a", "c1"), prop(2, "b", "c1"), verdict(3, 2, "b", "c1", "accepted", AT1), verdict(4, 1, "a", "c1", "refused", AT1),
+        prop(5, "a", "c2"), prop(6, "b", "c2"), verdict(7, 5, "a", "c2", "refused", AT2), verdict(8, 6, "b", "c2", "refused", AT2),
+      ] };
+      const fr = render(forkPkg, "the fork package (49.14)")["refusals.md"] ?? "";
+      ok(fr.includes("- seq 4 · owner refused the proposal at seq 1 (screen.compose) — refused: not-picked\n"),
+        `49.14 the unpicked option's line — refused: not-picked missing: ${JSON.stringify(fr)}`);
+      ok(fr.includes("- seq 7 · owner refused the proposal at seq 5 (screen.compose)\n") && fr.includes("- seq 8 · owner refused the proposal at seq 6 (screen.compose)\n"),
+        `49.14 control — a Neither pair's lines must carry no not-picked suffix: ${JSON.stringify(fr)}`);
+    }
+
+    group("build handoff", `agent-layer/gen-build-handoff.mjs (#314): a build package → <pkg>/build/handoff/ · 49.1 its imports node built-ins plus exactly the store, canvas-ops and import/ir.mjs · 49.2 every committed pack (faster-payment and the SYNTHETIC two-lane, both asserted BY NAME) equal to renderPack byte for byte, each file's existence checked before its read, and no committed file the render does not produce · 49.3 AC #1 over two-lane's flow.md: ## Lane b present, its f1 missing line naming error and lane A's not · 49.4–49.7 over the spine's FROZEN first six lines (an owner edit through canvas.html cannot red them): 49.4 lineage.json chaining f1 → 7 → a4 and f1 → 8 → a5 by id, each flagged no-evidence, f2 via f1; decision 3's evidence seqs 1 and 2 resolved by name, an unresolvable "99" KEPT and flagged unresolved-decision, and a package with no transcript flagging every ref no-transcript · 49.5 the spine's drops.md SAYING "No imports", and the committed spike-c-wrong-but-green record rendering all three class headings with 13 + 8 rows and - none under never-read, its md copied byte for byte · 49.6 an agent refusal joined to its transcript reason, an owner verdict, a transcript-only one-per-turn refusal and an import's denied line each in its section, and - none three times for an empty package · 49.7 renderPack deterministic and no Date in the module · 49.8 genBuildHandoff({check: true}) reporting no drift · 49.9 every POST /api/canvas/* route (all eleven found by name (promote among them) · 49.11 #315 (AC #3): compositionCount over an in-memory package — composed 2, placed 2, admitted 2 (1 from an import, 1 from a promoted group, the unratified proposal not counted) — flow.md printing ## Composition over admission before the lanes, and the committed faster-payment flow.md printing a zero rather than omitting it) · 49.12 #316 (AC #3/#4): partProvenance over an in-memory package — a frame node named a ratified import's component imported via its proposal and record, the same component entering ONLY through a state's override.add still imported, inside a group definition imported with via.groupId and named <copy>/<part>, a node named a ratified promoted group admitted, the two copies composed, a plain node vocabulary, total over five junk docs — and lineage.json's partsByProvenance (3 · 1 · 2 · 3) with each frame's parts, and flow.md's "Parts by provenance" line except the read-only import/binding, pack and ratify/preview answering through withPack(, read as source · 49.10 (PR #491 F1) a newline in a label, a screenId, an override key and a hidden part reaching flow.md as no line of its own and leaving the fences paired, over an in-memory package. CANNOT REACH: whether Mermaid parses flow.md (a human paste into mermaid.live), whether a drop's reason is true (group 42's), whether the page's Write button writes (canvas-journey pass L), whether a decision is a good one (a human read), and whether a jobs-folder package's pack is current (the drift leg sees committed packages only; the portal regenerates after every write route) · #318 (49.13): lineage decision 7 reads seq 7, stale false, latest null and f1/f2 not stale on the spine (the control); one banked answer to 7's question filed by the REAL discovery applier makes 7 stale with latest the new seq, f1 stale and f2 stale via its base, and flow.md's "Decisions changed since linked" names add-payee (f1); a dangling "99" reads seq 99, stale false, keeps unresolved-decision and is listed as not resolving; a stand-in and the committed two-lane fixture say "Not checked". CANNOT REACH (49.13): the pack the portal writes after a real re-confirm (canvas-journey pass B, B6) · #320 (49.14): over an in-memory package holding a picked fork pair and a Neither pair, refusals.md's line for the unpicked option ends "— refused: not-picked" (derived by notPickedOf, never stored) and the Neither pair's two lines carry no suffix (the control). CANNOT REACH (49.14): the pack the portal writes after a real pick (canvas-journey F4)`);
   }
 
   // --- 50 · ratify (#313) --------------------------------------------------------------------------
@@ -18205,7 +18558,8 @@ const synthPng = (w, h, ct, px) => {
   // discovery applier), the real tree read and never written.
   //
   // WHAT THIS GROUP CANNOT REACH: whether the page renders the rows and whether following one lands on the right
-  // control (canvas-journey pass W), and whether the order is the order the owner wants (a human read).
+  // control (canvas-journey pass W, and pass F7 for a fork row), and whether the order is the order the owner wants (a
+  // human read).
   {
     const deep = (v) => (v && typeof v === "object" && !Array.isArray(v)
       ? `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${deep(v[k])}`).join(",")}}`
@@ -18281,14 +18635,15 @@ const synthPng = (w, h, ct, px) => {
       const pick = (r, kind, subject) => r.rows.find((x) => x.kind === kind && x.subject === subject);
       // 51.4's four-part clear: (a) the row was there, (b) its verb removed it, (c) every other row is unchanged, (d) any
       // new row is one the case names.
-      const cleared = async (tag, roots, kind, subject, verb, allowNew = () => false) => {
+      // `alsoClears` names a row the same verb rightly clears too (#320: a decision on a parked question clears its fork).
+      const cleared = async (tag, roots, kind, subject, verb, allowNew = () => false, alsoClears = () => false) => {
         const before = look(roots);
         ok(pick(before, kind, subject), `51.4 ${tag}: no ${kind} ${subject} row before its verb — rows ${deep(before.rows.map((x) => `${x.kind} ${x.subject}`))}, errors ${deep(before.errors)}`);
         await afold(`51.4 ${tag}: the verb`, verb);
         const after = look(roots);
         ok(!pick(after, kind, subject), `51.4 ${tag}: ${kind} ${subject} survived its own verb`);
         const keep = new Set(after.rows.map(deep));
-        const gone = before.rows.filter((x) => !(x.kind === kind && x.subject === subject) && !keep.has(deep(x)));
+        const gone = before.rows.filter((x) => !(x.kind === kind && x.subject === subject) && !keep.has(deep(x)) && !alsoClears(x));
         ok(!gone.length, `51.4 ${tag}: clearing ${kind} ${subject} moved other rows ${deep(gone.map((x) => `${x.kind} ${x.subject}`))}`);
         const had = new Set(before.rows.map(deep));
         const extra = after.rows.filter((x) => !had.has(deep(x)) && !allowNew(x));
@@ -18432,7 +18787,8 @@ const synthPng = (w, h, ct, px) => {
         ok(pick(r, "open-question", `seq:${q.seq}`)?.verb.href === "#/discovery/real/spine", `51.4 open-question: the row is ${deep(pick(r, "open-question", `seq:${q.seq}`))}`);
         const s7 = seven(c.pkg).params;
         await cleared("open-question A", c.roots, "open-question", `seq:${q.seq}`,
-          () => file(c.pkg, "t26", "record_decision", { question_id: "s1-choice-cascade", level: s7.level, parent_id: s7.parent_id, evidence_refs: [], wrong_if: "Gate fixture (#319).", off_script: false }, "s1-choice-cascade"));
+          () => file(c.pkg, "t26", "record_decision", { question_id: "s1-choice-cascade", level: s7.level, parent_id: s7.parent_id, evidence_refs: [], wrong_if: "Gate fixture (#319).", off_script: false }, "s1-choice-cascade"),
+          () => false, (x) => x.kind === "fork" && x.subject === `fork:${q.seq}`);
         const b = pkgCopy("park-b");
         setEnded(b.pkg, null);
         const qb = fold("51.4 open-question B: park", () => park(b.pkg), {});
@@ -18441,6 +18797,33 @@ const synthPng = (w, h, ct, px) => {
         fold("51.4 open-question control: park", () => park(f.pkg));
         const rf = look(f.roots);
         ok(!rf.rows.some((x) => x.kind === "open-question"), `51.4 open-question: a finished session listed a parked question — ${deep(rf.rows.map((x) => x.subject))}`);
+      }
+      // fork (#320) — the same park, on a FINISHED copy (a fork row does not depend on the session being open, unlike
+      // open-question), cleared by a pick on the canvas; a second copy cleared by a later decision on the question; and a
+      // stand-in whose build transcript flags a fork lists none (the owner's call: derived forks only).
+      {
+        const park = (pkg) => file(pkg, "t25", "open_question", { source: "banked", question_id: "s1-choice-cascade", reason: "Gate fixture (#320): parked to fork on." }, "s1-choice-cascade");
+        const c = pkgCopy("fork");
+        const q = fold("51.4 fork: park", () => park(c.pkg), {});
+        const r = look(c.roots);
+        const row = pick(r, "fork", `fork:${q.seq}`);
+        ok(row?.verb.href === `/canvas.html?provenance=real&slug=spine&fork=${q.seq}` && row.verb.label === "Ask for two options" && row.blocking === false && row.text.includes("s1-choice-cascade"),
+          `51.4 fork: the row is ${deep(row)}`);
+        const opt = (option) => ({ screenId: "choose-amount", why: `Option ${option}.`, composition: STACK(TWO()), decisionRefs: ["7"], alternative: { turn: "c1", option, fork: String(q.seq) } });
+        await cleared("fork", c.roots, "fork", `fork:${q.seq}`, () => {
+          const a = CS.appendAgentLine(c.pkg, { op: "screen.compose", params: opt("a"), status: "proposed" });
+          const b = CS.appendAgentLine(c.pkg, { op: "screen.compose", params: opt("b"), status: "proposed" });
+          save(c.pkg, [{ op: "screen.compose", params: opt("b"), status: "accepted", fromStep: b.seq }, { op: "screen.compose", params: opt("a"), status: "refused", fromStep: a.seq }], F3);
+        }, (x) => x.subject.startsWith("frame:f3"));            // the picked option's own frame brings its rows
+        const d = pkgCopy("fork-d");
+        const qd = fold("51.4 fork D: park", () => park(d.pkg), {});
+        const s7 = seven(d.pkg).params;
+        await cleared("fork D", d.roots, "fork", `fork:${qd.seq}`,
+          () => file(d.pkg, "t26", "record_decision", { question_id: "s1-choice-cascade", level: s7.level, parent_id: s7.parent_id, evidence_refs: [], wrong_if: "Gate fixture (#320).", off_script: false }, "s1-choice-cascade"));
+        const st = pkgCopy("fork-standin", { discovery: false });
+        writeFileSync(join(st.pkg, "build/transcript.jsonl"), `${JSON.stringify({ type: "turn", turn: "c1", ask: { kind: "fork", fork: "11" }, briefed: false })}\n`);
+        const rs = look(st.roots);
+        ok(!rs.rows.some((x) => x.kind === "fork") && rs.errors.length === 0, `51.4 fork: a stand-in listed a flagged fork — ${deep(rs.rows.map((x) => `${x.kind} ${x.subject}`))}, errors ${deep(rs.errors)}`);
       }
       // feature-proposal — the proposal and verdict lines are HAND-AUTHORED, because they are the subject under test
       // (group 34's precedent), each checked by checkProposalLines first.
@@ -18491,7 +18874,7 @@ const synthPng = (w, h, ct, px) => {
 
       // --- 51.6 every kind is covered ------------------------------------------------------------------
       for (const k of KINDS) ok(seen.has(k), `51.6: kind ${k} has no fixture — no 51.3–51.4 read produced it`);
-      ok(Object.isFrozen(KINDS) && KINDS.length === 9, `51.6: KINDS is ${deep(KINDS)}, frozen ${Object.isFrozen(KINDS)}`);
+      ok(Object.isFrozen(KINDS) && KINDS.length === 10, `51.6: KINDS is ${deep(KINDS)}, frozen ${Object.isFrozen(KINDS)}`);
 
       // --- 51.7 read-only, measured ----------------------------------------------------------------------
       {
@@ -18523,13 +18906,16 @@ const synthPng = (w, h, ct, px) => {
         && H({ page: "canvas", ...P, frame: "f1" }) === "/canvas.html?provenance=real&slug=spine&frame=f1"
         && H({ page: "canvas", ...P, import: "spike-list-row" }) === "/canvas.html?provenance=real&slug=spine&import=spike-list-row"
         && H({ page: "canvas", ...P, promoted: "app-header" }) === "/canvas.html?provenance=real&slug=spine&promoted=app-header"
+        && H({ page: "canvas", provenance: "real", slug: "x", fork: "17" }) === "/canvas.html?provenance=real&slug=x&fork=17"
         && H({ page: "discovery", provenance: "fictional", slug: "faster-payment" }) === "#/discovery/fictional/faster-payment",
-        "51.9: hrefFor's five shapes are not the exact strings");
+        "51.9: hrefFor's six shapes are not the exact strings");
+      const two = (() => { try { hrefFor({ page: "canvas", ...P, frame: "f1", fork: "17" }); return null; } catch (e) { return e.message; } })();
+      ok(two?.includes("frame and fork"), `51.9: hrefFor with frame and fork together answered ${deep(two)} — a throw naming both`);
       const junk = (() => { try { hrefFor({ page: "nope" }); return null; } catch (e) { return e.message; } })();
       ok(junk?.includes("nope"), `51.9: hrefFor of a junk page answered ${deep(junk)} — a throw naming the page`);
     }
 
-    group("inbox", `portal/lib/inbox.mjs (#319, D1): every build run's waiting items as rows, a pure read · 51.1 IMPORTED in CI with no portal/node_modules, its parsed specifiers node: built-ins plus exactly canvas-ops, the store, discovery/ops.mjs and discovery/proposals.mjs, no SDK, zod, MCP or dynamic import, and its node: imports exactly node:fs {existsSync, readFileSync} and node:path {join} (an allowlist, so no write call, node:fs/promises, namespace or default import is in reach) · 51.2 no roots, an absent root and a package whose build/ is empty each answering no rows and no errors, the last counted 0 · 51.3 a seeded copy of the spine answering exactly f1's three missing-state rows (empty, loading, partial — field by field, href included), entryFrames ["f1"] there, the first base frame over a cycle and [] over junk, and the committed discovery/ answering no errors, known kinds and counts summing to its rows · 51.4 one positive control per kind, each on its own seeded copy and cleared by its own verb through the real writer with every other row unchanged and no row the case does not name: stale-frame (a REAL discovery-applier supersede, Re-confirm by reconfirmRefs; blocking on the entry f1, not on a non-entry f3), dangling-ref (a 99 saved with decisions null, re-linked), missing-state (one state.add clears one of three), unlinked-frame (a composed f3, linked; a stand-in lists none), unbound-import (43.7's synthetic unbound export, editMapping confirms the snap), ratify-pending (the Mode 1 proposal, a ratify line clears it; a Mode 2 proposal never lists, its snaps still do), agent-proposal (appendAgentLine's open line, first and blocking, accepted), open-question (a park on a reopened copy cleared by a later decision on its question, and by finishing; a finished session lists none), feature-proposal (a hand-authored proposal passed by checkProposalLines, cleared by a parked verdict) · 51.5 blocking first by KINDS (the newest agent proposal before an older stale entry frame) then oldest first, an undated row after every dated one in its band, and two reads equal · 51.5b two roots answering one provenance/slug each read from its own root (3 + 2 rows, counted 5) · 51.6 every one of the nine KINDS produced by some fixture · 51.7 every file of a package hashed unchanged across inbox() · 51.8 a malformed ledger beside the spine answering one error naming its slug and line 2, the spine's three rows intact · 51.9 hrefFor's four canvas shapes and the discovery shape as exact strings, a junk page refused by name. CANNOT REACH: whether the page renders the rows and whether following one lands on the right control (canvas-journey pass W), and whether the order is the order the owner wants (a human read)`);
+    group("inbox", `portal/lib/inbox.mjs (#319, D1): every build run's waiting items as rows, a pure read · 51.1 IMPORTED in CI with no portal/node_modules, its parsed specifiers node: built-ins plus exactly canvas-ops, the store, discovery/ops.mjs and discovery/proposals.mjs, no SDK, zod, MCP or dynamic import, and its node: imports exactly node:fs {existsSync, readFileSync} and node:path {join} (an allowlist, so no write call, node:fs/promises, namespace or default import is in reach) · 51.2 no roots, an absent root and a package whose build/ is empty each answering no rows and no errors, the last counted 0 · 51.3 a seeded copy of the spine answering exactly f1's three missing-state rows (empty, loading, partial — field by field, href included), entryFrames ["f1"] there, the first base frame over a cycle and [] over junk, and the committed discovery/ answering no errors, known kinds and counts summing to its rows · 51.4 one positive control per kind, each on its own seeded copy and cleared by its own verb through the real writer with every other row unchanged and no row the case does not name: stale-frame (a REAL discovery-applier supersede, Re-confirm by reconfirmRefs; blocking on the entry f1, not on a non-entry f3), dangling-ref (a 99 saved with decisions null, re-linked), missing-state (one state.add clears one of three), unlinked-frame (a composed f3, linked; a stand-in lists none), unbound-import (43.7's synthetic unbound export, editMapping confirms the snap), ratify-pending (the Mode 1 proposal, a ratify line clears it; a Mode 2 proposal never lists, its snaps still do), agent-proposal (appendAgentLine's open line, first and blocking, accepted), open-question (a park on a reopened copy cleared by a later decision on its question — which clears its fork row too, named as such — and by finishing; a finished session lists none), fork (#320: the same park on a FINISHED copy listed with href …&fork=<seq>, non-blocking, cleared by a pick saved through the real writer and, on a second copy, by a later decision; a stand-in whose build transcript flags a fork lists none — derived forks only), feature-proposal (a hand-authored proposal passed by checkProposalLines, cleared by a parked verdict) · 51.5 blocking first by KINDS (the newest agent proposal before an older stale entry frame) then oldest first, an undated row after every dated one in its band, and two reads equal · 51.5b two roots answering one provenance/slug each read from its own root (3 + 2 rows, counted 5) · 51.6 every one of the ten KINDS produced by some fixture · 51.7 every file of a package hashed unchanged across inbox() · 51.8 a malformed ledger beside the spine answering one error naming its slug and line 2, the spine's three rows intact · 51.9 hrefFor's five canvas shapes (fork among them) and the discovery shape as exact strings, frame and fork together refused naming both, a junk page refused by name. CANNOT REACH: whether the page renders the rows and whether following one lands on the right control (canvas-journey pass W, and F7 for a fork row), and whether the order is the order the owner wants (a human read)`);
   }
 
   if (failures) {

@@ -1,0 +1,24 @@
+b outcome/added              ["proposed",2]
+b alts                       [["proposed","choose-amount",{"turn":"c1","option":"a","fork":"11"}],["proposed","choose-amount",{"turn":"c1","option":"b","fork":"11"}]]
+b stats.maxTurns             5
+b view.options               ["a","b"]
+b forks                      [{"ref":"11","kind":"flagged","questionId":null,"reason":null,"turn":"c1","status":"open","frameId":null,"option":null}]
+b next turn                  canvas-session: seq 7 (screen.compose choose-amount) is waiting for yo
+c accept B alone             saveRun: op 0 answers seq 8, option b of fork turn c1 — its sibling seq 7 must be answered
+c refuse A alone             saveRun: op 0 answers seq 7, option a of fork turn c1 — its sibling seq 8 must be answered
+c accept both                saveRun: op 0 accepts seq 8 and the same save accepted seq 7 — a fork lands one option (D5
+c pick B                     {"count":10}
+c f3                         ["f3",{"turn":"c1","option":"b","fork":"11"},"Set a first-payment limit"]
+e notPickedOf                [[10],"A verdict seq",10]
+d verifyBuild                []
+g last.fork                  {"ref":"11","filed":2,"notDrafted":false,"picked":"b","notPicked":["a"]}
+F5 diagram                   ["  f3 : choose-amount"]
+F5 missing f3                {"frameId":"f3","screenId":"choose-amount","missing":["empty","error","partial","loading"]}
+d mutated at                 ["ops.jsonl line 9: answers seq 8, option b of fork turn c1, but seq 7 was answered in another save (2026-01-01T00:00:00.000Z) — a pick refuses the other in the same save (D5)","ops.jsonl line 10: answers seq 7, option a of fork turn c1, but seq 8 was answered in another save (2026-10-02T14:43:05.683Z) — a pick refuses the other in the same save (D5)"]
+f picked again               canvas-session: fork 11 is already picked as f3 — undo the pick to fork it again
+one-option: x                {"added":1,"statuses":["proposed"],"tx":[["not-drafted","a",""]],"nd":true,"vb":[]}
+three-options: x             {"added":3,"statuses":["proposed","proposed","refused"],"tx":[["refused","applier","screen.compose: alternative.option \"c\" — a fork offers two o"]],"nd":false,"vb":[]}
+f fork 1                     canvas-session: seq 1 is neither an open question nor a current decision in this package's
+f fork 11                    proposed
+f fork 99                    canvas-session: seq 7 (screen.compose choose-amount) is waiting for your verdict — accept 
+f composeRefusal             {"kind":"fork","message":"canvas-session: seq 1 is neither an open question nor a current decision in this package's transcript — a fork names one (D5)"}
