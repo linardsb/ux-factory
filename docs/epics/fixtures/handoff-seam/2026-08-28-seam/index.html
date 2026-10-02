@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Verdant — demo against the mock API</title>
+<!-- token layers, straight from the pack (wc/README.md §Consumption) -->
+<link rel="stylesheet" href="/pack/tokens/css/contract.css" />
+<link rel="stylesheet" href="/pack/tokens/css/neutral.css" />
+<style>
+  /* Page chrome + the three HTML/CSS-canonical components the pack ships no CSS for
+     (questions.md Q20). Each block uses only the tokens in that component's spec head. */
+  body { margin: 0; background: var(--color-bg); color: var(--color-fg); font-family: var(--font-body); font-size: var(--type-body); }
+  main { max-width: 420px; margin: 0 auto; padding: 0 var(--spacing-md) var(--spacing-xl); }
+  section { display: flex; flex-direction: column; gap: var(--spacing-sm); margin-bottom: var(--spacing-xl); }
+  h2 { font-size: var(--type-caption); font-weight: 600; color: var(--color-fg-muted); text-transform: uppercase; letter-spacing: 0.08em; margin: var(--spacing-md) 0 0; }
+
+  .vd-demo-notice { margin: 0 calc(-1 * var(--spacing-md)) var(--spacing-sm); padding: var(--spacing-sm) var(--spacing-md); background: var(--color-bg-surface); border-bottom: 1px solid var(--color-border); color: var(--color-fg-muted); font-size: var(--type-caption); }
+
+  .vd-screen-header { display: grid; grid-template-columns: 44px 1fr 44px; align-items: center; min-height: 44px; padding: var(--spacing-sm) 0; background: var(--color-bg); }
+  .vd-screen-header h1 { margin: 0; text-align: center; font-size: var(--type-h3); font-weight: 600; color: var(--color-fg); }
+  .vd-screen-header button { width: 44px; height: 44px; border: 0; background: none; color: var(--color-fg); font: inherit; cursor: pointer; }
+  .vd-screen-header.is-scrolled { border-bottom: 1px solid var(--color-border); }
+
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-sm); }
+  .vd-stat-tile { margin: 0; padding: var(--spacing-md); background: var(--color-bg-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); }
+  .vd-stat-tile .glyph { display: block; width: 20px; height: 20px; color: var(--color-fg-muted); margin-bottom: var(--spacing-sm); }
+  .vd-stat-tile .value { font-size: var(--type-h3); font-weight: 600; color: var(--color-fg); }
+  .vd-stat-tile .unit { font-size: var(--type-caption); color: var(--color-fg-muted); margin-left: 2px; }
+  .vd-stat-tile .label { display: block; font-size: var(--type-caption); color: var(--color-fg-muted); }
+
+  .vd-primary-button { width: 100%; min-height: 44px; padding: var(--spacing-md); border: 0; border-radius: var(--radius-md); background: var(--color-accent); color: var(--color-accent-fg); font: inherit; font-size: var(--type-body); font-weight: 600; cursor: pointer; }
+  .vd-primary-button:hover { background: var(--color-accent-hover); }
+  .vd-primary-button:active { background: var(--color-accent-active); }
+  .vd-primary-button:disabled { background: var(--color-bg-surface); color: var(--color-fg-muted); cursor: default; }
+  .vd-primary-button:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+
+  .empty { padding: var(--spacing-xl) var(--spacing-md); border: 1px dashed var(--color-border); border-radius: var(--radius-md); text-align: center; color: var(--color-fg-muted); font-size: var(--type-caption); }
+  .log { font-size: var(--type-caption); color: var(--color-fg-muted); min-height: 1.4em; }
+</style>
+</head>
+<body>
+<main>
+  <p class="vd-demo-notice" role="note" id="notice"></p>
+
+  <header class="vd-screen-header" id="header">
+    <span></span>
+    <h1>My plants</h1>
+    <button type="button" aria-label="Settings"><span aria-hidden="true">⚙</span></button>
+  </header>
+
+  <section id="plants" aria-label="My plants"></section>
+
+  <h2>Today</h2>
+  <section id="today">
+    <vd-plant-card id="featured"></vd-plant-card>
+    <div class="tiles" id="tiles"></div>
+    <div id="rows" style="display:flex;flex-direction:column;gap:var(--spacing-sm)"></div>
+    <button class="vd-primary-button" id="logCare" type="button" disabled>Log care</button>
+    <p class="log" id="log" aria-live="polite"></p>
+  </section>
+</main>
+
+<script type="module">
+  import "/pack/wc/vd-plant-card.mjs";
+  import "/pack/wc/vd-care-task-row.mjs";
+
+  const $ = (s) => document.querySelector(s);
+  const api = async (path, init) => {
+    const r = await fetch(path, init);
+    const body = await r.json();
+    if (!r.ok) throw Object.assign(new Error(body.error?.message ?? r.statusText), { status: r.status, body });
+    return body;
+  };
+
+  const GLYPH = {
+    moisture: '<svg class="glyph" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2c3 4 6 7 6 10a6 6 0 0 1-12 0c0-3 3-6 6-10z" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>',
+    light: '<svg class="glyph" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="4" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M10 1v3M10 16v3M1 10h3M16 10h3M3.6 3.6l2.1 2.1M14.3 14.3l2.1 2.1M3.6 16.4l2.1-2.1M14.3 5.7l2.1-2.1" stroke="currentColor" stroke-width="1.5"/></svg>',
+  };
+  const tile = (r) => `<p class="vd-stat-tile" data-reading-id="${r.id}">${GLYPH[r.kind]}<span class="label">${r.label}</span><span class="value">${r.value}</span><span class="unit">${r.unit}</span></p>`;
+
+  const checked = new Set();
+
+  function mountTask(t) {
+    const el = document.createElement("vd-care-task-row");
+    el.data = t;
+    // The wrapper's data setter reads `record.action`; the contract field is `type`
+    // (questions.md Q7). README: an attribute set after `data` wins.
+    el.setAttribute("action", t.type);
+    el.checked = checked.has(t.id);
+    return el;
+  }
+
+  async function render() {
+    const [scenario, plants, today] = await Promise.all([api("/api/scenario"), api("/api/plants"), api("/api/today")]);
+
+    $("#notice").textContent = scenario.fictionalNotice;
+
+    const list = $("#plants");
+    list.replaceChildren(...plants.map((p) => {
+      const el = document.createElement("vd-plant-card");
+      el.data = p;
+      el.setAttribute("href", `/api/plants/${p.id}`);
+      return el;
+    }));
+
+    $("#featured").data = today.featuredPlant;
+    $("#featured").setAttribute("href", `/api/plants/${today.featuredPlant.id}`);
+    $("#tiles").innerHTML = today.readings.map(tile).join("");
+
+    for (const id of checked) if (!today.tasks.some((t) => t.id === id)) checked.delete(id);
+    const rows = $("#rows");
+    rows.replaceChildren(...today.tasks.map(mountTask));
+    if (!today.tasks.length) rows.innerHTML = `<div class="empty">Nothing to do today.</div>`;
+
+    $("#logCare").disabled = checked.size === 0;
+    window.__verdant = { rendered: true, today: today.today, plants: plants.length, todayTasks: today.tasks.length, readings: today.readings.length };
+  }
+
+  document.addEventListener("vd-toggle", (e) => {
+    if (e.detail.checked) checked.add(e.detail.id); else checked.delete(e.detail.id);
+    $("#logCare").disabled = checked.size === 0;
+  });
+
+  $("#logCare").addEventListener("click", async () => {
+    const ids = [...checked];
+    try {
+      const out = await api("/api/care-log", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ taskIds: ids }) });
+      checked.clear();
+      $("#log").textContent = `Logged ${out.logged.length} task(s) on ${out.loggedAt}${out.created.length ? `; scheduled ${out.created.map((t) => `${t.type} ${t.plantName} ${t.due}`).join(", ")}` : ""}.`;
+      await render();
+    } catch (err) {
+      $("#log").textContent = `Log care failed (${err.status}): ${err.message}`;
+    }
+  });
+
+  addEventListener("scroll", () => $("#header").classList.toggle("is-scrolled", scrollY > 0), { passive: true });
+
+  render().catch((err) => { $("#log").textContent = `Could not load: ${err.message}`; window.__verdant = { rendered: false, error: err.message }; });
+</script>
+</body>
+</html>
