@@ -18,7 +18,8 @@
 //      trace-recorder.mjs already uses, and the ABSENCE is what proves it — see group 8's own comment
 //      before "fixing" this by installing portal deps in CI. The import's ARGUMENT is picked by the
 //      UXF_DISCOVERY_TRANSPORT env seam (#498), canvas-session.mjs's UXF_COMPOSE_TRANSPORT twin: canvas-journey
-//      points it at tooling/fake-discovery-agent.mjs. It is still ONE lazy import, still after every guard.
+//      points it at tooling/fake-discovery-agent.mjs. It is still ONE lazy import, still after every guard; with the
+//      seam SET it loads before the answer append, so the seam module's assertRoot refuses a root first (PR #502 F2).
 //   2. DISK IS AUTHORITATIVE. There is no session object in memory beyond the run lock. Every read
 //      re-reads the package; openSession on an existing run.json RESUMES rather than overwrites. That
 //      is what makes a page reload and a server restart lose nothing (AC #5).

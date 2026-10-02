@@ -828,7 +828,7 @@ export async function probeAffordance({ model = null } = {}) {
 async function runDiscoveryTurnObserved({ root, head, question, answer, turn, posture, state, wrapped, onLine }) {
   const answers = readAnswers(root);
   const { systemPrompt, prompt } = posture.build({ question, answer, turn, ledger: state.current.ops, provenance: head.provenance, entryMode: head.entryMode ?? 'blank-idea', answers, park: false, affordance: answer.intent });
-  const server = buildOpServer({ root, turn, state, onLine });
+  const server = buildOpServer({ root, turn, state, onLine, questionId: question?.id ?? null });
   const tools = [...FETCH_TOOLS];
   const fence = { allowSet: allowSetFor({ root, reads: head.reads ?? [] }), mainTools: tools, extraTools: [...FETCH_TOOLS] };
   let stats = null;
