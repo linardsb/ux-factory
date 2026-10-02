@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Run fixtures brief</title>
+<style>
+  :root { --bg:#fafaf9; --fg:#1c1917; --muted:#57534e; --line:#e7e5e4; --card:#fff; --accent:#2563eb; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#1c1917; --fg:#f5f5f4; --muted:#a8a29e; --line:#44403c; --card:#292524; --accent:#93c5fd; } }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, sans-serif; }
+  main { max-width:760px; margin:0 auto; padding:24px 16px 64px; }
+  h1 { font-size:1.5rem; margin:0 0 4px; } h2 { font-size:1.1rem; margin:32px 0 8px; }
+  .src { color:var(--muted); font-size:.9rem; } a { color:var(--accent); }
+  .concept { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:12px 16px; margin:10px 0; }
+  .concept h3 { margin:0 0 4px; font-size:1rem; }
+  pre { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:12px; overflow-x:auto; font-size:.85rem; }
+  .flow { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  .box { border:1px solid var(--line); background:var(--card); border-radius:6px; padding:8px 10px; font-size:.9rem; }
+  .arrow { color:var(--muted); }
+  ul { padding-left:20px; } li { margin:4px 0; }
+  .prompts { list-style:none; padding:0; }
+  .prompts li { display:flex; justify-content:space-between; gap:12px; border-bottom:1px solid var(--line); padding:8px 0; }
+  .copy { opacity:.35; border:0; background:none; color:inherit; cursor:pointer; font-size:15px; line-height:1 }
+  .copy:hover, .copy:focus-visible { opacity:1 }
+  .copy::before { content:'⧉' } .copy.copied::before { content:'✓' }
+</style>
+</head>
+<body>
+<main>
+<h1>Committing the two test runs as evidence</h1>
+<p class="src">Full plan: <a href="handoff-seam-run-fixtures-330.md">handoff-seam-run-fixtures-330.md</a></p>
+
+<h2>What we're building and why</h2>
+<p>Two AI agents were given only the design handoff pack and asked to build against it; their work sits on a Desktop. After this ticket it lives in the repo, byte for byte, with a label saying exactly what each agent saw and was told.</p>
+
+<h2>The concepts this plan rests on</h2>
+<div class="concept">
+  <h3>A fenced run</h3>
+  <p>An agent started in an empty folder holding only the pack, told not to look elsewhere. It shows what a stranger would have to ask. Like giving a new hire only the manual and noting every question.</p>
+</div>
+<div class="concept">
+  <h3>Evidence stays unedited</h3>
+  <p>The copied files must match the originals exactly, checked by a byte-for-byte comparison. Fixing even a typo would turn a real record into a written one.</p>
+<pre>diff -r  Desktop/seam-run   repo copy
+  → no output = identical</pre>
+</div>
+<div class="concept">
+  <h3>Provenance</h3>
+  <p>Provenance (where something came from) is stated beside the files: the pack's exact git commit, the launch command, the prompt. Where a fact was not kept, the label says so rather than guessing.</p>
+</div>
+<div class="concept">
+  <h3>A check that can fail</h3>
+  <p>CI already syntax-checks every tracked script. We prove it reaches the new server file by breaking it on purpose and watching CI go red.</p>
+</div>
+
+<h2>How the pieces fit</h2>
+<div class="flow">
+  <span class="box">Desktop runs</span><span class="arrow">→ copy, minus pack</span>
+  <span class="box">repo fixtures</span><span class="arrow">→ compare</span>
+  <span class="box">identical bytes</span><span class="arrow">+</span>
+  <span class="box">README label</span><span class="arrow">→</span>
+  <span class="box">CI syntax check</span>
+</div>
+
+<h2>The plan at a glance</h2>
+<ul>
+  <li>Phase 0: owner supplies the two original prompts (they were not saved on disk).</li>
+  <li>Phase 1: copy both runs into a fresh branch; independent of Phase 0.</li>
+  <li>Phase 2: write one README per run; needs Phases 0 and 1.</li>
+  <li>Phase 3: run the gates, commit, open the PR.</li>
+</ul>
+<pre>docs/epics/fixtures/handoff-seam/
+├── 2026-08-28-seam/    # backend run: server, page, curl log, questions
+│   └── README.md       # label, fence, prompt, pack commit
+└── 2026-08-28-port/    # iOS run: Swift view, translation, questions
+    └── README.md       # same shape</pre>
+<ul>
+  <li>Both folders tracked, 12 run files plus 2 READMEs.</li>
+  <li>Each README names the label, the fence, the prompt and commit 6f1376b.</li>
+  <li>The drift check passes.</li>
+  <li>The committed copies match the Desktop originals exactly.</li>
+  <li>CI's syntax check covers the server file and is green.</li>
+</ul>
+
+<h2>Go deeper</h2>
+<ul class="prompts">
+  <li data-prompt="/learn fenced agent runs as usability evidence"><span><b>/learn fenced agent runs as usability evidence</b> — why an isolated agent stands in for a new engineer.</span><button class="copy" aria-label="Copy prompt"></button></li>
+  <li data-prompt="/learn byte-identical copies and diff -r"><span><b>/learn byte-identical copies and diff -r</b> — how to prove nothing was edited.</span><button class="copy" aria-label="Copy prompt"></button></li>
+  <li data-prompt="/learn provenance records for evidence"><span><b>/learn provenance records for evidence</b> — what to write down so others can trust a fixture.</span><button class="copy" aria-label="Copy prompt"></button></li>
+  <li data-prompt="/learn positive controls for CI checks"><span><b>/learn positive controls for CI checks</b> — breaking things on purpose to prove a gate works.</span><button class="copy" aria-label="Copy prompt"></button></li>
+</ul>
+</main>
+<script>
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.copy')
+  if (!btn) return
+  const text = btn.closest('[data-prompt]').dataset.prompt
+  try {
+    await navigator.clipboard.writeText(text)
+  } catch {
+    const ta = Object.assign(document.createElement('textarea'), { value: text })
+    ta.style.cssText = 'position:fixed;opacity:0'
+    document.body.append(ta)
+    ta.select()
+    document.execCommand('copy')
+    ta.remove()
+  }
+  btn.classList.add('copied')
+  setTimeout(() => btn.classList.remove('copied'), 1200)
+})
+</script>
+</body>
+</html>
