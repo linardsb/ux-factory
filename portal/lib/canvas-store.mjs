@@ -639,7 +639,8 @@ export function appendAgentLine(pkgRoot, { op, params, status } = {}, { now = ()
 // THE LIVE WRITER, APPEND-ONLY AND ALL SYNCHRONOUS (D10). Nothing awaits between the server's
 // saveConflict and the append, which is what makes two tabs get a 409 rather than an interleaved
 // ledger. Every refusal — a status the page never writes, an op the applier refuses, a frame.link
-// ref the transcript does not hold, a node with no position — throws BEFORE any byte is written.
+// ref the transcript does not hold, an applied fork option no accepted line restates, a node with no
+// position — throws BEFORE any byte is written.
 // `decisions` is loadDecisions' answer: an array checks frame.link refs; null (a stand-in) accepts any.
 // The lines land in ONE append; a crash between it and the canvas.json write leaves canvas.json one save
 // behind, which the next save re-derives from the whole ledger.
