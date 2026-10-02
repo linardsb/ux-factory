@@ -683,7 +683,9 @@ $('#chat-form').addEventListener('submit', async (e) => {
 // #288: `step` is the selected posture FLOW step (a stance) and `vectorDeclared` is D1b's distinction
 // — {} is no vector (the unfaceted list — 31 since #392), a declared all-false vector is the consumer preset (16).
 // Both are selection state for controls the config drives; neither is a copy of a rule.
-const discovery = { config: null, session: null, running: false, checking: false, guard: null, proposals: null, step: null, vectorDeclared: false };
+// #498: `revisit` is { questionId, seq } while the person is re-recording one decision on a finished run, else
+// null. It is mode state only — which questions may be revisited is the server's `session.revisit`.
+const discovery = { config: null, session: null, running: false, checking: false, guard: null, proposals: null, step: null, vectorDeclared: false, revisit: null };
 
 // #286: the entry mode, Grill's model and the audited document are read off the form like the rest —
 // the server refuses what it will not take, by name. `documentText` is the textarea's value; it goes
@@ -853,6 +855,17 @@ function renderDiscoveryFlowNote() {
     ? `${row.what} Runs as ${posture?.label ?? postureOfStep()} on ${posture?.model ?? 'its own model'}. The stance is recorded once in run.json and stands for the whole run — pressing the next one is the next RUN, over what this one produced.`
     : 'No stance admits this entry mode.';
 }
+// #498: the package view's Re-record buttons, delegated like #discovery-flow's below. Pressing one puts that
+// decision's question back on the table; nothing is posted until the person submits a new answer.
+$('#discovery-package').addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-discovery-revisit]');
+  if (!btn || discovery.running) return;
+  discovery.revisit = { questionId: btn.dataset.discoveryRevisit, seq: Number(btn.dataset.seq) };
+  $('#discovery-answer').value = '';
+  renderDiscoverySession();
+  $('#discovery-answer').focus();
+});
+$('#discovery-revisit-cancel').addEventListener('click', () => { discovery.revisit = null; renderDiscoverySession(); });
 $('#discovery-flow').addEventListener('click', (e) => {
   const btn = e.target.closest('button[data-step]');
   if (!btn || btn.disabled) return;
@@ -992,6 +1005,7 @@ $('#discovery-open').addEventListener('click', async () => {
   // as the first answer, so a fresh audit already holds one and read as a resume (#383). The resume
   // line reports the cursor — the same derived read the session line renders — so the document line
   // is never counted as an answer.
+  discovery.revisit = null;   // #498: a stale re-record mode never survives a package switch
   $('#discovery-start-status').textContent = discovery.session.created
     ? `Opened ${slug}.`
     : `Resumed ${slug} from disk — ${discovery.session.cursor.index} of ${discovery.session.cursor.total} answered.`;
@@ -1020,7 +1034,14 @@ function renderDiscoverySession() {
   $('#discovery-answer-label').hidden = audit;
   $('#discovery-submit').textContent = audit ? 'Audit this question' : 'Submit answer';
 
-  if (head.endedAt) {
+  // #498: revisit mode enables the answer box on a CLOSED run without widening `answerable` below, so park,
+  // look-up and aside — which read `answerable` — stay off: a revisit has no off-script path.
+  const revisiting = Boolean(discovery.revisit && s.revisit && !audit);
+  if (revisiting) {
+    $('#discovery-position').textContent = `${head.slug} · finished ${head.endedAt} · re-recording decision seq ${discovery.revisit.seq} · turn ${s.revisit.turn}`;
+    $('#discovery-question').textContent = discovery.config.questions.find((q) => q.id === discovery.revisit.questionId)?.text ?? discovery.revisit.questionId;
+    $('#discovery-attribution').textContent = `Your new answer is judged like any other. A decision it files supersedes seq ${discovery.revisit.seq}, and the canvas flags every frame pinned to it.`;
+  } else if (head.endedAt) {
     $('#discovery-position').textContent = `${head.slug} · finished ${head.endedAt}`;
     $('#discovery-question').textContent = 'This session is closed.';
     $('#discovery-attribution').textContent = `${cursor.index} of ${cursor.total} answered. The package is on disk at ${head.root}.`;
@@ -1041,8 +1062,11 @@ function renderDiscoverySession() {
   esc$.textContent = s.escalation ? `Step up? ${s.escalation.how}` : '';
   esc$.hidden = !s.escalation;
   const answerable = !head.endedAt && !cursor.done;
-  $('#discovery-answer').disabled = !answerable;
-  $('#discovery-submit').disabled = !answerable || discovery.running;
+  $('#discovery-answer').disabled = !(answerable || revisiting);
+  $('#discovery-submit').disabled = !(answerable || revisiting) || discovery.running;
+  if (revisiting) $('#discovery-submit').textContent = 'Re-record decision';
+  $('#discovery-revisit-cancel').hidden = !revisiting;
+  $('#discovery-revisit-cancel').disabled = discovery.running;
   // #289's three controls read the SAME `answerable` value the submit does — one derivation, so a
   // control can never be pressable on a turn the server would refuse. The off-script row is HIDDEN in
   // an audit rather than disabled: it does not exist there at all (the document is the answer to every
@@ -1141,6 +1165,10 @@ function renderPackageView() {
   const chip = (t) => `<span class="discovery-chip">${esc(t)}</span>`;
   const at = (r) => `seq ${esc(r.seq)}${r.turn ? ` · ${esc(r.turn)}` : ''}`;
   const refs = (list) => (list.length ? list.map((n) => `seq ${esc(n)}`).join(', ') : 'none');
+  // #498: the Re-record button is a per-row condition inside the one map (case 41 forbids filtering here), fed by
+  // the server's session.revisit list. !d.offScript because ledgerView marks every off-script decision latest and
+  // one may name a revisable question. The server's list is null on a package outside the jobs folder (Q4), so no
+  // form field is read here and the page cannot disagree with assertRevisit, which is the rule.
   mount.innerHTML = `
     <h3 class="h3">The package — ${l.total} op(s)</h3>
     ${doc}
@@ -1149,6 +1177,7 @@ function renderPackageView() {
       <div class="discovery-package-row${d.latest ? '' : ' is-superseded'}">
         <p class="card-kicker">${at(d)} · ${esc(d.questionId ?? 'off-script')} · ${esc(d.level ?? '?')}${d.offScript ? ' · off_script — attaches, never replaces' : ''}${d.supersededBy ? ` · superseded by seq ${esc(d.supersededBy)}` : ''}</p>
         <p class="discovery-package-prose">Wrong if: ${esc(d.wrongIf ?? '—')}</p>
+        ${s.revisit && d.latest && !d.offScript && s.revisit.questions.includes(d.questionId) ? `<button class="btn btn-secondary" type="button" data-discovery-revisit="${esc(d.questionId)}" data-seq="${esc(d.seq)}">Re-record</button>` : ''}
         <p class="discovery-package-meta">parent: ${d.parentId === null ? 'no parent' : `seq ${esc(d.parentId)}`} · evidence: ${refs(d.evidenceRefs)} · answer ${esc(d.answerRef ?? '—')}${d.supersedes ? ` · supersedes seq ${esc(d.supersedes)}` : ''}</p>
         ${d.flagged.map(chip).join(' ')}
       </div>`).join('')}` : ''}
@@ -1328,7 +1357,7 @@ function discoveryLog(kind, text) {
 
 // The four controls that spend a turn (#289): submit, park, look it up, ask something else. Named once
 // so "disable everything in flight" is one loop rather than four assignments that drift apart.
-const DISCOVERY_TURN_CONTROLS = ['#discovery-submit', '#discovery-park', '#discovery-lookup', '#discovery-aside'];
+const DISCOVERY_TURN_CONTROLS = ['#discovery-submit', '#discovery-park', '#discovery-lookup', '#discovery-aside', '#discovery-revisit-cancel'];
 
 // ONE SSE read loop for all four. They differ only in the body they POST and the line they report
 // afterwards; a second parser would drift from this one, and both would be invisible to every gate,
@@ -1479,6 +1508,21 @@ $('#discovery-form').addEventListener('submit', async (e) => {
   const audit = discovery.session.head.entryMode === 'existing-prd';
   const text = audit ? undefined : $('#discovery-answer').value;
   if (!audit && !text.trim()) { $('#discovery-status').textContent = 'An answer is needed before the turn can run.'; return; }
+  // #498: a revisit skips the Jev guard — the guard sorts off-script from answer, and a revisit has no
+  // off-script path. It posts through the ONE SSE loop with `revisit: true`; runTurn decides whether it runs.
+  if (discovery.revisit) {
+    const { questionId, seq } = discovery.revisit;
+    const turn = discovery.session.revisit.turn;   // read BEFORE the post: the settled view has moved to the next rN
+    $('#discovery-submit').textContent = 'Judging…';
+    const ran = await postDiscoveryTurn({
+      body: { questionId, revisit: true, text },
+      runningLine: 'Re-recording — the agent judges the new answer. This spends real tokens.',
+      clearAnswer: true,
+      settledLine: (s) => { const d = s.ledger.decisions.find((x) => x.supersedes === seq); return d ? `Re-recorded: decision seq ${d.seq} supersedes seq ${seq}. The canvas flags the frames pinned to seq ${seq} on its next load.` : `Nothing superseded seq ${seq} — the agent filed ${['decisions', 'weak', 'openQuestions'].flatMap((k) => (s.ledger[k] ?? []).filter((x) => x.turn === turn).map(() => ({ decisions: 'a decision', weak: 'a weak-answer flag', openQuestions: 'an open question' })[k])).join(' and ') || 'nothing'} on ${turn}; the decision stands.`; },
+    });
+    if (ran) { discovery.revisit = null; renderDiscoverySession(); }
+    return;
+  }
   const questionId = discovery.session.cursor.question.id;
   if (audit) { await submitAnswer({ audit, questionId, text }); return; }
   discovery.checking = true;
@@ -1700,6 +1744,7 @@ async function openDiscoveryFor(provenance, slug) {
   // AFTER the config load, or the option does not exist. Not a default (#338 F3): the URL names the package's own
   // root, and the server's resolveRunRoot + assertProvenanceRoot still refuse a mismatch.
   $('#discovery-provenance').value = provenance;
+  discovery.revisit = null;   // #498: a stale re-record mode never survives a package switch
   try {
     discovery.session = await api(`/api/discovery/session?slug=${encodeURIComponent(slug)}&provenance=${encodeURIComponent(provenance)}`);
   } catch (err) {

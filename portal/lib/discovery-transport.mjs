@@ -38,7 +38,7 @@ import { z } from 'zod';
 import { applyOp, emptyRun, parentCandidates } from '../../discovery/ops.mjs';
 import { QUESTIONS, questionById } from '../../discovery/bank.mjs';
 import {
-  allowSetFor, appendTranscript, BANK_PATH, fenceCanUseTool, fenceHooks, FETCH_TOOLS, MCP_SERVER, opLine, OPS,
+  allowSetFor, appendTranscript, BANK_PATH, fenceCanUseTool, fenceHooks, FETCH_TOOLS, fileOp, MCP_SERVER, opLine, OPS,
   readAnswers, readTranscript, recordSessionId, textLine, TOOL_SCHEMA,
 } from './discovery.mjs';
 // The tool descriptions are prompt text and live with the rest of the prompt text (#341) — ONE copy,
@@ -106,14 +106,13 @@ export function zodFor(descriptor, op = '?') {
 
 // `state` is a mutable holder ({ current }) because the applier is pure and each accepted op produces a
 // NEW ledger the next call in the same turn must fold onto.
-export function buildOpServer({ root, turn, state, onLine }) {
+export function buildOpServer({ root, turn, state, onLine, questionId = null }) {
   // Zero tokens: a bare run ({ ops }) instead of the holder ({ current: { ops } }) made every op the
   // agent filed refuse as "the state must be { ops: [] }" on the first real turn — the pre-flight built its
   // own holder and could not see it. Refuse the shape here, before query() starts.
   if (!state || !Array.isArray(state.current?.ops)) throw new Error('buildOpServer: state must be the holder { current: { ops: [] } }, not the bare run');
-  // Re-read per call: the answers array grows across turns, and a captured stale array makes a later
-  // answer_ref unresolvable.
-  const ctx = () => ({ answers: readAnswers(root), bank: QUESTIONS, turn });
+  // Each call files through discovery.mjs's fileOp (#498): the one filing path this tool and the scripted
+  // fake share, so the journey's $0 run exercises the same append order a real turn does.
 
   const tools = OPS.map((op) => {
     const descriptor = TOOL_SCHEMA[op];
@@ -122,19 +121,7 @@ export function buildOpServer({ root, turn, state, onLine }) {
     if (!descriptor) throw new Error(`discovery-transport: "${op}" is in OPS with no TOOL_SCHEMA entry — the verb, its params and its schema move together`);
     return tool(op, TOOL_DESCRIPTIONS[op] ?? `File a ${op} op.`, zodFor(descriptor, op), async (args) => {
       try {
-        const next = applyOp(state.current, { op, params: args }, ctx());
-        const record = next.ops[next.ops.length - 1];
-        // Disk first, holder second: if the append throws (ENOSPC, EACCES) the agent sees isError and
-        // the ledger still matches transcript.jsonl, so a same-turn retry is not refused as "already
-        // closed" for an op the file never received. The append is its own statement because
-        // `onLine?.(append())` short-circuits the ARGUMENT too — with no listener, nothing is written.
-        const written = appendTranscript(root, opLine({ record }));
-        state.current = next;
-        // The listener is not the op: the file and the holder both have it by now, so a listener that
-        // throws (an SSE write racing a closed socket) is stderr, never an isError that tells the agent
-        // a filed op was refused. Same discipline as fenceHooks' record().
-        try { onLine?.(written); }
-        catch (e) { process.stderr.write(`discovery-transport: listener error (non-fatal): ${e.message}\n`); }
+        const record = fileOp({ root, turn, state, onLine, op, args, questionId });
         const bits = [`filed seq ${record.seq}: ${op}`];
         if (record.closes) bits.push('(turn closed)');
         if (record.flagged.length) bits.push(`flagged ${record.flagged.join(', ')}`);
@@ -164,7 +151,7 @@ export function buildOpServer({ root, turn, state, onLine }) {
 
 // --- the turn -------------------------------------------------------------------------------------
 
-export async function runDiscoveryTurn({ root, head, question, answer, turn, posture, state, affordance = null, park = false, answers = [], tensions = [], onLine }) {
+export async function runDiscoveryTurn({ root, head, question, answer, turn, posture, state, affordance = null, park = false, answers = [], tensions = [], onLine, fresh = false }) {
   // The folded ledger goes INTO the prompt (#341) — the same holder buildOpServer folds onto, so the
   // brief and the applier read one ledger.
   // The run's provenance goes INTO the system prompt (#347): read off run.json's head, never guessed.
@@ -175,7 +162,8 @@ export async function runDiscoveryTurn({ root, head, question, answer, turn, pos
   // #453: `tensions` are the contradiction screen's kept pairs, read from screen.jsonl by the session
   // module on an audit; [] everywhere else, which leaves every prompt byte-identical.
   const { systemPrompt, prompt } = posture.build({ question, answer, turn, ledger: state.current.ops, provenance: head.provenance, entryMode: head.entryMode ?? 'blank-idea', answers, park, affordance, tensions });
-  const server = buildOpServer({ root, turn, state, onLine });
+  // `questionId` pins a revisit turn's ops to the question it re-records (fileOp, PR #502 F1); a tN turn ignores it.
+  const server = buildOpServer({ root, turn, state, onLine, questionId: question?.id ?? null });
   // MVP 7's fetch tools, ON AN OFF-SCRIPT TURN ONLY (#289) — allowed BY NAME through fenceDecision's
   // extraTools seam (#359), never by path, so #287's READ_TOOLS assertion is untouched. A banked turn
   // advertises nothing, exactly as today.
@@ -199,7 +187,9 @@ export async function runDiscoveryTurn({ root, head, question, answer, turn, pos
       maxTurns: fetching ? AFFORDANCE_MAX_TURNS : MAX_TURNS,
       systemPrompt,
       // undefined, never null: the SDK treats null as a value to resume from.
-      resume: head.sessionId || undefined,
+      // A revisit (#498) starts fresh: it runs weeks after the session, often on a copied package whose cwd
+      // has no session file (expected, not observed), and the turn prompt carries the ledger (#341).
+      resume: head.sessionId && !fresh ? head.sessionId : undefined,
       tools,
       allowedTools: [],   // nothing pre-approved, so canUseTool is consulted for the MCP tools
       mcpServers: { [MCP_SERVER]: server },
@@ -214,7 +204,8 @@ export async function runDiscoveryTurn({ root, head, question, answer, turn, pos
     },
   });
 
-  let sessionId = head.sessionId ?? null;
+  // A fresh turn never reports the run's old session as its own (#498).
+  let sessionId = fresh ? null : head.sessionId ?? null;
   let stats = null;
   let advertised = null;
 
@@ -225,8 +216,11 @@ export async function runDiscoveryTurn({ root, head, question, answer, turn, pos
       // Written HERE rather than after the turn returns (plan M4): a mid-stream throw would otherwise
       // lose the id and the next turn would start a fresh SDK session — exactly the content AC #5's
       // server-restart half claims survives.
-      try { recordSessionId(root, sessionId); }
-      catch (e) { process.stderr.write(`discovery-transport: could not record sessionId (non-fatal): ${e.message}\n`); }
+      // A revisit's fresh id goes on its turnStats entry only; run.json's sessionId stays the interview's.
+      if (!fresh) {
+        try { recordSessionId(root, sessionId); }
+        catch (e) { process.stderr.write(`discovery-transport: could not record sessionId (non-fatal): ${e.message}\n`); }
+      }
     } else if (msg.type === 'assistant') {
       // The agent's turn text is captured because MVP 6's "the agent may not say an answer is wrong"
       // is only falsifiable from prose. The sentence is kept so it can be checked.
@@ -834,7 +828,7 @@ export async function probeAffordance({ model = null } = {}) {
 async function runDiscoveryTurnObserved({ root, head, question, answer, turn, posture, state, wrapped, onLine }) {
   const answers = readAnswers(root);
   const { systemPrompt, prompt } = posture.build({ question, answer, turn, ledger: state.current.ops, provenance: head.provenance, entryMode: head.entryMode ?? 'blank-idea', answers, park: false, affordance: answer.intent });
-  const server = buildOpServer({ root, turn, state, onLine });
+  const server = buildOpServer({ root, turn, state, onLine, questionId: question?.id ?? null });
   const tools = [...FETCH_TOOLS];
   const fence = { allowSet: allowSetFor({ root, reads: head.reads ?? [] }), mainTools: tools, extraTools: [...FETCH_TOOLS] };
   let stats = null;

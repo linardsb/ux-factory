@@ -76,15 +76,19 @@
 //
 // THE BLAST-RADIUS PASS (#318, B1–B8) over its own copy, fp-stale: f1 shows Decision 7 and 8, none stale, and card d7
 // reads "Embodied by: add-payee" (AC #4), with no save on load; f1 is linked to 7, 8 and 10 by keyboard — the FIRST
-// frame.link, since the spine links f1 through screen.compose. Then a decision superseding 7 is SEEDED into the
-// scratch copy through discovery/ops.mjs's REAL applier (seedSupersede), because a closed session refuses turns and
-// the drawer has no scripted-agent seam. On reload f1's chip says "changed since linked — now S", a Re-confirm button
+// frame.link, since the spine links f1 through screen.compose. Then decision 7 is RE-RECORDED THROUGH THE DRAWER
+// (#498): the pass runs on a side portal whose UXF_DISCOVERY_TRANSPORT names tooling/fake-discovery-agent.mjs, and
+// B2 opens #/discovery/real/fp-stale, presses decision 7's Re-record (44×44, Cancel hidden before and shown after) by
+// keyboard, types an answer and submits it; the revisit turn r1 files one record_decision superseding 7 through the
+// real filing path, run.json's endedAt and sessionId do not move, and the drawer settles back to finished naming the
+// new seq S. On reload f1's chip says "changed since linked — now S", a Re-confirm button
 // measures 44×44, card d7 and the flow panel say so, and nothing saves; Re-confirm by keyboard writes the SECOND
 // frame.link, re-pinning 7 to S and keeping 8 and 10, and the flag, the card and the flow line clear; Cmd+Z writes an
 // undone line and the flag returns (stale is derived, never stored); the pack the portal wrote reads decision 7 stale
 // with latest S and flow.md names add-payee (polled, because withPack writes after the append); verifyBuild [] and
-// the page equal to the disk fold. WHAT IT CANNOT REACH: re-recording a decision in the discovery drawer (the
-// follow-up ticket), and a dangling ref on the page (saveRun refuses an unknown frame.link ref, so 35.19/49.13 hold it).
+// the page equal to the disk fold. WHAT IT CANNOT REACH: whether a MODEL files a decision on a revisit (the fake
+// scripts one record_decision — only the owner's paid turn shows a model's filing), the SDK's resume path, and a
+// dangling ref on the page (saveRun refuses an unknown frame.link ref, so 35.19/49.13 hold it).
 //
 // THE COMPOSE PASS (#312). A side portal whose UXF_COMPOSE_TRANSPORT names tooling/fake-compose-agent.mjs —
 // a SCRIPTED stand-in for the model driving the REAL handler and fence; the main portal child never gets
@@ -294,9 +298,9 @@ function seed() {
   seedSpine(src, path.join(DISC(), "fp-import"), { discovery: true });
   // #312's compose pass: the stand-in shape — run.json, prd.md and build/, no transcript.jsonl.
   seedSpine(src, path.join(DISC(), "fp-compose"));
-  // #474's measurement pass, #314's lanes pass, #315's groups pass (its f3 seeded in-process by seedGroups) and #318's
-  // blast-radius pass (its superseding decision seeded in-process by seedSupersede), and #319's inbox pass (the same
-  // seed on fp-inbox), likewise.
+  // #474's measurement pass, #314's lanes pass, #315's groups pass (its f3 seeded in-process by seedGroups), #318's
+  // blast-radius pass (its superseding decision re-recorded through the drawer since #498) and #319's inbox pass (its
+  // superseding decision seeded in-process by seedSupersede on fp-inbox), likewise.
   for (const slug of ["fp-measure", "fp-lanes", "fp-groups", "fp-stale", "fp-inbox"]) seedSpine(src, path.join(DISC(), slug), { discovery: true });
 }
 const buildDir = (slug) => path.join(DISC(), slug, "build");
@@ -649,7 +653,7 @@ async function leg(engine, base, results) {
 
     await lanesPass(base, page, t, step);
     await groupsPass(base, page, t, step, errors);
-    await blastPass(base, page, t, step);
+    await withPortal(MCP_DOWN, (b) => blastPass(b, page, t, step), { extraEnv: { UXF_DISCOVERY_TRANSPORT: FAKE_DISCOVERY } });
     await inboxPass(base, page, t, step);
 
     await step("15 · 44×44 targets", async () => {
@@ -793,11 +797,17 @@ async function lanesPass(base, page, t, step) {
   });
 }
 
-// ---- the blast-radius pass (#318) -----------------------------------------------------------------------
-// A decision re-recorded after a frame was linked to it. The superseding line is SEEDED into fp-stale's scratch copy
-// through discovery/ops.mjs's REAL applier (a closed session refuses turns, and the drawer has no scripted-agent
-// seam), in opLine's exact shape. Never portal/lib/discovery.mjs: it imports env.mjs, which loads portal/.env into
-// this process and every portal child after it. The answer line names this driver as its author.
+// ---- the blast-radius pass (#318, #498) ------------------------------------------------------------------
+// A decision re-recorded after a frame was linked to it. Pass B re-records it THROUGH THE DRAWER (#498) on a side
+// portal whose UXF_DISCOVERY_TRANSPORT names tooling/fake-discovery-agent.mjs — the main portal child never gets the
+// fake. This driver only NAMES the fake's path and never imports it: the fake imports portal/lib/discovery.mjs, whose
+// env.mjs would load portal/.env into this process and every portal child after it.
+const FAKE_DISCOVERY = path.join(REPO, "tooling/fake-discovery-agent.mjs");
+
+// seedSupersede now serves the INBOX pass only (#319's W1): its subject is the inbox's rendering of a superseded
+// decision, not how the decision got there, and #498's AC #2 names pass B. It SEEDS the superseding line through
+// discovery/ops.mjs's REAL applier, in opLine's exact shape — never portal/lib/discovery.mjs, for the env.mjs reason
+// above. The answer line names this driver as its author.
 function seedSupersede(slug) {
   const pkg = path.join(DISC(), slug);
   const jl = (f) => readFileSync(path.join(pkg, f), "utf8").split("\n").filter((l) => l.trim()).map((l) => JSON.parse(l));
@@ -841,8 +851,46 @@ async function blastPass(base, page, t, step) {
     t("B1 · ledger line 7 is the first frame.link {f1, [7, 8, 10]}",
       l[6]?.op === "frame.link" && canon(l[6]?.params) === canon({ frameId: "f1", decisionRefs: ["7", "8", "10"] }) && l[6]?.status === "applied", JSON.stringify(l[6]));
   });
-  await step("B2 · decision 7 is superseded; f1, card d7 and the flow panel say so", async () => {
-    S = seedSupersede("fp-stale");
+  await step("B2 · decision 7 is re-recorded in the drawer; f1, card d7 and the flow panel say so", async () => {
+    // Read off the scratch copy, never typed: q7, the line count and run.json before the turn.
+    const pkg = path.join(DISC(), "fp-stale");
+    const jl = (f) => readFileSync(path.join(pkg, f), "utf8").split("\n").filter((l) => l.trim()).map((l) => JSON.parse(l));
+    const q7 = jl("transcript.jsonl").find((l) => l.seq === 7).params.question_id;
+    const n = jl("transcript.jsonl").length;
+    const head0 = JSON.parse(readFileSync(path.join(pkg, "run.json"), "utf8"));
+    await page.goto(`${base}/#/discovery/real/fp-stale`, { waitUntil: "load" });
+    await page.waitForSelector('#discovery-drawer[data-discovery-link="ready"]', { timeout: 20000 });
+    const rr = page.locator(`[data-discovery-revisit="${q7}"]`);
+    t("B2 · one Re-record button for decision 7's question", (await rr.count()) === 1, String(await rr.count()));
+    await rr.scrollIntoViewIfNeeded();
+    await settleScroll(page);
+    const rb = await rr.boundingBox();
+    t("B2 · Re-record is at least 44×44", (rb?.width ?? 0) >= 44 && (rb?.height ?? 0) >= 44, JSON.stringify(rb));
+    t("B2 · Cancel re-record hidden before", !(await page.locator("#discovery-revisit-cancel").isVisible()));
+    await rr.focus();
+    await page.keyboard.press("Enter");
+    const pos = await page.locator("#discovery-position").textContent();
+    const focused = await page.evaluate(() => document.activeElement?.id ?? null);
+    t("B2 · revisit mode: answer enabled and focused, position names seq 7 and r1, cancel shown",
+      (await page.locator("#discovery-answer").isEnabled()) && focused === "discovery-answer" && pos.includes("re-recording decision seq 7 · turn r1")
+        && (await page.locator("#discovery-revisit-cancel").isVisible()), `${pos} · focus ${focused}`);
+    await page.locator("#discovery-answer").fill("Journey answer (#498): typed by tooling/canvas-journey.mjs through the drawer, not the owner's words.");
+    await page.locator("#discovery-submit").focus();
+    await page.keyboard.press("Enter");
+    let tx = jl("transcript.jsonl");
+    for (const until = Date.now() + 10000; tx.length < n + 2 && Date.now() < until; ) { await sleep(100); tx = jl("transcript.jsonl"); }
+    const op = tx.filter((l) => l.type === "op").at(-1);
+    S = op?.seq;
+    t("B2 · the drawer filed record_decision on r1 superseding 7",
+      op?.op === "record_decision" && op.turn === "r1" && op.supersedes === 7 && op.closes === true && S === tx.filter((l) => l.type === "op").length, JSON.stringify(op));
+    const a = jl("answers.jsonl").at(-1);
+    const head1 = JSON.parse(readFileSync(path.join(pkg, "run.json"), "utf8"));
+    t("B2 · answer line r1 on q7; run.json endedAt and sessionId unchanged; stats revisit + fake",
+      a.turn === "r1" && a.question_id === q7 && head1.endedAt === head0.endedAt && head1.sessionId === head0.sessionId
+        && head1.turnStats.at(-1).revisit === true && head1.turnStats.at(-1).transport === "fake", JSON.stringify(head1.turnStats.at(-1)));
+    await page.waitForFunction(() => !document.querySelector("#discovery-position").textContent.includes("re-recording"), null, { timeout: 10000 });
+    t("B2 · the drawer settles back to finished and names the new seq",
+      (await page.locator("#discovery-position").textContent()).includes(" · finished ") && (await page.locator("#discovery-status").textContent()).includes(`seq ${S}`), await page.locator("#discovery-status").textContent());
     await openCanvas(page, base, "real", "fp-stale");
     const c = await chips();
     t(`B2 · f1 shows Decision 7 changed since linked — now ${S}`, c.includes(`Decision 7 changed since linked — now ${S}`) && (await staleChips()) === 1, JSON.stringify(c));
