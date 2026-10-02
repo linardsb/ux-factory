@@ -403,6 +403,11 @@ pin. `{id, seq}` is derived on read: `seq = Number(ref)`, and the decision's cro
 `supersedes`; re-confirm is the existing `frame.link` re-pinning to the head of the supersede chain. The reason:
 three committed ledgers carry string refs, one of them a real recorded run that may never be edited.
 
+**Re-record as built (#498, owner 2026-10-02):** the superseding decision comes from the discovery drawer's
+**Re-record** button on a finished run — a revisit turn `r<n>` that leaves the run closed and files through the
+same applier rule — and canvas-journey drives it at $0 through the `UXF_DISCOVERY_TRANSPORT` env seam and
+`tooling/fake-discovery-agent.mjs`.
+
 ---
 *Decided interactively with the PRD holder, 2026-08-28 (addendum the same day, after the slice) — one round on the shape (in-place swap vs
 board-first vs a second canvas), one on the four calls that change the slicing (the ops' home, the portal

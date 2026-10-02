@@ -16,7 +16,9 @@
 //      down. The SDK lives in ./discovery-transport.mjs, lazy-imported by runTurn AFTER every guard
 //      has passed. That is the same three-layer split builder.mjs → record-composition.mjs →
 //      trace-recorder.mjs already uses, and the ABSENCE is what proves it — see group 8's own comment
-//      before "fixing" this by installing portal deps in CI.
+//      before "fixing" this by installing portal deps in CI. The import's ARGUMENT is picked by the
+//      UXF_DISCOVERY_TRANSPORT env seam (#498), canvas-session.mjs's UXF_COMPOSE_TRANSPORT twin: canvas-journey
+//      points it at tooling/fake-discovery-agent.mjs. It is still ONE lazy import, still after every guard.
 //   2. DISK IS AUTHORITATIVE. There is no session object in memory beyond the run lock. Every read
 //      re-reads the package; openSession on an existing run.json RESUMES rather than overwrites. That
 //      is what makes a page reload and a server restart lose nothing (AC #5).
@@ -49,8 +51,9 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { DEPTHS, FACETS, facetPlan, MODULES, normaliseFacets, OPENING_SET, PRESETS, questionById, QUESTIONS, selectDepth } from '../../discovery/bank.mjs';
-import { applyOps, auditExchanges, ledgerView, LEVELS, OPS, PARAMS, PROVENANCE, SOURCES } from '../../discovery/ops.mjs';
+import { applyOp, applyOps, auditExchanges, ledgerView, LEVELS, OPS, PARAMS, PROVENANCE, SOURCES } from '../../discovery/ops.mjs';
 import { HAS_TOKEN, JOBS_DIR, REPO_DIR } from './env.mjs';
 import { AFFORDANCES, MODEL_SETTABLE, MODELS, POSTURES, resolvePosture } from './discovery-postures.mjs';
 import { readScreen, tensionsOf } from './discovery-screen.mjs';
@@ -361,6 +364,24 @@ export const opLine = ({ record }) => ({
   params: record.params, closes: record.closes, flagged: record.flagged, supersedes: record.supersedes,
 });
 
+// ONE filing path for the real tool and the scripted fake (#498): the applier over the holder, DISK FIRST, then
+// the holder, then the listener. If the append throws (ENOSPC, EACCES), the holder still matches
+// transcript.jsonl, so a same-turn retry is not refused as "already closed" for an op the file never received.
+// The append is its own statement because `onLine?.(append())` short-circuits the ARGUMENT too — with no
+// listener, nothing would be written. A listener error is stderr, never a throw: the file and the holder already
+// hold the op. Answers are re-read per call, because the array grows across turns and a stale one makes a later
+// answer_ref unresolvable. Throws the applier's refusal verbatim; the transport turns that into an isError result
+// (spike 1, observation 2).
+export function fileOp({ root, turn, state, onLine, op, args }) {
+  const next = applyOp(state.current, { op, params: args }, { answers: readAnswers(root), bank: QUESTIONS, turn });
+  const record = next.ops[next.ops.length - 1];
+  const written = appendTranscript(root, opLine({ record }));
+  state.current = next;
+  try { onLine?.(written); }
+  catch (e) { process.stderr.write(`discovery: listener error (non-fatal): ${e.message}\n`); }
+  return record;
+}
+
 // A refused write — a fence denial, an applier refusal, or a schema-layer refusal. Widened from the
 // README's original "a fence denial" by this ticket: spike 1 proved refusals surface on
 // PostToolUseFailure, so that hook is the only record point a schema-layer refusal has, and a refused
@@ -630,7 +651,11 @@ export function declareFacets(facets) {
   return normaliseFacets(facets);
 }
 
-const closersOf = (transcript) => transcript.filter((l) => l?.type === 'op' && l.closes === true);
+// A REVISIT TURN (#498) re-records one decided question on a FINISHED run. Its id is r<n>, never t<n>, so the
+// three interview reads below — the cursor, D5's proposal and the metrics — fold the interview only: a revisit
+// closer counted here would move the cursor back to the question after the revisited one and read the run unfinished.
+export const isRevisitTurn = (turn) => typeof turn === 'string' && /^r[1-9]\d*$/.test(turn);
+const closersOf = (transcript) => transcript.filter((l) => l?.type === 'op' && l.closes === true && !isRevisitTurn(l.turn));
 
 // THE CURSOR — derived from the record (invariant 4), read from the LAST closer rather than counted:
 // its question's position in the list, plus one unless that question is HELD for a second ask. A
@@ -718,6 +743,21 @@ export function runMetrics({ depth, facets = null, questions, transcript, entryM
       ? { twelve: tally(closers, OPENING_SET), tail: tally(closers, questions.map((q) => q.id).filter((id) => !twelve.has(id))), modules: facetPlan(facets).fits }
       : null,
   };
+}
+
+// What a FINISHED run offers for a revisit (#498): the next revisit turn id and the questions holding a current
+// banked decision. Null on an open run (answer the question on the table) and on an existing-prd audit (the
+// document is the answer to every question). The applier's own predicate, `off_script === false`, decides what is
+// banked here, so this list is exactly the set whose next record_decision the applier records as a supersede.
+// The id counts CLOSED revisit turns, like the cursor's tN: a revisit the agent did not close reuses its rN, and
+// assertTurnWritable admits it. Derived, never stored (invariant 4).
+export function revisitView(head, transcript) {
+  if (!head?.endedAt || (head.entryMode ?? 'blank-idea') === 'existing-prd' || !Array.isArray(transcript)) return null;
+  const ops = transcript.filter((l) => l?.type === 'op');
+  const latest = new Set();
+  for (const l of ops) if (l.op === 'record_decision' && l.params?.off_script === false && typeof l.params?.question_id === 'string') latest.add(l.params.question_id);
+  const closed = new Set(ops.filter((l) => l.closes === true && isRevisitTurn(l.turn)).map((l) => l.turn));
+  return { turn: `r${closed.size + 1}`, questions: [...latest] };
 }
 
 const LABEL = { fictional: 'Real run — fictional scenario', real: 'Real run — real product' };
@@ -904,6 +944,9 @@ export function sessionView(root) {
     // exported pure read over the SAME stripped op array ledgerView folds, so the drawer derives
     // nothing and the two readers can never disagree about one package.
     exchanges: auditExchanges(answers, opRecords),
+    // #498: what the drawer's Re-record buttons may offer. A server-side list, so the package view filters
+    // nothing (case 41) and cannot offer a question runTurn would refuse.
+    revisit: revisitView(head, transcript),
   };
 }
 
@@ -1103,9 +1146,37 @@ function stateFromTranscript(transcript, answers) {
 // so every drawer look-up and aside threw in the prompt builder AFTER the answer line was appended, and
 // no committed package holds an off-script turn. The full bank entry is looked up by id, because the
 // builders require weakAnswer and the cursor's copy is not promised to carry it.
+//
+// #498 ADDS A THIRD TURN SHAPE, the REVISIT, inside the same ordering. It re-records one question that holds a
+// current banked decision on a FINISHED blank-idea run, so it skips the closed/done/cursor guards and runs
+// assertRevisit in their place — before the append, never before the lock. Its id is revisitView's rN, so the
+// cursor, the not-a-form counter and D5's proposal never see it (closersOf), and the run stays closed: endedAt is
+// not touched. The answer line is the ordinary banked one, differing only in its turn id; the prompt is the
+// ordinary banked prompt, so no posture fingerprint moves. The SDK session starts FRESH (`fresh: revisit`): a
+// revisit runs weeks after the session, often on a copy whose cwd holds no session file, and the prompt carries
+// the ledger (#341). run.json's sessionId is therefore left alone; the fresh id goes on the turn's turnStats entry,
+// marked `revisit: true`. A record_decision it files supersedes the old version by the applier's existing rule
+// (#318's D2), which is what makes the canvas flag the frames pinned to it.
 export const questionForTurn = ({ offScript, cursor, questionId }) => questionById(offScript ? cursor?.question?.id : questionId);
 
-export async function runTurn({ slug, provenance, questionId, kind = 'banked', intent = null, park = false, text, onLine }) {
+// A revisit's guards (#498), in place of the closed/done/cursor guards it skips — never in place of the lock.
+// Keyed on the REQUEST's slug and provenance, never head.slug or head.provenance: a seeded copy in the jobs folder
+// keeps its source's run.json, so it would name the wrong run and read "fictional". A fictional package is
+// committed evidence in this repo, and a revisit appends to it, so it is refused (plan Q4).
+export function assertRevisit(view, { slug, provenance, questionId }) {
+  const { head } = view;
+  if (provenance !== 'real') bad(`run "${slug}" is a ${provenance} package — committed evidence in this repo, and a revisit appends to it. Copy it to the jobs folder (real provenance) and revisit the copy (#498)`);
+  if (!view.revisit && !head.endedAt) bad(`run "${slug}" is still open — answer the question on the table; a revisit re-records a decision on a FINISHED run (#498)`);
+  if (!view.revisit) bad('an existing-prd audit has no answer to re-record — the document is the answer to every question (MVP 2)');
+  if (!view.revisit.questions.includes(questionId)) bad(`"${questionId}" holds no current banked decision in run "${slug}" — a revisit re-records a decision; this run's are: ${view.revisit.questions.join(', ')}`);
+}
+
+// ONE dynamic import, its argument picked by the env seam (#498, canvas-session.mjs's UXF_COMPOSE_TRANSPORT twin):
+// canvas-journey's pass B points it at tooling/fake-discovery-agent.mjs, which refuses any root outside the OS
+// temp directory. Invariant 1 is unchanged — the SDK is still reached only here, after every guard.
+const loadTransport = () => import(process.env.UXF_DISCOVERY_TRANSPORT ? pathToFileURL(path.resolve(process.env.UXF_DISCOVERY_TRANSPORT)).href : './discovery-transport.mjs');
+
+export async function runTurn({ slug, provenance, questionId, kind = 'banked', intent = null, park = false, revisit = false, text, onLine }) {
   return withDiscoveryRunLock(async () => {
     const root = resolveRunRoot({ provenance, slug });
     assertProvenanceRoot(provenance, root);
@@ -1114,15 +1185,20 @@ export async function runTurn({ slug, provenance, questionId, kind = 'banked', i
     if (!['banked', 'off-script'].includes(kind)) bad(`"kind" must be banked or off-script (got ${JSON.stringify(kind)})`);
     const offScript = kind === 'off-script';
     if (park && offScript) bad('a turn is a park or an off-script exchange, never both — a park CLOSES the question on the table and an off-script exchange deliberately does not');
-    if (head.endedAt) bad(`run "${slug}" was closed at ${head.endedAt} — a closed session takes no more turns`);
-    if (cursor.done) bad(`run "${slug}" has answered all ${cursor.total} questions of depth "${head.depth}" — there is nothing left to ask`);
-    // An off-script turn is deliberately NOT answering the cursor's question, so it skips this guard —
-    // and runs assertAffordance in its place, which refuses the two states with no step to be beside.
-    if (offScript) assertAffordance(head, cursor, intent);
-    else if (questionId !== cursor.question.id)
-      bad(`"${questionId}" is not the question on the table — the cursor is at ${cursor.index + 1} of ${cursor.total}, which is "${cursor.question.id}"`);
+    if (revisit !== true && revisit !== false) bad(`"revisit" must be true or false (got ${JSON.stringify(revisit)})`);
+    if (revisit && (park || offScript)) bad('a revisit re-records one decided question — it is never a park or an off-script exchange');
+    if (revisit) assertRevisit(view, { slug, provenance, questionId });
+    else {
+      if (head.endedAt) bad(`run "${slug}" was closed at ${head.endedAt} — a closed session takes no more turns`);
+      if (cursor.done) bad(`run "${slug}" has answered all ${cursor.total} questions of depth "${head.depth}" — there is nothing left to ask`);
+      // An off-script turn is deliberately NOT answering the cursor's question, so it skips this guard —
+      // and runs assertAffordance in its place, which refuses the two states with no step to be beside.
+      if (offScript) assertAffordance(head, cursor, intent);
+      else if (questionId !== cursor.question.id)
+        bad(`"${questionId}" is not the question on the table — the cursor is at ${cursor.index + 1} of ${cursor.total}, which is "${cursor.question.id}"`);
+    }
     if (park) assertParkable(head, cursor);
-    const turn = cursor.turn;
+    const turn = revisit ? view.revisit.turn : cursor.turn;
     const audit = head.entryMode === 'existing-prd';
     let answer;
     if (audit) {
@@ -1136,7 +1212,7 @@ export async function runTurn({ slug, provenance, questionId, kind = 'banked', i
     }
 
     // The SDK enters HERE and nowhere earlier — after every guard above has passed. See invariant 1.
-    const { runDiscoveryTurn } = await import('./discovery-transport.mjs');
+    const { runDiscoveryTurn } = await loadTransport();
     const answers = readAnswers(root);
     const { sessionId, stats } = await runDiscoveryTurn({
       root,
@@ -1155,10 +1231,11 @@ export async function runTurn({ slug, provenance, questionId, kind = 'banked', i
       answers,
       tensions: audit ? tensionsOf(readScreen(root)) : [],
       onLine,
+      fresh: revisit,
     });
     // The transport already wrote it at init (plan M4); idempotent belt-and-braces for the caller.
-    if (sessionId) recordSessionId(root, sessionId);
-    if (stats) recordTurnStats(root, stats);
+    if (sessionId && !revisit) recordSessionId(root, sessionId);
+    if (stats) recordTurnStats(root, revisit ? { ...stats, revisit: true, sessionId } : stats);
     return sessionView(root);
   });
 }

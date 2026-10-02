@@ -1,0 +1,454 @@
+# SPIKE for #498 planning, 2026-10-02, against origin/main 1c6af29. NOT the implementation: reference only.
+# Proven: build-checks 51/51 (with the case 12 pin replaced), transport --preflight 8/8, canvas-journey webkit 233/0, chromium 234/0.
+# Missing vs the plan: fileOp/runTurn comments and headers, 30.59-30.63, gates.md/README/architecture prose, the fake's header.
+
+diff --git a/portal/lib/discovery-transport.mjs b/portal/lib/discovery-transport.mjs
+index 1d2b2c8..fc67256 100644
+--- a/portal/lib/discovery-transport.mjs
++++ b/portal/lib/discovery-transport.mjs
+@@ -38,7 +38,7 @@ import { z } from 'zod';
+ import { applyOp, emptyRun, parentCandidates } from '../../discovery/ops.mjs';
+ import { QUESTIONS, questionById } from '../../discovery/bank.mjs';
+ import {
+-  allowSetFor, appendTranscript, BANK_PATH, fenceCanUseTool, fenceHooks, FETCH_TOOLS, MCP_SERVER, opLine, OPS,
++  allowSetFor, appendTranscript, BANK_PATH, fenceCanUseTool, fenceHooks, FETCH_TOOLS, fileOp, MCP_SERVER, opLine, OPS,
+   readAnswers, readTranscript, recordSessionId, textLine, TOOL_SCHEMA,
+ } from './discovery.mjs';
+ // The tool descriptions are prompt text and live with the rest of the prompt text (#341) — ONE copy,
+@@ -113,7 +113,6 @@ export function buildOpServer({ root, turn, state, onLine }) {
+   if (!state || !Array.isArray(state.current?.ops)) throw new Error('buildOpServer: state must be the holder { current: { ops: [] } }, not the bare run');
+   // Re-read per call: the answers array grows across turns, and a captured stale array makes a later
+   // answer_ref unresolvable.
+-  const ctx = () => ({ answers: readAnswers(root), bank: QUESTIONS, turn });
+ 
+   const tools = OPS.map((op) => {
+     const descriptor = TOOL_SCHEMA[op];
+@@ -122,19 +121,7 @@ export function buildOpServer({ root, turn, state, onLine }) {
+     if (!descriptor) throw new Error(`discovery-transport: "${op}" is in OPS with no TOOL_SCHEMA entry — the verb, its params and its schema move together`);
+     return tool(op, TOOL_DESCRIPTIONS[op] ?? `File a ${op} op.`, zodFor(descriptor, op), async (args) => {
+       try {
+-        const next = applyOp(state.current, { op, params: args }, ctx());
+-        const record = next.ops[next.ops.length - 1];
+-        // Disk first, holder second: if the append throws (ENOSPC, EACCES) the agent sees isError and
+-        // the ledger still matches transcript.jsonl, so a same-turn retry is not refused as "already
+-        // closed" for an op the file never received. The append is its own statement because
+-        // `onLine?.(append())` short-circuits the ARGUMENT too — with no listener, nothing is written.
+-        const written = appendTranscript(root, opLine({ record }));
+-        state.current = next;
+-        // The listener is not the op: the file and the holder both have it by now, so a listener that
+-        // throws (an SSE write racing a closed socket) is stderr, never an isError that tells the agent
+-        // a filed op was refused. Same discipline as fenceHooks' record().
+-        try { onLine?.(written); }
+-        catch (e) { process.stderr.write(`discovery-transport: listener error (non-fatal): ${e.message}\n`); }
++        const record = fileOp({ root, turn, state, onLine, op, args });
+         const bits = [`filed seq ${record.seq}: ${op}`];
+         if (record.closes) bits.push('(turn closed)');
+         if (record.flagged.length) bits.push(`flagged ${record.flagged.join(', ')}`);
+@@ -164,7 +151,7 @@ export function buildOpServer({ root, turn, state, onLine }) {
+ 
+ // --- the turn -------------------------------------------------------------------------------------
+ 
+-export async function runDiscoveryTurn({ root, head, question, answer, turn, posture, state, affordance = null, park = false, answers = [], tensions = [], onLine }) {
++export async function runDiscoveryTurn({ root, head, question, answer, turn, posture, state, affordance = null, park = false, answers = [], tensions = [], onLine, fresh = false }) {
+   // The folded ledger goes INTO the prompt (#341) — the same holder buildOpServer folds onto, so the
+   // brief and the applier read one ledger.
+   // The run's provenance goes INTO the system prompt (#347): read off run.json's head, never guessed.
+@@ -199,7 +186,7 @@ export async function runDiscoveryTurn({ root, head, question, answer, turn, pos
+       maxTurns: fetching ? AFFORDANCE_MAX_TURNS : MAX_TURNS,
+       systemPrompt,
+       // undefined, never null: the SDK treats null as a value to resume from.
+-      resume: head.sessionId || undefined,
++      resume: head.sessionId && !fresh ? head.sessionId : undefined,
+       tools,
+       allowedTools: [],   // nothing pre-approved, so canUseTool is consulted for the MCP tools
+       mcpServers: { [MCP_SERVER]: server },
+@@ -225,8 +212,10 @@ export async function runDiscoveryTurn({ root, head, question, answer, turn, pos
+       // Written HERE rather than after the turn returns (plan M4): a mid-stream throw would otherwise
+       // lose the id and the next turn would start a fresh SDK session — exactly the content AC #5's
+       // server-restart half claims survives.
+-      try { recordSessionId(root, sessionId); }
+-      catch (e) { process.stderr.write(`discovery-transport: could not record sessionId (non-fatal): ${e.message}\n`); }
++      if (!fresh) {
++        try { recordSessionId(root, sessionId); }
++        catch (e) { process.stderr.write(`discovery-transport: could not record sessionId (non-fatal): ${e.message}\n`); }
++      }
+     } else if (msg.type === 'assistant') {
+       // The agent's turn text is captured because MVP 6's "the agent may not say an answer is wrong"
+       // is only falsifiable from prose. The sentence is kept so it can be checked.
+diff --git a/portal/lib/discovery.mjs b/portal/lib/discovery.mjs
+index e6e399a..69e6f90 100644
+--- a/portal/lib/discovery.mjs
++++ b/portal/lib/discovery.mjs
+@@ -49,8 +49,9 @@
+ import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+ import { createHash } from 'node:crypto';
+ import path from 'node:path';
++import { pathToFileURL } from 'node:url';
+ import { DEPTHS, FACETS, facetPlan, MODULES, normaliseFacets, OPENING_SET, PRESETS, questionById, QUESTIONS, selectDepth } from '../../discovery/bank.mjs';
+-import { applyOps, auditExchanges, ledgerView, LEVELS, OPS, PARAMS, PROVENANCE, SOURCES } from '../../discovery/ops.mjs';
++import { applyOp, applyOps, auditExchanges, ledgerView, LEVELS, OPS, PARAMS, PROVENANCE, SOURCES } from '../../discovery/ops.mjs';
+ import { HAS_TOKEN, JOBS_DIR, REPO_DIR } from './env.mjs';
+ import { AFFORDANCES, MODEL_SETTABLE, MODELS, POSTURES, resolvePosture } from './discovery-postures.mjs';
+ import { readScreen, tensionsOf } from './discovery-screen.mjs';
+@@ -367,6 +368,16 @@ export const opLine = ({ record }) => ({
+ // op is exactly the receipt the honesty contract keeps. `via` names WHERE it was refused (#287): the
+ // fence's refusals are part of the auditable record, and "which site caught it" is the fact the
+ // two-site design exists to make checkable.
++export function fileOp({ root, turn, state, onLine, op, args }) {
++  const next = applyOp(state.current, { op, params: args }, { answers: readAnswers(root), bank: QUESTIONS, turn });
++  const record = next.ops[next.ops.length - 1];
++  const written = appendTranscript(root, opLine({ record }));
++  state.current = next;
++  try { onLine?.(written); }
++  catch (e) { process.stderr.write(`discovery: listener error (non-fatal): ${e.message}\n`); }
++  return record;
++}
++
+ export const deniedLine = ({ turn, tool, input, error, via }) => {
+   if (!FENCE_SITES.includes(via)) bad(`deniedLine needs "via" naming the site that refused the call — one of ${FENCE_SITES.join(' · ')} (got ${JSON.stringify(via) ?? String(via)})`);
+   return { type: 'denied', ts: now(), turn, tool, input: input ?? null, error, via };
+@@ -630,7 +641,10 @@ export function declareFacets(facets) {
+   return normaliseFacets(facets);
+ }
+ 
+-const closersOf = (transcript) => transcript.filter((l) => l?.type === 'op' && l.closes === true);
++// A REVISIT TURN (#498) re-records one decided question on a FINISHED run. Its id is r<n>, never t<n>, so the
++// three interview reads below fold the interview only.
++export const isRevisitTurn = (turn) => typeof turn === 'string' && /^r[1-9]\d*$/.test(turn);
++const closersOf = (transcript) => transcript.filter((l) => l?.type === 'op' && l.closes === true && !isRevisitTurn(l.turn));
+ 
+ // THE CURSOR — derived from the record (invariant 4), read from the LAST closer rather than counted:
+ // its question's position in the list, plus one unless that question is HELD for a second ask. A
+@@ -720,6 +734,15 @@ export function runMetrics({ depth, facets = null, questions, transcript, entryM
+   };
+ }
+ 
++export function revisitView(head, transcript) {
++  if (!head?.endedAt || (head.entryMode ?? 'blank-idea') === 'existing-prd' || !Array.isArray(transcript)) return null;
++  const ops = transcript.filter((l) => l?.type === 'op');
++  const latest = new Set();
++  for (const l of ops) if (l.op === 'record_decision' && l.params?.off_script === false && typeof l.params?.question_id === 'string') latest.add(l.params.question_id);
++  const closed = new Set(ops.filter((l) => l.closes === true && isRevisitTurn(l.turn)).map((l) => l.turn));
++  return { turn: `r${closed.size + 1}`, questions: [...latest] };
++}
++
+ const LABEL = { fictional: 'Real run — fictional scenario', real: 'Real run — real product' };
+ 
+ // Resume or open. DISK IS AUTHORITATIVE: an existing run.json is returned untouched, which is what
+@@ -904,6 +927,7 @@ export function sessionView(root) {
+     // exported pure read over the SAME stripped op array ledgerView folds, so the drawer derives
+     // nothing and the two readers can never disagree about one package.
+     exchanges: auditExchanges(answers, opRecords),
++    revisit: revisitView(head, transcript),
+   };
+ }
+ 
+@@ -1105,7 +1129,17 @@ function stateFromTranscript(transcript, answers) {
+ // builders require weakAnswer and the cursor's copy is not promised to carry it.
+ export const questionForTurn = ({ offScript, cursor, questionId }) => questionById(offScript ? cursor?.question?.id : questionId);
+ 
+-export async function runTurn({ slug, provenance, questionId, kind = 'banked', intent = null, park = false, text, onLine }) {
++export function assertRevisit(view, { slug, provenance, questionId }) {
++  const { head } = view;
++  if (provenance !== 'real') bad(`run "${slug}" is a ${provenance} package — committed evidence in this repo, and a revisit appends to it. Copy it to the jobs folder (real provenance) and revisit the copy (#498)`);
++  if (!view.revisit && !head.endedAt) bad(`run "${slug}" is still open — answer the question on the table; a revisit re-records a decision on a FINISHED run (#498)`);
++  if (!view.revisit) bad('an existing-prd audit has no answer to re-record — the document is the answer to every question (MVP 2)');
++  if (!view.revisit.questions.includes(questionId)) bad(`"${questionId}" holds no current banked decision in run "${slug}" — a revisit re-records a decision; this run's are: ${view.revisit.questions.join(', ')}`);
++}
++
++const loadTransport = () => import(process.env.UXF_DISCOVERY_TRANSPORT ? pathToFileURL(path.resolve(process.env.UXF_DISCOVERY_TRANSPORT)).href : './discovery-transport.mjs');
++
++export async function runTurn({ slug, provenance, questionId, kind = 'banked', intent = null, park = false, revisit = false, text, onLine }) {
+   return withDiscoveryRunLock(async () => {
+     const root = resolveRunRoot({ provenance, slug });
+     assertProvenanceRoot(provenance, root);
+@@ -1114,15 +1148,20 @@ export async function runTurn({ slug, provenance, questionId, kind = 'banked', i
+     if (!['banked', 'off-script'].includes(kind)) bad(`"kind" must be banked or off-script (got ${JSON.stringify(kind)})`);
+     const offScript = kind === 'off-script';
+     if (park && offScript) bad('a turn is a park or an off-script exchange, never both — a park CLOSES the question on the table and an off-script exchange deliberately does not');
+-    if (head.endedAt) bad(`run "${slug}" was closed at ${head.endedAt} — a closed session takes no more turns`);
+-    if (cursor.done) bad(`run "${slug}" has answered all ${cursor.total} questions of depth "${head.depth}" — there is nothing left to ask`);
+-    // An off-script turn is deliberately NOT answering the cursor's question, so it skips this guard —
+-    // and runs assertAffordance in its place, which refuses the two states with no step to be beside.
+-    if (offScript) assertAffordance(head, cursor, intent);
+-    else if (questionId !== cursor.question.id)
+-      bad(`"${questionId}" is not the question on the table — the cursor is at ${cursor.index + 1} of ${cursor.total}, which is "${cursor.question.id}"`);
++    if (revisit !== true && revisit !== false) bad(`"revisit" must be true or false (got ${JSON.stringify(revisit)})`);
++    if (revisit && (park || offScript)) bad('a revisit re-records one decided question — it is never a park or an off-script exchange');
++    if (revisit) assertRevisit(view, { slug, provenance, questionId });
++    else {
++      if (head.endedAt) bad(`run "${slug}" was closed at ${head.endedAt} — a closed session takes no more turns`);
++      if (cursor.done) bad(`run "${slug}" has answered all ${cursor.total} questions of depth "${head.depth}" — there is nothing left to ask`);
++      // An off-script turn is deliberately NOT answering the cursor's question, so it skips this guard —
++      // and runs assertAffordance in its place, which refuses the two states with no step to be beside.
++      if (offScript) assertAffordance(head, cursor, intent);
++      else if (questionId !== cursor.question.id)
++        bad(`"${questionId}" is not the question on the table — the cursor is at ${cursor.index + 1} of ${cursor.total}, which is "${cursor.question.id}"`);
++    }
+     if (park) assertParkable(head, cursor);
+-    const turn = cursor.turn;
++    const turn = revisit ? view.revisit.turn : cursor.turn;
+     const audit = head.entryMode === 'existing-prd';
+     let answer;
+     if (audit) {
+@@ -1136,7 +1175,7 @@ export async function runTurn({ slug, provenance, questionId, kind = 'banked', i
+     }
+ 
+     // The SDK enters HERE and nowhere earlier — after every guard above has passed. See invariant 1.
+-    const { runDiscoveryTurn } = await import('./discovery-transport.mjs');
++    const { runDiscoveryTurn } = await loadTransport();
+     const answers = readAnswers(root);
+     const { sessionId, stats } = await runDiscoveryTurn({
+       root,
+@@ -1155,10 +1194,11 @@ export async function runTurn({ slug, provenance, questionId, kind = 'banked', i
+       answers,
+       tensions: audit ? tensionsOf(readScreen(root)) : [],
+       onLine,
++      fresh: revisit,
+     });
+     // The transport already wrote it at init (plan M4); idempotent belt-and-braces for the caller.
+-    if (sessionId) recordSessionId(root, sessionId);
+-    if (stats) recordTurnStats(root, stats);
++    if (sessionId && !revisit) recordSessionId(root, sessionId);
++    if (stats) recordTurnStats(root, revisit ? { ...stats, revisit: true, sessionId } : stats);
+     return sessionView(root);
+   });
+ }
+diff --git a/portal/public/index.html b/portal/public/index.html
+index f3a89ea..f958f50 100644
+--- a/portal/public/index.html
++++ b/portal/public/index.html
+@@ -255,6 +255,7 @@
+ 
+         <div class="portal-form-actions">
+           <button class="btn btn-primary" type="submit" id="discovery-submit">Submit answer</button>
++          <button class="btn btn-secondary" type="button" id="discovery-revisit-cancel" hidden>Cancel re-record</button>
+           <!-- MVP 8 (#289): the person's reason IS the record, so it reads the answer box above. It
+                CLOSES the turn — blocking on an unanswerable question is never available. -->
+           <button class="btn btn-secondary" type="button" id="discovery-park">Park it</button>
+diff --git a/portal/public/portal.js b/portal/public/portal.js
+index ecb26ed..e5a5fb5 100644
+--- a/portal/public/portal.js
++++ b/portal/public/portal.js
+@@ -683,7 +683,7 @@ $('#chat-form').addEventListener('submit', async (e) => {
+ // #288: `step` is the selected posture FLOW step (a stance) and `vectorDeclared` is D1b's distinction
+ // — {} is no vector (the unfaceted list — 31 since #392), a declared all-false vector is the consumer preset (16).
+ // Both are selection state for controls the config drives; neither is a copy of a rule.
+-const discovery = { config: null, session: null, running: false, checking: false, guard: null, proposals: null, step: null, vectorDeclared: false };
++const discovery = { config: null, session: null, running: false, checking: false, guard: null, proposals: null, step: null, vectorDeclared: false, revisit: null };
+ 
+ // #286: the entry mode, Grill's model and the audited document are read off the form like the rest —
+ // the server refuses what it will not take, by name. `documentText` is the textarea's value; it goes
+@@ -853,6 +853,15 @@ function renderDiscoveryFlowNote() {
+     ? `${row.what} Runs as ${posture?.label ?? postureOfStep()} on ${posture?.model ?? 'its own model'}. The stance is recorded once in run.json and stands for the whole run — pressing the next one is the next RUN, over what this one produced.`
+     : 'No stance admits this entry mode.';
+ }
++$('#discovery-package').addEventListener('click', (e) => {
++  const btn = e.target.closest('button[data-discovery-revisit]');
++  if (!btn || discovery.running) return;
++  discovery.revisit = { questionId: btn.dataset.discoveryRevisit, seq: Number(btn.dataset.seq) };
++  $('#discovery-answer').value = '';
++  renderDiscoverySession();
++  $('#discovery-answer').focus();
++});
++$('#discovery-revisit-cancel').addEventListener('click', () => { discovery.revisit = null; renderDiscoverySession(); });
+ $('#discovery-flow').addEventListener('click', (e) => {
+   const btn = e.target.closest('button[data-step]');
+   if (!btn || btn.disabled) return;
+@@ -1020,7 +1029,12 @@ function renderDiscoverySession() {
+   $('#discovery-answer-label').hidden = audit;
+   $('#discovery-submit').textContent = audit ? 'Audit this question' : 'Submit answer';
+ 
+-  if (head.endedAt) {
++  const revisiting = Boolean(discovery.revisit && s.revisit && !audit);
++  if (revisiting) {
++    $('#discovery-position').textContent = `${head.slug} · finished ${head.endedAt} · re-recording decision seq ${discovery.revisit.seq} · turn ${s.revisit.turn}`;
++    $('#discovery-question').textContent = discovery.config.questions.find((q) => q.id === discovery.revisit.questionId)?.text ?? discovery.revisit.questionId;
++    $('#discovery-attribution').textContent = `Your new answer is judged like any other. A decision it files supersedes seq ${discovery.revisit.seq}, and the canvas flags every frame pinned to it.`;
++  } else if (head.endedAt) {
+     $('#discovery-position').textContent = `${head.slug} · finished ${head.endedAt}`;
+     $('#discovery-question').textContent = 'This session is closed.';
+     $('#discovery-attribution').textContent = `${cursor.index} of ${cursor.total} answered. The package is on disk at ${head.root}.`;
+@@ -1041,8 +1055,10 @@ function renderDiscoverySession() {
+   esc$.textContent = s.escalation ? `Step up? ${s.escalation.how}` : '';
+   esc$.hidden = !s.escalation;
+   const answerable = !head.endedAt && !cursor.done;
+-  $('#discovery-answer').disabled = !answerable;
+-  $('#discovery-submit').disabled = !answerable || discovery.running;
++  $('#discovery-answer').disabled = !(answerable || revisiting);
++  $('#discovery-submit').disabled = !(answerable || revisiting) || discovery.running;
++  if (revisiting) $('#discovery-submit').textContent = 'Re-record decision';
++  $('#discovery-revisit-cancel').hidden = !revisiting;
+   // #289's three controls read the SAME `answerable` value the submit does — one derivation, so a
+   // control can never be pressable on a turn the server would refuse. The off-script row is HIDDEN in
+   // an audit rather than disabled: it does not exist there at all (the document is the answer to every
+@@ -1149,6 +1165,7 @@ function renderPackageView() {
+       <div class="discovery-package-row${d.latest ? '' : ' is-superseded'}">
+         <p class="card-kicker">${at(d)} · ${esc(d.questionId ?? 'off-script')} · ${esc(d.level ?? '?')}${d.offScript ? ' · off_script — attaches, never replaces' : ''}${d.supersededBy ? ` · superseded by seq ${esc(d.supersededBy)}` : ''}</p>
+         <p class="discovery-package-prose">Wrong if: ${esc(d.wrongIf ?? '—')}</p>
++        ${s.revisit && discoveryEls().provenance === 'real' && d.latest && !d.offScript && s.revisit.questions.includes(d.questionId) ? `<button class="btn btn-secondary" type="button" data-discovery-revisit="${esc(d.questionId)}" data-seq="${esc(d.seq)}">Re-record</button>` : ''}
+         <p class="discovery-package-meta">parent: ${d.parentId === null ? 'no parent' : `seq ${esc(d.parentId)}`} · evidence: ${refs(d.evidenceRefs)} · answer ${esc(d.answerRef ?? '—')}${d.supersedes ? ` · supersedes seq ${esc(d.supersedes)}` : ''}</p>
+         ${d.flagged.map(chip).join(' ')}
+       </div>`).join('')}` : ''}
+@@ -1479,6 +1496,18 @@ $('#discovery-form').addEventListener('submit', async (e) => {
+   const audit = discovery.session.head.entryMode === 'existing-prd';
+   const text = audit ? undefined : $('#discovery-answer').value;
+   if (!audit && !text.trim()) { $('#discovery-status').textContent = 'An answer is needed before the turn can run.'; return; }
++  if (discovery.revisit) {
++    const { questionId, seq } = discovery.revisit;
++    $('#discovery-submit').textContent = 'Judging…';
++    const ran = await postDiscoveryTurn({
++      body: { questionId, revisit: true, text },
++      runningLine: 'Re-recording — the agent judges the new answer. This spends real tokens.',
++      clearAnswer: true,
++      settledLine: (s) => { const d = s.ledger.decisions.find((x) => x.supersedes === seq); return d ? `Re-recorded: decision seq ${d.seq} supersedes seq ${seq}. The canvas flags the frames pinned to seq ${seq} on its next load.` : `Nothing superseded seq ${seq} — the decision stands.`; },
++    });
++    if (ran) { discovery.revisit = null; renderDiscoverySession(); }
++    return;
++  }
+   const questionId = discovery.session.cursor.question.id;
+   if (audit) { await submitAnswer({ audit, questionId, text }); return; }
+   discovery.checking = true;
+@@ -1700,6 +1729,7 @@ async function openDiscoveryFor(provenance, slug) {
+   // AFTER the config load, or the option does not exist. Not a default (#338 F3): the URL names the package's own
+   // root, and the server's resolveRunRoot + assertProvenanceRoot still refuse a mismatch.
+   $('#discovery-provenance').value = provenance;
++  discovery.revisit = null;
+   try {
+     discovery.session = await api(`/api/discovery/session?slug=${encodeURIComponent(slug)}&provenance=${encodeURIComponent(provenance)}`);
+   } catch (err) {
+diff --git a/portal/server.mjs b/portal/server.mjs
+index cc2f990..fcc74bd 100644
+--- a/portal/server.mjs
++++ b/portal/server.mjs
+@@ -430,7 +430,7 @@ const server = createServer(async (req, res) => {
+         // pre-#289 caller implied, so a body that names none of them runs exactly the turn it ran before.
+         const view = await runTurn({
+           slug: body.slug, provenance: body.provenance, questionId: body.questionId,
+-          kind: body.kind ?? 'banked', intent: body.intent ?? null, park: body.park === true,
++          kind: body.kind ?? 'banked', intent: body.intent ?? null, park: body.park === true, revisit: body.revisit === true,
+           text: body.text,
+           onLine: (line) => { const ev = turnEvent(line); if (ev) send(ev); },
+         });
+@@ -667,5 +667,6 @@ server.listen(PORT, '127.0.0.1', () => {
+   console.log(`chat auth: ${HAS_TOKEN ? 'token from .env' : 'no token — falling back to the CLI login on this Mac'}`);
+   console.log(`booted from: ${BOOT_SHA ? BOOT_SHA.slice(0, 7) : 'unknown (not a git checkout)'}`);
+   // PR #485 review F7: the env seam loads any module it names, so its use is never silent.
++  if (process.env.UXF_DISCOVERY_TRANSPORT) console.log(`discovery transport: OVERRIDDEN by UXF_DISCOVERY_TRANSPORT → ${process.env.UXF_DISCOVERY_TRANSPORT} (the journey's fake; never set this for a real run)`);
+   if (process.env.UXF_COMPOSE_TRANSPORT) console.log(`compose transport: OVERRIDDEN by UXF_COMPOSE_TRANSPORT → ${process.env.UXF_COMPOSE_TRANSPORT} (the journey's fake; never set this for a real run)`);
+ });
+diff --git a/tooling/build-checks.mjs b/tooling/build-checks.mjs
+index cc897ad..3431838 100644
+--- a/tooling/build-checks.mjs
++++ b/tooling/build-checks.mjs
+@@ -7644,8 +7644,14 @@ function scanSvg(svg, label) {
+     ok(!DOM_REACH.test(src), `case 12: ${rel} REACHES for document or window — these are Node-only modules`);
+     ok(!/^\s*import\b[^\n]*discovery-transport/m.test(src), `case 12: ${rel} imports the transport STATICALLY — it must be reached only by the lazy import inside runTurn, after every guard`);
+   }
+-  ok(/await import\(['"]\.\/discovery-transport\.mjs['"]\)/.test(readFileSync(join(ROOT, "portal/lib/discovery.mjs"), "utf8")),
+-    "case 12: portal/lib/discovery.mjs no longer reaches the transport by a lazy import — the three-layer split is the whole architecture in one file boundary");
++  {
++    const code = readFileSync(join(ROOT, "portal/lib/discovery.mjs"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
++    const dyn = code.match(/\bimport\(/g) ?? [];
++    const seam = /import\(process\.env\.UXF_DISCOVERY_TRANSPORT \?[^\n]*['"]\.\/discovery-transport\.mjs['"]\)/.test(code);
++    const rt = code.slice(code.indexOf("export async function runTurn("));
++    ok(dyn.length === 1 && seam && /await loadTransport\(\)/.test(rt),
++      `case 12: portal/lib/discovery.mjs must reach the transport by ONE lazy import whose argument the UXF_DISCOVERY_TRANSPORT seam picks, awaited inside runTurn (${dyn.length} dynamic import(s), seam ${seam}) — the three-layer split is the whole architecture in one file boundary`);
++  }
+   // The transport, read as TEXT and never imported (it is the one SDK import): the ledger reaches the
+   // prompt, the tool text has ONE copy (the pinned one), and the fingerprint stamp is read off the
+   // posture rather than recomputed (#341). A transport that dropped the ledger would regress to the
+diff --git a/tooling/canvas-journey.mjs b/tooling/canvas-journey.mjs
+index d234536..7dbdbf1 100644
+--- a/tooling/canvas-journey.mjs
++++ b/tooling/canvas-journey.mjs
+@@ -195,6 +195,7 @@ const freePort = () => new Promise((resolve, reject) => {
+ });
+ 
+ // A Brilliant MCP server that exits at once: the import's reach check meets a real failed server.
++const FAKE_DISCOVERY = path.join(REPO, "tooling/fake-discovery-agent.mjs");
+ const MCP_DOWN = JSON.stringify({ type: "stdio", command: process.execPath, args: ["-e", "process.exit(1)"] });
+ // The fake bridge in one of its modes (tooling/fake-brilliant-bridge.mjs), by absolute path.
+ const FAKE = (mode) => JSON.stringify({ type: "stdio", command: process.execPath, args: [path.join(REPO, "tooling/fake-brilliant-bridge.mjs"), mode] });
+@@ -649,7 +650,7 @@ async function leg(engine, base, results) {
+ 
+     await lanesPass(base, page, t, step);
+     await groupsPass(base, page, t, step, errors);
+-    await blastPass(base, page, t, step);
++    await withPortal(MCP_DOWN, (b) => blastPass(b, page, t, step), { extraEnv: { UXF_DISCOVERY_TRANSPORT: FAKE_DISCOVERY } });
+     await inboxPass(base, page, t, step);
+ 
+     await step("15 · 44×44 targets", async () => {
+@@ -842,7 +843,44 @@ async function blastPass(base, page, t, step) {
+       l[6]?.op === "frame.link" && canon(l[6]?.params) === canon({ frameId: "f1", decisionRefs: ["7", "8", "10"] }) && l[6]?.status === "applied", JSON.stringify(l[6]));
+   });
+   await step("B2 · decision 7 is superseded; f1, card d7 and the flow panel say so", async () => {
+-    S = seedSupersede("fp-stale");
++    const pkg = path.join(DISC(), "fp-stale");
++    const jl = (f) => readFileSync(path.join(pkg, f), "utf8").split("\n").filter((l) => l.trim()).map((l) => JSON.parse(l));
++    const q7 = jl("transcript.jsonl").find((l) => l.seq === 7).params.question_id;
++    const n = jl("transcript.jsonl").length;
++    const head0 = JSON.parse(readFileSync(path.join(pkg, "run.json"), "utf8"));
++    const t0 = Date.now();
++    await page.goto(`${base}/#/discovery/real/fp-stale`, { waitUntil: "load" });
++    await page.waitForSelector('#discovery-drawer[data-discovery-link="ready"]', { timeout: 20000 });
++    const rr = page.locator(`[data-discovery-revisit="${q7}"]`);
++    t("B2 · one Re-record button for decision 7's question", (await rr.count()) === 1, String(await rr.count()));
++    await rr.scrollIntoViewIfNeeded();
++    await settleScroll(page);
++    const rb = await rr.boundingBox();
++    t("B2 · Re-record is at least 44×44", (rb?.width ?? 0) >= 44 && (rb?.height ?? 0) >= 44, JSON.stringify(rb));
++    t("B2 · Cancel re-record hidden before", !(await page.locator("#discovery-revisit-cancel").isVisible()));
++    await rr.focus();
++    await page.keyboard.press("Enter");
++    const pos = await page.locator("#discovery-position").textContent();
++    t("B2 · revisit mode: answer enabled, position names seq 7 and r1, cancel shown",
++      (await page.locator("#discovery-answer").isEnabled()) && pos.includes("re-recording decision seq 7 · turn r1") && (await page.locator("#discovery-revisit-cancel").isVisible()), pos);
++    await page.locator("#discovery-answer").fill("Journey answer (#498): typed by tooling/canvas-journey.mjs through the drawer, not the owner's words.");
++    await page.locator("#discovery-submit").focus();
++    await page.keyboard.press("Enter");
++    let tx = jl("transcript.jsonl");
++    for (const until = Date.now() + 10000; tx.length < n + 2 && Date.now() < until; ) { await sleep(100); tx = jl("transcript.jsonl"); }
++    const op = tx.filter((l) => l.type === "op").at(-1);
++    S = op?.seq;
++    console.log(`    [spike] drawer re-record round trip ${Date.now() - t0} ms`);
++    t("B2 · the drawer filed record_decision on r1 superseding 7",
++      op?.op === "record_decision" && op.turn === "r1" && op.supersedes === 7 && op.closes === true && S === tx.filter((l) => l.type === "op").length, JSON.stringify(op));
++    const a = jl("answers.jsonl").at(-1);
++    const head1 = JSON.parse(readFileSync(path.join(pkg, "run.json"), "utf8"));
++    t("B2 · answer line r1 on q7; run.json endedAt and sessionId unchanged; stats revisit + fake",
++      a.turn === "r1" && a.question_id === q7 && head1.endedAt === head0.endedAt && head1.sessionId === head0.sessionId
++        && head1.turnStats.at(-1).revisit === true && head1.turnStats.at(-1).transport === "fake", JSON.stringify(head1.turnStats.at(-1)));
++    await page.waitForFunction(() => !document.querySelector("#discovery-position").textContent.includes("re-recording"), null, { timeout: 10000 });
++    t("B2 · the drawer settles back to finished and names the new seq",
++      (await page.locator("#discovery-position").textContent()).includes(" · finished ") && (await page.locator("#discovery-status").textContent()).includes(`seq ${S}`), await page.locator("#discovery-status").textContent());
+     await openCanvas(page, base, "real", "fp-stale");
+     const c = await chips();
+     t(`B2 · f1 shows Decision 7 changed since linked — now ${S}`, c.includes(`Decision 7 changed since linked — now ${S}`) && (await staleChips()) === 1, JSON.stringify(c));
+
+### NEW FILE tooling/fake-discovery-agent.mjs
+// tooling/fake-discovery-agent.mjs — SPIKE (#498 planning), not the shipped file.
+import { realpathSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { appendTranscript, fileOp, OPS, textLine, toolNameFor } from "../portal/lib/discovery.mjs";
+
+const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+let n = 0;
+export function assertRoot(dir) {
+  const real = (p) => { try { return realpathSync(p); } catch { return path.resolve(p); } };
+  const root = real(dir);
+  const tmp = real(tmpdir());
+  if (root === REPO || root.startsWith(REPO + path.sep) || !root.startsWith(tmp + path.sep))
+    throw new Error("fake-discovery-agent: the fake writes agent lines and must never touch a committed package — its root must be a scratch package under the OS temp directory");
+}
+export async function runDiscoveryTurn({ root, head, question, answer, turn, posture, state, affordance = null, park = false, answers = [], tensions = [], onLine, fresh = false }) {
+  assertRoot(root);
+  posture.build({ question, answer, turn, ledger: state.current.ops, provenance: head.provenance, entryMode: head.entryMode ?? "blank-idea", answers, park, affordance, tensions });
+  if (affordance !== null || park) throw new Error("fake-discovery-agent: scripts a banked or revisit turn only");
+  const prior = state.current.ops.findLast((r) => r.op === "record_decision" && r.params.question_id === question.id && r.params.off_script === false);
+  fileOp({ root, turn, state, onLine, op: "record_decision", args: { question_id: question.id, answer_ref: answer.ref, level: prior?.params.level ?? "business", parent_id: prior?.params.parent_id ?? null, evidence_refs: [], wrong_if: "Scripted by tooling/fake-discovery-agent.mjs — not a model's judgement.", off_script: false } });
+  onLine?.(appendTranscript(root, textLine({ turn, text: "Fake discovery agent: one scripted record_decision, no model." })));
+  return { sessionId: fresh ? `fake-fresh-${++n}` : (head.sessionId ?? `fake-${++n}`), stats: { turn, numTurns: 2, durationMs: 0, costUsd: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0, ok: true, postureFingerprint: posture.fingerprint, transport: "fake", ts: new Date().toISOString() }, advertised: OPS.map(toolNameFor) };
+}

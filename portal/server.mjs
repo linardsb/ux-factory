@@ -428,9 +428,11 @@ const server = createServer(async (req, res) => {
         // ANSWER LINE, so it reaches an append-only file and the applier's four MVP 9 rules rest on it;
         // `park` adds one paragraph to the turn prompt. Each is defaulted here to the value every
         // pre-#289 caller implied, so a body that names none of them runs exactly the turn it ran before.
+        // #498 names `revisit` the same way, never spread: true only for a literal true. Whether a revisit is
+        // admitted is runTurn's assertRevisit, not this route's.
         const view = await runTurn({
           slug: body.slug, provenance: body.provenance, questionId: body.questionId,
-          kind: body.kind ?? 'banked', intent: body.intent ?? null, park: body.park === true,
+          kind: body.kind ?? 'banked', intent: body.intent ?? null, park: body.park === true, revisit: body.revisit === true,
           text: body.text,
           onLine: (line) => { const ev = turnEvent(line); if (ev) send(ev); },
         });
@@ -667,5 +669,6 @@ server.listen(PORT, '127.0.0.1', () => {
   console.log(`chat auth: ${HAS_TOKEN ? 'token from .env' : 'no token — falling back to the CLI login on this Mac'}`);
   console.log(`booted from: ${BOOT_SHA ? BOOT_SHA.slice(0, 7) : 'unknown (not a git checkout)'}`);
   // PR #485 review F7: the env seam loads any module it names, so its use is never silent.
+  if (process.env.UXF_DISCOVERY_TRANSPORT) console.log(`discovery transport: OVERRIDDEN by UXF_DISCOVERY_TRANSPORT → ${process.env.UXF_DISCOVERY_TRANSPORT} (the journey's fake; never set this for a real run)`);
   if (process.env.UXF_COMPOSE_TRANSPORT) console.log(`compose transport: OVERRIDDEN by UXF_COMPOSE_TRANSPORT → ${process.env.UXF_COMPOSE_TRANSPORT} (the journey's fake; never set this for a real run)`);
 });

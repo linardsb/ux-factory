@@ -190,7 +190,9 @@ stepping up is a new run.
 **Supersede.** A **banked** `record_decision` with a non-null `question_id` records `supersedes: <seq>`
 naming the latest earlier **banked** decision on the same question, else `null`. Both records stay;
 nothing is removed. The projection reads the latest. The canvas pins the version a frame was linked to
-and flags the frame stale once that version is superseded, until the owner re-confirms (#318).
+and flags the frame stale once that version is superseded, until the owner re-confirms (#318). The product
+path to a superseding decision after a build is the drawer's **Re-record** on a finished run (#498, §File shapes'
+revisit turn): its `record_decision` supersedes by this same rule.
 
 **An off-script decision never supersedes and is never superseded (#289).** A supersede is the latest
 ANSWER to a banked question replacing an earlier one. An off-script decision may NAME the question it
@@ -357,6 +359,7 @@ scored 1 / 3 contradiction-class findings (#2). Precision waits for the owner's 
 { "ref": "a7", "ts": "…Z", "turn": "t7", "question_id": "q12", "kind": "banked", "text": "…what the human typed…" }
 { "ref": "a8", "ts": "…Z", "turn": "t7", "question_id": null, "kind": "off-script", "intent": "aside", "text": "…" }
 { "ref": "a9", "ts": "…Z", "turn": "t7", "question_id": null, "kind": "off-script", "intent": "look-up", "text": "…" }
+{ "ref": "a25", "ts": "…Z", "turn": "r1", "question_id": "q7", "kind": "banked", "text": "…a re-recorded answer on a finished run (#498)…" }
 { "ref": "a1", "ts": "…Z", "turn": null, "question_id": null, "kind": "document", "text": "…the supplied PRD, verbatim — an existing-prd audit's ONE document line, written at session start (#286)…" }
 ```
 
@@ -372,6 +375,16 @@ off-script lines and then the banked answer that closes it. `assertTurnWritable`
 counter both count CLOSERS, and no off-script op closes. `run.json`'s `turnStats` gains one entry per
 `query()` for the same reason, so a reader wanting turns reads DISTINCT ids. Any reader that assumed
 one answer line per turn is wrong after #289.
+
+**A REVISIT TURN (#498)** re-records one decided question on a FINISHED run, from the drawer's Re-record button.
+Its turn id is `r<n>` (`r1`, `r2`, …), never `t<n>`, and its answer line is an ordinary `kind: "banked"` line
+differing only in that id. It is offered on finished blank-idea runs of real provenance only, and only for a
+question holding a current banked decision; an open run, an existing-prd audit, a fictional package and any
+other question are refused by name before anything is appended. The cursor, the not-a-form counter and the
+escalation fold the interview only — they count `t<n>` closers — so a revisit moves none of them, and the next
+id is derived (closed `r<n>` turns + 1), never stored. `endedAt` and run.json's `sessionId` are untouched: the
+run stays closed, and a revisit runs a FRESH SDK session whose id goes on its own `turnStats` entry, which
+carries `revisit: true`.
 
 **`transcript.jsonl`** — append-only, three line types. An `op` line is the applier's record with
 `type` and `ts` added by the writer (#284); `seq`, `turn`, `op`, `params`, `closes`, `flagged` and
