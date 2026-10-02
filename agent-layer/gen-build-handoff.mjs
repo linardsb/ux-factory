@@ -30,7 +30,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { foldLedger, listBuilds, loadBuild } from "../portal/lib/canvas-store.mjs";
+import { foldLedger, listBuilds, loadBuild, notPickedOf } from "../portal/lib/canvas-store.mjs";
 import { STATE_KEYS, edgePhrase, flowEdges, frameLabel, frameTree, groupInstances, laneDoc, laneKeys, missingStates, staleFrames, stateDiagram } from "../system/canvas-ops.mjs";
 import { DROP_CLASSES } from "../import/ir.mjs";
 
@@ -177,8 +177,10 @@ function renderDrops(slug, imports) {
 
 function renderRefusals(slug, pkg) {
   const reasons = new Map(pkg.buildTranscript.filter((l) => l?.type === "refused" && Number.isInteger(l.seq)).map((l) => [l.seq, l]));
+  // #320: a fork's unpicked option reads "refused: not-picked" — derived from its sibling's verdict, never stored.
+  const np = new Set(notPickedOf(pkg.ops));
   const ledger = pkg.ops.filter((l) => l?.status === "refused").map((l) => {
-    if (l.source === "owner") return `- seq ${l.seq} · owner refused the proposal at seq ${l.fromStep} (${l.op})`;
+    if (l.source === "owner") return `- seq ${l.seq} · owner refused the proposal at seq ${l.fromStep} (${l.op})${np.has(l.seq) ? " — refused: not-picked" : ""}`;
     const r = reasons.get(l.seq);
     return `- seq ${l.seq} · agent · ${l.op} — ${r ? `${one(r.kind)}: ${one(r.error ?? r.text)}` : "reason not recorded"}`;
   });

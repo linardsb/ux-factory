@@ -103,6 +103,16 @@
 // page's document equal to the disk fold (C11); 44×44 compose controls (C12). WHAT IT CANNOT REACH: a
 // model — whether one yields, names the brief or escapes is --live-compose's, never the fake's.
 //
+// THE FORK PASS (#320, F1–F8) on the compose pass's side portal and fake. Over fp-fork, a stand-in: the fork input and
+// Ask for two options at 44×44 (F1); flagging decision 11 files two proposed agent composes of one screen, options a
+// and b, shown as two cards, A before B, with Ask disabled (F2); Pick B by keyboard writes accepted B and refused A from the owner
+// with the SAME at, notPickedOf names A, and f3 renders B with the chip "Fork 11 · option B" (F3); A reads refused:
+// not-picked in the compose status, after a reload and in the pack's refusals.md (F4); the flow panel and the
+// missing-state ask use f3, and the disk fold carries B's title (F5); verifyBuild [] and the page equal to the disk
+// (F6). Over fp-fork-q, a park seeded through the real applier is a fork row on #/inbox whose link fills and focuses
+// the fork input (F7), and Neither refuses both in one save, places nothing, and leaves the row (F8). WHAT IT CANNOT
+// REACH: a model — whether one files two options, tells them apart, or follows FORK_ASK over LOOP — the sitting's.
+//
 // WHAT IT CANNOT REACH: the page's pixels (no baseline — the portal is not in the VR set); a REAL
 // Brilliant tab and its pairing — only `--live-brilliant` meets the real bridge; the real ~46–60 s
 // unpaired wait, which the fake answers at once; and two-tab behaviour beyond the 409 and the reload
@@ -137,7 +147,8 @@ import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { foldLedger, loadBuild, loadDecisions, placeExhibit, positionsOf, saveRun, seedSpine, verifyBuild } from "../portal/lib/canvas-store.mjs";
+import { foldLedger, loadBuild, loadDecisions, notPickedOf, placeExhibit, positionsOf, saveRun, seedSpine, verifyBuild } from "../portal/lib/canvas-store.mjs";
+import { frameTree, missingStates } from "../system/canvas-ops.mjs";
 import { checkRecord, fidelityVerdict } from "../import/report.mjs";
 import { THRESHOLD } from "../import/fidelity.mjs";
 import { editMapping, runImport } from "../portal/lib/import-run.mjs";
@@ -298,10 +309,12 @@ function seed() {
   seedSpine(src, path.join(DISC(), "fp-import"), { discovery: true });
   // #312's compose pass: the stand-in shape — run.json, prd.md and build/, no transcript.jsonl.
   seedSpine(src, path.join(DISC(), "fp-compose"));
+  // #320's fork pass: fp-fork is a stand-in (any seq may be flagged); fp-fork-q carries the transcript its park needs.
+  seedSpine(src, path.join(DISC(), "fp-fork"));
   // #474's measurement pass, #314's lanes pass, #315's groups pass (its f3 seeded in-process by seedGroups), #318's
   // blast-radius pass (its superseding decision re-recorded through the drawer since #498) and #319's inbox pass (its
   // superseding decision seeded in-process by seedSupersede on fp-inbox), likewise.
-  for (const slug of ["fp-measure", "fp-lanes", "fp-groups", "fp-stale", "fp-inbox"]) seedSpine(src, path.join(DISC(), slug), { discovery: true });
+  for (const slug of ["fp-measure", "fp-lanes", "fp-groups", "fp-stale", "fp-inbox", "fp-fork-q"]) seedSpine(src, path.join(DISC(), slug), { discovery: true });
 }
 const buildDir = (slug) => path.join(DISC(), slug, "build");
 const ledger = (slug) => readFileSync(path.join(buildDir(slug), "ops.jsonl"), "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l));
@@ -681,6 +694,7 @@ async function leg(engine, base, results) {
     await importPass(engine, base, page, t, step, errors);
     await measurePass(base, page, t, step);
     await composePass(base, page, t, step);
+    await forkPass(base, page, t, step);
 
     t("16 · no page errors or console errors across the leg", errors.length === 0, errors.slice(0, 3).join(" | "));
     const gitAfter = gitDiscovery();
@@ -1898,6 +1912,146 @@ async function composePass(base, page, t, step) {
   t("C12 · the compose pass changed nothing under discovery/", gitDiscovery() === gitBefore, gitDiscovery());
 }
 
+// ---- the fork pass (#320, F1–F8) -------------------------------------------------------------------------
+// The compose pass's side portal and fake, over two copies: fp-fork, a stand-in, where the owner flags decision 11
+// and picks B; and fp-fork-q, whose parked question is a derived fork the inbox lists, answered with Neither.
+// seedPark files the park through discovery/ops.mjs's REAL applier, seedSupersede's way; the answer names this driver.
+function seedPark(slug) {
+  const pkg = path.join(DISC(), slug);
+  const jl = (f) => readFileSync(path.join(pkg, f), "utf8").split("\n").filter((l) => l.trim()).map((l) => JSON.parse(l));
+  const lines = jl("transcript.jsonl");
+  const answers = jl("answers.jsonl");
+  const state = applyDiscoveryOps(lines.filter((l) => l.type === "op").map((l) => ({ op: l.op, params: l.params, turn: l.turn })), { answers, bank: BANK, turn: null });
+  const ts = new Date().toISOString();
+  const a = { ref: `a${answers.length + 1}`, ts, turn: "t25", question_id: "s1-choice-cascade", kind: "banked",
+    text: "Seeded by tooling/canvas-journey.mjs (#320) — not the owner's words." };
+  const r = applyDiscoveryOp(state, { op: "open_question", params: { source: "banked", question_id: "s1-choice-cascade", reason: "Journey fixture (#320).", answer_ref: a.ref } }, { answers: [...answers, a], bank: BANK, turn: a.turn }).ops.at(-1);
+  appendFileSync(path.join(pkg, "answers.jsonl"), `${JSON.stringify(a)}\n`);
+  appendFileSync(path.join(pkg, "transcript.jsonl"), `${JSON.stringify({ type: "op", ts, seq: r.seq, turn: r.turn, op: r.op, params: r.params, closes: r.closes, flagged: r.flagged, supersedes: r.supersedes })}\n`);
+  return r.seq;
+}
+
+async function forkPass(base, page, t, step) {
+  const slug = "fp-fork";
+  const gitBefore = gitDiscovery();
+  const size = async (sel) => { const bb = await page.locator(sel).boundingBox(); return bb && bb.width >= 44 && bb.height >= 44 ? null : `${sel} ${bb?.width}×${bb?.height}`; };
+  await withPortal(MCP_DOWN, async (b2) => {
+    let opts = null;
+    await step("F1 · the fork ask on a stand-in", async () => {
+      await openCanvas(page, b2, "real", slug);
+      t("F1 · the fork input and Ask for two options show", (await page.locator("#cv-fork").isVisible()) && (await page.locator("[data-compose-fork-ask]").isEnabled()));
+      const small = await size("[data-compose-fork-ask]");
+      t("F1 · Ask for two options measures at least 44×44", small === null, small);
+    });
+
+    await step("F2 · flagging decision 11 drafts two options of one screen", async () => {
+      const n = ledger(slug).length;
+      await page.locator("#cv-fork").fill("11");
+      await askThrough(page, "[data-compose-fork-ask]");
+      await page.waitForSelector(".cv-compose-options [data-compose-card]", { timeout: 10000 });
+      const two = ledger(slug).slice(n);
+      t("F2 · two proposed agent screen.compose lines, one screen, options a and b of fork 11",
+        two.length === 2 && two.every((l) => l.status === "proposed" && l.source === "agent" && l.op === "screen.compose" && l.params.alternative?.fork === "11")
+          && new Set(two.map((l) => l.params.screenId)).size === 1 && two.map((l) => l.params.alternative.option).join() === "a,b", JSON.stringify(two).slice(0, 300));
+      const cards = await page.locator(".cv-compose-options [data-compose-card]").evaluateAll((ns) => ns.map((n) => n.getBoundingClientRect()).map((r) => ({ l: r.left, r: r.right, t: r.top, b: r.bottom })));
+      // A then B in reading order and never overlapping: one row where the rail is wide, one column in today's rail.
+      t("F2 · two option cards in the rail, A before B, not overlapping",
+        cards.length === 2 && (cards[0].r <= cards[1].l || cards[0].b <= cards[1].t), JSON.stringify(cards));
+      t("F2 · Ask and Ask for two options are disabled while the options wait",
+        (await page.locator("[data-compose-ask]").isDisabled()) && (await page.locator("[data-compose-fork-ask]").isDisabled()));
+      const small = [];
+      for (const sel of ['[data-compose-pick="a"]', '[data-compose-pick="b"]', "[data-compose-neither]"]) { const m = await size(sel); if (m) small.push(m); }
+      t("F2 · Pick A, Pick B and Neither measure at least 44×44", small.length === 0, small.join(", "));
+      opts = { a: two[0], b: two[1] };
+    });
+
+    await step("F3 · Pick B (keyboard) lands B and refuses A in one save", async () => {
+      if (!opts) throw new Error("F2 filed nothing");
+      const n = ledger(slug).length;
+      await page.locator('[data-compose-pick="b"]').focus();
+      await page.keyboard.press("Enter");
+      const after = await waitLines(slug, n + 2);
+      const [acc, ref] = after.slice(n);
+      t("F3 · the last two lines are accepted B and refused A, owner, with the SAME at",
+        acc?.status === "accepted" && acc.fromStep === opts.b.seq && ref?.status === "refused" && ref.fromStep === opts.a.seq
+          && acc.source === "owner" && ref.source === "owner" && acc.at === ref.at, JSON.stringify(after.slice(n)).slice(0, 300));
+      t("F3 · notPickedOf names A's verdict", canon(notPickedOf(after)) === canon([ref?.seq]), JSON.stringify(notPickedOf(after)));
+      await page.waitForSelector('[data-stx-id="f3"]', { timeout: 5000 });
+      t('F3 · f3 renders option B — "Set a first-payment limit"', ((await node(page, "f3").textContent()) ?? "").includes("Set a first-payment limit"));
+      const chip = page.locator('[data-stx-id="f3"] [data-cv-fork="11"]');
+      t("F3 · f3 carries the chip Fork 11 · option B", (await chip.count()) === 1 && (await chip.textContent()) === "Fork 11 · option B", await chip.textContent().catch(() => "(no chip)"));
+    });
+
+    await step("F4 · A reads refused: not-picked on the page, after a reload, and in the pack", async () => {
+      const status = (await page.locator("[data-compose-status]").textContent()) ?? "";
+      t("F4 · the compose status says option A refused: not-picked", status.includes("option A refused: not-picked"), status);
+      await sleep(300);
+      await openCanvas(page, b2, "real", slug);
+      const last = (await page.locator("[data-compose-last]").textContent().catch(() => "")) ?? "";
+      t("F4 · after a reload the last-turn line says it", last.includes("option A refused: not-picked"), last);
+      const refusals = path.join(buildDir(slug), "handoff", "refusals.md");
+      const aVerdict = ledger(slug).find((l) => l.fromStep === opts?.a.seq)?.seq;
+      const want = `- seq ${aVerdict} · owner refused the proposal at seq ${opts?.a.seq} (screen.compose) — refused: not-picked`;
+      let md = "";
+      for (let i = 0; i < 60 && !md.includes(want); i += 1) { md = existsSync(refusals) ? readFileSync(refusals, "utf8") : ""; if (!md.includes(want)) await sleep(100); }
+      t("F4 · the pack's refusals.md names A's verdict refused: not-picked", md.includes(`${want}\n`), md.slice(0, 400));
+    });
+
+    await step("F5 · the diagram and the completeness check use B", async () => {
+      const flow = (await page.locator("[data-canvas-flow-text]").textContent()) ?? "";
+      t("F5 · the flow panel holds f3 : choose-amount", flow.includes("f3 : choose-amount"), flow.slice(0, 300));
+      t("F5 · f3's error: missing ask shows", (await page.locator('[data-cv-ask-state="f3:error"]').count()) === 1);
+      const fold = foldLedger(ledger(slug)).doc;
+      t("F5 · on disk missingStates lists f3 and its tree carries B's title",
+        missingStates(fold).some((m) => m.frameId === "f3") && JSON.stringify(frameTree(fold, "f3").tree).includes("Set a first-payment limit"));
+    });
+
+    await step("F6 · the disk agrees with the page", async () => {
+      const pkg = loadBuild(buildDir(slug));
+      const v = verifyBuild(pkg);
+      t("F6 · verifyBuild [] on the fork package, the trace rule on", v.length === 0, v.join(" | "));
+      t("F6 · the page's document equals the disk fold", canon(await pageDoc(page)) === canon(foldLedger(pkg.ops).doc));
+    });
+
+    let S = null;
+    await step("F7 · a parked question is a fork row on #/inbox, and its link lands on the fork input", async () => {
+      S = String(seedPark("fp-fork-q"));
+      await page.goto(`${b2}/#/inbox`, { waitUntil: "load" });
+      await page.waitForSelector('#main[data-inbox="ready"]', { timeout: 20000 });
+      const row = page.locator(`[data-inbox-run="real/fp-fork-q"] [data-inbox-row="fork fork:${S}"]`);
+      t(`F7 · #/inbox lists fork fork:${S} for fp-fork-q`, (await row.count()) === 1);
+      await row.locator(".ib-verb").click();
+      await page.waitForSelector('html[data-canvas-page="ready"]', { timeout: 20000 });
+      t(`F7 · the link carries fork=${S}`, new URL(page.url()).searchParams.get("fork") === S, page.url());
+      const landed = await page.waitForFunction((s) => document.documentElement.dataset.cvForkFromInbox === s && document.activeElement?.id === "cv-fork" && document.activeElement.value === s, S, { timeout: 4000 })
+        .then(() => true, () => false);
+      t("F7 · the fork input holds the seq and has focus", landed, await page.evaluate(() => document.activeElement?.outerHTML?.slice(0, 120)));
+    });
+
+    await step("F8 · Neither refuses both, places nothing, and the fork stays on the inbox", async () => {
+      const q = "fp-fork-q";
+      const n = ledger(q).length;
+      await page.waitForSelector('[data-canvas-verbs="ready"]', { timeout: 20000 });
+      await askThrough(page, "[data-compose-fork-ask]");
+      await page.waitForSelector(".cv-compose-options [data-compose-card]", { timeout: 10000 });
+      const frames = (await pageDoc(page)).frames.length;
+      await page.locator("[data-compose-neither]").click();
+      const after = await waitLines(q, n + 4);
+      const [, , r1, r2] = after.slice(n);
+      t("F8 · two proposed options then two refused owner lines with the same at",
+        after.length === n + 4 && r1?.status === "refused" && r2?.status === "refused" && r1.source === "owner" && r1.at === r2.at
+          && after.slice(n, n + 2).every((l) => l.params?.alternative?.fork === S), JSON.stringify(after.slice(n)).slice(0, 300));
+      t("F8 · no new frame and nothing reads not-picked", (await pageDoc(page)).frames.length === frames && notPickedOf(after).length === 0);
+      await sleep(300);
+      await page.goto(`${b2}/#/inbox`, { waitUntil: "load" });
+      await page.waitForSelector('#main[data-inbox="ready"]', { timeout: 20000 });
+      t(`F8 · fork fork:${S} is still on #/inbox`, (await page.locator(`[data-inbox-run="real/fp-fork-q"] [data-inbox-row="fork fork:${S}"]`).count()) === 1);
+    });
+    await page.goto("about:blank");
+  }, { extraEnv: { UXF_COMPOSE_TRANSPORT: FAKE_COMPOSE } });
+  t("F · the fork pass changed nothing under discovery/", gitDiscovery() === gitBefore, gitDiscovery());
+}
+
 // ---- --live-compose (#312, Task 6.2) — owner-run, chromium, PAID: the real Agent SDK turn ------------------
 // A side portal with NO transport override (UXF_COMPOSE_TRANSPORT emptied), over a fresh fp-compose. Four
 // turns back to back (the prompt cache's 5-minute TTL), capped at $1.00 summed from the stats lines. The
@@ -2099,5 +2253,5 @@ try {
 }
 console.log(totalFails
   ? `\ncanvas-journey ✗  ${totalFails} assertion(s) failed`
-  : `\ncanvas-journey ✓  the run list · the in-repo spine opened with ZERO saves and its save notice · run.json's provenance label with the root flagged · frames, the arrow and decision cards rendered from the ledger and the transcript with no overlap · a note, a decision link, a refused remove, a remove and its undo, a numeric width and a pointer resize each ONE ledger entry and ONE undo · a reload that keeps them · verifyBuild [] on disk and the disk document equal to the page's · 403 cross-origin and 409 stale · the stand-in flagged, not blocked · the inspector in the viewport on both branches · 44×44 targets · the lanes pass: a draft lane b writing nothing, key a refused, Keep lane as ONE variant.add whose save regenerated the pack, the frames, the asks, the diagram and the missing list switching with the lane, Write handoff pack equal to renderPack and 403 cross-origin, undo taking the lane away, verifyBuild [] and the page equal to the disk (L1–L9, #314) · the import pass: the MCP-down refusal with one action, two drops writing record + proposal + one component.propose line each with one record shape, a mapping edit re-deriving the record and the view, the run lock refusing a drop "already in flight" and the hung read's one action routed to Re-bind, a stale drop's one action reloading the page, an oversize drop refused and a traversal name a 400 · over the fake bridge: Check binding naming the tab's project and surface, Import selection writing the one selected id + a reference.png shown in the Original pane + a mapping edit (I9), the unpaired refusal's one action and the bridge's own words with Import again re-sending (I10), Re-bind running the binding check (I10b), Browse's two thumbnail tiles importing as one two-id record and served again from the session cache (I11) · a Mode 2 import as an exhibit beside the flow — placed by rule, its PNG shown, a drag, a redo, a preset change and a pointer resize into a frame each refused and put back with no ledger line, an authored height letting it sit below a screen, a drop flagged as having no image (X1–X7, #475) · the owner's faithful frame measured through the page by the spawned renderer, worst ΔE under THRESHOLD with the derived verdict reading green at 12/12 WCAG (#482), a rename returning it to missing and deleting the candidate (I12), and the no-renderer refusal visible in the view with the panel closed (I12b) · the compose pass over the fake agent: a briefed proposal whose card shows the brief, Accept with fromStep, the missing-state ask for exactly that state, Refuse, the four lines agent/owner/agent/owner, undo removing the frame with the proposal intact, an un-briefed turn, an escape and six fence denials, verifyBuild [] and the page equal to the disk, a stale compose a 409 writing nothing, and a count the turn does not explain breaking the page with a reload (C1–C14, #312) · no page errors · nothing under system/, handoff/, discovery/ or import/overrides/ changed (${toRun.join(", ")})`);
+  : `\ncanvas-journey ✓  the run list · the in-repo spine opened with ZERO saves and its save notice · run.json's provenance label with the root flagged · frames, the arrow and decision cards rendered from the ledger and the transcript with no overlap · a note, a decision link, a refused remove, a remove and its undo, a numeric width and a pointer resize each ONE ledger entry and ONE undo · a reload that keeps them · verifyBuild [] on disk and the disk document equal to the page's · 403 cross-origin and 409 stale · the stand-in flagged, not blocked · the inspector in the viewport on both branches · 44×44 targets · the lanes pass: a draft lane b writing nothing, key a refused, Keep lane as ONE variant.add whose save regenerated the pack, the frames, the asks, the diagram and the missing list switching with the lane, Write handoff pack equal to renderPack and 403 cross-origin, undo taking the lane away, verifyBuild [] and the page equal to the disk (L1–L9, #314) · the import pass: the MCP-down refusal with one action, two drops writing record + proposal + one component.propose line each with one record shape, a mapping edit re-deriving the record and the view, the run lock refusing a drop "already in flight" and the hung read's one action routed to Re-bind, a stale drop's one action reloading the page, an oversize drop refused and a traversal name a 400 · over the fake bridge: Check binding naming the tab's project and surface, Import selection writing the one selected id + a reference.png shown in the Original pane + a mapping edit (I9), the unpaired refusal's one action and the bridge's own words with Import again re-sending (I10), Re-bind running the binding check (I10b), Browse's two thumbnail tiles importing as one two-id record and served again from the session cache (I11) · a Mode 2 import as an exhibit beside the flow — placed by rule, its PNG shown, a drag, a redo, a preset change and a pointer resize into a frame each refused and put back with no ledger line, an authored height letting it sit below a screen, a drop flagged as having no image (X1–X7, #475) · the owner's faithful frame measured through the page by the spawned renderer, worst ΔE under THRESHOLD with the derived verdict reading green at 12/12 WCAG (#482), a rename returning it to missing and deleting the candidate (I12), and the no-renderer refusal visible in the view with the panel closed (I12b) · the compose pass over the fake agent: a briefed proposal whose card shows the brief, Accept with fromStep, the missing-state ask for exactly that state, Refuse, the four lines agent/owner/agent/owner, undo removing the frame with the proposal intact, an un-briefed turn, an escape and six fence denials, verifyBuild [] and the page equal to the disk, a stale compose a 409 writing nothing, and a count the turn does not explain breaking the page with a reload (C1–C14, #312) · the fork pass: decision 11 flagged on a stand-in drafting two options of one screen as two cards, A before B, Pick B landing B and refusing A in one save, A reading refused: not-picked on the page, after a reload and in the pack, the chip, the flow panel and the missing-state ask on B, verifyBuild [] and the page equal to the disk, a parked question as an inbox fork row whose link fills the fork input, and Neither refusing both and leaving the row (F1–F8, #320) · no page errors · nothing under system/, handoff/, discovery/ or import/overrides/ changed (${toRun.join(", ")})`);
 process.exit(totalFails ? 1 : 0);

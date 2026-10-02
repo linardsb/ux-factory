@@ -7,7 +7,7 @@
 //   1  discovery/faster-payment/prd.md is tracked and equal to HEAD — the brief every compose turn reads
 //   2  #318 landed: system/canvas-ops.mjs exports staleFrames                      (D2, stale frames)
 //   3  #319 landed: portal/lib/inbox.mjs exports the inbox fold                    (D1, the inbox)
-//   4  #320 landed: PARAMS["screen.compose"] carries a param beyond Segment A's five (D5, forks) — T10 pins its name
+//   4  #320 landed: PARAMS["screen.compose"] carries "alternative"                 (D5, forks)
 //   5  build/ops.jsonl is exactly the six-line spine and verifyBuild passes          (PRE-RUN: inverts, see below)
 //   6  the tree is clean by ratify's own CLEAN_GUARD, both argv arrays printing nothing
 //   7  brilliant-mcp.mjs's TOOLS are exactly the four read tools
@@ -44,7 +44,6 @@ import { CLEAN_GUARD } from '../portal/lib/ratify.mjs';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PACKAGE = path.join(ROOT, 'discovery', 'faster-payment');
 const PRD = path.join(PACKAGE, 'prd.md');
-const SEGMENT_A_PARAMS = ['screenId', 'why', 'composition', 'decisionRefs', 'states'];
 const READ_TOOLS = ['init', 'get_selection', 'lookup', 'export'];
 const MODULE_DIRS = ['portal', 'tooling/icons', 'tooling/visual-regression', 'tooling/style-dictionary'];
 const BILLING_RE = /^(ANTHROPIC_|CLAUDE_CODE_USE_)/;
@@ -68,10 +67,7 @@ export function runReady() {
   });
   check(2, () => (typeof canvasOps.staleFrames === 'function' ? null : '#318 has not landed: system/canvas-ops.mjs exports no staleFrames (D2)'));
   check(3, () => (typeof inboxMod.inbox === 'function' && inboxMod.KINDS?.includes('stale-frame') && inboxMod.KINDS?.includes('missing-state') ? null : '#319 has not landed: portal/lib/inbox.mjs exports no inbox fold with stale-frame and missing-state kinds (D1)'));
-  check(4, () => {
-    const extra = (canvasOps.PARAMS['screen.compose'] ?? []).filter((k) => !SEGMENT_A_PARAMS.includes(k));
-    return extra.length ? null : `#320 has not landed: PARAMS["screen.compose"] is ${JSON.stringify(canvasOps.PARAMS['screen.compose'])}, with no alternatives param beyond Segment A's five (D5)`;
-  });
+  check(4, () => ((canvasOps.PARAMS['screen.compose'] ?? []).includes('alternative') ? null : `#320 has not landed: PARAMS["screen.compose"] is ${JSON.stringify(canvasOps.PARAMS['screen.compose'])}, with no "alternative" param (D5)`));
   check(5, () => {
     const pkg = loadBuild(path.join(PACKAGE, 'build'));
     if (!pkg) return `${rel(PACKAGE)}/build does not load`;

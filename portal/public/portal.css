@@ -311,6 +311,7 @@
 }
 .cv-chip-none { color: var(--color-fg-muted); font-style: italic; }
 .cv-chip-stale { border-style: dashed; font-weight: 600; }
+.cv-chip-fork { border-color: var(--color-accent); }
 .cv-reconfirm-btn { font-size: var(--type-caption); }
 .cv-note, .cv-card {
   background: var(--color-bg-surface); border: 1px solid var(--color-border); border-radius: var(--radius-sm);
@@ -361,6 +362,20 @@
 .cv-compose-why, .cv-compose-brief { color: var(--color-fg); }
 .cv-compose-refs { color: var(--color-fg-muted); }
 .cv-compose-actions { display: flex; flex-wrap: wrap; gap: var(--spacing-xs); }
+/* #320: a fork's two options, A then B — side by side where the rail holds two 16rem columns, stacked in today's
+   narrow rail (two 115px cards clipped each screen's distinguishing copy, observed); Neither under both. The fork row
+   is an input and its Ask. */
+.cv-compose-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(16rem, 100%), 1fr)); gap: var(--spacing-xs); }
+.cv-compose-options > * { min-width: 0; }
+.cv-compose-options > [data-compose-neither] { grid-column: 1 / -1; justify-self: start; }
+.cv-compose-option { font-weight: 600; }
+.cv-compose-fork { display: flex; flex-wrap: wrap; gap: var(--spacing-xs); align-items: center; }
+.cv-compose-fork input {
+  box-sizing: border-box; width: 8ch; min-height: 44px; font: inherit; color: var(--color-fg);
+  background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+  padding: 0 var(--spacing-xs);
+}
+.cv-compose-fork input:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 .cv-missing { display: inline-flex; flex-wrap: wrap; gap: var(--spacing-xs); }
 .cv-missing-btn { font-size: var(--type-caption); }
 /* A Mode 2 exhibit (#475): the frozen original, beside the flow. The dashed border is the one visual

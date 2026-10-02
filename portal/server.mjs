@@ -507,9 +507,9 @@ const server = createServer(async (req, res) => {
       const r = writeBuildHandoff(root);
       return json(res, 200, { files: r.files.map((f) => path.relative(root, f)) });
     }
-    // ONE AGENT TURN (#312): one proposal, recorded as `proposed`, then the agent yields. The 409 comes
-    // before any token, as the save and the import do; the session checks it again inside the lock. A
-    // refusal the owner reads (busy, a proposal still waiting, no prd.md) is DATA — 200 { refused }.
+    // ONE AGENT TURN (#312) — or a fork turn's two options (#320): one proposal (two, as siblings, on a fork), recorded
+    // as `proposed`, then the agent yields. The 409 comes before any token, as the save and the import do; the session
+    // checks it again inside the lock. A refusal the owner reads (busy, a proposal still waiting, no prd.md, a fork) is DATA — 200 { refused }.
     // Every body parameter is named; `transport` is not one, so only the env seam reaches the fake.
     if (p === '/api/canvas/compose' && req.method === 'POST') {
       const b = await readBody(req);

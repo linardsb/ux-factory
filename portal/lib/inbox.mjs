@@ -21,7 +21,7 @@
 // `counts` carries every listed run, zero included. Each root is listed on its own, so a package is read from the root
 // it was found in; two roots answering the same provenance/slug both report, their rows and counts under one key.
 //
-// THE NINE KINDS, in KINDS order, each with the one verb that clears it:
+// THE TEN KINDS, in KINDS order, each with the one verb that clears it:
 //   agent-proposal    an agent `proposed` line no verdict answers          Accept or refuse
 //   stale-frame       a frame with a ref whose decision was superseded     Re-confirm
 //   dangling-ref      a frame with a ref naming no decision                Re-link decisions
@@ -29,10 +29,13 @@
 //   unlinked-frame    a base frame embodying no decision                   Link a decision
 //   ratify-pending    a Mode 1 proposal still `proposed`                   Ratify
 //   unbound-import    a proposed import with snaps nobody confirmed        Confirm the snaps
+//   fork              an open question no decision closed and no option picked  Ask for two options
 //   open-question     a parked question in an OPEN discovery session       Resume in Discovery
 //   feature-proposal  a discovery feature proposal with no verdict         Give a verdict
 // A stale frame's refs are ONE row (Re-confirm re-pins them all in one frame.link); a frame's missing states are one
-// row EACH (adding one state clears one row).
+// row EACH (adding one state clears one row). A fork row (#320) lists DERIVED forks only (the owner's call, 2026-10-02):
+// forkList's open-question rows still open, on a finished session too — unlike open-question, a fork is cleared on the
+// canvas, by a pick or a later decision; a decision the owner flagged at ask time is not a row.
 //
 // FOUR DECISIONS, each in ONE exported predicate with ONE group-51 fixture, so a veto is a one-function edit:
 //   A1 needsLink    — unlinked-frame lists BASE frames only, and only when the package has a transcript
@@ -55,14 +58,14 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { applyOp, emptyDoc, frameLabel, missingStates, staleFrames } from "../../system/canvas-ops.mjs";
-import { foldLedger, listBuilds, loadBuild, loadDecisions, openProposals } from "./canvas-store.mjs";
+import { applyOp, emptyDoc, forkList, frameLabel, missingStates, staleFrames } from "../../system/canvas-ops.mjs";
+import { foldLedger, listBuilds, loadBuild, loadDecisions, loadOpenQuestions, openProposals } from "./canvas-store.mjs";
 import { ledgerView } from "../../discovery/ops.mjs";
 import { foldProposals } from "../../discovery/proposals.mjs";
 
 export const KINDS = Object.freeze([
   "agent-proposal", "stale-frame", "dangling-ref", "missing-state", "unlinked-frame",
-  "ratify-pending", "unbound-import", "open-question", "feature-proposal",
+  "ratify-pending", "unbound-import", "fork", "open-question", "feature-proposal",
 ]);
 
 // canvas-store.mjs's readJsonl, mirrored (it is not exported): a malformed line throws naming the file and the line.
@@ -74,10 +77,10 @@ const readJsonl = (file) => readFileSync(file, "utf8").split("\n").flatMap((text
 // run.json and import records: an unreadable one answers null, never a throw.
 const readJson = (file) => { try { return JSON.parse(readFileSync(file, "utf8")); } catch { return null; } };
 
-const CANVAS_KEYS = ["frame", "import", "promoted"];
+const CANVAS_KEYS = ["frame", "import", "promoted", "fork"];
 
 // hrefFor(target) → the URL a row's verb opens. Canvas: /canvas.html? with provenance, slug, then at most one of
-// frame | import | promoted. Discovery: the SPA route that opens the drawer on that package.
+// frame | import | promoted | fork. Discovery: the SPA route that opens the drawer on that package.
 export function hrefFor(target) {
   const { page, provenance, slug } = target ?? {};
   if (page === "discovery") return `#/discovery/${provenance}/${slug}`;
@@ -172,6 +175,13 @@ function rowsFor({ provenance, slug, hasTranscript }, pkg) {
 
   for (const f of doc.frames) {
     if (needsLink(f, decisions)) push("unlinked-frame", `frame:${f.id}`, born[f.id] ?? null, `${frameLabel(doc, f.id)} is linked to no decision.`, "Link a decision", canvas({ frame: f.id }));
+  }
+
+  const questions = loadOpenQuestions(pkg);
+  for (const k of forkList(doc, { questions, decisions, buildTx: b.buildTranscript ?? [] })) {
+    if (k.kind !== "open-question" || k.status !== "open") continue;
+    const at = questions?.find((q) => String(q.seq) === k.ref)?.ts ?? null;
+    push("fork", `fork:${k.ref}`, at, `Open question ${k.questionId ?? "off-script"} (seq ${k.ref}) has no picked option on the canvas${k.reason ? ` — parked because: "${k.reason}"` : ""}.`, "Ask for two options", canvas({ fork: k.ref }));
   }
 
   const proposedAt = (name) => effective.find((l) => l.op === "component.propose" && l.params?.name === name)?.at ?? null;

@@ -57,6 +57,11 @@
 // floor (Confirmation of Payee's close-match, a send's pending). A declared key is then a state `state.add` accepts
 // for that base, and missingStates REQUIRES it like the floor's five — an allowed-but-unrequired key is never asked
 // for. There is no re-declare path: a wrong declaration is frame.remove and a new compose.
+//
+// FORKS (#320, D5). `screen.compose` may carry `alternative: {turn, option, fork}` — the tag the SERVER sets on a fork
+// turn's options (canvas-session.mjs's fileProposal), never the agent: no tool schema names it. It is checked exactly,
+// one level down like connect's endpoints; `option` is a or b and a third is refused here; and one option per fork turn
+// reaches the document, so an accepted pair can never both land. No new verb: a pick is two ordinary verdicts.
 
 import { DEVICE_PRESETS, WIDTH_MAX, WIDTH_MIN, presetWidth } from "./device-presets.mjs";
 
@@ -86,7 +91,7 @@ export const OPS = Object.freeze([
 // its reason: an op whose recorded text says more than the op that was applied is a record of
 // something that did not happen.
 export const PARAMS = Object.freeze({
-  "screen.compose": Object.freeze(["screenId", "why", "composition", "decisionRefs", "states"]),
+  "screen.compose": Object.freeze(["screenId", "why", "composition", "decisionRefs", "states", "alternative"]),
   "screen.set": Object.freeze(["frameId", "partId", "prop", "value"]),
   "state.add": Object.freeze(["baseId", "stateKey", "override"]),
   "frame.size": Object.freeze(["frameId", "preset", "width"]),
@@ -106,7 +111,7 @@ export const PARAMS = Object.freeze({
 // "exact" that catches a caller who knows the key and forgot the value. frame.size's two are
 // optional HERE because the rule is "exactly one of them", which the case enforces by name.
 const OPTIONAL = Object.freeze({
-  "screen.compose": Object.freeze(["decisionRefs", "states"]),
+  "screen.compose": Object.freeze(["decisionRefs", "states", "alternative"]),
   "frame.size": Object.freeze(["preset", "width"]),
   connect: Object.freeze(["trigger"]),
   annotate: Object.freeze(["noteId"]),
@@ -257,6 +262,12 @@ export const ENDPOINT_KEYS = Object.freeze({
   to: Object.freeze(["frameId"]),
 });
 
+// FORKS (#320, D5): the tag the server sets on a fork turn's options.
+export const ALTERNATIVE_KEYS = Object.freeze(["turn", "option", "fork"]);
+export const ALTERNATIVE_OPTIONS = Object.freeze(["a", "b"]);
+const TURN_RE = /^c[1-9][0-9]*$/;
+const FORK_RE = /^[1-9][0-9]*$/;
+
 // #315 helpers. walkNodes follows `children` only (and arrays), frameTree's walk.
 function walkNodes(tree, fn) {
   if (Array.isArray(tree)) { tree.forEach((t) => walkNodes(t, fn)); return; }
@@ -332,6 +343,17 @@ export function applyOp(doc, op) {
           if (p.states.indexOf(k) !== i) throw new Error(`screen.compose: states[${i}] "${k}" is declared twice`);
         });
       }
+      if (p.alternative !== undefined) {
+        const a = p.alternative;
+        if (!plainObject(a)) throw new Error(`screen.compose: "alternative" must be { turn, option, fork } — this op carried ${JSON.stringify(a)}`);
+        for (const k of Object.keys(a)) if (!ALTERNATIVE_KEYS.includes(k)) throw new Error(`screen.compose: unknown key "${k}" on "alternative" — it takes ${ALTERNATIVE_KEYS.join(", ")}`);
+        for (const k of ALTERNATIVE_KEYS) if (a[k] === undefined) throw new Error(`screen.compose: alternative.${k} is required`);
+        if (typeof a.turn !== "string" || !TURN_RE.test(a.turn)) throw new Error(`screen.compose: alternative.turn ${JSON.stringify(a.turn)} is not a compose turn id (c1, c2, …)`);
+        if (!ALTERNATIVE_OPTIONS.includes(a.option)) throw new Error(`screen.compose: alternative.option ${JSON.stringify(a.option)} — a fork offers two options, a and b; a third is refused (D5)`);
+        if (typeof a.fork !== "string" || !FORK_RE.test(a.fork)) throw new Error(`screen.compose: alternative.fork ${JSON.stringify(a.fork)} is not a seq (11, 17, …)`);
+        const twin = next.frames.find((f) => plainObject(f.alternative) && f.alternative.turn === a.turn);
+        if (twin) throw new Error(`screen.compose: fork turn ${a.turn} already landed as ${twin.id} (option ${twin.alternative.option}) — one option per fork turn reaches the document (D5)`);
+      }
       next.frames.push({
         id: nextId("f", frameIds()),
         screenId: p.screenId,
@@ -342,6 +364,7 @@ export function applyOp(doc, op) {
         composition: p.composition,
         why: p.why,
         ...(p.states?.length && { states: [...p.states] }),
+        ...(p.alternative && { alternative: { turn: p.alternative.turn, option: p.alternative.option, fork: p.alternative.fork } }),
       });
       break;
     }
@@ -817,6 +840,27 @@ export function staleFrames(doc, transcript) {
 // refuses a duplicate). A dangling ref stays: re-linking it is the owner's choice of decision.
 export const reconfirmRefs = (frame, rows) => [...new Set((Array.isArray(frame?.decisionRefs) ? frame.decisionRefs : [])
   .map((r) => (Array.isArray(rows) ? rows : []).find((x) => x?.frameId === frame.id && x.ref === r && x.status === "stale")?.latest ?? r))];
+
+// forkFrame / forkList (#320, D5): a READ. A fork is an open question no later decision closed, or a decision the owner
+// flagged at ask time (a `fork` turn line). A pick is not a decision: the row says picked, never closed. Total over junk.
+export const forkFrame = (doc, ref) => (Array.isArray(doc?.frames) ? doc.frames : [])
+  .find((f) => plainObject(f) && f.baseId == null && plainObject(f.alternative) && f.alternative.fork === ref) ?? null;
+export function forkList(doc, { questions = null, decisions = null, buildTx = [] } = {}) {
+  const ds = Array.isArray(decisions) ? decisions.filter((d) => plainObject(d) && Number.isInteger(d.seq)) : [];
+  const rows = [];
+  for (const q of Array.isArray(questions) ? questions : []) {
+    if (!plainObject(q) || !Number.isInteger(q.seq)) continue;
+    const qid = typeof q.questionId === "string" ? q.questionId : null;
+    if (qid !== null && ds.some((d) => d.seq > q.seq && d.questionId === qid)) continue;
+    rows.push({ ref: String(q.seq), kind: "open-question", questionId: qid, reason: typeof q.reason === "string" ? q.reason : null, turn: null });
+  }
+  for (const l of Array.isArray(buildTx) ? buildTx : []) {
+    if (!plainObject(l) || l.type !== "turn" || l.ask?.kind !== "fork" || typeof l.ask.fork !== "string") continue;
+    if (rows.some((r) => r.ref === l.ask.fork)) continue;
+    rows.push({ ref: l.ask.fork, kind: "flagged", questionId: ds.find((d) => d.seq === Number(l.ask.fork))?.questionId ?? null, reason: null, turn: l.turn ?? null });
+  }
+  return rows.map((r) => { const f = forkFrame(doc, r.ref); return { ...r, status: f ? "picked" : "open", frameId: f?.id ?? null, option: f?.alternative.option ?? null }; });
+}
 
 // canDeleteBasePart(doc, baseId, partId) → true, or THROWS naming every state that still overrides it.
 //

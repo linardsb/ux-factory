@@ -12,6 +12,7 @@
 // WHAT IT PROVES: the plumbing — the handler, the fence, the transcript, the lock and the page.
 // CANNOT REACH (build-checks group 47 and gates.md carry the same clause):
 // a model's behaviour (whether it yields, names the brief in its why, or escapes), the SDK's option handling, hook delivery by the CLI, and the page — those are the preflight's, the journey compose pass's and --live-compose's.
+// For a fork turn (#320): whether a model files two options under FORK_ASK while LOOP says once — the sitting's.
 //
 // ITS BEHAVIOUR IS CHOSEN ONLY BY THE OWNER'S BRIEF, read back out of the prompt after BRIEF_LEAD:
 //   impossible: <rest>   replies "NOT COVERED: <rest>" and calls nothing
@@ -19,13 +20,18 @@
 //   twice: …             calls the handler twice with the screen fixture
 //   invalid: …           files the screen fixture with one child renamed hero-banner
 //   anything else        a screen ask files CHOOSE_AMOUNT; a state ask files one state_add
+// A FORK TURN (#320, the prompt carries FORK_LEAD) files two options of choose-amount — A is CHOOSE_AMOUNT, B titled
+// "Set a first-payment limit" with a cap hint on the amount — and the brief narrows it:
+//   one-option: …        files option A only (the session records the alternative as not drafted)
+//   three-options: …     files A, B, then A again on the same screen — the third reaches the applier, which refuses "c"
+//   anything else        files A then B
 // Imports nothing from portal/node_modules, so group 47 can use it in CI.
 
 import { realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { BRIEF_LEAD } from "../portal/lib/canvas-session.mjs";
+import { BRIEF_LEAD, FORK_LEAD } from "../portal/lib/canvas-session.mjs";
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 let sessions = 0;
@@ -75,6 +81,16 @@ export async function composeQuery(opts) {
       await opts.canUseTool(tool, {});
     }
     opts.onText?.("Fence probed.");
+  } else if (opts.tool.name === "screen_compose" && opts.prompt.includes(FORK_LEAD)) {
+    const A = { screenId: "choose-amount", why: "Option A: no limit stated on the screen.", composition: structuredClone(CHOOSE_AMOUNT), decisionRefs: ["7"] };
+    const bc = structuredClone(CHOOSE_AMOUNT);
+    bc.children[0].props.title = "Set a first-payment limit";
+    bc.children[1].props.hint = "First payments to a new payee are capped";
+    const B = { ...A, why: "Option B: the cap stated up front.", composition: bc };
+    await call(A);
+    if (!brief.startsWith("one-option:")) await call(B);
+    if (brief.startsWith("three-options:")) await call(structuredClone(A));
+    opts.onText?.("Proposed two options of choose-amount.");
   } else if (opts.tool.name === "screen_compose") {
     const why = brief ? `Serves the owner's brief: "${brief}"` : "No brief this turn.";
     const composition = structuredClone(CHOOSE_AMOUNT);

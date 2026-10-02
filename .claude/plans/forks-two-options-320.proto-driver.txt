@@ -1,0 +1,52 @@
+import { mkdtempSync, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+const R = "/Users/Berzins/Desktop/Linards_current/wt-plan-320";
+const S = await import(`${R}/portal/lib/canvas-session.mjs`);
+const St = await import(`${R}/portal/lib/canvas-store.mjs`);
+const F = await import(`${R}/tooling/fake-compose-agent.mjs`);
+const O = await import(`${R}/system/canvas-ops.mjs`);
+const copy = (d) => St.seedSpine(join(R, "discovery/faster-payment"), join(mkdtempSync(join(tmpdir(), "p320-")), "pkg"), { discovery: d });
+const L = (p) => readFileSync(join(p, "build/ops.jsonl"), "utf8").trim().split("\n").map(JSON.parse);
+const T = (p) => readFileSync(join(p, "build/transcript.jsonl"), "utf8").trim().split("\n").map(JSON.parse);
+const out = (k, v) => console.log(k.padEnd(28), typeof v === "string" ? v : JSON.stringify(v));
+// b. stand-in fork turn
+const p = copy(false);
+const r = await S.runComposeTurn({ pkgRoot: p, base: L(p).length, ask: { kind: "fork", fork: "11" }, transport: F.composeQuery });
+out("b outcome/added", [r.outcome, r.added]);
+out("b alts", L(p).slice(-2).map((l) => [l.status, l.params.screenId, l.params.alternative]));
+out("b stats.maxTurns", T(p).find((l) => l.type === "stats").maxTurns);
+out("b view.options", r.view.options?.map((o) => o.option));
+out("b forks", r.view.forks);
+const next = await S.runComposeTurn({ pkgRoot: p, base: L(p).length, ask: { kind: "screen" }, transport: F.composeQuery }).catch((e) => e.message);
+out("b next turn", String(next).slice(0, 70));
+// c. atomic pick refusals + pick
+const [A, B] = L(p).slice(-2);
+const pos = { ...St.positionsOf(St.loadBuild(join(p, "build")).canvas), f3: { x: 1600, y: 0 } };
+const save = (ops) => { try { return St.saveRun(p, { base: L(p).length, ops, positions: pos, decisions: null }); } catch (e) { return e.message.slice(0, 90); } };
+const acc = (x) => ({ op: x.op, params: x.params, status: "accepted", fromStep: x.seq });
+const ref = (x) => ({ op: x.op, params: x.params, status: "refused", fromStep: x.seq });
+out("c accept B alone", save([acc(B)]));
+out("c refuse A alone", save([ref(A)]));
+out("c accept both", save([acc(B), acc(A)]));
+out("c pick B", save([acc(B), ref(A)]));
+const doc = St.foldLedger(L(p)).doc;
+out("c f3", [doc.frames.at(-1).id, doc.frames.at(-1).alternative, doc.frames.at(-1).composition.children[0].props.title]);
+out("e notPickedOf", [St.notPickedOf(L(p)), "A verdict seq", L(p).at(-1).seq]);
+out("d verifyBuild", St.verifyBuild(St.loadBuild(join(p, "build"))));
+out("g last.fork", S.composeView(p).last.fork);
+out("F5 diagram", O.stateDiagram(doc).split("\n").filter((x) => x.includes("f3")));
+out("F5 missing f3", O.missingStates(doc).find((m) => m.frameId === "f3"));
+const lines = L(p); const bad = lines.map((l, i) => (i === lines.length - 1 ? { ...l, at: "2026-01-01T00:00:00.000Z" } : l));
+out("d mutated at", St.verifyBuild({ ops: bad, canvas: St.loadBuild(join(p, "build")).canvas }).filter((x) => x.includes("D5")));
+out("f picked again", await S.runComposeTurn({ pkgRoot: p, base: L(p).length, ask: { kind: "fork", fork: "11" }, transport: F.composeQuery }).catch((e) => e.message.slice(0, 80)));
+// c2. one-option and three-options
+for (const brief of ["one-option: x", "three-options: x"]) {
+  const q = copy(false);
+  const rr = await S.runComposeTurn({ pkgRoot: q, base: L(q).length, ask: { kind: "fork", fork: "11" }, brief, transport: F.composeQuery });
+  out(brief, { added: rr.added, statuses: L(q).slice(6).map((l) => l.status), tx: T(q).filter((l) => ["refused", "not-drafted"].includes(l.type)).map((l) => [l.type, l.kind ?? l.filed, String(l.error ?? "").slice(0, 60)]), nd: rr.view.last.fork?.notDrafted, vb: St.verifyBuild(St.loadBuild(join(q, "build"))) });
+}
+// f. validation on a discovery copy
+const d = copy(true);
+for (const fk of ["1", "11", "99"]) out(`f fork ${fk}`, await S.runComposeTurn({ pkgRoot: d, base: L(d).length, ask: { kind: "fork", fork: fk }, transport: F.composeQuery }).then((x) => x.outcome).catch((e) => e.message.slice(0, 90)));
+out("f composeRefusal", S.composeRefusal("canvas-session: seq 1 is neither an open question nor a current decision in this package's transcript — a fork names one (D5)"));

@@ -34,6 +34,10 @@
 //      `undone` line like any other op; Refuse is a `refused` line with `fromStep`, off the stack. A
 //      turn never reloads the page, unlike canvas-import.mjs call 1: nothing the page's history has
 //      not seen entered the fold, so adopting the returned `count` is enough and the history survives.
+//      A fork turn (#320) holds two sibling proposals; a pick is the accepted line plus the sibling's
+//      refused line, pushed in one handler so they reach one save (saveRun refuses half a pair), and
+//      Neither is both refused lines the same way. Every check runs before the first push: emit() runs
+//      "*" even after a handler throws, so a throw mid-pair would save half of it.
 //
 //   7. A LANE IS DRAFTED, THEN KEPT AS ONE OP (#314, owner 2026-09-29). Edits in a draft change nothing on disk;
 //      Keep lane writes one variant.add with the whole override map; a kept lane is read-only until a lane edit
@@ -50,7 +54,7 @@ import { mountCanvasVerbs } from "/system/studio-verbs.mjs";
 import { mountCanvasSelect } from "/system/studio-select.mjs";
 import { mountStudioLayers } from "/system/studio-layers.mjs";
 import { mountStudioMinimap } from "/system/studio-minimap.mjs";
-import { applyOp, EXHIBIT_SIZE, exhibitClashes, exhibitsOf, frameTree, groupInstances, laneDoc, laneKeys, missingStates, placeDecision, reconfirmRefs, staleFrames, stateDiagram } from "/system/canvas-ops.mjs";
+import { applyOp, EXHIBIT_SIZE, exhibitClashes, exhibitsOf, forkFrame, frameTree, groupInstances, laneDoc, laneKeys, missingStates, placeDecision, reconfirmRefs, staleFrames, stateDiagram } from "/system/canvas-ops.mjs";
 import { PRESET_NAMES, WIDTH_MAX, WIDTH_MIN, presetWidth } from "/system/device-presets.mjs";
 import { groupFieldsets, mountPromoted } from "/canvas-groups.mjs";
 
@@ -201,6 +205,8 @@ function frameParts(f) {
     if (!x) { chips.appendChild(el("span", { class: "cv-chip", text: `Decision ${r}` })); continue; }
     chips.appendChild(el("span", { class: "cv-chip cv-chip-stale", text: x.status === "stale" ? `Decision ${r} changed since linked — now ${x.latest}` : `Decision ${r} not found` }));
   }
+  // #320: the frame that resolved a fork says which fork and which option.
+  if (f.alternative) chips.appendChild(el("span", { class: "cv-chip cv-chip-fork", "data-cv-fork": f.alternative.fork, text: `Fork ${f.alternative.fork} · option ${f.alternative.option.toUpperCase()}` }));
   // D2 (#318): one Re-confirm re-pins every stale ref of this frame to its chain head, in one frame.link.
   const rows = stale.filter((x) => x.status === "stale");
   if (rows.length) chips.appendChild(el("button", { type: "button", class: "btn btn-secondary cv-btn cv-reconfirm-btn", "data-cv-reconfirm": f.id, "aria-label": `Re-confirm ${frameName(f)}: ${rows.map((x) => `decision ${x.ref} → ${x.latest}`).join(", ")}`, text: "Re-confirm" }));
@@ -630,8 +636,13 @@ async function flushSettled() {
   return false;
 }
 
+const upper = (xs) => xs.map((x) => String(x).toUpperCase()).join(", ");
+
 function lastSentence(last) {
   if (!last) return "";
+  // #320: not-picked is derived by the server (notPickedOf) and only said here.
+  if (last.fork?.picked) return `Picked option ${upper([last.fork.picked])}${last.fork.notPicked.length ? `; option ${upper(last.fork.notPicked)} refused: not-picked` : ""}.`;
+  if (last.fork?.notDrafted) return "The agent drafted one option; the alternative was not drafted.";
   if (last.outcome === "refused") return `Refused: ${last.error ?? "the handler refused the proposal"}`;
   if (last.outcome === "escape") {
     const m = String(last.text ?? "").match(/^[^A-Za-z\n]*NOT COVERED:\s*(.*)$/m);
@@ -642,7 +653,8 @@ function lastSentence(last) {
   return "";
 }
 
-function proposalCard(o) {
+// `opts.label` heads a fork option's card and `opts.pick` swaps Accept/Refuse for that option's Pick (#320).
+function proposalCard(o, opts = {}) {
   const shown = el("div", { class: "cv-compose-screen" });
   try {
     const tree = o.op === "state.add"
@@ -653,19 +665,48 @@ function proposalCard(o) {
   const refs = o.op === "screen.compose" ? (o.params.decisionRefs ?? []) : null;
   // #316 (R6): the states a screen declares become required, so the owner sees them before accepting.
   const states = o.op === "screen.compose" && Array.isArray(o.params.states) && o.params.states.length ? o.params.states : null;
-  const accept = el("button", { type: "button", class: "btn btn-secondary cv-btn", "data-compose-accept": "", text: "Accept" });
-  const refuse = el("button", { type: "button", class: "btn btn-secondary cv-btn", "data-compose-refuse": "", text: "Refuse" });
   const emit = (type) => (e) => bus.emit({ type, source: e && e.detail === 0 ? "keyboard" : "pointer", target: { component: "proposal", id: String(o.seq) } });
-  accept.addEventListener("click", emit("ui.proposal-accept"));
-  refuse.addEventListener("click", emit("ui.proposal-refuse"));
+  let actions;
+  if (opts.pick) {
+    const pick = el("button", { type: "button", class: "btn btn-secondary cv-btn", "data-compose-pick": o.option, text: `Pick ${o.option.toUpperCase()}` });
+    pick.addEventListener("click", emit("ui.proposal-pick"));
+    actions = [pick];
+  } else {
+    const accept = el("button", { type: "button", class: "btn btn-secondary cv-btn", "data-compose-accept": "", text: "Accept" });
+    const refuse = el("button", { type: "button", class: "btn btn-secondary cv-btn", "data-compose-refuse": "", text: "Refuse" });
+    accept.addEventListener("click", emit("ui.proposal-accept"));
+    refuse.addEventListener("click", emit("ui.proposal-refuse"));
+    actions = [accept, refuse];
+  }
   return el("div", { class: "cv-compose-card", "data-compose-card": String(o.seq) },
+    opts.label ? el("p", { class: "cv-compose-option", "data-compose-option": o.option, text: opts.label }) : null,
     el("p", { class: "cv-compose-by", text: `Proposed by the agent · turn ${o.turn ?? "?"} · ${whatOf(o)}` }),
     shown,
     el("p", { class: "cv-compose-why", text: `Why: ${o.why ?? "no reason given"}` }),
     el("p", { class: "cv-compose-brief", "data-compose-brief": "", text: o.brief !== null && o.brief !== undefined ? `Your brief: "${o.brief}"` : "No brief this turn." }),
     refs === null ? null : el("p", { class: "cv-compose-refs", text: refs.length ? `Decisions proposed: ${refs.join(", ")}` : "No decision named — it will be flagged" }),
     states === null ? null : el("p", { class: "cv-compose-states", "data-compose-states": "", text: `States declared: ${states.join(" · ")}` }),
-    el("div", { class: "cv-compose-actions" }, accept, refuse));
+    el("div", { class: "cv-compose-actions" }, ...actions));
+}
+
+// #320: a fork's options side by side, one Pick each, and one Neither for the pair.
+function optionsBlock(options) {
+  const neither = el("button", { type: "button", class: "btn btn-secondary cv-btn", "data-compose-neither": "", text: "Neither" });
+  neither.addEventListener("click", (e) => bus.emit({ type: "ui.proposal-neither", source: e && e.detail === 0 ? "keyboard" : "pointer", target: { component: "fork", id: String(options[0].turn ?? options[0].seq) } }));
+  return el("div", { class: "cv-compose-options", "data-compose-options": "" },
+    ...options.map((o) => proposalCard(o, { label: `Option ${o.option.toUpperCase()}`, pick: true })),
+    neither);
+}
+
+function askFork() {
+  const value = ($("#cv-fork")?.value ?? "").trim();
+  if (!/^[1-9][0-9]*$/.test(value)) {
+    composeNote = "A fork names a seq — e.g. 11.";
+    renderCompose();
+    canvas.say(composeNote);
+    return;
+  }
+  askTurn({ kind: "fork", fork: value });
 }
 
 // The static half (heading, brief, Ask) is built once, so a re-render never loses the brief being typed.
@@ -675,25 +716,39 @@ function renderCompose() {
   if (!panel.querySelector("#cv-brief")) {
     const ask = el("button", { type: "button", class: "btn btn-secondary cv-btn", "data-compose-ask": "", text: "Ask for a screen" });
     ask.addEventListener("click", () => askTurn({ kind: "screen" }));
+    // #320: a fork names an open question or a decision by its seq; the turn drafts two options of one screen.
+    const forkAsk = el("button", { type: "button", class: "btn btn-secondary cv-btn", "data-compose-fork-ask": "", text: "Ask for two options" });
+    forkAsk.addEventListener("click", askFork);
     panel.replaceChildren(
       el("h2", { text: "Compose" }),
       el("label", { for: "cv-brief", text: "Your brief for the next turn (optional)" }),
       el("textarea", { id: "cv-brief", maxlength: 500, rows: 3 }),
       ask,
+      el("label", { for: "cv-fork", text: "Fork on a question or decision (its seq)" }),
+      el("div", { class: "cv-compose-fork" },
+        el("input", { id: "cv-fork", type: "text", list: "cv-fork-list", inputmode: "numeric", maxlength: 6, autocomplete: "off" }),
+        el("datalist", { id: "cv-fork-list" }),
+        forkAsk),
       el("p", { class: "cv-compose-status", role: "status", "data-compose-status": "" }),
       el("div", { "data-compose-body": "" }));
   }
   const open = compose?.open ?? null;
+  const options = compose?.options ?? null;
   const ask = panel.querySelector("[data-compose-ask]");
   ask.disabled = Boolean(composing || open || broken);
-  panel.querySelector("[data-compose-status]").textContent = composing ? "Asking — one turn, one proposal…"
+  panel.querySelector("[data-compose-fork-ask]").disabled = ask.disabled;
+  panel.querySelector("#cv-fork-list").replaceChildren(...(compose?.forks ?? []).filter((r) => !forkFrame(doc, r.ref))
+    .map((r) => el("option", { value: r.ref, label: r.questionId ?? `seq ${r.ref}` })));
+  panel.querySelector("[data-compose-status]").textContent = composing ? "Asking — one turn…"
     : broken ? "The page could not save — reload to continue."
-      : open ? "Accept or refuse the proposal below before the next turn."
-        : composeNote;
+      : options?.length === 1 ? "The agent drafted one option; the alternative was not drafted. Pick it, or Neither, before the next turn."
+        : options ? "Pick one option, or Neither, before the next turn."
+          : open ? "Accept or refuse the proposal below before the next turn."
+            : composeNote;
   const body = panel.querySelector("[data-compose-body]");
   const last = lastSentence(compose?.last);
   body.replaceChildren(...[
-    open ? proposalCard(open) : null,
+    options ? optionsBlock(options) : open ? proposalCard(open) : null,
     !open && last ? el("p", { class: "cv-compose-last", "data-compose-last": "", text: last }) : null,
   ].filter(Boolean));
 }
@@ -733,13 +788,15 @@ async function askTurn(ask) {
       count = body.count;
       compose = body.view;
       if (briefEl) briefEl.value = "";
+      if (ask.kind === "fork") $("#cv-fork").value = "";
     }
   } catch (e) {
     composeNote = `The turn failed: ${e.message}`;
   } finally {
     composing = false;
     renderCompose();
-    const said = composeNote || lastSentence(compose?.last) || (compose?.open ? `The agent proposed ${whatOf(compose.open)} — accept or refuse it.` : "");
+    const said = composeNote || (compose?.options ? `The agent proposed ${compose.options.length === 1 ? "one option" : `${compose.options.length} options`} of ${whatOf(compose.options[0])} — pick one, or Neither.` : "")
+      || lastSentence(compose?.last) || (compose?.open ? `The agent proposed ${whatOf(compose.open)} — accept or refuse it.` : "");
     if (said) canvas.say(said);
     if (again && !broken) { again = false; flush(); }
   }
@@ -763,7 +820,8 @@ function acceptedBox(o, frame) {
 function registerComposeConsumers() {
   bus.on("ui.proposal-accept", (a) => {
     const o = compose?.open;
-    if (!o || a?.target?.id !== String(o.seq)) return;
+    // A fork's option is answered only with its sibling (#320): Pick or Neither, never Accept alone.
+    if (!o || compose.options || a?.target?.id !== String(o.seq)) return;
     const op = { op: o.op, params: o.params };
     let next;
     try { next = applyOp(doc, op); }
@@ -777,11 +835,42 @@ function registerComposeConsumers() {
   });
   bus.on("ui.proposal-refuse", (a) => {
     const o = compose?.open;
-    if (!o || a?.target?.id !== String(o.seq)) return;
+    if (!o || compose.options || a?.target?.id !== String(o.seq)) return;
     pending.push({ op: o.op, params: o.params, status: "refused", fromStep: o.seq });
     compose.open = null;
     renderCompose();
     canvas.say(`Refused ${whatOf(o)} — recorded, and nothing placed.`);
+  });
+  // #320: every check before the first push, then both verdict lines in this one synchronous handler — the type's
+  // handlers run before "*" (action-bus.mjs), so scheduleSave's one flush carries the pair.
+  bus.on("ui.proposal-pick", (a) => {
+    const options = compose?.options;
+    const o = options?.find((x) => a?.target?.id === String(x.seq));
+    if (!o) return;
+    const op = { op: o.op, params: o.params };
+    let next;
+    try { next = applyOp(doc, op); }
+    catch (e) { canvas.say(`Refused: ${e.message}`); return; }
+    const frame = next.frames.at(-1);
+    const others = options.filter((x) => x.seq !== o.seq);
+    boxes.set(frame.id, acceptedBox(o, frame));
+    if (!applyOwnerOp(op, { line: { status: "accepted", fromStep: o.seq } })) { boxes.delete(frame.id); return; }
+    for (const s of others) pending.push({ op: s.op, params: s.params, status: "refused", fromStep: s.seq });
+    compose.open = null;
+    compose.options = null;
+    composeNote = `Picked option ${upper([o.option])} as ${frame.id}${others.length ? ` — option ${upper(others.map((x) => x.option))} refused: not-picked` : ""}.`;
+    renderCompose();
+    canvas.say(composeNote);
+  });
+  bus.on("ui.proposal-neither", (a) => {
+    const options = compose?.options;
+    if (!options || a?.target?.id !== String(options[0].turn ?? options[0].seq)) return;
+    for (const s of options) pending.push({ op: s.op, params: s.params, status: "refused", fromStep: s.seq });
+    compose.open = null;
+    compose.options = null;
+    composeNote = options.length === 1 ? "Neither — the option refused. Brief the next turn." : "Neither — both options refused. Brief the next turn.";
+    renderCompose();
+    canvas.say(composeNote);
   });
   document.addEventListener("click", (e) => {
     const b = e.target?.closest?.("[data-cv-ask-state]");
@@ -1067,6 +1156,18 @@ function focusFrameFromQuery() {
   canvas.say(`${frameName(f)} — from the inbox.`);
 }
 
+// ?fork=<seq> (#320): the inbox's fork rows land here — the fork input filled and focused, one announcement. Asking
+// stays the owner's press: landing writes nothing and runs no turn.
+function forkFromQuery() {
+  const want = qs.get("fork");
+  const input = $("#cv-fork");
+  if (!want || !input) return;
+  input.value = want;
+  input.focus({ preventScroll: true });
+  document.documentElement.dataset.cvForkFromInbox = want;   // the journey's handle: set only after focus was called
+  canvas.say(`Fork ${want} — from the inbox. Ask for two options when ready.`);
+}
+
 async function boot() {
   try {
     if (!provenance || !slug) throw new Error("open a run from the portal's Canvas list — this page needs ?provenance=…&slug=…");
@@ -1112,6 +1213,7 @@ async function boot() {
     renderCompose();
     mountPromoted(getCanvasPage);
     focusFrameFromQuery();
+    forkFromQuery();
     lastSavedKey = canon(gatherPositions());
     // LAST, so it runs after every exact consumer (action-bus.mjs: exact handlers, then "*").
     bus.on("*", scheduleSave);
