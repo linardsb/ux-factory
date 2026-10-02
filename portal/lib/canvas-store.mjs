@@ -654,6 +654,11 @@ export function saveRun(pkgRoot, { base, ops, positions, decisions } = {}, { now
     const status = o?.status;
     if (status === "applied" || status === "undone") {
       if (o.fromStep !== undefined) throw new Error(`saveRun: op ${i} is ${status} and carries fromStep — only a verdict (accepted, refused) names the proposal it answers`);
+      // PR #516 F1: verifyBuild's redo rule at write time — an applied fork option restates an accepted line, or it is a forged tag.
+      const alt = status === "applied" ? altOf(o) : null;
+      if (alt && ![...existing, ...ops.slice(0, i)].some((x) => x?.status === "accepted" && canon({ op: x.op, params: x.params }) === canon({ op: o.op, params: o.params }))) {
+        throw new Error(`saveRun: op ${i} applies fork option ${alt.option} of ${alt.turn}, which no verdict picked — only the owner's pick lands a fork option (D5)`);
+      }
     } else if (status === "accepted" || status === "refused") {
       checkVerdict(existing, ops, i);
     } else {
