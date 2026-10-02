@@ -205,7 +205,7 @@
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import vm from "node:vm";
 import zlib from "node:zlib";
 import { dirname, join, resolve } from "node:path";
@@ -9238,6 +9238,11 @@ console.log(JSON.stringify([row(openSession(audit)), row(openSession(audit)), ro
     const flag = lineOn("r1", "flag_weak_answer", { question_id: seven.params.question_id, missing: ["a gate fixture's missing piece"] });
     ok(flag.closes === true && same(reads([...T, flag]).cursor, base.cursor) && revisitView(head, [...T, flag]).turn === "r2",
       `30.59: a revisit that FLAGS instead of deciding must close its turn, leave the cursor alone and advance the revisit id to r2 — ${JSON.stringify({ closes: flag.closes, cursor: at(reads([...T, flag]).cursor), next: revisitView(head, [...T, flag]).turn })}`);
+    // PR #502 F3: a revisit the agent closed NOTHING on still uses its id — its answer line alone moves the next id,
+    // so one rN never carries answers to two questions. The control: with no r line anywhere the id stays r1.
+    const unclosed = { ref: `a${A.length + 1}`, ts: "2026-01-01T00:00:00.000Z", turn: "r1", question_id: seven.params.question_id, kind: "banked", text: "Gate fixture (#502 F3)." };
+    ok(revisitView(head, T, [...A, unclosed]).turn === "r2" && revisitView(head, T, A).turn === "r1",
+      `30.59: an unclosed revisit's answer line leaves the next revisit id at ${revisitView(head, T, [...A, unclosed]).turn} (control ${revisitView(head, T, A).turn}) — it must be r2 (control r1), or the next revisit, of any question, reuses r1`);
   }
 
   // 30.60 — runTurn's REVISIT PATH, DRIVEN end to end through tooling/fake-discovery-agent.mjs (#498). JOBS_DIR is an
@@ -9331,8 +9336,38 @@ console.log(JSON.stringify({ pre, first, second, seen, refusals }));`;
       const fpView = sessionView(FP);
       ok(names(() => assertRevisit(fpView, { slug: "faster-payment", provenance: "fictional", questionId: q7 }), "is a fictional package", '"faster-payment"') === null,
         `30.60: a revisit on the fictional package is not refused naming it — ${names(() => assertRevisit(fpView, { slug: "faster-payment", provenance: "fictional", questionId: q7 }), "is a fictional package")}`);
-      ok(threw(() => assertRevisit(fpView, { slug: "faster-payment", provenance: "real", questionId: q7 })) === null,
-        "30.60: the control — the same view under real provenance — is refused, so the fictional refusal above proves nothing");
+      const fpRevisable = { ...fpView, revisit: revisitView(fpView.head, readTranscript(FP), readAnswers(FP)) };
+      ok(threw(() => assertRevisit(fpRevisable, { slug: "faster-payment", provenance: "real", questionId: q7 })) === null,
+        "30.60: the control — the same package, read as revisable, under real provenance — is refused, so the fictional refusal above proves nothing");
+      // (j) PR #502 F4: the server's revisit list is null on a package outside the jobs folder, so the drawer reads
+      // no form field for it. Its control is (d): the same package copied under JOBS_DIR offers r1 → r2.
+      ok(fpView.revisit === null && r.pre.next === "r1",
+        `30.60: sessionView offers revisit ${JSON.stringify(fpView.revisit?.turn ?? null)} on the committed fictional package (jobs-folder copy: ${r.pre.next}) — it must be null there and r1 on the copy`);
+    } finally {
+      rmSync(jobs, { recursive: true, force: true });
+    }
+  }
+
+  // 30.60b — THE SEAM REFUSES BEFORE THE APPEND (PR #502 F2). JOBS_DIR is a scratch dir OUTSIDE the OS temp
+  // directory (under the home directory) holding a real-provenance copy of faster-payment; with the seam naming the
+  // fake, a revisit must be refused by the fake's assertRoot with answers.jsonl and transcript.jsonl byte-unchanged.
+  // Its control is 30.60, where the same revisit under a temp JOBS_DIR runs. Gated on the seam like 30.60.
+  if (seamRead.intact) {
+    const jobs = realpathSync(mkdtempSync(join(homedir(), ".g30-seam-")));
+    try {
+      const pkg = join(jobs, "_discovery", "fp-seam");
+      mkdirSync(pkg, { recursive: true });
+      for (const f of ["run.json", "answers.jsonl", "transcript.jsonl"]) writeFileSync(join(pkg, f), readFileSync(join(ROOT, "discovery/faster-payment", f)));
+      const bytes = () => ["answers.jsonl", "transcript.jsonl"].map((f) => readFileSync(join(pkg, f), "utf8"));
+      const before = bytes();
+      const q7 = readTranscript(pkg).find((l) => l.seq === 7).params.question_id;
+      const script = `const D = await import(${JSON.stringify(pathToFileURL(join(ROOT, "portal/lib/discovery.mjs")).href)});
+let msg = null; try { await D.runTurn({ slug: "fp-seam", provenance: "real", questionId: ${JSON.stringify(q7)}, revisit: true, text: "A refused answer (gate fixture, #502 F2)." }); } catch (e) { msg = e.message; }
+console.log(JSON.stringify({ msg }));`;
+      const out = execFileSync(process.execPath, ["--input-type=module", "-e", script], { cwd: ROOT, encoding: "utf8", env: { ...process.env, JOBS_DIR: jobs, UXF_DISCOVERY_TRANSPORT: join(ROOT, "tooling/fake-discovery-agent.mjs") } });
+      const { msg } = JSON.parse(out.trim().split("\n").pop());
+      ok(msg?.includes("must never touch a committed package") && same(bytes(), before),
+        `30.60b: a revisit on a non-temp root with the seam set ${msg ? `threw "${msg.slice(0, 120)}"` : "did NOT throw"} and ${same(bytes(), before) ? "left the files unchanged" : "CHANGED answers.jsonl or transcript.jsonl"} — the seam's assertRoot must refuse it before the answer is appended`);
     } finally {
       rmSync(jobs, { recursive: true, force: true });
     }
@@ -9348,6 +9383,9 @@ console.log(JSON.stringify({ pre, first, second, seen, refusals }));`;
     const bBody = tsrc.slice(bAt, tsrc.indexOf("\n}\n", bAt));
     ok(bAt !== -1 && bBody.includes("fileOp({") && !bBody.includes("applyOp(") && !bBody.includes("appendTranscript("),
       `30.61: buildOpServer files without fileOp — it must call fileOp({ and hold neither applyOp( nor appendTranscript( (${JSON.stringify({ found: bAt !== -1, fileOp: bBody.includes("fileOp({"), applyOp: bBody.includes("applyOp("), append: bBody.includes("appendTranscript(") })})`);
+    const rdt = tsrc.slice(tsrc.indexOf("export async function runDiscoveryTurn("));
+    ok(bBody.includes("fileOp({ root, turn, state, onLine, op, args, questionId })") && /buildOpServer\(\{ root, turn, state, onLine, questionId: question\?\.id \?\? null \}\)/.test(rdt.slice(0, rdt.indexOf("\n}\n"))),
+      "30.61: the real transport does not pin a revisit's ops (PR #502 F1) — buildOpServer must pass questionId to fileOp, and runDiscoveryTurn must pass question?.id ?? null to buildOpServer");
     const dir = realpathSync(mkdtempSync(join(tmpdir(), "g30-fileop-")));
     const quiet = process.stderr.write;
     try {
@@ -9382,6 +9420,26 @@ console.log(JSON.stringify({ pre, first, second, seen, refusals }));`;
       const diskFail = threw(() => fileOp({ root: badRoot, turn: "t1", state: state2, onLine: null, op: "record_decision", args: good }));
       ok(diskFail !== null && state2.current === before,
         `30.61: a failed append ${diskFail ? "threw" : "did NOT throw"} and the holder ${state2.current === before ? "is unchanged" : "MOVED"} — disk first, holder second, so a same-turn retry is never refused for an op the file never received`);
+      // PR #502 F1: on an rN turn fileOp pins the op to the revisited question. r1 re-records QID (a3); an op naming
+      // QID2, an answer_ref of QID2's answer, or no questionId at all is refused with nothing written. Controls: the
+      // same wrong-question op on a tN turn files (the pin is revisit-only), and the matching op on r1 files.
+      const QID2 = BANK[1].id;
+      const pinRoot = join(dir, "pin");
+      mkdirSync(pinRoot);
+      writeFileSync(join(pinRoot, "answers.jsonl"), `${[["t1", QID], ["t2", QID2], ["r1", QID]].map(([turn, q], n) => JSON.stringify({ ref: `a${n + 1}`, ts: "2026-01-01T00:00:00.000Z", turn, question_id: q, kind: "banked", text: `Gate fixture answer ${n + 1} (#502 F1).` })).join("\n")}\n`);
+      const pin = { current: emptyRun() };
+      const pinHeld = pin.current;
+      const other = { ...good, question_id: QID2, answer_ref: "a2" };
+      const wrongQ = threw(() => fileOp({ root: pinRoot, turn: "r1", state: pin, onLine: null, op: "record_decision", args: other, questionId: QID }));
+      const wrongRef = threw(() => fileOp({ root: pinRoot, turn: "r1", state: pin, onLine: null, op: "record_decision", args: { ...good, answer_ref: "a2" }, questionId: QID }));
+      const unpinned = threw(() => fileOp({ root: pinRoot, turn: "r1", state: pin, onLine: null, op: "record_decision", args: { ...good, answer_ref: "a3" } }));
+      ok(wrongQ?.message?.includes(QID) && wrongQ.message.includes(QID2) && wrongRef?.message?.includes("answer_ref a2") && unpinned?.message?.includes("was not told which question")
+        && readTranscript(pinRoot).length === 0 && pin.current === pinHeld,
+        `30.61: fileOp on r1 re-recording ${QID} — ${JSON.stringify([wrongQ, wrongRef, unpinned].map((e) => e?.message?.slice(0, 90) ?? "did NOT throw"))}, transcript ${readTranscript(pinRoot).length} — the wrong question (naming both), the wrong answer_ref and a missing questionId must each be refused, writing nothing`);
+      const onT = threw(() => fileOp({ root: pinRoot, turn: "t2", state: pin, onLine: null, op: "record_decision", args: other, questionId: QID }));
+      const onR = threw(() => fileOp({ root: pinRoot, turn: "r1", state: pin, onLine: null, op: "record_decision", args: { ...good, answer_ref: "a3" }, questionId: QID }));
+      ok(onT === null && onR === null && readTranscript(pinRoot).length === 2,
+        `30.61: the controls — ${JSON.stringify([onT?.message?.slice(0, 90) ?? "filed", onR?.message?.slice(0, 90) ?? "filed"])} — a tN op on another question and the matching r1 op must both file, or the refusals above prove nothing`);
     } finally {
       process.stderr.write = quiet;
       rmSync(dir, { recursive: true, force: true });
@@ -9409,14 +9467,18 @@ console.log(JSON.stringify({ pre, first, second, seen, refusals }));`;
       ok(typeof F.runDiscoveryTurn === "function", "30.62: the fake does not export runDiscoveryTurn — the seam would load a module with no turn");
     }
     const tsrc = readFileSync(join(ROOT, "portal/lib/discovery-transport.mjs"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
-    ok(tsrc.includes("resume: head.sessionId && !fresh ? head.sessionId : undefined") && /if \(!fresh\) \{\s*try \{ recordSessionId\(root, sessionId\); \}/.test(tsrc),
-      "30.62: the transport does not start a revisit fresh — resume must be head.sessionId && !fresh ? …, and the init's recordSessionId must sit inside if (!fresh)");
+    ok(tsrc.includes("resume: head.sessionId && !fresh ? head.sessionId : undefined") && /if \(!fresh\) \{\s*try \{ recordSessionId\(root, sessionId\); \}/.test(tsrc)
+      && tsrc.includes("let sessionId = fresh ? null : head.sessionId ?? null;"),
+      "30.62: the transport does not start a revisit fresh — resume must be head.sessionId && !fresh ? …, the init's recordSessionId must sit inside if (!fresh), and sessionId must start null when fresh (PR #502 F5), or a revisit whose init never arrives reports the interview's session as its own");
     const dsrc = readFileSync(join(ROOT, "portal/lib/discovery.mjs"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
     const rAt = dsrc.indexOf("export async function runTurn(");
     const rBody = dsrc.slice(rAt, dsrc.indexOf("\n}", rAt));
     const revAt = rBody.indexOf("assertRevisit("), appAt = rBody.indexOf("appendAnswer(");
     ok(revAt !== -1 && appAt !== -1 && revAt < appAt && /fresh: revisit/.test(rBody) && /sessionId && !revisit\) recordSessionId/.test(rBody),
       `30.62: runTurn's revisit wiring is off — assertRevisit at ${revAt} must precede appendAnswer at ${appAt}, the transport call must pass fresh: revisit, and run.json's sessionId must be recorded only when !revisit`);
+    const seamAt = rBody.indexOf("seamed?.assertRoot(root);");
+    ok(seamAt !== -1 && seamAt < appAt && /typeof seamed\.assertRoot !== 'function'\) bad\(/.test(rBody),
+      `30.62: runTurn does not run the seam's assertRoot before the answer append (PR #502 F2) — seamed?.assertRoot(root) at ${seamAt} must precede appendAnswer at ${appAt}, and a seam module with no assertRoot must be refused`);
   }
 
   // 30.63 — THE DRAWER's #498 half, source-pinned (portal.js touches the DOM at module scope), each must beside its
@@ -9428,8 +9490,8 @@ console.log(JSON.stringify({ pre, first, second, seen, refusals }));`;
     const js = readFileSync(join(ROOT, "portal/public/portal.js"), "utf8").split("\n").filter((l) => !/^\s*\/\//.test(l)).join("\n");
     const slice = (start) => { const at = js.indexOf(start); return at === -1 ? "" : js.slice(at, js.indexOf("\n}", at)); };
     const pv = slice("function renderPackageView(");
-    ok(pv.includes("data-discovery-revisit") && pv.includes("s.revisit.questions.includes(d.questionId)") && pv.includes("!d.offScript") && pv.includes("discoveryEls().provenance === 'real'"),
-      "30.63: renderPackageView's Re-record button does not read the server's s.revisit list, !d.offScript and the real-provenance check — it would offer a revisit the server refuses");
+    ok(pv.includes("data-discovery-revisit") && pv.includes("s.revisit.questions.includes(d.questionId)") && pv.includes("!d.offScript") && !pv.includes("discoveryEls().provenance"),
+      "30.63: renderPackageView's Re-record button must read the server's s.revisit list and !d.offScript, and no form field — the server nulls the list outside the jobs folder (PR #502 F4), so a form read is a second rule that can disagree with it");
     ok(!/\.decisions\.(filter|reduce)\(/.test(pv), "30.63: renderPackageView filters or reduces the decisions — the button is a per-row condition (case 41)");
     const sub = js.slice(js.indexOf("$('#discovery-form').addEventListener('submit'"));
     const rvAt = sub.indexOf("if (discovery.revisit) {");

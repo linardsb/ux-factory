@@ -8,7 +8,8 @@
 // append order and the listener are the shipped ones. It builds the real posture's prompt first, so a
 // builder that throws on this turn's inputs throws here too (the #454 class). It refuses to run unless the
 // package root is under the OS temp directory (never this repo, never the jobs folder), so its lines only
-// ever land in a scratch package, even with UXF_DISCOVERY_TRANSPORT left exported in a shell. Its stats say
+// ever land in a scratch package, even with UXF_DISCOVERY_TRANSPORT left exported in a shell — runTurn calls its
+// assertRoot before the answer append too, so a refused root receives no answer line either. Its stats say
 // transport "fake".
 //
 // ITS BEHAVIOUR IS FIXED: one record_decision on the turn's question, carrying the prior banked decision's
@@ -48,7 +49,7 @@ export async function runDiscoveryTurn({ root, head, question, answer, turn, pos
   if (affordance !== null || park) throw new Error("fake-discovery-agent: it scripts a banked or revisit turn only — an affordance or a park needs a model");
   const prior = state.current.ops.findLast((r) => r.op === "record_decision" && r.params.question_id === question.id && r.params.off_script === false);
   fileOp({
-    root, turn, state, onLine, op: "record_decision",
+    root, turn, state, onLine, op: "record_decision", questionId: question.id,
     args: {
       question_id: question.id, answer_ref: answer.ref, level: prior?.params.level ?? "business", parent_id: prior?.params.parent_id ?? null,
       evidence_refs: [], wrong_if: "Scripted by tooling/fake-discovery-agent.mjs — not a model's judgement.", off_script: false,

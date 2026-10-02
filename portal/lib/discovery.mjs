@@ -372,8 +372,22 @@ export const opLine = ({ record }) => ({
 // hold the op. Answers are re-read per call, because the array grows across turns and a stale one makes a later
 // answer_ref unresolvable. Throws the applier's refusal verbatim; the transport turns that into an isError result
 // (spike 1, observation 2).
-export function fileOp({ root, turn, state, onLine, op, args }) {
-  const next = applyOp(state.current, { op, params: args }, { answers: readAnswers(root), bank: QUESTIONS, turn });
+//
+// ON A REVISIT TURN (rN) IT ALSO PINS THE QUESTION (PR #502 review, F1). The applier records any banked
+// record_decision as a supersede of that question's current decision, and on a finished run frames are pinned to
+// those decisions — so an op the model files against another question would silently move a decision nobody
+// revisited. `questionId` is the question the revisit re-records; on an rN turn every op that names a question must
+// name it, and must cite an answer line of it. Fail closed: an rN turn with no questionId files nothing.
+// file_evidence names no question and is left free. A tN turn is untouched, so the interview path is byte-identical.
+export function fileOp({ root, turn, state, onLine, op, args, questionId = null }) {
+  const answers = readAnswers(root);
+  if (isRevisitTurn(turn) && op !== 'file_evidence') {
+    if (typeof questionId !== 'string' || !questionId) bad(`turn ${turn} is a revisit and fileOp was not told which question it re-records — nothing is filed rather than filed against any question (#498)`);
+    if (args?.question_id !== questionId) bad(`turn ${turn} re-records "${questionId}" — this ${op} names ${JSON.stringify(args?.question_id ?? null)}, and filing it would change a decision nobody revisited. File it against "${questionId}" (#498)`);
+    const cited = answers.find((a) => a?.ref === args?.answer_ref);
+    if (cited && cited.question_id !== questionId) bad(`turn ${turn} re-records "${questionId}" — answer_ref ${cited.ref} is an answer to ${JSON.stringify(cited.question_id)}, not to it (#498)`);
+  }
+  const next = applyOp(state.current, { op, params: args }, { answers, bank: QUESTIONS, turn });
   const record = next.ops[next.ops.length - 1];
   const written = appendTranscript(root, opLine({ record }));
   state.current = next;
@@ -749,15 +763,17 @@ export function runMetrics({ depth, facets = null, questions, transcript, entryM
 // banked decision. Null on an open run (answer the question on the table) and on an existing-prd audit (the
 // document is the answer to every question). The applier's own predicate, `off_script === false`, decides what is
 // banked here, so this list is exactly the set whose next record_decision the applier records as a supersede.
-// The id counts CLOSED revisit turns, like the cursor's tN: a revisit the agent did not close reuses its rN, and
-// assertTurnWritable admits it. Derived, never stored (invariant 4).
-export function revisitView(head, transcript) {
+// The id is one past the highest rN on ANY answer or transcript line, so every revisit gets its own id even when the
+// agent closed nothing: one rN never carries answers to two questions, and fileOp's question pin reads one answer
+// per revisit (PR #502 review, F3 — it used to count CLOSED revisit turns, so an unclosed r1 was reused by the
+// next revisit, of any question). Derived, never stored (invariant 4).
+export function revisitView(head, transcript, answers = []) {
   if (!head?.endedAt || (head.entryMode ?? 'blank-idea') === 'existing-prd' || !Array.isArray(transcript)) return null;
   const ops = transcript.filter((l) => l?.type === 'op');
   const latest = new Set();
   for (const l of ops) if (l.op === 'record_decision' && l.params?.off_script === false && typeof l.params?.question_id === 'string') latest.add(l.params.question_id);
-  const closed = new Set(ops.filter((l) => l.closes === true && isRevisitTurn(l.turn)).map((l) => l.turn));
-  return { turn: `r${closed.size + 1}`, questions: [...latest] };
+  const used = [...transcript, ...(Array.isArray(answers) ? answers : [])].filter((l) => isRevisitTurn(l?.turn)).map((l) => Number(l.turn.slice(1)));
+  return { turn: `r${Math.max(0, ...used) + 1}`, questions: [...latest] };
 }
 
 const LABEL = { fictional: 'Real run — fictional scenario', real: 'Real run — real product' };
@@ -905,6 +921,8 @@ export const recordTurnStats = (root, stats) =>
 // which is also where the one re-ask lives. A turn that did NOT close — the agent yielded without
 // filing — leaves the cursor where it is, so the next submit re-uses the same question on the SAME
 // turn id. R2 permits that, because the turn was never closed; do not invent a new turn id for it.
+const isJobsRoot = (root) => path.resolve(root).startsWith(path.resolve(JOBS_DIR, '_discovery') + path.sep);
+
 export function sessionView(root) {
   const head = readRun(root);
   if (!head) bad(`no run.json under "${root}" — open the session first`);
@@ -945,8 +963,11 @@ export function sessionView(root) {
     // nothing and the two readers can never disagree about one package.
     exchanges: auditExchanges(answers, opRecords),
     // #498: what the drawer's Re-record buttons may offer. A server-side list, so the package view filters
-    // nothing (case 41) and cannot offer a question runTurn would refuse.
-    revisit: revisitView(head, transcript),
+    // nothing (case 41) and cannot offer a question runTurn would refuse. Null unless the package lives under the
+    // jobs folder — the root the REQUEST's real provenance resolves to, never run.json's provenance, which a seeded
+    // copy carries over from its fictional source (assertRevisit's rule). The drawer reads no form field for it
+    // (PR #502 review, F4), so the page and the server cannot disagree about which package is revisable.
+    revisit: isJobsRoot(root) ? revisitView(head, transcript, answers) : null,
   };
 }
 
@@ -1200,6 +1221,13 @@ export async function runTurn({ slug, provenance, questionId, kind = 'banked', i
     if (park) assertParkable(head, cursor);
     const turn = revisit ? view.revisit.turn : cursor.turn;
     const audit = head.entryMode === 'existing-prd';
+    // THE SEAM'S ROOT GUARD, BEFORE THE APPEND (PR #502 review, F2). With UXF_DISCOVERY_TRANSPORT set, the seam's
+    // module is loaded HERE and its assertRoot runs before any answer line lands, so a seam left exported in a shell
+    // refuses a real package without writing to it. The fake's guard stays its one copy; a seam module without one
+    // is refused. Unset, nothing loads here and the real transport still enters below, after every guard (invariant 1).
+    const seamed = process.env.UXF_DISCOVERY_TRANSPORT ? await loadTransport() : null;
+    if (seamed && typeof seamed.assertRoot !== 'function') bad(`UXF_DISCOVERY_TRANSPORT names a module with no assertRoot — a seam module must refuse a root it may not write to, before the answer is appended (#498)`);
+    seamed?.assertRoot(root);
     let answer;
     if (audit) {
       if (typeof text === 'string' && text.trim()) bad('an audit turn takes no answer — the document is the answer, stored once at session start, and this turn judges it against the question on the table');
@@ -1212,7 +1240,7 @@ export async function runTurn({ slug, provenance, questionId, kind = 'banked', i
     }
 
     // The SDK enters HERE and nowhere earlier — after every guard above has passed. See invariant 1.
-    const { runDiscoveryTurn } = await loadTransport();
+    const { runDiscoveryTurn } = seamed ?? await loadTransport();
     const answers = readAnswers(root);
     const { sessionId, stats } = await runDiscoveryTurn({
       root,

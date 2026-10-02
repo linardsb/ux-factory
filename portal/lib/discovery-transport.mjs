@@ -106,7 +106,7 @@ export function zodFor(descriptor, op = '?') {
 
 // `state` is a mutable holder ({ current }) because the applier is pure and each accepted op produces a
 // NEW ledger the next call in the same turn must fold onto.
-export function buildOpServer({ root, turn, state, onLine }) {
+export function buildOpServer({ root, turn, state, onLine, questionId = null }) {
   // Zero tokens: a bare run ({ ops }) instead of the holder ({ current: { ops } }) made every op the
   // agent filed refuse as "the state must be { ops: [] }" on the first real turn — the pre-flight built its
   // own holder and could not see it. Refuse the shape here, before query() starts.
@@ -121,7 +121,7 @@ export function buildOpServer({ root, turn, state, onLine }) {
     if (!descriptor) throw new Error(`discovery-transport: "${op}" is in OPS with no TOOL_SCHEMA entry — the verb, its params and its schema move together`);
     return tool(op, TOOL_DESCRIPTIONS[op] ?? `File a ${op} op.`, zodFor(descriptor, op), async (args) => {
       try {
-        const record = fileOp({ root, turn, state, onLine, op, args });
+        const record = fileOp({ root, turn, state, onLine, op, args, questionId });
         const bits = [`filed seq ${record.seq}: ${op}`];
         if (record.closes) bits.push('(turn closed)');
         if (record.flagged.length) bits.push(`flagged ${record.flagged.join(', ')}`);
@@ -162,7 +162,8 @@ export async function runDiscoveryTurn({ root, head, question, answer, turn, pos
   // #453: `tensions` are the contradiction screen's kept pairs, read from screen.jsonl by the session
   // module on an audit; [] everywhere else, which leaves every prompt byte-identical.
   const { systemPrompt, prompt } = posture.build({ question, answer, turn, ledger: state.current.ops, provenance: head.provenance, entryMode: head.entryMode ?? 'blank-idea', answers, park, affordance, tensions });
-  const server = buildOpServer({ root, turn, state, onLine });
+  // `questionId` pins a revisit turn's ops to the question it re-records (fileOp, PR #502 F1); a tN turn ignores it.
+  const server = buildOpServer({ root, turn, state, onLine, questionId: question?.id ?? null });
   // MVP 7's fetch tools, ON AN OFF-SCRIPT TURN ONLY (#289) — allowed BY NAME through fenceDecision's
   // extraTools seam (#359), never by path, so #287's READ_TOOLS assertion is untouched. A banked turn
   // advertises nothing, exactly as today.

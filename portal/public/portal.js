@@ -1167,8 +1167,8 @@ function renderPackageView() {
   const refs = (list) => (list.length ? list.map((n) => `seq ${esc(n)}`).join(', ') : 'none');
   // #498: the Re-record button is a per-row condition inside the one map (case 41 forbids filtering here), fed by
   // the server's session.revisit list. !d.offScript because ledgerView marks every off-script decision latest and
-  // one may name a revisable question. The provenance read hides the button where the server refuses (Q4); the
-  // server's assertRevisit is the rule, this only keeps the button from offering a refusal.
+  // one may name a revisable question. The server's list is null on a package outside the jobs folder (Q4), so no
+  // form field is read here and the page cannot disagree with assertRevisit, which is the rule.
   mount.innerHTML = `
     <h3 class="h3">The package — ${l.total} op(s)</h3>
     ${doc}
@@ -1177,7 +1177,7 @@ function renderPackageView() {
       <div class="discovery-package-row${d.latest ? '' : ' is-superseded'}">
         <p class="card-kicker">${at(d)} · ${esc(d.questionId ?? 'off-script')} · ${esc(d.level ?? '?')}${d.offScript ? ' · off_script — attaches, never replaces' : ''}${d.supersededBy ? ` · superseded by seq ${esc(d.supersededBy)}` : ''}</p>
         <p class="discovery-package-prose">Wrong if: ${esc(d.wrongIf ?? '—')}</p>
-        ${s.revisit && discoveryEls().provenance === 'real' && d.latest && !d.offScript && s.revisit.questions.includes(d.questionId) ? `<button class="btn btn-secondary" type="button" data-discovery-revisit="${esc(d.questionId)}" data-seq="${esc(d.seq)}">Re-record</button>` : ''}
+        ${s.revisit && d.latest && !d.offScript && s.revisit.questions.includes(d.questionId) ? `<button class="btn btn-secondary" type="button" data-discovery-revisit="${esc(d.questionId)}" data-seq="${esc(d.seq)}">Re-record</button>` : ''}
         <p class="discovery-package-meta">parent: ${d.parentId === null ? 'no parent' : `seq ${esc(d.parentId)}`} · evidence: ${refs(d.evidenceRefs)} · answer ${esc(d.answerRef ?? '—')}${d.supersedes ? ` · supersedes seq ${esc(d.supersedes)}` : ''}</p>
         ${d.flagged.map(chip).join(' ')}
       </div>`).join('')}` : ''}
