@@ -7186,6 +7186,16 @@ function scanSvg(svg, label) {
   };
   const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   const keys = (o) => Object.keys(o).sort().join(",");
+  // THE SEAM, read once (#498): runTurn reaches the transport by ONE lazy import whose argument the
+  // UXF_DISCOVERY_TRANSPORT env seam picks. Case 12 pins it; 30.60 refuses to drive runTurn without it, because a
+  // broken seam would load the REAL transport in its child.
+  const seamRead = (() => {
+    const code = readFileSync(join(ROOT, "portal/lib/discovery.mjs"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
+    const dyn = (code.match(/\bimport\(/g) ?? []).length;
+    const seam = /import\(process\.env\.UXF_DISCOVERY_TRANSPORT \?[^\n]*['"]\.\/discovery-transport\.mjs['"]\)/.test(code);
+    const awaited = /await loadTransport\(\)/.test(code.slice(code.indexOf("export async function runTurn(")));
+    return { dyn, seam, intact: dyn === 1 && seam && awaited };
+  })();
 
   const TMP = mkdtempSync(join(tmpdir(), "g30-discovery-"));
   const tmpRoot = (name) => { const d = join(TMP, name); mkdirSync(d, { recursive: true }); return d; };
@@ -7645,14 +7655,8 @@ function scanSvg(svg, label) {
     ok(!DOM_REACH.test(src), `case 12: ${rel} REACHES for document or window — these are Node-only modules`);
     ok(!/^\s*import\b[^\n]*discovery-transport/m.test(src), `case 12: ${rel} imports the transport STATICALLY — it must be reached only by the lazy import inside runTurn, after every guard`);
   }
-  {
-    const code = readFileSync(join(ROOT, "portal/lib/discovery.mjs"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
-    const dyn = code.match(/\bimport\(/g) ?? [];
-    const seam = /import\(process\.env\.UXF_DISCOVERY_TRANSPORT \?[^\n]*['"]\.\/discovery-transport\.mjs['"]\)/.test(code);
-    const rt = code.slice(code.indexOf("export async function runTurn("));
-    ok(dyn.length === 1 && seam && /await loadTransport\(\)/.test(rt),
-      `case 12: portal/lib/discovery.mjs must reach the transport by ONE lazy import whose argument the UXF_DISCOVERY_TRANSPORT seam picks, awaited inside runTurn (${dyn.length} dynamic import(s), seam ${seam}) — the three-layer split is the whole architecture in one file boundary`);
-  }
+  ok(seamRead.intact,
+    `case 12: portal/lib/discovery.mjs must reach the transport by ONE lazy import whose argument the UXF_DISCOVERY_TRANSPORT seam picks, awaited inside runTurn (${seamRead.dyn} dynamic import(s), seam ${seamRead.seam}) — the three-layer split is the whole architecture in one file boundary`);
   // The transport, read as TEXT and never imported (it is the one SDK import): the ledger reaches the
   // prompt, the tool text has ONE copy (the pinned one), and the fingerprint stamp is read off the
   // posture rather than recomputed (#341). A transport that dropped the ledger would regress to the
@@ -9246,15 +9250,10 @@ console.log(JSON.stringify([row(openSession(audit)), row(openSession(audit)), ro
   // DRIVEN ONLY WHEN THE SEAM IS INTACT. If runTurn stopped reaching the transport through the env seam (case 12's
   // pin), the child would load the REAL transport — and where portal/node_modules exists (every operator's machine,
   // never CI) that is a live, possibly paid, SDK turn. Observed while proving case 12's mutations: a Claude Code
-  // process started on the scratch copy. So the same static read gates the run, and a broken seam reds here by name.
-  const seamIntact = (() => {
-    const code = readFileSync(join(ROOT, "portal/lib/discovery.mjs"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
-    return (code.match(/\bimport\(/g) ?? []).length === 1
-      && /import\(process\.env\.UXF_DISCOVERY_TRANSPORT \?[^\n]*['"]\.\/discovery-transport\.mjs['"]\)/.test(code)
-      && /await loadTransport\(\)/.test(code.slice(code.indexOf("export async function runTurn(")));
-  })();
-  ok(seamIntact, "30.60: NOT DRIVEN — runTurn no longer reaches the transport through the UXF_DISCOVERY_TRANSPORT seam (case 12), so the child would run the REAL SDK turn");
-  if (seamIntact) {
+  // process started on the scratch copy. So case 12's read (seamRead, one copy) gates the run, and a broken seam
+  // reds here by name too.
+  ok(seamRead.intact, "30.60: NOT DRIVEN — runTurn no longer reaches the transport through the UXF_DISCOVERY_TRANSPORT seam (case 12), so the child would run the REAL SDK turn");
+  if (seamRead.intact) {
     const jobs = realpathSync(mkdtempSync(join(tmpdir(), "g30-revisit-")));
     try {
       const FP = join(ROOT, "discovery/faster-payment");
