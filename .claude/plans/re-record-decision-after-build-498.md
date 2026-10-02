@@ -883,3 +883,10 @@ claimed only because every risk below is closed by a run, not an argument.)
   refusal plus the drawer's matching read (Q4 closed), Task 5.1's exact pin and its observed mutations, 30.60(i),
   the build-checks/journey concurrency GOTCHA, the risk table with evidence, and confidence 10/10. Spike diff saved
   beside the plan.
+- 2026-10-02 (implementation) — **Omission: 30.60 could start a real SDK turn.** Under case 12's two seam mutations
+  (runTurn back to the literal import; the seam's argument a bare literal), 30.60's child loads the REAL transport,
+  and wherever `portal/node_modules` exists (every operator machine, never CI) that is a live, possibly paid, turn.
+  Observed: four Claude Code sessions started on the scratch copies and stopped at "Credit balance is too low" with
+  0 tokens. Fixed by gating 30.60 on the same static seam read case 12 makes, red by name when the seam is broken.
+  Also: 30.63 reads portal.js with whole-line comments dropped, because the #498 comment beside the Re-record
+  condition named `!d.offScript` and let mutation M19 pass.
