@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Launch and criteria decisions</title>
+<style>
+:root { --bg:#fbfaf7; --fg:#1f1f1c; --muted:#6b6a64; --line:#dddbd3; --box:#f1efe8; --accent:#3d6b5a; }
+@media (prefers-color-scheme: dark) { :root { --bg:#191917; --fg:#ecebe6; --muted:#a19f97; --line:#3a3935; --box:#24231f; --accent:#8fbfa9; } }
+body { background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, sans-serif; max-width:760px; margin:0 auto; padding:24px 16px 64px; }
+h1 { font-size:24px; margin:0 0 4px } h2 { font-size:18px; margin:32px 0 8px; border-top:1px solid var(--line); padding-top:16px }
+h3 { font-size:16px; margin:16px 0 4px } .muted { color:var(--muted); font-size:14px }
+pre { background:var(--box); padding:10px 12px; border-radius:6px; overflow-x:auto; font-size:13px; line-height:1.45 }
+code { font-size:.92em } a { color:var(--accent) }
+.flow { display:flex; flex-wrap:wrap; gap:8px; align-items:center }
+.flow div { background:var(--box); border:1px solid var(--line); border-radius:6px; padding:8px 10px; font-size:14px }
+.flow span { color:var(--muted) }
+ul { padding-left:20px } li { margin:4px 0 }
+ul.prompts { list-style:none; padding:0 }
+ul.prompts li { display:flex; justify-content:space-between; gap:12px; border:1px solid var(--line); border-radius:6px; padding:8px 10px }
+.copy { opacity:.35; border:0; background:none; color:inherit; cursor:pointer; font-size:15px; line-height:1 }
+.copy:hover, .copy:focus-visible { opacity:1 }
+.copy::before { content:'⧉' } .copy.copied::before { content:'✓' }
+</style>
+</head>
+<body>
+<h1>Launch and criteria decisions</h1>
+<p class="muted">Build brief for ticket #517. The full plan: <a href="discovery-owner-decisions-517.md">discovery-owner-decisions-517.md</a></p>
+
+<h2>What we're building and why</h2>
+<p>Nothing is coded. Today, no discovery question asks how a product launches, and no PRD line carries a test of "done". After one sitting, the owner has decided where each belongs, and any build is filed as its own ticket.</p>
+
+<h3>The two decisions</h3>
+<p><b>Launch:</b> where pilots and rollback plans get asked. <b>Criteria:</b> whether top-priority lines carry pass/fail tests.</p>
+
+<h2>The concepts this plan rests on</h2>
+
+<h3>1. Who decides, who records</h3>
+<p>The owner's words are the decision. The agent only lays out options and copies the answer exactly. This is the honesty contract (a rule that no agent writes the owner's half).</p>
+<pre>agent:  options + costs   (labelled "agent")
+owner:  types the verdict
+agent:  quotes it, word for word, with the date</pre>
+
+<h3>2. Content versus filing</h3>
+<p>An owner can say something, and the agent then files it under a heading (a rung, one level of the requirements ladder). The ticket treated the agent's heading as the owner's choice. The plan separates the two, because another ticket counts that same filing as a mistake.</p>
+
+<h3>3. A question budget</h3>
+<p>Full discovery asks at most a fixed number of questions, like a page limit. After ticket #511 the limit is 33. Adding a question everywhere raises it to 34, past a limit the owner agreed not to raise. Adding it to one optional module fits, but only reaches runs that tick that box.</p>
+
+<h3>4. Negative tests already exist</h3>
+<p>Every recorded decision already carries a "wrong if" line: what would prove it false. That is a test written from the failure side. So the criteria question is whether to add the success side too.</p>
+
+<h2>How the pieces fit</h2>
+<div class="flow">
+  <div>Fix the ticket's facts<br><span>if owner agrees</span></div><span>→</span>
+  <div>Owner decides<br><span>launch, then criteria</span></div><span>→</span>
+  <div>Quote verdicts<br><span>on the ticket</span></div><span>→</span>
+  <div>File any build<br><span>as a new ticket</span></div><span>→</span>
+  <div>Commit the papers</div>
+</div>
+
+<h2>The plan at a glance</h2>
+<ul>
+  <li><b>Phase 0</b>: correct seven facts in #517. Only with the owner's yes.</li>
+  <li><b>Phase 1</b>: the sitting. Needs Phase 0 done or declined.</li>
+  <li><b>Phase 2</b>: post the verdicts on #517. Needs Phase 1.</li>
+  <li><b>Phase 3</b>: file a build ticket, or warn #508. Only if a verdict calls for it.</li>
+  <li><b>Phase 4</b>: commit and open the PR. Needs Phase 2.</li>
+</ul>
+<pre>.claude/plans/discovery-owner-decisions-517.md        the plan and the decision brief
+.claude/plans/discovery-owner-decisions-517.html      this page
+.claude/reports/discovery-owner-decisions-517-report.md   written after the sitting</pre>
+<h3>Done when</h3>
+<ul>
+  <li>Both verdicts are the owner's typed lines, quoted with the date.</li>
+  <li>Each "build it" verdict is its own ticket, citing #517.</li>
+</ul>
+
+<h2>Go deeper</h2>
+<ul class="prompts">
+  <li data-prompt="/learn the honesty contract: who writes a decision and who records it"><span><b>/learn the honesty contract</b>: who writes a decision, who records it.</span><button class="copy" aria-label="Copy prompt"></button></li>
+  <li data-prompt="/learn the BABOK requirements ladder and what a transition requirement is"><span><b>/learn the requirements ladder</b>: what "transition" means.</span><button class="copy" aria-label="Copy prompt"></button></li>
+  <li data-prompt="/learn question budgets in discovery: facets, modules and the full-discovery cap"><span><b>/learn question budgets</b>: facets, modules and the cap.</span><button class="copy" aria-label="Copy prompt"></button></li>
+  <li data-prompt="/learn acceptance criteria formats: Given/When/Then versus EARS versus falsifiable wrong-if lines"><span><b>/learn acceptance criteria formats</b>: Given/When/Then, EARS, wrong-if.</span><button class="copy" aria-label="Copy prompt"></button></li>
+</ul>
+
+<script>
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.copy')
+  if (!btn) return
+  const text = btn.closest('[data-prompt]').dataset.prompt
+  try {
+    await navigator.clipboard.writeText(text)
+  } catch {
+    const ta = Object.assign(document.createElement('textarea'), { value: text })
+    ta.style.cssText = 'position:fixed;opacity:0'
+    document.body.append(ta)
+    ta.select()
+    document.execCommand('copy')
+    ta.remove()
+  }
+  btn.classList.add('copied')
+  setTimeout(() => btn.classList.remove('copied'), 1200)
+})
+</script>
+</body>
+</html>
