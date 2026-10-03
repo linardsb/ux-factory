@@ -206,6 +206,7 @@ export function checkBorderline(list, ids) {
   if (!list || typeof list !== "object" || Array.isArray(list)) bad(`borderline.json must be an object { ${BORDERLINE_KEYS.join(", ")} }`);
   for (const k of Object.keys(list)) if (!BORDERLINE_KEYS.includes(k)) bad(`unknown key "${k}" on borderline.json — it is exactly ${BORDERLINE_KEYS.join(", ")}`);
   for (const k of BORDERLINE_KEYS) if (list[k] === undefined) bad(`borderline.json is missing "${k}"`);
+  for (const k of BORDERLINE_KEYS.slice(0, 3)) if (typeof list[k] !== "string" || !list[k].trim()) bad(`borderline.json's "${k}" must be a non-empty string (got ${JSON.stringify(list[k])})`);
   if (!Array.isArray(list.entries)) bad("borderline.json's \"entries\" must be an array");
   if (!Array.isArray(ids) || ids.length === 0) bad("checkBorderline needs the bank's question ids");
   if (list.entries.length !== ids.length) bad(`borderline.json holds ${list.entries.length} entries, not ${ids.length} — one verdict per question's K2, complete or not at all`);
@@ -230,8 +231,9 @@ export function checkBorderline(list, ids) {
 // The op that closed one turn, or null. Re-derives `closes` from the params for EVERY op on the turn,
 // not only the one claiming to close it: a hand edit that sets closes:true on an off_script decision
 // would otherwise ride through unread. A record whose committed `closes` disagrees with its params is
-// a hand edit and throws naming its seq.
-export function closingOpOf(ops, turn) {
+// a hand edit and throws naming its seq. closingRecordOf answers the whole record, so the park view's
+// `why` reads the closer's params under the same one-closer rule rather than a second copy of it.
+export function closingRecordOf(ops, turn) {
   if (!Array.isArray(ops)) bad("closingOpOf needs the package's op records array");
   if (typeof turn !== "string" || !turn) bad(`closingOpOf needs a turn id (got ${JSON.stringify(turn) ?? String(turn)})`);
   const mine = ops.filter((r) => r?.turn === turn);
@@ -245,8 +247,10 @@ export function closingOpOf(ops, turn) {
     if (derived) closers.push(r);
   }
   if (closers.length > 1) bad(`turn "${turn}" holds ${closers.length} closing ops (seq ${closers.map((r) => r.seq).join(", ")}) — one closing op per banked-question turn (R2), so this package was edited by hand`);
-  return closers.length ? closers[0].op : null;
+  return closers.length ? closers[0] : null;
 }
+
+export const closingOpOf = (ops, turn) => closingRecordOf(ops, turn)?.op ?? null;
 
 // How many file_evidence ops the turn filed. Counted, reported beside the matrix, never scored.
 export const evidenceCountOf = (ops, turn) => ops.filter((r) => r?.turn === turn && r.op === "file_evidence").length;
@@ -346,7 +350,7 @@ export function parkView(pkg, score, borderline) {
   for (const r of k2Rows) if (!borderline.has(r.question_id)) bad(`the borderline set holds no verdict for ${r.question_id} (${r.ref}, a K2 row)`);
   const why = (r) => {
     if (r.filed === null) return null;
-    const op = pkg.ops.find((o) => o.turn === r.turn && o.op === r.filed && CLOSES_WHEN[o.op](o.params));
+    const op = closingRecordOf(pkg.ops, r.turn);
     return op ? WHY_OF[op.op](op.params) : null;
   };
   const view = (r) => ({ ref: r.ref, question_id: r.question_id, stage: r.stage, filed: r.filed, why: why(r), band: r.kind === "K2" ? borderline.get(r.question_id) : null });
@@ -537,6 +541,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     } else if (argv.includes("--park")) {
       const slug = flag("--park");
       if (!slug || slug.startsWith("--")) throw new Error(USAGE);
+      if (argv.length !== 2) throw new Error(`--park takes a slug and nothing else (got ${argv.join(" ")}) — the draw column comes from the slug's suffix`);
       const run = RUNS.find((r) => slug.endsWith(`-${r}`));
       if (!run) throw new Error(`--park reads the draw column from the slug's -a/-b/-c suffix, and "${slug}" carries none`);
       const draw = checkDraw(readDraw(), ids);

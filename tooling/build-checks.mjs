@@ -10399,7 +10399,7 @@ console.log(JSON.stringify({ msg }));`;
 // re-audit's read, not a key.
 //
 // Case 33.16 is the park view (#506): every class over a synthetic package with a K2 park, a K1 park and
-// a flagged K3, the borderline validator's eight refusals, the committed blind re-audit required, and
+// a flagged K3, the borderline validator's thirteen refusals, the committed blind re-audit required, and
 // on each recorded package the classes re-summed against the banked open_question count taken straight
 // from its transcript.
 {
@@ -10807,7 +10807,7 @@ console.log(JSON.stringify({ msg }));`;
   // 33.16 — THE PARK VIEW (#506). (a) A synthetic package with every class: a K1 park (b′), a K2 park
   //        (b), a flagged K3 (a), a K2 non-park miss and two matches, each class asserted by ref with
   //        its `why` read off the closing op and its band set only on K2 rows. (b) checkBorderline's
-  //        eight refusals plus a well-formed positive control. (c) The committed blind re-audit is
+  //        thirteen refusals plus a well-formed positive control. (c) The committed blind re-audit is
   //        REQUIRED. (d) On every recorded package, the classes re-sum against the banked open_question
   //        count taken straight from its transcript — an invariant, never a frozen count, because #508
   //        re-records both packages. Mutations: drop a class (kind "K9") → (a) and (d) red; band on a K1
@@ -10828,10 +10828,13 @@ console.log(JSON.stringify({ msg }));`;
       ops: [
         rec(1, "t1", "record_decision", decide(0)),
         rec(2, "t2", "open_question", park(1)),
-        rec(3, "t3", "open_question", park(2)),
-        rec(4, "t4", "record_decision", decide(3)),
-        rec(5, "t5", "flag_weak_answer", { question_id: sids[4], answer_ref: "a5", missing: ["a date", "a name"] }),
-        rec(6, "t6", "open_question", park(5)),
+        // PR #522 F1: a non-closing open_question of the SAME verb before t3's closer. A `why` that finds
+        // the first op of the filed verb reads "off-source 3"; only the closing record gives "reason 3".
+        rec(3, "t3", "open_question", { source: "off-script", question_id: sids[2], answer_ref: "a3", reason: "off-source 3" }),
+        rec(4, "t3", "open_question", park(2)),
+        rec(5, "t4", "record_decision", decide(3)),
+        rec(6, "t5", "flag_weak_answer", { question_id: sids[4], answer_ref: "a5", missing: ["a date", "a name"] }),
+        rec(7, "t6", "open_question", park(5)),
       ],
       texts: [], denied: [],
     };
@@ -10847,7 +10850,7 @@ console.log(JSON.stringify({ msg }));`;
     ok(view.parks === 3 && same33(view.precision, { num: 1, den: 3 }) && same33(view.recall, { num: 1, den: 2 }),
       `33.16: parks 3, precision 1/3, recall 1/2 — got parks ${view.parks}, ${JSON.stringify(view.precision)}, ${JSON.stringify(view.recall)}`);
     ok(view.classes.b[0]?.why === "reason 3" && view.classes.a[0]?.why === "a date; a name",
-      `33.16: why must be the closing op's own reason / missing — got ${JSON.stringify(view.classes.b[0]?.why)} and ${JSON.stringify(view.classes.a[0]?.why)}`);
+      `33.16: why must be the closing op's own reason / missing, never an earlier non-closing op's on the same turn — got ${JSON.stringify(view.classes.b[0]?.why)} and ${JSON.stringify(view.classes.a[0]?.why)}`);
     ok(view.classes.b[0]?.band === "borderline" && view.classes.bPrime[0]?.band === null && view.classes.a[0]?.band === null,
       `33.16: band is K2-only — want borderline on a3 and null on a2 and a5, got ${view.classes.b[0]?.band} · ${view.classes.bPrime[0]?.band} · ${view.classes.a[0]?.band}`);
     ok(view.k2.misses === 2 && same33(view.k2.missBands, { clean: 1, borderline: 1, carries: 0 }),
@@ -10866,6 +10869,11 @@ console.log(JSON.stringify({ msg }));`;
       ["a verdict \"thin\"", ent((e) => { e[0].verdict = "thin"; return e; }), /"thin"/],
       ["an empty why", ent((e) => { e[0].why = "  "; return e; }), /"why"/],
       ["an unknown entry key", ent((e) => { e[0].score = 1; return e; }), /unknown key "score"/],
+      ["a non-object wrapper", [], /must be an object/],
+      ["a null auditor", { ...good, auditor: null }, /"auditor" must be a non-empty string/],
+      ["a non-array entries", { ...good, entries: "x" }, /"entries" must be an array/],
+      ["a non-object entry", ent((e) => { e[0] = null; return e; }), /entry 0 is not an object/],
+      ["a missing entry key", ent((e) => { delete e[0].why; return e; }), /"why" is required/],
     ];
     for (const [name, input, re] of refusals) {
       const e = threw33(() => checkBorderline(input, IDS));
@@ -10881,7 +10889,11 @@ console.log(JSON.stringify({ msg }));`;
       const bl = checkBorderline(JSON.parse(readFileSync(blPath, "utf8")), IDS);
       const realDraw = checkDraw(JSON.parse(readFileSync(join(FIXTURE, "draw.json"), "utf8")), IDS);
       const realKey = checkKey(JSON.parse(readFileSync(join(FIXTURE, "key.json"), "utf8")), IDS);
-      for (const slug of GRADED_SLUGS.filter((s) => existsSync(join(ROOT, "discovery", s, "run.json")))) {
+      // The guard above skips only on inputs (c) and 33.15 already red by name; inside it, at least one
+      // package must be re-summed or this case passes having summed nothing (PR #522 F2).
+      const present16 = GRADED_SLUGS.filter((s) => existsSync(join(ROOT, "discovery", s, "run.json")));
+      ok(present16.length >= 1, "33.16: no graded package is present, so no park view was re-summed against its transcript");
+      for (const slug of present16) {
         const real = readGradedPackage(join(ROOT, "discovery", slug));
         const depthIds = selectDepth(real.run.depth).map((q) => q.id);
         const v = parkView(real, scorePackage(real, realKey, realDraw, slug.slice(-1), depthIds), bl);
@@ -10893,7 +10905,7 @@ console.log(JSON.stringify({ msg }));`;
     }
   }
 
-  group("graded fixture", `the sealed draw over the REAL 65 ids — a Latin square with a per-question offset, every question meeting all three kinds and no column uniform, the committed draw.json re-derived from its own seed "${existsSync(join(FIXTURE, "draw.json")) ? JSON.parse(readFileSync(join(FIXTURE, "draw.json"), "utf8")).seed : "?"}" and compared row by row, drawFor's ARITY pinned at 2 so one table serves BOTH postures and graded-think-a and graded-opus-a answer the same 65 answers, deterministic and frozen at both levels by an inert write · checkKey's 13 refusals each matched against the value it names, with "expected" derived from the kind and never authored · EXPECTED and CLOSES_WHEN iterated against OPS in BOTH directions with file_evidence named as the one op no kind expects, so a fifth verb fails here rather than silently · closingOpOf over a synthetic transcript covering all five columns — an off_script decision and an off-script open_question proven NOT to close — plus the hand-edit detectors (a closes field disagreeing with its params, and two closers on one turn) · the matrix proven to sum to the turn count with file_evidence counted beside it and ABSENT from it · assertAnswersSealed in both directions: one trailing space throws naming its ref, a duplicate line is a HARD failure, a wrong draw column throws rather than scoring · THE AUTHOR'S FENCE source-pinned from portal/record-graded-answers.mjs (no allowSetFor, a hand-built allow-set of length 1, cwd EQUAL to the author root — the trap that would silently void the ticket — tools advertised so a denial is recorded, both sites wired, strictMcpConfig true, and the question view pinned to forTheBrowser's five fields) and DRIVEN through the real allowsPath: six leak paths denied as ABSOLUTE paths with an allow-set rooted at the repo allowing all six as the positive control, and a repo-search MCP name denied BY NAME · THE MIRROR: a recorded run's own allow-set proven to deny the key, the draw, the brief and the author's transcript, with the widened-reads mutation showing the case can fail — omission is not a fence · the circularity guard (no 40-character span shared between the bank's prose and any key answer) · and no tracked source file outside the scorer naming a fixture slug in code · the park view (#506): every class over a synthetic package with a K2 park, a K1 park and a flagged K3, the borderline validator's eight refusals, the committed blind re-audit required, and on each recorded package the classes re-summed against the banked open_question count taken straight from its transcript${pending33.length ? ` · PENDING: ${pending33.join(" · ")}` : ""}. What it cannot reach: whether the author obeyed the brief, whether a K2 answer is thin in the way its own weak-answer note names (both review facts against the committed key), whether a fence DENY stopped a call at run time (the author run's own denied lines are that receipt, the standard --probe-fence sets), the MVP 6 verdict, which is a human read of a mechanical shortlist, nor whether a parked K2 was a mis-grade or an answer on the boundary: the borderline set is a blind re-audit's read, not a key`);
+  group("graded fixture", `the sealed draw over the REAL 65 ids — a Latin square with a per-question offset, every question meeting all three kinds and no column uniform, the committed draw.json re-derived from its own seed "${existsSync(join(FIXTURE, "draw.json")) ? JSON.parse(readFileSync(join(FIXTURE, "draw.json"), "utf8")).seed : "?"}" and compared row by row, drawFor's ARITY pinned at 2 so one table serves BOTH postures and graded-think-a and graded-opus-a answer the same 65 answers, deterministic and frozen at both levels by an inert write · checkKey's 13 refusals each matched against the value it names, with "expected" derived from the kind and never authored · EXPECTED and CLOSES_WHEN iterated against OPS in BOTH directions with file_evidence named as the one op no kind expects, so a fifth verb fails here rather than silently · closingOpOf over a synthetic transcript covering all five columns — an off_script decision and an off-script open_question proven NOT to close — plus the hand-edit detectors (a closes field disagreeing with its params, and two closers on one turn) · the matrix proven to sum to the turn count with file_evidence counted beside it and ABSENT from it · assertAnswersSealed in both directions: one trailing space throws naming its ref, a duplicate line is a HARD failure, a wrong draw column throws rather than scoring · THE AUTHOR'S FENCE source-pinned from portal/record-graded-answers.mjs (no allowSetFor, a hand-built allow-set of length 1, cwd EQUAL to the author root — the trap that would silently void the ticket — tools advertised so a denial is recorded, both sites wired, strictMcpConfig true, and the question view pinned to forTheBrowser's five fields) and DRIVEN through the real allowsPath: six leak paths denied as ABSOLUTE paths with an allow-set rooted at the repo allowing all six as the positive control, and a repo-search MCP name denied BY NAME · THE MIRROR: a recorded run's own allow-set proven to deny the key, the draw, the brief and the author's transcript, with the widened-reads mutation showing the case can fail — omission is not a fence · the circularity guard (no 40-character span shared between the bank's prose and any key answer) · and no tracked source file outside the scorer naming a fixture slug in code · the park view (#506): every class over a synthetic package with a K2 park, a K1 park and a flagged K3, the borderline validator's thirteen refusals, the committed blind re-audit required, and on each recorded package the classes re-summed against the banked open_question count taken straight from its transcript${pending33.length ? ` · PENDING: ${pending33.join(" · ")}` : ""}. What it cannot reach: whether the author obeyed the brief, whether a K2 answer is thin in the way its own weak-answer note names (both review facts against the committed key), whether a fence DENY stopped a call at run time (the author run's own denied lines are that receipt, the standard --probe-fence sets), the MVP 6 verdict, which is a human read of a mechanical shortlist, nor whether a parked K2 was a mis-grade or an answer on the boundary: the borderline set is a blind re-audit's read, not a key`);
 }
 
 // --- 34 · feature proposals (#359) ----------------------------------------------------------------
