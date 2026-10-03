@@ -247,7 +247,7 @@ import { validateExamples } from "../agent-layer/gen-vocabulary.mjs";
 // BUNDLE_NAME is aliased because both modules declare the name, which is one of the things pinned.
 import { BUNDLE_NAME as INDEX_BUNDLE_NAME, indexLine, INDEX_NAME, renderIndex, ROUTES, routeIndex, SEP } from "../agent-layer/gen-pack-index.mjs";
 import { BUNDLE_NAME } from "../agent-layer/gen-pack-bundle.mjs";
-import { BINDING_KEYS, BOUND_RE, derivedProblems, projectBindings, projectScenario } from "../agent-layer/gen-handoff.mjs";
+import { BINDING_KEYS, breaksBound, derivedProblems, projectBindings, projectScenario } from "../agent-layer/gen-handoff.mjs";
 import { parseComponentSpec } from "../agent-layer/lib.mjs";
 import { prepareHandoff, renderMarkdown } from "../system/handoff-viewer.mjs";
 // #215's pure layer — DOM-free above the fold by design (vdMarkup's body is browser-only but is
@@ -13807,6 +13807,33 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     ok(got !== null && words.every((w) => got.includes(w)), `${label} must be refused naming ${words.join(" + ")} — got ${got ?? "NO THROW"}`);
   }
 
+  // 7b · status re-derived from the stated x-derived rules (due, done and the brief's today), never
+  // read back from the fixtures: the witness above filters on the baked status, so a fixture edited
+  // without re-baking it would pass the witness (PR #523 F3). scenarios/validate.mjs checks the same
+  // through drift-check; this keeps the group's own reading independent of it.
+  const statusProblems = (fx, today) => {
+    const problems = [];
+    const SEV = { ok: 0, due: 1, overdue: 2 };
+    const taskStatus = (t) => (t.done ? "ok" : t.due < today ? "overdue" : t.due === today ? "due" : "ok");
+    for (const t of fx["care-tasks"] ?? []) if (t.status !== taskStatus(t)) problems.push(`scenarios/verdant/fixtures/care-tasks.json: ${t.id} status ${JSON.stringify(t.status)} is not the rule's ${JSON.stringify(taskStatus(t))} (due ${t.due}, done ${t.done}, today ${today})`);
+    for (const p of fx.plants ?? []) {
+      const worst = (fx["care-tasks"] ?? []).filter((t) => t.plantId === p.id && !t.done).map(taskStatus).reduce((w, x) => (SEV[x] > SEV[w] ? x : w), "ok");
+      if (p.status !== worst) problems.push(`scenarios/verdant/fixtures/plants.json: ${p.id} status ${JSON.stringify(p.status)} is not the rule's ${JSON.stringify(worst)}`);
+    }
+    return problems;
+  };
+  ok(typeof head.today === "string", "scenarios/verdant/brief.md's head must carry today — status is derived from it");
+  const sp = fxOk ? statusProblems(FIX, head.today) : ["fixtures missing"];
+  ok(sp.length === 0, `every fixture status must follow from due, done and today by the x-derived rules — got: ${sp.join(" | ")}`);
+  if (fxOk) {
+    const unbaked = cloneJ(FIX);
+    const flip = unbaked["care-tasks"].find((t) => t.id === "task-03");
+    if (flip) flip.done = true;
+    const ub = statusProblems(unbaked, head.today);
+    ok(ub.some((p) => p.includes("task-03")) && ub.some((p) => p.includes("plants.json")),
+      `task-03 marked done without re-baking its status must be named, and so must its plant — got ${ub.join(" | ") || "NO PROBLEM REPORTED"}`);
+  }
+
   // 8 · x-derived resolves
   const contractRels = onDisk.filter((rel) => /^contracts\/[^/]+\.contract\.json$/.test(rel));
   const derivedFiles = { "scenario.json": scenarioFile, ...Object.fromEntries(contractRels.map((rel) => [rel, JSON.parse(readFileSync(at(rel), "utf8"))])) };
@@ -13827,6 +13854,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     ["an extra x-derived key", (c) => { xd(c, PC).how = "x"; }, PC, "how"],
     ["readOnly with no x-derived", (c) => { c[ST].properties.value.readOnly = true; }, ST, "x-derived"],
     ["a worked example in the rule", (c) => { xd(c, CT).rule += " e.g. task-03 is overdue"; }, CT, "task-03"],
+    ["a one-digit record id in the rule", (c) => { xd(c, CT).rule += " e.g. task-3 is overdue"; }, CT, "task-3"],
+    ["a capitalised record id in the rule", (c) => { xd(c, PC).rule += " as Plant-01 shows"; }, PC, "Plant-01"],
     ["a pointer escape", (c) => { xd(c, CT).from[2] = "../scenario.json#/to~day"; }, CT, "escapes"],
     ["a rule that breaks the bound", (c) => { xd(c, CT).rule += " via the endpoint"; }, CT, "bound"],
   ];
@@ -13838,12 +13867,35 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       `${label} must be caught naming handoff/verdant/${mustName} and saying ${JSON.stringify(mustSay)} — got ${problems.length ? problems.join(" | ") : "NO PROBLEM REPORTED"}`);
   }
 
+  {
+    const iso = cloneJ(derivedFiles);
+    xd(iso, CT).rule += " Dates are iso-8601.";
+    const isoP = derivedProblems(iso);
+    ok(isoP.length === 0, `a rule naming iso-8601 is a format, not a record id, and must pass — got ${isoP.join(" | ")}`);
+  }
+
   // 9 · the bound, over the committed artifacts: a second, artifact-side reading of what the
-  // generator enforces on its inputs.
+  // generator enforces on its inputs. The reading below imports the generator's closed key sets and
+  // breaksBound, so a loosening there would loosen both sides at once (PR #523 F2). Two pins stop
+  // that: the key sets as literals here, and one must-refuse sample per alternative of the bound,
+  // so dropping an alternative goes red by the word it no longer catches.
+  const PINNED_KEYS = {
+    statement: ["$description", "screens", "notInScope"],
+    screen: ["screen", "views"],
+    view: ["id", "title", "component", "collection", "filter", "order", "pick", "witness"],
+    viewRequired: ["id", "component", "collection", "filter", "order", "witness"],
+  };
+  ok(deep(BINDING_KEYS) === deep(PINNED_KEYS),
+    `gen-handoff's BINDING_KEYS must be exactly the pinned closed sets — a new key is a decision made here too, not only in the generator: got ${JSON.stringify(BINDING_KEYS)}`);
+  const MUST_REFUSE = ["/api/plants", "http://x", "https://x", "GET plants", "POST it", "PUT it", "PATCH it", "DELETE it",
+    "the endpoint", "paginated", "a cache", "caching", "auth", "the envelope", "versioned", "versioning", "v2"];
+  const MUST_ACCEPT = ["the page does not get a heading", "put first", "scenario.json version", "iso-8601", "get the overdue ones"];
+  for (const s of MUST_REFUSE) ok(breaksBound(s), `the bound must refuse ${JSON.stringify(s)} — an alternative of gen-handoff's bound was dropped or loosened`);
+  for (const s of MUST_ACCEPT) ok(!breaksBound(s), `the bound must accept ordinary English ${JSON.stringify(s)} — it refused it`);
   const boundProblems = (b, sc, contracts) => {
     const problems = [];
     const closedKeys = (obj, keys, where) => { for (const k of Object.keys(obj ?? {})) if (!keys.includes(k)) problems.push(`${where}.${k} is outside the closed key set`); };
-    const text = (v, where) => { if (typeof v === "string" && BOUND_RE.test(v)) problems.push(`${where} breaks the bound: ${JSON.stringify(v)}`); };
+    const text = (v, where) => { if (typeof v === "string" && breaksBound(v)) problems.push(`${where} breaks the bound: ${JSON.stringify(v)}`); };
     closedKeys(b, BINDING_KEYS.statement, "pack.json#/bindings");
     (b.notInScope ?? []).forEach((s, i) => text(s, `pack.json#/bindings.notInScope[${i}]`));
     (b.screens ?? []).forEach((s, si) => {
@@ -13870,10 +13922,11 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   if (verbed.screens?.[0]?.views?.[2]) verbed.screens[0].views[2].filter = "GET /api/x";
   const verbHit = boundProblems(verbed, scenarioFile, contractsOnly);
   ok(verbHit.some((p) => p.includes(".filter") && p.includes("bound")), `bound text in a committed view's filter must be named — got ${verbHit.join(" | ") || "NO PROBLEM REPORTED"}`);
-  // the three batteries + the four single cases: rebound to plants, a dropped witness id, the seam guess, cacheTtl, a verb in a filter
-  const SEAM_MUTATIONS = bindingMutations.length + scenarioMutations.length + derivedMutations.length + 5;
+  // the three batteries + the bound's must-refuse/must-accept samples + the seven single cases:
+  // rebound to plants, a dropped witness id, the seam guess, an unbaked status, iso-8601, cacheTtl, a verb in a filter
+  const SEAM_MUTATIONS = bindingMutations.length + scenarioMutations.length + derivedMutations.length + MUST_REFUSE.length + MUST_ACCEPT.length + 7;
 
-  group("handoff-seam", `the pack's reading seam (#331): bindings ↔ proto.config, fixtures ⊆ contract key sets, each view's witness re-derived from the fixtures by the stated rules, scenario.json ↔ brief + copy, x-derived resolved, the bound re-read over the committed files (${SEAM_MUTATIONS} mutations, each named) · the pack's routing index (#419): handoff/verdant/${INDEX_NAME}, ${files.length} lines of \`path · bytes · what it is · read when\`, pinned twice over — the WHOLE artifact against renderIndex() (header and routing order included) and, line by line, against a SECOND walk of the directory that rebuilds each line through indexLine and reports every disagreement BY PATH · the four MUTATIONS that decide whether that audit can fail, each driven over an edited copy of the committed file with the unmutated file as the positive control: a dropped line, a byte count moved by one, a reworded purpose and a ghost line each named by path, and a renamed "## Files" heading refused ONCE rather than as ${files.length} missing files · a DELETED pack file REPORTS rather than ending the run — every existence check sits before its read, the mutation battery's subject is looked up instead of named as a literal, and an unwitnessed rule is filtered out of the field-count loop; measured three ways (llms.txt, pack.bundle.json and a wc wrapper each removed: named failures, exit 1, no stack trace) · the routing table proven TOTAL over every committed pack file plus the two paths #332 will add (components.css, contracts/commands/log-care.json) and the real-run-only figma-parity.json, so those land into a green gate and no rule ships undriven — with four unrouted paths each REFUSED by path, and every rule's rendered line proven to split into exactly four fields, because a ${JSON.stringify(SEP)} inside a purpose sentence would make the parser read the wrong columns and the audit would stay green while checking nothing · the bundle/index exclusion pinned in BOTH directions (${BUNDLE_NAME} inlines neither itself nor the index; the index carries a line for the bundle; the two key sets agree exactly) with both artifacts stating the reason in their own text, and handoff.html — the one surface that offers the bundle as a DOWNLOAD, and so the one place the exclusion is visible to a reader — pinned to link the map beside it · and the chain order source-pinned in drift-check.mjs and build.mjs, since an index that runs before the bundle measures a file that is about to be rewritten. What it cannot reach: whether a purpose or a read-when sentence is TRUE — that a file is what its line says, and that an engineer's agent routed by it opens the right file first — which is the epic's third fenced run, a real run, never a gate; nor whether the bindings' filter and order TEXT and the x-derived rule TEXT say what proto/verdant.html and scenarios/validate.mjs do — text is not evaluated (epic Q1): the witness is checked against the fixtures here and against the rendered page by proto-journey [11], and text-to-witness is a review read`);
+  group("handoff-seam", `the pack's reading seam (#331): bindings ↔ proto.config, fixtures ⊆ contract key sets, each view's witness re-derived from the fixtures by the stated rules, every fixture status re-derived from due, done and today, scenario.json ↔ brief + copy, x-derived resolved, the bound re-read over the committed files with its key sets pinned as literals and each alternative sampled (${SEAM_MUTATIONS} mutations, each named) · the pack's routing index (#419): handoff/verdant/${INDEX_NAME}, ${files.length} lines of \`path · bytes · what it is · read when\`, pinned twice over — the WHOLE artifact against renderIndex() (header and routing order included) and, line by line, against a SECOND walk of the directory that rebuilds each line through indexLine and reports every disagreement BY PATH · the four MUTATIONS that decide whether that audit can fail, each driven over an edited copy of the committed file with the unmutated file as the positive control: a dropped line, a byte count moved by one, a reworded purpose and a ghost line each named by path, and a renamed "## Files" heading refused ONCE rather than as ${files.length} missing files · a DELETED pack file REPORTS rather than ending the run — every existence check sits before its read, the mutation battery's subject is looked up instead of named as a literal, and an unwitnessed rule is filtered out of the field-count loop; measured three ways (llms.txt, pack.bundle.json and a wc wrapper each removed: named failures, exit 1, no stack trace) · the routing table proven TOTAL over every committed pack file plus the two paths #332 will add (components.css, contracts/commands/log-care.json) and the real-run-only figma-parity.json, so those land into a green gate and no rule ships undriven — with four unrouted paths each REFUSED by path, and every rule's rendered line proven to split into exactly four fields, because a ${JSON.stringify(SEP)} inside a purpose sentence would make the parser read the wrong columns and the audit would stay green while checking nothing · the bundle/index exclusion pinned in BOTH directions (${BUNDLE_NAME} inlines neither itself nor the index; the index carries a line for the bundle; the two key sets agree exactly) with both artifacts stating the reason in their own text, and handoff.html — the one surface that offers the bundle as a DOWNLOAD, and so the one place the exclusion is visible to a reader — pinned to link the map beside it · and the chain order source-pinned in drift-check.mjs and build.mjs, since an index that runs before the bundle measures a file that is about to be rewritten. What it cannot reach: whether a purpose or a read-when sentence is TRUE — that a file is what its line says, and that an engineer's agent routed by it opens the right file first — which is the epic's third fenced run, a real run, never a gate; nor whether the bindings' filter and order TEXT and the x-derived rule TEXT say what proto/verdant.html and scenarios/validate.mjs do — text is not evaluated (epic Q1): the witness is checked against the fixtures here and against the rendered page by proto-journey [11], and text-to-witness is a review read`);
 }
 
 // --- 40 · the import chain (#304) ------------------------------------------------------------------

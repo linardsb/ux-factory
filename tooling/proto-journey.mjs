@@ -342,10 +342,15 @@ async function journey(engineName, results, held) {
   const W = Object.fromEntries((views ?? []).map((v) => [v.id, v.witness]));
   const tileOf = (id) => { const r = READINGS.find((x) => x.id === id); return r ? `${r.label} ${r.value}` : `missing ${id}`; };
   if (views) {
-    t(`the featured plant is the first card (${W.featured})`, seen.plants[0] === W.featured[0], `got ${seen.plants[0]}`);
-    t("the featured readings are the tiles, in order", JSON.stringify(seen.tiles) === JSON.stringify(W["featured-readings"].map(tileOf)), JSON.stringify(seen.tiles));
-    t(`the Today list is the witness (${W.today.length} rows)`, JSON.stringify(seen.today) === JSON.stringify(W.today), JSON.stringify(seen.today));
-    t(`All plants is the witness (${W["all-plants"].length} cards)`, JSON.stringify(seen.plants.slice(1)) === JSON.stringify(W["all-plants"]), JSON.stringify(seen.plants.slice(1)));
+    // Each view id is looked up and named on its own, so a renamed or missing view reports a named
+    // failure rather than a TypeError that ends the engine leg (PR #523 F6).
+    const VIEW_IDS = ["featured", "featured-readings", "today", "all-plants"];
+    for (const id of VIEW_IDS) t(`pack.json#/bindings carries the ${id} view with a witness`, Array.isArray(W[id]), `have: ${Object.keys(W).join(", ")}`);
+    const has = (id) => Array.isArray(W[id]);
+    if (has("featured")) t(`the featured plant is the first card (${W.featured})`, seen.plants[0] === W.featured[0], `got ${seen.plants[0]}`);
+    if (has("featured-readings")) t("the featured readings are the tiles, in order", JSON.stringify(seen.tiles) === JSON.stringify(W["featured-readings"].map(tileOf)), JSON.stringify(seen.tiles));
+    if (has("today")) t(`the Today list is the witness (${W.today.length} rows)`, JSON.stringify(seen.today) === JSON.stringify(W.today), JSON.stringify(seen.today));
+    if (has("all-plants")) t(`All plants is the witness (${W["all-plants"].length} cards)`, JSON.stringify(seen.plants.slice(1)) === JSON.stringify(W["all-plants"]), JSON.stringify(seen.plants.slice(1)));
   }
   await bp.close();
 
