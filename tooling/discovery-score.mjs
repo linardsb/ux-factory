@@ -46,6 +46,7 @@
 //   node tooling/discovery-score.mjs --slug <slug> --run <a|b|c>   score a recorded package
 //   node tooling/discovery-score.mjs --root <dir> --run <a|b|c>    the same, by directory
 //   node tooling/discovery-score.mjs --slug <slug> --mvp6      the MVP 6 shortlist (human verdict)
+//   node tooling/discovery-score.mjs --park <slug>             the park view: misses by class, with the agent's reason
 
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
@@ -60,6 +61,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 export const FIXTURE_DIR = join(ROOT, "docs/epics/fixtures/graded-answers");
 export const DRAW_PATH = join(FIXTURE_DIR, "draw.json");
 export const KEY_PATH = join(FIXTURE_DIR, "key.json");
+export const BORDERLINE_PATH = join(FIXTURE_DIR, "borderline.json");
 
 const bad = (msg) => { throw new Error(`discovery-score: ${msg}`); };
 
@@ -96,6 +98,10 @@ export const COLUMNS = Object.freeze([...Object.values(EXPECTED), "no_close_file
 // sealed one — is not an outcome: assertAnswersSealed THROWS on it, because a package whose answers are
 // not the key's answers cannot be scored against the key at all.
 export const OUTCOMES = Object.freeze(["match", "mismatch", "no_close"]);
+
+// The three verdicts the blind borderline re-audit (#506) gives a K2 answer: thin, on the thin /
+// not-known-yet boundary, or carrying its slot after all. The same three classes #348's auditor used.
+export const BORDERLINE_VERDICTS = Object.freeze(["clean", "borderline", "carries"]);
 
 // --- the sealed draw -------------------------------------------------------------------------------
 
@@ -182,6 +188,40 @@ export function checkKey(key, ids) {
   for (const id of ids) for (const kind of KINDS) {
     if (!index.has(`${id}::${kind}`)) bad(`the key has no entry for ${id} ${kind} — the key is sealed complete or not at all`);
   }
+  return index;
+}
+
+// --- the borderline set (#506) ---------------------------------------------------------------------
+
+// A BLIND RE-AUDIT'S READ, NOT #348'S UNNAMED 11. #348's auditor said 11 K2 answers were borderline and
+// never listed them, so #506 re-audited all 65 K2s with no transcript, op, draw or score in view and
+// committed the verdicts as they came back. K2-only by construction: the question it answers is "was
+// this thin answer thin enough", which has no K1 or K3 reading. A separate file because key.json is
+// sealed and a new key is a new commit that voids every recorded package. Exact-key-set validation,
+// checkKey's discipline. Returns Map<question_id, verdict>.
+const BORDERLINE_KEYS = Object.freeze(["generatedFor", "method", "auditor", "entries"]);
+const BORDERLINE_ENTRY_KEYS = Object.freeze(["question_id", "verdict", "why"]);
+
+export function checkBorderline(list, ids) {
+  if (!list || typeof list !== "object" || Array.isArray(list)) bad(`borderline.json must be an object { ${BORDERLINE_KEYS.join(", ")} }`);
+  for (const k of Object.keys(list)) if (!BORDERLINE_KEYS.includes(k)) bad(`unknown key "${k}" on borderline.json — it is exactly ${BORDERLINE_KEYS.join(", ")}`);
+  for (const k of BORDERLINE_KEYS) if (list[k] === undefined) bad(`borderline.json is missing "${k}"`);
+  if (!Array.isArray(list.entries)) bad("borderline.json's \"entries\" must be an array");
+  if (!Array.isArray(ids) || ids.length === 0) bad("checkBorderline needs the bank's question ids");
+  if (list.entries.length !== ids.length) bad(`borderline.json holds ${list.entries.length} entries, not ${ids.length} — one verdict per question's K2, complete or not at all`);
+  const idSet = new Set(ids);
+  const index = new Map();
+  list.entries.forEach((e, i) => {
+    const at = `borderline entry ${i}`;
+    if (!e || typeof e !== "object" || Array.isArray(e)) bad(`${at} is not an object { ${BORDERLINE_ENTRY_KEYS.join(", ")} }`);
+    for (const k of Object.keys(e)) if (!BORDERLINE_ENTRY_KEYS.includes(k)) bad(`${at}: unknown key "${k}" — an entry is exactly ${BORDERLINE_ENTRY_KEYS.join(", ")}`);
+    for (const k of BORDERLINE_ENTRY_KEYS) if (e[k] === undefined) bad(`${at}: "${k}" is required`);
+    if (!idSet.has(e.question_id)) bad(`${at}: question_id ${JSON.stringify(e.question_id)} is not in the bank's depth`);
+    if (!BORDERLINE_VERDICTS.includes(e.verdict)) bad(`${at} (${e.question_id}): verdict ${JSON.stringify(e.verdict)} is not one of ${BORDERLINE_VERDICTS.join(" · ")}`);
+    if (typeof e.why !== "string" || !e.why.trim()) bad(`${at} (${e.question_id}): "why" must be a non-empty string (got ${JSON.stringify(e.why) ?? String(e.why)})`);
+    if (index.has(e.question_id)) bad(`${at}: ${e.question_id} appears twice — one verdict per question`);
+    index.set(e.question_id, e.verdict);
+  });
   return index;
 }
 
@@ -278,6 +318,54 @@ export function scorePackage(pkg, keyIndex, draw, run, ids) {
   };
 }
 
+// --- the park view (#506) --------------------------------------------------------------------------
+
+// Three confusion classes cut from the same rows scorePackage returns:
+//   a        K3 → not parked   the person said "don't know yet" and the judge filed something else
+//   b        K2 → parked       a thin answer the key expected flagged
+//   bPrime   K1 → parked       an answer that carries its form, which the key expected recorded
+// ASCII keys; the printed label carries the prime.
+export const PARK_CLASSES = Object.freeze({
+  a: Object.freeze({ kind: "K3", parked: false, label: "a" }),
+  b: Object.freeze({ kind: "K2", parked: true, label: "b" }),
+  bPrime: Object.freeze({ kind: "K1", parked: true, label: "b′" }),
+});
+
+// The filing op's own words: why the agent said it filed what it filed.
+const WHY_OF = Object.freeze({
+  open_question: (p) => p?.reason ?? null,
+  flag_weak_answer: (p) => (Array.isArray(p?.missing) ? p.missing.join("; ") : null),
+  record_decision: (p) => p?.wrong_if ?? null,
+});
+
+// PURE, like scorePackage. `borderline` is checkBorderline's Map; the set is K2-only, so a K1 or K3 row
+// is never "in band" and carries band null.
+export function parkView(pkg, score, borderline) {
+  const PARK = EXPECTED.K3;
+  const k2Rows = score.rows.filter((r) => r.kind === "K2");
+  for (const r of k2Rows) if (!borderline.has(r.question_id)) bad(`the borderline set holds no verdict for ${r.question_id} (${r.ref}, a K2 row)`);
+  const why = (r) => {
+    if (r.filed === null) return null;
+    const op = pkg.ops.find((o) => o.turn === r.turn && o.op === r.filed && CLOSES_WHEN[o.op](o.params));
+    return op ? WHY_OF[op.op](op.params) : null;
+  };
+  const view = (r) => ({ ref: r.ref, question_id: r.question_id, stage: r.stage, filed: r.filed, why: why(r), band: r.kind === "K2" ? borderline.get(r.question_id) : null });
+  const classes = Object.fromEntries(Object.entries(PARK_CLASSES).map(([key, c]) => [
+    key, score.rows.filter((r) => r.kind === c.kind && (r.filed === PARK) === c.parked).map(view),
+  ]));
+  const parks = score.rows.filter((r) => r.filed === PARK).length;
+  const k3 = score.rows.filter((r) => r.kind === "K3").length;
+  const k3Parked = score.rows.filter((r) => r.kind === "K3" && r.filed === PARK).length;
+  const bands = (rows) => Object.fromEntries(BORDERLINE_VERDICTS.map((v) => [v, rows.filter((r) => borderline.get(r.question_id) === v).length]));
+  const k2Misses = k2Rows.filter((r) => r.outcome !== "match");
+  return {
+    run: score.run, turns: score.turns, parks, k3, k3Parked,
+    precision: { num: k3Parked, den: parks }, recall: { num: k3Parked, den: k3 },
+    classes,
+    k2: { turns: k2Rows.length, bands: bands(k2Rows), misses: k2Misses.length, missBands: bands(k2Misses) },
+  };
+}
+
 // --- the MVP 6 shortlist ---------------------------------------------------------------------------
 
 // MECHANICAL SHORTLIST, HUMAN VERDICT. This does NOT prove MVP 6 and the report must not say it does.
@@ -314,6 +402,7 @@ const readJson = (file) => {
 
 export const readDraw = () => readJson(DRAW_PATH);
 export const readKey = () => readJson(KEY_PATH);
+export const readBorderline = () => readJson(BORDERLINE_PATH);
 
 // The package's three files, mirroring discovery/prd-projection.mjs:readPackage. Kept here rather than
 // imported so this file's import list stays two modules long and group 33's purity pin stays readable.
@@ -364,6 +453,24 @@ function printScore(slug, score, ids) {
   console.log(`\n  ${ids.length} questions in the depth. No target is set: the number is the reading.`);
 }
 
+const pct = ({ num, den }) => `${num}/${den} (${den ? Math.round((100 * num) / den) : 0}%)`;
+
+function printPark(slug, model, view) {
+  console.log(`\npark  ${slug}  ·  ${model}  ·  run column ${view.run}  ·  ${view.turns} turns`);
+  console.log(`\n  parks ${view.parks} · K3 ${view.k3} · precision ${pct(view.precision)} · recall ${pct(view.recall)}`);
+  for (const [key, c] of Object.entries(PARK_CLASSES)) {
+    const rows = view.classes[key];
+    console.log(`\n  class ${pad(c.label, 3)} ${c.kind} → ${c.parked ? "parked" : "not parked"}  ${rows.length}`);
+    for (const r of rows) {
+      console.log(`    ${pad(r.ref, 4)} ${pad(r.question_id, 34)} stage ${r.stage}  filed ${pad(r.filed ?? "nothing", 17)}${r.band ? ` band ${pad(r.band, 11)}` : ""} — ${r.why ?? "(no closing op)"}`);
+    }
+  }
+  const b = (o) => BORDERLINE_VERDICTS.map((v) => `${v} ${o[v]}`).join(" · ");
+  console.log(`\n  K2 turns ${view.k2.turns}: ${b(view.k2.bands)}`);
+  console.log(`  K2 misses ${view.k2.misses}: ${b(view.k2.missBands)}`);
+  console.log(`\n  The borderline set is a blind re-audit's read (borderline.json), not a key. The score supplies counts, never the verdict; no threshold is set.`);
+}
+
 // The synthetic package the selftest drives — every column exercised, hand-built here and never
 // presented as a run (group 29's rows and group 32's case 1 are the same shape of legitimate input).
 function syntheticPackage() {
@@ -386,6 +493,8 @@ function syntheticPackage() {
     },
   };
 }
+
+const USAGE = "usage: node tooling/discovery-score.mjs [--draw --seed <s> | --check-draw | --check-key | --selftest | --slug <slug> --run <a|b|c> [--mvp6] | --root <dir> --run <a|b|c> | --park <slug>]";
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const argv = process.argv.slice(2);
@@ -425,6 +534,19 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       const list = mvp6Shortlist(pkg.texts);
       console.log(`mvp6 shortlist  ${list.hits.length} candidate sentence(s) from ${list.lines} text line(s) — MECHANICAL SHORTLIST, HUMAN VERDICT`);
       for (const h of list.hits) console.log(`  ${h.turn}  ${h.pattern}  ${h.sentence}`);
+    } else if (argv.includes("--park")) {
+      const slug = flag("--park");
+      if (!slug || slug.startsWith("--")) throw new Error(USAGE);
+      const run = RUNS.find((r) => slug.endsWith(`-${r}`));
+      if (!run) throw new Error(`--park reads the draw column from the slug's -a/-b/-c suffix, and "${slug}" carries none`);
+      const draw = checkDraw(readDraw(), ids);
+      const keyIndex = checkKey(readKey(), ids);
+      const borderline = checkBorderline(readBorderline(), ids);
+      const pkg = readGradedPackage(join(ROOT, "discovery", slug));
+      const depthIds = selectDepth(pkg.run.depth).map((q) => q.id);
+      assertAnswersSealed(pkg, keyIndex, draw, run, depthIds);
+      const score = scorePackage(pkg, keyIndex, draw, run, depthIds);
+      printPark(slug, pkg.run.model ?? pkg.run.posture, parkView(pkg, score, borderline));
     } else if (flag("--slug") || flag("--root")) {
       const slug = flag("--slug");
       const root = flag("--root") ? resolve(flag("--root")) : join(ROOT, "discovery", slug);
@@ -438,7 +560,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       console.log(`answers sealed ✓  ${sealed}/${depthIds.length} byte-equal to the key's run-${run} column`);
       printScore(slug ?? root, scorePackage(pkg, keyIndex, draw, run, depthIds), depthIds);
     } else {
-      throw new Error("usage: node tooling/discovery-score.mjs [--draw --seed <s> | --check-draw | --check-key | --selftest | --slug <slug> --run <a|b|c> [--mvp6] | --root <dir> --run <a|b|c>]");
+      throw new Error(USAGE);
     }
   } catch (e) {
     console.error(`score ✗  ${e.message}`);

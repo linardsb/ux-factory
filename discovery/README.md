@@ -1099,9 +1099,11 @@ judge never said an answer was wrong and never supplied what was missing. The sh
 that verdict is a human read, and the distinction is the point.
 
 **The softest seam, stated rather than buried:** the substance audit flagged 11 of 65 K2 answers as
-borderline — taking the easy half of a question and refusing the hard half — and 7–8 of the K2 mismatches
-sit inside that band. **This score cannot separate "the judge mis-graded" from "the answer genuinely sat on
-the boundary."** A judge that parks a genuinely ambiguous answer is not obviously wrong.
+borderline — taking the easy half of a question and refusing the hard half. Those 11 ids were never
+recorded, and the count of K2 mismatches "inside that band" once written here was the count of parked K2
+turns, not an overlap. #506 re-audited all 65 K2s blind (`docs/epics/fixtures/graded-answers/borderline.json`)
+and the overlap is in `.claude/reports/discovery-park-506.md`. **This score cannot separate "the judge
+mis-graded" from "the answer genuinely sat on the boundary."** A judge that parks a genuinely ambiguous answer is not obviously wrong.
 
 **How they are made.** For each of `whole-bank`'s 65 questions (the source-backed bank; #283's ten are
 outside it by design) three answers were authored **blind to that
@@ -1167,6 +1169,7 @@ fingerprints must be byte-stable across all six recordings or the packages are n
 
     node tooling/discovery-score.mjs --slug graded-think-a --run a
     node tooling/discovery-score.mjs --slug graded-think-a --mvp6      # a shortlist; the verdict is a human read
+    node tooling/discovery-score.mjs --park graded-think-a      # the park view; the read is the report's
 
 ## The fence observation and its verification (#349)
 
