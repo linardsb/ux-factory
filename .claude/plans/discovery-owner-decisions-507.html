@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Four owner decisions</title>
+<style>
+:root { --bg:#fbfaf7; --fg:#1d1d1b; --muted:#6b6a65; --line:#dedbd2; --card:#fff; --accent:#3d6b5a; }
+@media (prefers-color-scheme: dark) { :root { --bg:#161615; --fg:#ecebe6; --muted:#9a998f; --line:#33322e; --card:#1f1f1d; --accent:#8fbfa9; } }
+* { box-sizing:border-box }
+body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, sans-serif; }
+main { max-width:760px; margin:0 auto; padding:32px 16px 64px; }
+h1 { font-size:26px; margin:0 0 4px } h2 { font-size:18px; margin:36px 0 10px; color:var(--accent) }
+h3 { font-size:16px; margin:0 0 6px }
+.src { color:var(--muted); font-size:14px }
+.card { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:14px 16px; margin:10px 0 }
+pre { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:12px; overflow-x:auto; font-size:13px; line-height:1.45 }
+code { font-size:13px }
+.flow { display:flex; flex-wrap:wrap; gap:8px; align-items:center }
+.box { border:1px solid var(--accent); border-radius:6px; padding:8px 10px; font-size:14px; background:var(--card) }
+.arrow { color:var(--muted) }
+ul.ac li, ul.phase li { margin:4px 0 }
+ul.learn { list-style:none; padding:0 }
+ul.learn li { display:flex; justify-content:space-between; gap:12px; align-items:center; border-bottom:1px solid var(--line); padding:8px 0 }
+.copy { opacity:.35; border:0; background:none; color:inherit; cursor:pointer; font-size:15px; line-height:1 }
+.copy:hover, .copy:focus-visible { opacity:1 }
+.copy::before { content:'⧉' } .copy.copied::before { content:'✓' }
+</style>
+</head>
+<body>
+<main>
+<h1>Four owner decisions, one sitting</h1>
+<p class="src">Full plan: <code>.claude/plans/discovery-owner-decisions-507.md</code></p>
+
+<h2>What we're building and why</h2>
+<p>Six follow-up tickets are stuck. Each one is waiting on a choice that only the owner can make. This sitting records four of those choices in the owner's own words, so that each ticket can start knowing the answer it is built on.</p>
+
+<h2>The concepts this plan rests on</h2>
+
+<div class="card">
+<h3>1. A page computed from a log</h3>
+<p>The PRD page (the product requirements document) starts life <b>projected</b>: generated from a log of recorded answers, not typed. The log works like a bank statement, which prints every line from the transactions and never makes one up. D-c decides which new blocks the page may show.</p>
+</div>
+
+<div class="card">
+<h3>2. A table that decides what the agent is told</h3>
+<p><code>SECTIONS</code> is the page's list of sections. Some rows also feed the interviewing agent's instructions, and changing those instructions changes the agent's <b>stamp</b>, a fingerprint of its prompt. We measured which rows feed it. Only "ladder" rows do (sections chosen by the decision's level), so a new summary-style row leaves the stamp unchanged.</p>
+<pre>ladder row added      → stamp changes   (tested)
+summary row added     → stamp unchanged (tested)</pre>
+</div>
+
+<div class="card">
+<h3>3. A strict form, and old forms that cannot be refilled</h3>
+<p>Each op (one recorded action, like "record a decision") must have exactly its listed fields. A new field would make every old record fail. D-b picks a fix: mark the field <b>optional</b> for old records, or rewrite them. Rewriting breaks the rule that records are never edited.</p>
+</div>
+
+<div class="card">
+<h3>4. A question budget</h3>
+<p>Full discovery asks about 30 questions. One number caps the total. Below 34, any three topic modules overflow it, and that overflow is intended. D-a decides where new metric questions go, and that choice sets the number.</p>
+<pre>12 core + 4 quality + 2 metrics + 15 (two modules) = 33 ≤ cap</pre>
+</div>
+
+<h2>How the pieces fit</h2>
+<div class="flow">
+  <span class="box">Brief: options marked (agent)</span><span class="arrow">→</span>
+  <span class="box">Owner types four lines</span><span class="arrow">→</span>
+  <span class="box">Quoted on #507</span><span class="arrow">→</span>
+  <span class="box">Six tickets point to their decision</span><span class="arrow">→</span>
+  <span class="box">Wave 3 tickets plan their changes</span>
+</div>
+
+<h2>The plan at a glance</h2>
+<ul class="phase">
+  <li><b>Sitting</b>: the owner decides D-c first, then D-a, D-b and D-d. Needs nothing.</li>
+  <li><b>Record</b>: post one comment on #507. Needs the owner's typed lines.</li>
+  <li><b>Re-point</b>: add an "Inherits" line to #509–#513 and #518. Needs the record.</li>
+</ul>
+<pre>.claude/plans/
+├── discovery-owner-decisions-507.md     # the brief, checked against main
+└── discovery-owner-decisions-507.html   # this page
+(no code or doc changes: each decision is written into the docs by its implementing ticket)</pre>
+<ul class="ac">
+  <li>All four verdicts are the owner's typed lines, quoted on #507 with the date.</li>
+  <li>Each verdict names the ticket that writes it into the docs.</li>
+  <li>The six follow-up tickets each name the verdict they rely on.</li>
+</ul>
+
+<h2>Go deeper</h2>
+<ul class="learn">
+  <li data-prompt="/learn projection as a pure fold over an event log"><span><b>/learn projection as a pure fold over an event log</b> — why prd.md is computed, never written</span><button class="copy" aria-label="Copy prompt"></button></li>
+  <li data-prompt="/learn prompt fingerprints and what moves them"><span><b>/learn prompt fingerprints and what moves them</b> — why only ladder rows shift Create PRD's stamp</span><button class="copy" aria-label="Copy prompt"></button></li>
+  <li data-prompt="/learn schema evolution for append-only logs"><span><b>/learn schema evolution for append-only logs</b> — optional fields versus back-fill</span><button class="copy" aria-label="Copy prompt"></button></li>
+  <li data-prompt="/learn budget caps as invariants"><span><b>/learn budget caps as invariants</b> — why 33 is the ceiling for full discovery</span><button class="copy" aria-label="Copy prompt"></button></li>
+</ul>
+</main>
+<script>
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.copy')
+  if (!btn) return
+  const text = btn.closest('[data-prompt]').dataset.prompt
+  try {
+    await navigator.clipboard.writeText(text)
+  } catch {
+    const ta = Object.assign(document.createElement('textarea'), { value: text })
+    ta.style.cssText = 'position:fixed;opacity:0'
+    document.body.append(ta)
+    ta.select()
+    document.execCommand('copy')
+    ta.remove()
+  }
+  btn.classList.add('copied')
+  setTimeout(() => btn.classList.remove('copied'), 1200)
+})
+</script>
+</body>
+</html>
