@@ -17,6 +17,10 @@
 // a reset between, means a broken consumer fails all three and a broken keyboard path fails
 // exactly one.
 //
+// It also asserts that the handoff pack's bindings witness is what /proto/verdant.html renders
+// (epic #329 ticket #331, section [11]): the one place the bindings' stated rules meet the page's
+// own code. It reads the record ids off the page, never the rule text.
+//
 // Playwright is NOT a repo dependency and must never become one — shipped pages are vanilla, and
 // the two dependency-carrying tools stay isolated (CLAUDE.md ground rules). It is resolved out of
 // tooling/visual-regression/node_modules, the exact version CI's `visual` job pins, so this driver
@@ -30,6 +34,7 @@
 //   node tooling/visual-regression/serve.mjs &        # repo root on 127.0.0.1:4757
 //   node tooling/proto-journey.mjs [chromium|firefox|webkit|all]      # default: all
 
+import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -52,6 +57,9 @@ if (toRun.some((e) => !ENGINES.includes(e))) {
 // driver instead of drifting past it (build-journey.mjs:54-60's discipline).
 const { FRAME_MIN, FRAME_MAX, STEP } = await import(new URL("../system/device-frame.mjs", import.meta.url));
 const { TONES } = await import(new URL("../system/bus-toggles.mjs", import.meta.url));
+// #331: the committed pack's bindings and the readings fixture, read at the source, never retyped.
+const BINDINGS = JSON.parse(readFileSync(new URL("../handoff/verdant/pack.json", import.meta.url), "utf8")).bindings;
+const READINGS = JSON.parse(readFileSync(new URL("../scenarios/verdant/fixtures/readings.json", import.meta.url), "utf8"));
 
 const SUMMARY = '[data-slot="summary-strip"]';
 const TILE0 = `${SUMMARY} .proto-slot-fill .ds-metric-tile`;
@@ -317,6 +325,34 @@ async function journey(engineName, results, held) {
       got.rows === 0 && got.handles === 0 && got.device === 0, JSON.stringify(got));
   }
   await work.close();
+
+  // The guard keeps a pack with no bindings from throwing here and aborting the engine: it reports
+  // one named failure instead, so a count after it still means coverage, not "stopped here".
+  console.log("\n[11] the pack's bindings are what the page renders (#331)");
+  const bp = await newPage(ctx);
+  await bp.goto(`${BASE}/proto/verdant.html`, { waitUntil: "load" });
+  await bp.waitForSelector("#today-list", { timeout: 20000 });
+  const seen = await bp.evaluate(() => ({
+    plants: [...document.querySelectorAll("#app .vd-plant-card")].map((e) => e.dataset.plantId),
+    today: [...document.querySelectorAll("#today-list .vd-care-task-row")].map((e) => e.dataset.taskId),
+    tiles: [...document.querySelectorAll("#app .vd-stat-tile")].map((e) => `${e.querySelector(".vd-stat-label").textContent} ${e.querySelector(".vd-stat-value").textContent}`),
+  }));
+  const views = BINDINGS?.screens?.[0]?.views;
+  t("handoff/verdant/pack.json carries bindings (regenerate: node agent-layer/gen-handoff.mjs)", Array.isArray(views), `got ${typeof BINDINGS}`);
+  const W = Object.fromEntries((views ?? []).map((v) => [v.id, v.witness]));
+  const tileOf = (id) => { const r = READINGS.find((x) => x.id === id); return r ? `${r.label} ${r.value}` : `missing ${id}`; };
+  if (views) {
+    // Each view id is looked up and named on its own, so a renamed or missing view reports a named
+    // failure rather than a TypeError that ends the engine leg (PR #523 F6).
+    const VIEW_IDS = ["featured", "featured-readings", "today", "all-plants"];
+    for (const id of VIEW_IDS) t(`pack.json#/bindings carries the ${id} view with a witness`, Array.isArray(W[id]), `have: ${Object.keys(W).join(", ")}`);
+    const has = (id) => Array.isArray(W[id]);
+    if (has("featured")) t(`the featured plant is the first card (${W.featured})`, seen.plants[0] === W.featured[0], `got ${seen.plants[0]}`);
+    if (has("featured-readings")) t("the featured readings are the tiles, in order", JSON.stringify(seen.tiles) === JSON.stringify(W["featured-readings"].map(tileOf)), JSON.stringify(seen.tiles));
+    if (has("today")) t(`the Today list is the witness (${W.today.length} rows)`, JSON.stringify(seen.today) === JSON.stringify(W.today), JSON.stringify(seen.today));
+    if (has("all-plants")) t(`All plants is the witness (${W["all-plants"].length} cards)`, JSON.stringify(seen.plants.slice(1)) === JSON.stringify(W["all-plants"]), JSON.stringify(seen.plants.slice(1)));
+  }
+  await bp.close();
 
   await ctx.close();
   await browser.close();

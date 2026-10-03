@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://factory-ux.pages.dev/handoff/verdant/contracts/plant-card.contract.json",
   "title": "Plant",
-  "description": "One plant as the Verdant mock API returns it (fictional demo data). The card binds a subset (see the spec's Data binding); care-task-row references plants by id. Derived fields are baked against the scenario's fixed fictional today (the brief's head).",
+  "description": "One plant as the Verdant mock API returns it (fictional demo data). The card binds a subset (see the spec's Data binding); care-task-row references plants by id. Derived fields are baked against the scenario's fixed fictional today (handoff/verdant/scenario.json's today).",
   "type": "object",
   "required": ["id", "name", "species", "location", "acquired", "wateringIntervalDays", "lastWatered", "lastFertilized", "health", "status", "notes"],
   "properties": {
@@ -15,7 +15,14 @@
     "lastWatered":          { "type": "string", "format": "date" },
     "lastFertilized":       { "type": "string", "format": "date" },
     "health":               { "type": "string", "enum": ["thriving", "stable", "struggling"], "description": "long-run condition — distinct from status, which is care urgency" },
-    "status":               { "type": "string", "enum": ["ok", "due", "overdue"], "description": "worst status among the plant's not-done care tasks, derived against the fictional today" },
+    "status":               {
+      "type": "string", "enum": ["ok", "due", "overdue"], "description": "worst status among the plant's not-done care tasks, derived against the fictional today",
+      "readOnly": true,
+      "x-derived": {
+        "from": ["id", "care-task-row.contract.json#/properties/plantId", "care-task-row.contract.json#/properties/done", "care-task-row.contract.json#/properties/status"],
+        "rule": "the worst status among the care tasks whose plantId is this plant's id and whose done is false, ranked overdue, then due, then ok; ok when it has none."
+      }
+    },
     "notes":                { "type": "string" },
     "photoUrl":             { "type": "string", "format": "uri-reference", "description": "site-relative image path; optional — never present in the demo data (no image assets in fixtures), so the card's monogram placeholder is the exercised path" }
   },
