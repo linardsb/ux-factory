@@ -1,0 +1,332 @@
+{
+  "generatedFor": "#506",
+  "method": "Blind slot-first audit of all 65 K2 answers against the question text and K1, in five batches of 13 in bank order; the auditor used no tools and saw no transcript, op, draw or score.",
+  "auditor": "fable (Agent tool model param), no tools used",
+  "entries": [
+    {
+      "question_id": "s1-choice-cascade",
+      "verdict": "borderline",
+      "why": "The slot is the five named cascade answers; K2 gives a vague aspiration and a loose capabilities list but names no segment, no competitor and no management system, taking the easy halves and leaving the rest."
+    },
+    {
+      "question_id": "s1-what-would-have-to-be-true",
+      "verdict": "clean",
+      "why": "The slot is a condition tied to a specific option; K2 names no option and offers only the general company test that renewals matter, which is a standing fact rather than a condition for anything."
+    },
+    {
+      "question_id": "s1-premortem",
+      "verdict": "carries",
+      "why": "The slot is a causal history of the failure; K2 writes one (faster onboarding, unowned handoff, support drowning, compliance checks slipping, an agency noticing) and anchors it to a named prior incident in the spring."
+    },
+    {
+      "question_id": "s1-how-addressed-today",
+      "verdict": "carries",
+      "why": "The slot is current solutions plus their shortcomings; K2 names spreadsheets, paper folders and oversized incumbents, lists concrete shortcomings, and cites Dan's January finding that incumbents solve rota or compliance but not both."
+    },
+    {
+      "question_id": "s1-why-who-how-what",
+      "verdict": "clean",
+      "why": "The slot is the four actual answers; K2 describes the shape of its sales conversation without ever stating a why, a who, a how or a what."
+    },
+    {
+      "question_id": "s1-if-nobody-solves-this",
+      "verdict": "borderline",
+      "why": "The slots are whom, how often and at what cost; K2 fills whom (coordinators, owners, carers) but gives no frequency and only anxiety and long evenings in place of a cost."
+    },
+    {
+      "question_id": "s2-more-than-one-way",
+      "verdict": "carries",
+      "why": "The slot is named alternatives; K2 names the same two as K1 (more automation versus cleaner templates) with a rough date, so despite the disclaimers it is K1 minus the owner's own read."
+    },
+    {
+      "question_id": "s2-why-do-you-want-it",
+      "verdict": "clean",
+      "why": "The slot is the underlying need behind a requested feature; K2 explains that it asks why as a practice but never surfaces a single why or a single request."
+    },
+    {
+      "question_id": "s2-riskiest-assumption",
+      "verdict": "borderline",
+      "why": "The slot is the one riskiest assumption; K2 lists the right preconditions (compliance holds, coordinators trust the output) but locates the risk only as somewhere in the sold-versus-used gap and hands the question to Priya and Ellie."
+    },
+    {
+      "question_id": "s2-last-time-show-me",
+      "verdict": "clean",
+      "why": "The slot is a specific file, thread or tab; K2 states there is no particular file or thread and nothing tidy to point to."
+    },
+    {
+      "question_id": "s2-switch-timeline",
+      "verdict": "borderline",
+      "why": "The slot is a specific day and what was happening; K2 refuses the day outright but offers a period (early last year), a person (Priya) and a trigger pattern, which a reader could take as a vague fill or a not-known."
+    },
+    {
+      "question_id": "s2-four-forces",
+      "verdict": "borderline",
+      "why": "The slot is which forces are in play and how; K2 says all four show up and gestures at push (fed up, bad inspection) and pull (like the demo) without mapping anxiety or habit to anything checkable."
+    },
+    {
+      "question_id": "s2-kano-pair",
+      "verdict": "borderline",
+      "why": "The slot is the paired with/without feeling for a feature; K2 sorts compliance into strong feeling and rota suggestions into mild, then concedes it is a rough sense from complaints rather than an answer to either half per feature."
+    },
+    {
+      "question_id": "s3-why-now",
+      "verdict": "clean",
+      "why": "The slot is the cause (a regulatory shift, an ageing incumbent) that explains the gap; K2 says the reason 'isn't something I've got a handle on' and points at Priya, offering only coordinator relief at leaving spreadsheets."
+    },
+    {
+      "question_id": "s3-user-need-map",
+      "verdict": "borderline",
+      "why": "The slot is the capability list with a stage for each; K2 implies the user and need (coordinator's Sunday rota, CQC inspection) and cites an October mapping by Marek and Ellie, then explicitly refuses to list capabilities or where each sits."
+    },
+    {
+      "question_id": "s3-where-is-the-inertia",
+      "verdict": "borderline",
+      "why": "The slot is a locus plus an owner; K2 names compliance-checking flag logic and agencies' push-back via Marek in February, then dissolves it into 'everywhere, both sides, no one person or team', so the owner half is given and withdrawn."
+    },
+    {
+      "question_id": "s3-beachhead",
+      "verdict": "clean",
+      "why": "The slot is a size judgement, a lead claim and a named adjacent niche; K2 reports a repeated compliance pattern from onboarding but defers size and the next niche to Priya and Ellie and never names either."
+    },
+    {
+      "question_id": "s3-deliberately-not-doing",
+      "verdict": "borderline",
+      "why": "The slot is the excluded thing plus the person annoyed; K2 names the exclusion checkably (multi-site operators wanting consolidated reporting) but replaces the annoyed party with generic 'some prospects go elsewhere', taking the easy half only."
+    },
+    {
+      "question_id": "s3-what-winning-earns",
+      "verdict": "carries",
+      "why": "The slot is the unbuyable thing winning earns; K2 names it (default-choice status a bigger vendor can't buy overnight) and anchors it to Marek's February onboarding calls where owners already assumed them, which is K1's answer minus the four-of-eleven figure."
+    },
+    {
+      "question_id": "s4-appetite",
+      "verdict": "clean",
+      "why": "The slot is an appetite verdict (quick fix, cycle or redesign) for a specific thing; K2 says 'depends which bit you mean' and describes both kinds in the abstract, with a March anecdote that names nothing, giving no verdict on anything."
+    },
+    {
+      "question_id": "s4-breadboard-elements",
+      "verdict": "clean",
+      "why": "The slot is the placement, entry path, components and exit of the new thing; K2 defers all of it to Ellie, says 'I'd be guessing' on screens and hooks, and offers only that support calls land with her and Dan."
+    },
+    {
+      "question_id": "s4-rabbit-holes",
+      "verdict": "clean",
+      "why": "The slot is a hard decision or unproven assumption to settle in advance; K2 relocates the risk to customer trust and expectation-setting and explicitly says there is no technical thing to lock down, naming no decision at all."
+    },
+    {
+      "question_id": "s4-out-of-bounds",
+      "verdict": "borderline",
+      "why": "The slot is what is out of bounds this cycle; K2 gives the list's standing categories (big integration requests, one-off customer asks) which overlap K1's items, but declines the current cycle's actual entries as not on her desk."
+    },
+    {
+      "question_id": "s4-circuit-breaker",
+      "verdict": "borderline",
+      "why": "The slot is the extend-or-cut rule; K2 says a rota feature would be let run and compliance is 'treated differently' without saying which way, assigns the call to Ellie from a recent standup, then reduces it to whoever is shouting at support that week."
+    },
+    {
+      "question_id": "s4-press-release",
+      "verdict": "clean",
+      "why": "The slot is the release's content (a headline or claim); K2 describes the exercise as a habit, cites an October attempt with Marek that no longer stands, and offers only a topic lean toward audit-trail work with no line of what it says."
+    },
+    {
+      "question_id": "s4-four-risks",
+      "verdict": "borderline",
+      "why": "The slot is four risk answers (value, usability, feasibility, viability); K2 answers only value with uncheckable 'agencies say compliance is why they signed', hands the other three to Dan and Ellie, and relays Marek's 'better than expected' as hearsay without the detail."
+    },
+    {
+      "question_id": "s5-value-metric",
+      "verdict": "borderline",
+      "why": "The slot is one named value metric; K2 names compliance/audit readiness as what customers value but explicitly refuses the pay-more half and calls it a feel, not a metric."
+    },
+    {
+      "question_id": "s5-willingness-to-pay",
+      "verdict": "clean",
+      "why": "The slot is a WTP figure (overall or per feature) plus a last-asked date; K2 gives neither, defers to Priya and admits not asking anyone in a while."
+    },
+    {
+      "question_id": "s5-monetisation-failure",
+      "verdict": "borderline",
+      "why": "The slot is one named failure of the four; K2 gestures at minivation via 'leaving value on the table' but refuses to land and says they don't sit cleanly in any."
+    },
+    {
+      "question_id": "s5-pain-budget-same-person",
+      "verdict": "borderline",
+      "why": "The slot is the two named roles and whether they coincide; K2 names the coordinator and an unnamed 'whoever controls spending' and says it rarely lines up, without a role or a split."
+    },
+    {
+      "question_id": "s5-net-revenue-retention",
+      "verdict": "borderline",
+      "why": "The slot is an NRR figure and one named constraint; K2 gives no number and never names one of the three, but rules out activation and points at post-go-live compliance breakage as the drag."
+    },
+    {
+      "question_id": "s5-gross-margin",
+      "verdict": "borderline",
+      "why": "The slot is a margin figure and a bad-reason verdict; K2 gives no number and defers the verdict to the founders, while hinting at the untiered price and quietly carried support load."
+    },
+    {
+      "question_id": "s5-pricing-model-story",
+      "verdict": "borderline",
+      "why": "The slot is the model plus a count of changes this year; K2 fills the model (flat fee, simplicity story) and refuses the count as something not tracked."
+    },
+    {
+      "question_id": "s5-free-tier-cost",
+      "verdict": "clean",
+      "why": "The slot is a per-abuser cost and a usage break-even; K2 gives neither, describing ad-hoc support flagging and admitting no cost model exists."
+    },
+    {
+      "question_id": "s6-process-as-it-runs",
+      "verdict": "clean",
+      "why": "The slot is an undocumented step in the actual process; K2 says it doesn't see the commercial steps at all and offers only the documented handoff."
+    },
+    {
+      "question_id": "s6-accountable-when-wrong",
+      "verdict": "borderline",
+      "why": "The slot is the accountable party and whether the design shifts it; K2 names the registered manager via CQC but leaves the automated-suggestions half as an unresolved open thread."
+    },
+    {
+      "question_id": "s6-permission-model",
+      "verdict": "clean",
+      "why": "The slot is the model and who can see across tenants; K2 restates 'tenant-scoped' and 'access kept tight' without naming any cross-tenant viewer or role."
+    },
+    {
+      "question_id": "s6-audit-trail",
+      "verdict": "clean",
+      "why": "The slot is the trail's required contents and a retention period; K2 names no logged field and explicitly says it's less about a retention number."
+    },
+    {
+      "question_id": "s6-where-data-lives",
+      "verdict": "borderline",
+      "why": "The slot is the data location and who told the customer; K2 never gives a location but half-fills the who with Marek walking through the security setup in onboarding."
+    },
+    {
+      "question_id": "s6-coexist-with-incumbent",
+      "verdict": "borderline",
+      "why": "The slot is the coexistence arrangement; K2 states the split (old system ticks over, rota on us, migrate when it suits) but only as a sales reassurance and hands the operational half to Marek."
+    },
+    {
+      "question_id": "s6-edge-cases-or-refusals",
+      "verdict": "clean",
+      "why": "The slot is a named edge case and a named refusal; K2 offers a principle (coordinator keeps final say) and names neither."
+    },
+    {
+      "question_id": "s6-integration-surface",
+      "verdict": "clean",
+      "why": "The slot is named systems read from, written to and never broken; K2 names no system, no write side, and only gestures at compliance records being handled carefully."
+    },
+    {
+      "question_id": "s7-goals-signals-metrics",
+      "verdict": "clean",
+      "why": "The slot is a goal-signal-metric chain; K2 gives a trust feeling and 'overall satisfaction' and says outright no structure exists."
+    },
+    {
+      "question_id": "s7-north-star",
+      "verdict": "clean",
+      "why": "The slot is one metric plus its inputs; K2 names a theme (compliance, trust) and explicitly no single number and no inputs."
+    },
+    {
+      "question_id": "s7-counter-metric",
+      "verdict": "borderline",
+      "why": "The slot is the gaming mode and the counter-metric; K2 names the gaming mode (finishing fast over finishing right) and refuses the counter-metric as someone else's call."
+    },
+    {
+      "question_id": "s7-kill-state-and-date",
+      "verdict": "clean",
+      "why": "The slot is a checkable state and a date; K2 gives an uncheckable feeling and explicitly declines any date."
+    },
+    {
+      "question_id": "s7-what-would-make-us-stop",
+      "verdict": "clean",
+      "why": "The slot is a stop threshold; K2 gives a shift in call tone with no number or trigger."
+    },
+    {
+      "question_id": "s7-abandonment",
+      "verdict": "borderline",
+      "why": "The slot is a named piece re-examined for whether we'd start it now; K2 answers yes for the whole company and declines to examine any piece."
+    },
+    {
+      "question_id": "s7-goes-up-doing-nothing",
+      "verdict": "clean",
+      "why": "The slot is a yes/no with a reason for a named number; K2 names no number, says it cannot judge, and defers to Priya."
+    },
+    {
+      "question_id": "s8-eval",
+      "verdict": "borderline",
+      "why": "The slot is eval, owner, pass rate and set; K2 names the owners (Marek and Dan) and a rough refresh time but refuses the pass rate and the set."
+    },
+    {
+      "question_id": "s8-validate-the-validators",
+      "verdict": "borderline",
+      "why": "The slot is who checks the checkers and against what; K2 names people (Marek, Priya, the four of us) but no external reference, cadence or check against reality."
+    },
+    {
+      "question_id": "s8-system-or-model",
+      "verdict": "clean",
+      "why": "The slot is which of the two is evaluated; K2 never answers, reports agency impressions and hands the question to Dan."
+    },
+    {
+      "question_id": "s8-failure-who-pays",
+      "verdict": "clean",
+      "why": "The slot is who pays for a wrong answer; K2 names no payer and no concrete failure, only general nervousness and an opt-in default."
+    },
+    {
+      "question_id": "s8-human-in-the-loop",
+      "verdict": "borderline",
+      "why": "The slot is whether the control is real or theatre; K2 takes the easy half (the coordinator is the human) and openly declines the hard half, calling it 'the story we tell' rather than a checked control."
+    },
+    {
+      "question_id": "s8-reversibility-blast-radius",
+      "verdict": "borderline",
+      "why": "The slot is the blast radius; K2 states the review gate before any carer's shift but never sizes the radius or addresses reversibility, and admits it is untested philosophy."
+    },
+    {
+      "question_id": "s8-cost-per-successful-action",
+      "verdict": "clean",
+      "why": "The slot is a cost figure; K2 gives none and deflects to Dan and Ellie."
+    },
+    {
+      "question_id": "s8-latency-budget",
+      "verdict": "borderline",
+      "why": "The slot is a latency number; K2 gives none but does carry the easy half (when slow, coordinators revert to manual) in general terms."
+    },
+    {
+      "question_id": "s8-product-or-feature",
+      "verdict": "borderline",
+      "why": "The slot is the named moat beyond the model; K2 vaguely points at compliance stickiness against CareLineLive but disclaims it as a feeling, not an answer."
+    },
+    {
+      "question_id": "s8-data-flywheel",
+      "verdict": "borderline",
+      "why": "The slot is real-or-asserted; K2 describes the flywheel pitch (easy half) and refuses the verdict, pointing to product."
+    },
+    {
+      "question_id": "s8-trust-budget",
+      "verdict": "clean",
+      "why": "The slot is a count of wrong answers; K2 explicitly says it is 'less a count' and gives no number."
+    },
+    {
+      "question_id": "s8-source-opening-rate",
+      "verdict": "clean",
+      "why": "The slot is whether opening-before-accept is measured (and a rate); K2 defers measurement to Dan and offers only sentiment about the panel."
+    },
+    {
+      "question_id": "s9-customer-experience-backwards",
+      "verdict": "borderline",
+      "why": "The slot is where this idea started; K2 gives the generic habit (sit with an agency, Marek hears it first) rather than this idea's specific origin."
+    },
+    {
+      "question_id": "s9-eleven-star",
+      "verdict": "clean",
+      "why": "The slot is a described step-change experience; K2 refuses to sketch one and defers to Ellie and Priya."
+    },
+    {
+      "question_id": "s9-strength-of-evidence",
+      "verdict": "clean",
+      "why": "The slot is a named piece of evidence weighed against a consequence; K2 names none, only a habit of being careful."
+    },
+    {
+      "question_id": "s9-very-disappointed",
+      "verdict": "clean",
+      "why": "The slot is a proportion of users who would be very disappointed; K2 gives only secondhand general mood, no figure."
+    }
+  ]
+}

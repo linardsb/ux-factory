@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Park scorer brief</title>
+<style>
+  :root { --bg:#fbfaf7; --ink:#1f2328; --muted:#5f6670; --line:#dcd8cf; --card:#fff; --accent:#3a6b5a; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#16181b; --ink:#e6e3dc; --muted:#9aa0a6; --line:#2e3238; --card:#1d2024; --accent:#7fb8a3; } }
+  * { box-sizing:border-box }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.55 system-ui, -apple-system, sans-serif; }
+  main { max-width:760px; margin:0 auto; padding:32px 16px 64px; }
+  h1 { font-size:26px; margin:0 0 4px } h2 { font-size:18px; margin:36px 0 10px }
+  .src { color:var(--muted); font-size:14px } a { color:var(--accent) }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:14px 16px; margin:10px 0 }
+  .card h3 { margin:0 0 6px; font-size:16px }
+  pre { background:var(--card); border:1px solid var(--line); border-radius:6px; padding:10px 12px; overflow-x:auto; font-size:13px; margin:8px 0 0 }
+  .flow { display:flex; flex-wrap:wrap; gap:8px; align-items:center }
+  .box { border:1px solid var(--accent); border-radius:6px; padding:8px 10px; font-size:14px; background:var(--card) }
+  .arr { color:var(--muted) }
+  ul { padding-left:20px } li { margin:4px 0 }
+  .learn { list-style:none; padding:0 } .learn li { display:flex; justify-content:space-between; gap:12px; border-bottom:1px solid var(--line); padding:8px 0 }
+  .copy { opacity:.35; border:0; background:none; color:inherit; cursor:pointer; font-size:15px; line-height:1 }
+  .copy:hover, .copy:focus-visible { opacity:1 } .copy::before { content:'⧉' } .copy.copied::before { content:'✓' }
+</style>
+</head>
+<body>
+<main>
+<h1>Why does the interviewer say "you don't know yet"?</h1>
+<p class="src">Full plan: <a href="discovery-park-scorer-506.md">discovery-park-scorer-506.md</a></p>
+
+<h2>What we're building and why</h2>
+<p>Today we know the interview agent too often files a thin answer as "not known yet", but only as a ratio. After this, a report names every such turn, the agent's own reason, and whether the answer was genuinely ambiguous.</p>
+
+<h2>The concepts</h2>
+<div class="card"><h3>Parking</h3>
+<p>Parking is when the agent records "this person doesn't know yet" instead of judging the answer. Like a teacher marking "absent" for a student who answered badly. This plan counts the wrong parks.</p></div>
+
+<div class="card"><h3>An answer key, sealed in advance</h3>
+<p>Every test answer was written as one of three kinds: good (K1), thin (K2), or "don't know" (K3). The key was locked before any run. That lets us compare what the agent did with what it should have done.</p>
+<pre>K1 good      → should record a decision
+K2 thin      → should flag it as weak
+K3 unknown   → should park it</pre></div>
+
+<div class="card"><h3>A blind second opinion</h3>
+<p>Some thin answers sit on the line between "thin" and "don't know". A separate reader marks those, without seeing what the agent did, so its verdict can't be bent toward the agent's mistakes.</p></div>
+
+<div class="card"><h3>A check that survives re-recording</h3>
+<p>The next ticket re-runs these interviews, so the exact numbers will change. The automated check (the gate) tests a rule that stays true on any honest run: every park lands in exactly one class.</p></div>
+
+<h2>How the pieces fit</h2>
+<div class="flow">
+  <span class="box">Sealed answer key</span><span class="arr">→</span>
+  <span class="box">Blind borderline read</span><span class="arr">→</span>
+  <span class="box">Park view (counts + reasons)</span><span class="arr">→</span>
+  <span class="box">Gate check</span><span class="arr">→</span>
+  <span class="box">Report + session read</span><span class="arr">→</span>
+  <span class="box">Next ticket's prompt fix</span>
+</div>
+
+<h2>The plan at a glance</h2>
+<ul>
+  <li>Phase 1: blind borderline read (no dependency)</li>
+  <li>Phase 2: the park view in the scorer (reads Phase 1's file)</li>
+  <li>Phase 3: the gate check (needs Phase 2)</li>
+  <li>Phase 4: report and README fix (needs the numbers)</li>
+</ul>
+<pre>tooling/discovery-score.mjs                         # adds --park and the borderline validator
+tooling/build-checks.mjs                            # one new case in the graded-fixture group
+docs/epics/fixtures/graded-answers/borderline.json  # the blind reader's verdicts, unedited
+discovery/README.md                                 # corrects an unsourced overlap claim
+.claude/references/gates.md                         # the gate's description, kept true
+.claude/reports/discovery-park-506.md               # counts, overlap, labelled read</pre>
+<ul>
+  <li>The park view prints every class for both models, the same output every time.</li>
+  <li>The scorer stays pure: no network, clock or writes.</li>
+  <li>The report holds the counts, the borderline overlap and a read labelled as the session's.</li>
+  <li>The read names what its recommended prompt change would cost to re-record.</li>
+  <li>The full gate is green.</li>
+</ul>
+
+<h2>Go deeper</h2>
+<ul class="learn">
+  <li data-prompt="/learn confusion matrices for classifier errors"><span><b>/learn confusion matrices for classifier errors</b>: how precision and recall come out of the table.</span><button class="copy" aria-label="Copy prompt"></button></li>
+  <li data-prompt="/learn pre-registered answer keys in evaluation"><span><b>/learn pre-registered answer keys in evaluation</b>: why the key is sealed before the run.</span><button class="copy" aria-label="Copy prompt"></button></li>
+  <li data-prompt="/learn blind annotation and contamination"><span><b>/learn blind annotation and contamination</b>: why the reader must not see the results.</span><button class="copy" aria-label="Copy prompt"></button></li>
+  <li data-prompt="/learn invariant tests versus snapshot tests"><span><b>/learn invariant tests versus snapshot tests</b>: why the gate checks a rule, not numbers.</span><button class="copy" aria-label="Copy prompt"></button></li>
+</ul>
+</main>
+<script>
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.copy')
+  if (!btn) return
+  const text = btn.closest('[data-prompt]').dataset.prompt
+  try {
+    await navigator.clipboard.writeText(text)
+  } catch {
+    const ta = Object.assign(document.createElement('textarea'), { value: text })
+    ta.style.cssText = 'position:fixed;opacity:0'
+    document.body.append(ta)
+    ta.select()
+    document.execCommand('copy')
+    ta.remove()
+  }
+  btn.classList.add('copied')
+  setTimeout(() => btn.classList.remove('copied'), 1200)
+})
+</script>
+</body>
+</html>
