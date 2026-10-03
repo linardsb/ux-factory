@@ -1,0 +1,6 @@
+turn-1 · pay-someone-new | add-payee-form · none | form · stack(column) › screen-header · text · text-field · text-field · text-field · select-field · modal-dialog · primary-button | stack(column) › screen-header · text · text-field · text-field · text-field · select-field · primary-button · same screen n · match n
+turn-2 · confirm-and-send | confirmation-of-payee-result · none | none · stack(column) › screen-header · text · text-field · modal-dialog · primary-button | stack(column) › screen-header · text · card · modal-dialog · primary-button · same screen n · match n
+turn-3 · payment-sent | payment-scam-check · list | confirm · stack(column) › screen-header · text · list · primary-button | stack(column) › screen-header · card · modal-dialog · same screen n · match n
+fork · choose-amount | send-first-payment · none | none · stack(column) › screen-header · text · text-field · text · primary-button | stack(column) › screen-header · text · card · text-field · primary-button · same screen n · match n
+
+converged: 0/4 · mismatched: turn-1, turn-2, turn-3, fork

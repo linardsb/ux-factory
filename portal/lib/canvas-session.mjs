@@ -55,6 +55,9 @@ import { REPO_DIR } from "./env.mjs";
 // probe run 4 ran under. ROLE, LOOP, ESCAPE and TURN_ASK are S6's own (canvas-spike-s6/driver.txt:
 // 312-316): a change to LOOP or ESCAPE re-opens S6 (47.2), and a change to any of the eight re-opens
 // the probe (47.2b). S6's FORK_ASK (#320's) and YIELD_CONTRACT (branch 1 did not need it) do not ship.
+// system/DESIGN.md (#321) sits between the vocabulary and the PRD. It is read per turn, refused whole on any
+// parseDesign problem, and kept out of promptFingerprint(), so 47.2/47.2b still pin S6's and #320's surface.
+// Its version and sha ride the stats line instead.
 export const ROLE = 'You compose screens for a product flow on a build canvas, from the PRD below, using only the vocabulary below.';
 export const LOOP = 'The canvas works one screen per turn: each turn you propose one screen by calling `screen_compose` once, with a `why` naming the PRD decision (by seq) it serves and the reason. The owner accepts, edits or refuses it before the next turn starts.';
 export const ESCAPE = 'If a part the screen needs is not in the vocabulary, compose without it and name the missing part in `why`. If the screen cannot be composed at all, reply with a line starting `NOT COVERED:` naming the missing part, and call nothing.';
@@ -85,8 +88,102 @@ export const RECORDED_BUILTINS = Object.freeze(["Write", "Edit", "WebSearch", "W
 export const TRANSCRIPT_FILE = "transcript.jsonl";
 export const BRIEF_MAX = 500;
 export const VOCAB_PATH = path.join(REPO_DIR, "handoff/verdant/vocabulary.json");
+// #321: the compose agent's composition conventions. Read per turn, never part of promptFingerprint().
+export const DESIGN_PATH = path.join(REPO_DIR, "system/DESIGN.md");
+export const REQUIRED_KINDS = Object.freeze(["list", "detail", "form", "empty", "error"]);
 
 const sha16 = (s) => createHash("sha256").update(s).digest("hex").slice(0, 16);
+
+const REF_RE = /^([a-z][a-z0-9]*(?:-[a-z0-9]+)*)(?:\.([A-Za-z][A-Za-z0-9]*)(?:=([^\s=`]+))?)?$/;
+const PART_RE = /^([a-z][a-z0-9]*(?:-[a-z0-9]+)*)([?+*])?$/;
+const KIND_RE = /^[a-z][a-z0-9-]*$/;
+
+export function parseDesign(text, vocab) {
+  const problems = [];
+  const refs = [];
+  const templates = {};
+  const lines = String(text).split("\n");
+  const lineOf = (i) => text.slice(0, i).split("\n").length;
+
+  // 1. Version: exactly one line.
+  const versions = [...text.matchAll(/^Version: ([1-9]\d*)$/gm)];
+  const version = versions.length === 1 ? Number(versions[0][1]) : null;
+  if (versions.length !== 1) problems.push(`Version: expected exactly one "Version: <n>" line, found ${versions.length}`);
+
+  // 2. Fences: walk lines; only ```parts opens a block. Record each block with its start line and owner heading.
+  const blocks = [];
+  let open = null;
+  let h2 = null;
+  let h3 = null;
+  const masked = [...lines];
+  lines.forEach((l, i) => {
+    if (open) {
+      masked[i] = "";
+      if (/^```\s*$/.test(l)) { blocks.push(open); open = null; } else open.body.push({ text: l, line: i + 1 });
+      return;
+    }
+    const fence = l.match(/^```(.*)$/);
+    if (fence) {
+      masked[i] = "";
+      if (fence[1].trim() !== "parts") problems.push(`line ${i + 1}: only \`\`\`parts fences are allowed (found \`\`\`${fence[1].trim()})`);
+      open = { line: i + 1, h2, h3, body: [], parts: fence[1].trim() === "parts" };
+      return;
+    }
+    const m2 = l.match(/^## (.+?)\s*$/);
+    if (m2) { h2 = m2[1]; h3 = null; return; }
+    const m3 = l.match(/^### (.+?)\s*$/);
+    if (m3) h3 = m3[1];
+  });
+  if (open) problems.push(`line ${open.line}: a fence is never closed`);
+
+  // 3. Backticked references outside fences, line numbers from the original text.
+  masked.forEach((l, i) => {
+    for (const m of l.matchAll(/`([^`\n]+)`/g)) {
+      const span = m[1];
+      const r = span.match(REF_RE);
+      if (!r) { problems.push(`line ${i + 1}: backticks hold vocabulary references only (found "${span}")`); continue; }
+      const [, name, prop, value] = r;
+      const c = vocab.components[name];
+      if (!c) { problems.push(`line ${i + 1}: unknown part "${name}"`); continue; }
+      if (prop !== undefined) {
+        const s = c.props[prop];
+        if (!s) { problems.push(`line ${i + 1}: "${name}" has no prop "${prop}"`); continue; }
+        if (value !== undefined) {
+          const okValue = s.enum ? s.enum.includes(value) : s.type === "boolean" ? value === "true" || value === "false" : true;
+          if (!okValue) { problems.push(`line ${i + 1}: "${name}.${prop}" does not take "${value}"`); continue; }
+        }
+      }
+      refs.push({ name, prop: prop ?? null, value: value ?? null, line: i + 1 });
+    }
+  });
+
+  // 4. Templates: parts blocks belong to a ### under "## Screen templates", one per kind.
+  if (!lines.some((l) => /^## Screen templates\s*$/.test(l))) problems.push(`templates: no "## Screen templates" section`);
+  for (const b of blocks.filter((x) => x.parts)) {
+    if (b.h2 !== "Screen templates" || !b.h3) { problems.push(`line ${b.line}: a parts block sits outside "## Screen templates" › "### <kind>"`); continue; }
+    const kind = b.h3;
+    if (!KIND_RE.test(kind)) { problems.push(`line ${b.line}: template kind "${kind}" is not a lowercase slug`); continue; }
+    if (templates[kind]) { problems.push(`line ${b.line}: template "${kind}" has a second parts block`); continue; }
+    const parts = [];
+    for (const { text: t, line } of b.body) {
+      if (!t.trim()) continue;
+      const p = t.trim().match(PART_RE);
+      if (!p) { problems.push(`line ${line}: a parts line is one vocabulary name with an optional ?, + or * (found "${t.trim()}")`); continue; }
+      if (!vocab.components[p[1]]) { problems.push(`line ${line}: unknown part "${p[1]}"`); continue; }
+      parts.push({ name: p[1], mark: p[2] ?? "" });
+    }
+    if (!parts.some((p) => p.mark === "" || p.mark === "+")) problems.push(`line ${b.line}: template "${kind}" has no non-optional part`);
+    templates[kind] = parts;
+  }
+  for (const k of REQUIRED_KINDS) if (!templates[k]) problems.push(`templates: missing "${k}"`);
+
+  // 5. Turn mechanics belong to LOOP/ESCAPE.
+  lines.forEach((l, i) => {
+    if (/screen_compose|state_add|NOT COVERED/.test(l)) problems.push(`line ${i + 1}: the turn mechanics (tools, the escape phrase) belong to LOOP/ESCAPE, never DESIGN.md`);
+  });
+
+  return { version, templates, refs, problems };
+}
 
 // The env the CLI child runs under (canvas-transport.mjs passes it as query()'s `env`): this process's,
 // minus every ANTHROPIC_* and CLAUDE_CODE_USE_* name. The SDK builds the child's env as
@@ -121,8 +218,17 @@ export function vocabContext(vocab, vocabSha) {
   ].join('\n');
 }
 
-export function buildSystemPrompt({ vocab, vocabSha, prd }) {
-  return [ROLE, LOOP, ESCAPE, "", "## Vocabulary", "", vocabContext(vocab, vocabSha), "", "## PRD", "", prd].join("\n");
+export function readDesign(file = DESIGN_PATH, vocab) {
+  const bytes = readFileSync(file);
+  const text = bytes.toString("utf8");
+  const p = parseDesign(text, vocab);
+  if (p.problems.length) throw new Error(`canvas-session: ${path.relative(REPO_DIR, file)} — ${p.problems.join("; ")}`);
+  return { text, version: p.version, sha: sha16(bytes) };
+}
+
+export function buildSystemPrompt({ vocab, vocabSha, prd, design }) {
+  if (typeof design !== "string" || !design.trim()) throw new Error("canvas-session: buildSystemPrompt needs design (system/DESIGN.md's text) — the conventions are part of every compose prompt");
+  return [ROLE, LOOP, ESCAPE, "", "## Vocabulary", "", vocabContext(vocab, vocabSha), "", "## Conventions", "", design, "", "## PRD", "", prd].join("\n");
 }
 
 const baseFrames = (doc) => (doc?.frames ?? []).filter((f) => f && f.baseId == null);
@@ -487,15 +593,18 @@ export async function runComposeTurn({ pkgRoot, base, ask, brief = null, transpo
       composeQuery = mod.composeQuery;
     }
 
+    // Read BEFORE the first append, like the transport: a refused DESIGN.md (#321) leaves no owner lines without a stats line.
+    const vocabBytes = readFileSync(VOCAB_PATH);
+    const vocab = JSON.parse(vocabBytes);
+    const vocabSha = sha16(vocabBytes);
+    const design = readDesign(DESIGN_PATH, vocab);
+
     const before = readComposeTranscript(pkgRoot);
     const turn = nextTurnId(before);
     const resume = lastSessionId(before);
     appendComposeLine(pkgRoot, turnLine({ turn, ask, briefed: brief !== null }));
     if (brief !== null) appendComposeLine(pkgRoot, briefLine({ turn, text: brief }));
 
-    const vocabBytes = readFileSync(VOCAB_PATH);
-    const vocab = JSON.parse(vocabBytes);
-    const vocabSha = sha16(vocabBytes);
     const prd = readFileSync(path.join(pkgRoot, "prd.md"), "utf8");
     const name = ask.kind === "state" ? STATE_TOOL : SCREEN_TOOL;
     const fullName = toolNameFor(name);
@@ -505,7 +614,7 @@ export async function runComposeTurn({ pkgRoot, base, ask, brief = null, transpo
     let error = null;
     try {
       const out = await composeQuery({
-        systemPrompt: buildSystemPrompt({ vocab, vocabSha, prd }),
+        systemPrompt: buildSystemPrompt({ vocab, vocabSha, prd, design: design.text }),
         prompt: turnPrompt({ doc, ask, brief, fork }),
         cwd: buildRoot,
         resume: resume || undefined,
@@ -539,7 +648,7 @@ export async function runComposeTurn({ pkgRoot, base, ask, brief = null, transpo
     }
     appendComposeLine(pkgRoot, statsLine({
       turn, ...(stats ?? {}), maxTurns: maxTurnsFor(ask), outcome, ...(error !== null && { error }),
-      promptFingerprint: promptFingerprint(), vocabSha, model: MODEL,
+      promptFingerprint: promptFingerprint(), vocabSha, designVersion: design.version, designSha: design.sha, model: MODEL,
     }));
     // `added` is the ledger lines THIS turn wrote (each op line with a seq). The page checks
     // count === its base + added; anything else means another tab saved during the turn (PR #485 review F4).

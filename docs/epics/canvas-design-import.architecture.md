@@ -95,8 +95,11 @@ and `groups/`, `proposals/`, `imports/` and the generated handoff sit beside the
   house plugin is plain JavaScript with a manifest, no bundler, loaded from disk in Figma desktop.
 - **The compose agent's vocabulary context is generated at run time from `vocabulary.json`** (T13's idea
   in its minimal form), never hand-authored; the "not covered" escape is an explicit outcome in the prompt
-  so a wrong-but-valid name is never forced. A committed `DESIGN.md` and the Blueprint projection (T12)
-  are wave 3.
+  so a wrong-but-valid name is never forced. A committed `system/DESIGN.md` (T13's conventions: screen templates
+  plus layout, state and copy rules) was pulled forward by S6's B5 branch, opened by the owner on 2026-10-03
+  (#321). It is read into the compose prompt per turn, refused whole if it names a part `vocabulary.json` lacks,
+  and versioned on the stats line. Precedent (not quotation; source unconfirmed): the Stripe talk summarised on
+  #321, 2026-10-01. The Blueprint projection (T12) stays wave 3.
 
 ### Data model
 
@@ -347,7 +350,7 @@ list) are decided at implementation and moved when a flow says so.
 - [ ] **The per-source override table for real designers' files.** A real product's imports build under
       `JOBS_DIR`; whether their snap overrides belong there too, or stay in-repo as rules without the
       source hash, is settled by the first real import.
-- [ ] **T13's `DESIGN.md` and T12's Blueprint projection**: wave 3, with S4.
+- [ ] **T12's Blueprint projection**: wave 3, with S4. (T13's `DESIGN.md` was pulled forward, #321.)
 
 ## For slicing
 
@@ -392,7 +395,7 @@ projections. Six calls, each changing one paragraph above; tickets on epic #295.
 | **D3 The owner briefs the turn.** One instruction before a turn, recorded as the owner's text line in `transcript.jsonl` (`source: owner`), never an op, never rewritten; a turn with no brief is recorded as such | § Boundaries, the compose loop | #312 |
 | **D4 A `why` on every `screen.compose`**, required; the applier refuses a compose without it, owner's or agent's; the proposal card shows it | § Data model, the op vocabulary (`PARAMS` for `screen.compose`) | #302, #312 |
 | **D5 Options at forks.** On a decision the projection lists as open, one turn yields two alternatives for one screen (an alternatives tag on `screen.compose`, no new op); the owner picks; the other is `refused: not-picked`; falls back to one proposal if S6's numbers say two runs past the yield contract | § Boundaries, the compose loop; G33's lanes are the mechanism | #320 |
-| **B5 `DESIGN.md` pulled forward if S6 says so.** T13's committed conventions file, read by the compose prompt at run time, versioned, drift-checked against `vocabulary.json`; not rendered by a shipped page | § Stack: "a committed `DESIGN.md` … is wave 3" becomes conditional on S6's branch | #321, #308 |
+| **B5 `DESIGN.md` pulled forward if S6 says so.** T13's committed conventions file, read by the compose prompt at run time, versioned, drift-checked against `vocabulary.json`; not rendered by a shipped page | § Stack: "a committed `DESIGN.md` … is wave 3" becomes conditional on S6's branch. Opened 2026-10-03; landed in #321's PR. | #321, #308 |
 
 The op count stays fourteen. Run 1 (#316) exercises D1–D5. The principle the six share: the owner initiates
 and admits; the agent drafts inside fences.

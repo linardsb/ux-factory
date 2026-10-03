@@ -1,0 +1,246 @@
+{
+  "run": 4,
+  "model": "claude-sonnet-5",
+  "sdk": "0.1.77",
+  "zod": "4.4.3",
+  "node": "v20.20.2",
+  "promptFingerprint": "c903170484396973",
+  "vocabSha": "59380758647765a7",
+  "designVersion": 1,
+  "designSha": "608f6c393d6ffd39",
+  "auth": "subscription",
+  "contextChars": 5549,
+  "systemPromptChars": 49259,
+  "verdict": "clean",
+  "failedBecause": [],
+  "fork": {
+    "filed": 1,
+    "refused": 0,
+    "ids": [
+      "send-first-payment"
+    ],
+    "attempted": [
+      "send-first-payment"
+    ],
+    "outcome": "picked-one",
+    "repeat": false
+  },
+  "turns": [
+    {
+      "name": "turn-1",
+      "kind": "screen",
+      "filed": 1,
+      "refused": 0,
+      "ids": [
+        "add-payee-form"
+      ],
+      "attempted": [
+        "add-payee-form"
+      ],
+      "outcome": "clean",
+      "corrections": 0,
+      "stats": {
+        "k": "stats",
+        "turn": "turn-1",
+        "sessionId": "6d8799f5-b4bc-4b92-a8f0-76c399363faa",
+        "numTurns": 2,
+        "durationMs": 17084,
+        "wallMs": 19301,
+        "costUsd": 0.08530544999999999,
+        "inputTokens": 4,
+        "outputTokens": 1298,
+        "cacheReadTokens": 35876,
+        "cacheCreationTokens": 1131,
+        "subtype": "success",
+        "isError": false,
+        "result": "Filed **add-payee-form** as a `form` template: header, a one-line purpose statement, the three fields a payee needs (name, sort code, account number), the account to pay from, and the single committing action — \"Check details,\" naming the next step (Confirmation of Payee) rather than a generic \"Subm",
+        "promptFingerprint": "c903170484396973",
+        "vocabSha": "59380758647765a7",
+        "contextChars": 5549,
+        "designVersion": 1,
+        "designSha": "608f6c393d6ffd39",
+        "auth": "subscription",
+        "model": "claude-sonnet-5",
+        "sdk": "0.1.77",
+        "zod": "4.4.3",
+        "node": "v20.20.2"
+      }
+    },
+    {
+      "name": "turn-2",
+      "kind": "screen",
+      "filed": 1,
+      "refused": 1,
+      "ids": [
+        "confirmation-of-payee-result"
+      ],
+      "attempted": [
+        "confirmation-of-payee-result"
+      ],
+      "outcome": "clean",
+      "corrections": 1,
+      "stats": {
+        "k": "stats",
+        "turn": "turn-2",
+        "sessionId": "6d8799f5-b4bc-4b92-a8f0-76c399363faa",
+        "numTurns": 3,
+        "durationMs": 31693,
+        "wallMs": 33338,
+        "costUsd": 0.10930045,
+        "inputTokens": 6,
+        "outputTokens": 2574,
+        "cacheReadTokens": 59469,
+        "cacheCreationTokens": 2659,
+        "subtype": "success",
+        "isError": false,
+        "result": "Filed **confirmation-of-payee-result**. The base screen holds the inline result (a `list-row` inside a `card`, carrying the match label, the computed result, and the warn tone — the fact the agent currently narrates) and a `modal-dialog`, hidden in the ideal/match state and revealed only when the re",
+        "promptFingerprint": "c903170484396973",
+        "vocabSha": "59380758647765a7",
+        "contextChars": 5549,
+        "designVersion": 1,
+        "designSha": "608f6c393d6ffd39",
+        "auth": "subscription",
+        "model": "claude-sonnet-5",
+        "sdk": "0.1.77",
+        "zod": "4.4.3",
+        "node": "v20.20.2"
+      }
+    },
+    {
+      "name": "turn-3",
+      "kind": "screen",
+      "filed": 1,
+      "refused": 0,
+      "ids": [
+        "payment-scam-check"
+      ],
+      "attempted": [
+        "payment-scam-check"
+      ],
+      "outcome": "clean",
+      "corrections": 0,
+      "stats": {
+        "k": "stats",
+        "turn": "turn-3",
+        "sessionId": "6d8799f5-b4bc-4b92-a8f0-76c399363faa",
+        "numTurns": 2,
+        "durationMs": 35364,
+        "wallMs": 37067,
+        "costUsd": 0.10987380000000001,
+        "inputTokens": 4,
+        "outputTokens": 2752,
+        "cacheReadTokens": 44096,
+        "cacheCreationTokens": 3105,
+        "subtype": "success",
+        "isError": false,
+        "result": "Filed **payment-scam-check** as the `confirm` template — no `primary-button`, since the template reserves that slot for the one committing action and this screen's whole purpose *is* the decision, carried by `modal-dialog.confirmLabel`/`dismissLabel`.\n\nThe `card` gives the decision its context (who,",
+        "promptFingerprint": "c903170484396973",
+        "vocabSha": "59380758647765a7",
+        "contextChars": 5549,
+        "designVersion": 1,
+        "designSha": "608f6c393d6ffd39",
+        "auth": "subscription",
+        "model": "claude-sonnet-5",
+        "sdk": "0.1.77",
+        "zod": "4.4.3",
+        "node": "v20.20.2"
+      }
+    },
+    {
+      "name": "fork",
+      "kind": "fork",
+      "filed": 1,
+      "refused": 0,
+      "ids": [
+        "send-first-payment"
+      ],
+      "attempted": [
+        "send-first-payment"
+      ],
+      "outcome": "picked-one",
+      "repeat": false,
+      "stats": {
+        "k": "stats",
+        "turn": "fork",
+        "sessionId": "6d8799f5-b4bc-4b92-a8f0-76c399363faa",
+        "numTurns": 2,
+        "durationMs": 23207,
+        "wallMs": 24888,
+        "costUsd": 0.09207145,
+        "inputTokens": 4,
+        "outputTokens": 1768,
+        "cacheReadTokens": 50484,
+        "cacheCreationTokens": 2234,
+        "subtype": "success",
+        "isError": false,
+        "result": "Filed **send-first-payment** as the `form` template: header, a one-line statement of who's being paid, the balance shown inline via `card`→`list-row` (the agent's look-up, surfaced instead of asked-for), the amount field carrying the first-payment limit as a stated hint rather than a silent block, a",
+        "promptFingerprint": "c903170484396973",
+        "vocabSha": "59380758647765a7",
+        "contextChars": 5549,
+        "designVersion": 1,
+        "designSha": "608f6c393d6ffd39",
+        "auth": "subscription",
+        "model": "claude-sonnet-5",
+        "sdk": "0.1.77",
+        "zod": "4.4.3",
+        "node": "v20.20.2"
+      }
+    }
+  ],
+  "b5": [
+    {
+      "screenId": "add-payee-form",
+      "rootStackColumn": "y",
+      "opensWithHeader": "y",
+      "firstChildHeading": "n",
+      "onePrimaryLast": "y",
+      "verdantLocked": "none",
+      "depth": 2,
+      "kind": "form",
+      "skeleton": "stack(column) › screen-header · text · text-field · text-field · text-field · select-field · primary-button"
+    },
+    {
+      "screenId": "confirmation-of-payee-result",
+      "rootStackColumn": "y",
+      "opensWithHeader": "y",
+      "firstChildHeading": "n",
+      "onePrimaryLast": "y",
+      "verdantLocked": "none",
+      "depth": 3,
+      "kind": "none",
+      "skeleton": "stack(column) › screen-header · text · card · modal-dialog · primary-button"
+    },
+    {
+      "screenId": "payment-scam-check",
+      "rootStackColumn": "y",
+      "opensWithHeader": "y",
+      "firstChildHeading": "n",
+      "onePrimaryLast": "n",
+      "verdantLocked": "none",
+      "depth": 3,
+      "kind": "confirm",
+      "skeleton": "stack(column) › screen-header · card · modal-dialog"
+    },
+    {
+      "screenId": "send-first-payment",
+      "rootStackColumn": "y",
+      "opensWithHeader": "y",
+      "firstChildHeading": "n",
+      "onePrimaryLast": "y",
+      "verdantLocked": "none",
+      "depth": 3,
+      "kind": "none",
+      "skeleton": "stack(column) › screen-header · text · card · text-field · primary-button"
+    }
+  ],
+  "totals": {
+    "costUsd": 0.39655115,
+    "inputTokens": 18,
+    "outputTokens": 8392,
+    "cacheReadTokens": 189925,
+    "cacheCreationTokens": 9129,
+    "durationMs": 107348,
+    "wallMs": 114594
+  },
+  "spentBeforeThisRun": 0.7969193000000001
+}
