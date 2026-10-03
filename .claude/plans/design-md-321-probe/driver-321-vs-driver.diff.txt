@@ -1,0 +1,319 @@
+--- .claude/plans/canvas-spike-s6/driver.txt	2026-10-03 13:38:58
++++ .claude/plans/canvas-spike-s6/driver-321.txt	2026-10-03 13:40:57
+@@ -1,22 +1,30 @@
+-// .claude/plans/canvas-spike-s6/driver.txt — epic #295 ticket #308; architecture § Spikes S6
+-// (docs/epics/canvas-design-import.architecture.md). PARKED AS .txt: tooling/drift-check.mjs `node --check`s
+-// every tracked .mjs, and this file is a spike, not product code (S2's rule, canvas-spike-s2/README.md).
++// .claude/plans/canvas-spike-s6/driver-321.txt — epic #295 ticket #321 (B5); sibling of S6's driver.txt
++// (docs/epics/canvas-design-import.architecture.md § Spikes S6). PARKED AS .txt: tooling/drift-check.mjs
++// `node --check`s every tracked .mjs, and this file is a spike, not product code (S2's rule).
+ //
+-// QUESTION: under resume-per-turn (one SDK session, resumed once per turn, the driver deciding when a turn
+-// starts), does the agent file ONE vocabulary-validated screen.compose for ONE screen and yield, or does it
+-// run ahead and draft the flow? Three screen turns over Faster Payment, dry, plus one fork-probe turn.
++// What differs from driver.txt: system/DESIGN.md is included through the SHIPPED buildSystemPrompt; B5's
++// first-child flag is split in two (F3: opens with screen-header / first child heading); screens are classified
++// against DESIGN.md's template kinds; query() runs under the subscription env (S.subscriptionEnv()); there are
++// two zero-token modes, --reoutline and --converge; and there is no --contract / --stop-hook.
+ //
++// QUESTION: as S6 (one SDK session resumed per turn, one screen.compose per turn, three screen turns over Faster
++// Payment, dry, plus one fork-probe turn), now with the conventions in the prompt: does a screen land on a
++// template, and do two runs land on the same templates and skeletons?
++//
+ // HONESTY: the prompt is built ONLY from (a) the vocabulary context, generated at run time from
+-// handoff/verdant/vocabulary.json, (b) discovery/faster-payment/prd.md verbatim, and (c) the fixed driver text
+-// constants below. No example composition appears anywhere in a prompt. The owner's committed add-payee screen
+-// (discovery/faster-payment/build/ops.jsonl) is the pre-flight's positive fixture and never reaches the agent.
+-// Nothing is written outside --out: the build document lives in memory for one run.
++// handoff/verdant/vocabulary.json, (b) discovery/faster-payment/prd.md verbatim, (c) the fixed driver text
++// constants below, and (d) system/DESIGN.md, owner-approved, included verbatim. No example composition appears
++// anywhere in a prompt. The owner's committed add-payee screen (discovery/faster-payment/build/ops.jsonl) is
++// the pre-flight's positive fixture and never reaches the agent. Nothing is written outside --out (--reoutline
++// and --converge write beside the run dirs they are given): the build document lives in memory for one run.
+ //
+ // RUN (the copy must be .mjs — Node refuses a .txt entry; --preflight/--run need `cd portal && npm ci` first):
+-//   cp .claude/plans/canvas-spike-s6/driver.txt "$SCRATCH/s6.mjs"
+-//   node "$SCRATCH/s6.mjs" --repo "$PWD" --selftest            (zero tokens: classifier, context, outline)
+-//   node "$SCRATCH/s6.mjs" --repo "$PWD" --preflight           (zero tokens: the real tool server)
+-//   node "$SCRATCH/s6.mjs" --repo "$PWD" --run <n> --out <dir> [--contract] [--stop-hook] [--budget 3.00]
++//   cp .claude/plans/canvas-spike-s6/driver-321.txt "$SCRATCH/s321.mjs"
++//   node "$SCRATCH/s321.mjs" --repo "$PWD" --selftest                       (zero tokens)
++//   node "$SCRATCH/s321.mjs" --repo "$PWD" --preflight                      (zero tokens: the real tool server)
++//   node "$SCRATCH/s321.mjs" --repo "$PWD" --run <n> --out <dir> [--budget 3.00]
++//   node "$SCRATCH/s321.mjs" --repo "$PWD" --reoutline <runDir>             (zero tokens)
++//   node "$SCRATCH/s321.mjs" --repo "$PWD" --converge <runDirA> <runDirB>   (zero tokens)
+ import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+ import { createHash } from 'node:crypto';
+ import { tmpdir } from 'node:os';
+@@ -29,13 +37,11 @@
+ const opt = (n) => { const i = argv.indexOf(n); return i >= 0 ? argv[i + 1] : undefined; };
+ const REPO = opt('--repo');
+ if (!REPO || !existsSync(path.join(REPO, 'system/canvas-ops.mjs'))) {
+-  console.error('s6: --repo <abs path to the ux-factory checkout> is required (system/canvas-ops.mjs must exist under it)');
++  console.error('s321: --repo <abs path to the ux-factory checkout> is required (system/canvas-ops.mjs must exist under it)');
+   process.exit(2);
+ }
+-const MODE = ['--selftest', '--preflight', '--run'].filter(flag);
+-if (MODE.length !== 1) { console.error('s6: exactly one of --selftest | --preflight | --run <n>'); process.exit(2); }
+-const CONTRACT = flag('--contract');
+-const STOP_HOOK = flag('--stop-hook');
++const MODE = ['--selftest', '--preflight', '--run', '--reoutline', '--converge'].filter(flag);
++if (MODE.length !== 1) { console.error('s321: exactly one of --selftest | --preflight | --run <n> | --reoutline <runDir> | --converge <A> <B>'); process.exit(2); }
+ const BUDGET = Number(opt('--budget') ?? '3.00');
+ 
+ const PORTAL = path.join(REPO, 'portal');
+@@ -57,6 +63,11 @@
+ const VOCAB = JSON.parse(VOCAB_BYTES);
+ const VOCAB_SHA = createHash('sha256').update(VOCAB_BYTES).digest('hex').slice(0, 16);
+ const PRD = readFileSync(path.join(REPO, 'discovery/faster-payment/prd.md'), 'utf8');
++// Importing the session runs portal/lib/env.mjs, which fills unset keys from portal/.env. query() is therefore
++// given `env: S.subscriptionEnv()`, the shipped transport's rule (PR #485 F1).
++const S = await repoImport('portal/lib/canvas-session.mjs');
++// LAZY: only run() and --reoutline call this, so --selftest, --preflight and --converge run with no DESIGN.md.
++const loadDesign = () => S.readDesign(S.DESIGN_PATH, VOCAB);
+ 
+ const t0 = Date.now();
+ const log = (s) => process.stdout.write(`[${((Date.now() - t0) / 1000).toFixed(1)}s] ${s}\n`);
+@@ -173,7 +184,20 @@
+ }
+ 
+ // ---- the outline (B5's instrument: text, not a render — plan Q3) ---------------------------------
+-export function outlineOf(frames) {
++// A template's parts are [{ name, mark }], mark '' | '?' | '+' | '*' (parseDesign's grammar). The frame's root
++// children, as `name,` tokens, must match the kind's regex whole: exactly one kind, or none, or ambiguous.
++export function skeletonOf(c) {
++  return Array.isArray(c) || !c ? null : { root: `${c.name}${c.props?.direction ? `(${c.props.direction})` : ''}`, parts: (c.children ?? []).map((k) => k.name) };
++}
++export function templateOf(c, templates) {
++  if (!c || Array.isArray(c) || c.name !== 'stack' || c.props?.direction !== 'column') return 'none (root)';
++  const seq = (c.children ?? []).map((k) => `${k.name},`).join('');
++  const kinds = Object.entries(templates).filter(([, parts]) =>
++    new RegExp(`^${parts.map((p) => `(?:${p.name},)${p.mark}`).join('')}$`).test(seq)).map(([k]) => k);
++  return kinds.length === 1 ? kinds[0] : kinds.length === 0 ? 'none' : `ambiguous (${kinds.join(', ')})`;
++}
++
++export function outlineOf(frames, templates) {
+   const out = [];
+   const proxies = [];
+   for (const f of frames) {
+@@ -196,20 +220,51 @@
+     const p = {
+       screenId: f.screenId,
+       rootStackColumn: root?.name === 'stack' && root.props?.direction === 'column' ? 'y' : 'n',
+-      firstChildHeading: first && ((first.name === 'text' && first.props?.role === 'heading') || first.name === 'screen-header') ? 'y' : 'n',
++      opensWithHeader: first?.name === 'screen-header' ? 'y' : 'n',
++      firstChildHeading: first?.name === 'text' && first.props?.role === 'heading' ? 'y' : 'n',
+       onePrimaryLast: buttons.length === 1 && kids.at(-1)?.name === 'primary-button' ? 'y' : 'n',
+       verdantLocked: locked.size ? [...locked].join(', ') : 'none',
+       depth,
++      kind: templateOf(c, templates),
+     };
++    const s = skeletonOf(c);
++    p.skeleton = s ? `${s.root} › ${s.parts.join(' · ')}` : 'n/a';
+     proxies.push(p);
+     out.push(`${f.id} ${f.screenId} — ${f.why}`, ...tree.map((l) => `  ${l}`),
+-      `  B5: root stack column ${p.rootStackColumn} · first child heading ${p.firstChildHeading} · one primary-button, last ${p.onePrimaryLast} · Verdant-locked ${p.verdantLocked} · depth ${p.depth}`, '');
++      `  B5: root stack column ${p.rootStackColumn} · opens with screen-header ${p.opensWithHeader} · first child heading ${p.firstChildHeading} · one primary-button, last ${p.onePrimaryLast} · Verdant-locked ${p.verdantLocked} · depth ${p.depth} · kind ${p.kind} · skeleton ${p.skeleton}`, '');
+   }
+   return { text: out.join('\n'), proxies };
+ }
+ 
++// ---- --converge (pure core): two runs' verdicts, paired by turn ---------------------------------------
++// Pairing is by index, which is only sound when every turn filed exactly one screen (b5 has one entry per
++// frame, frames in turn order). The guard is PER TURN: an escape turn (0) and a two-screen turn (2) would
++// cancel out in a total.
++export function convergeOf(vA, vB, dirA, dirB) {
++  for (const [v, dir] of [[vA, dirA], [vB, dirB]]) {
++    if (!(v.turns.every((t) => t.filed === 1) && v.turns.length === v.b5.length)) {
++      throw new Error(`converge: ${dir} has a turn that filed ≠ 1 screen — pairing by index is unsafe`);
++    }
++  }
++  if (vA.b5.length !== vB.b5.length) throw new Error(`converge: ${dirA} has ${vA.b5.length} turns, ${dirB} has ${vB.b5.length} — nothing to pair`);
++  const rows = vA.b5.map((a, i) => {
++    const b = vB.b5[i];
++    const same = a.screenId === b.screenId;
++    const match = a.kind === b.kind && a.skeleton === b.skeleton;
++    return { turn: vA.turns[i].name, line: `${vA.turns[i].name} · ${a.screenId} | ${b.screenId} · ${a.kind} | ${b.kind} · ${a.skeleton} | ${b.skeleton} · same screen ${same ? 'y' : 'n'} · match ${match ? 'y' : 'n'}`, match };
++  });
++  const bad = rows.filter((r) => !r.match).map((r) => r.turn);
++  const footer = `converged: ${rows.length - bad.length}/${rows.length} · mismatched: ${bad.length ? bad.join(', ') : 'none'}`;
++  return { footer, text: [...rows.map((r) => r.line), '', footer].join('\n') };
++}
++
+ // ---- --selftest ----------------------------------------------------------------------------------
+ function selftest() {
++  const frame = (names) => ({ name: 'stack', props: { direction: 'column' }, children: names.map((name) => ({ name })) });
++  const TPL = {
++    list: [{ name: 'screen-header', mark: '' }, { name: 'text', mark: '?' }, { name: 'list', mark: '' }],
++    form: [{ name: 'screen-header', mark: '' }, { name: 'text-field', mark: '' }, { name: 'primary-button', mark: '' }],
++  };
+   const op = (screenId, status = 'proposed') => ({ k: 'op', status, params: { screenId } });
+   const text = (t) => ({ k: 'text', text: t });
+   const ok = { sessionId: 's1', subtype: 'success', isError: false };
+@@ -242,9 +297,28 @@
+       return missing.length ? `missing ${missing.join(', ')}` : String(n);
+     }, '26'],
+     ['outline-add-payee', () => {
+-      const [p] = outlineOf([{ id: 'f1', screenId: 'add-payee', why: 'fixture', composition: addPayee().composition }]).proxies;
+-      return `${p.rootStackColumn}/${p.firstChildHeading}/${p.onePrimaryLast}/${p.verdantLocked}`;
+-    }, 'y/y/y/none'],
++      const [p] = outlineOf([{ id: 'f1', screenId: 'add-payee', why: 'fixture', composition: addPayee().composition }], {}).proxies;
++      return `${p.rootStackColumn}/${p.opensWithHeader}/${p.firstChildHeading}/${p.onePrimaryLast}/${p.verdantLocked}`;
++    }, 'y/n/y/y/none'],
++    ['template-required', () => templateOf(frame(['screen-header', 'list']), TPL), 'list'],
++    ['template-optional', () => templateOf(frame(['screen-header', 'text', 'list']), TPL), 'list'],
++    ['template-none', () => templateOf(frame(['screen-header', 'card']), TPL), 'none'],
++    ['template-root', () => templateOf({ name: 'stack', props: { direction: 'row' }, children: [{ name: 'list' }] }, TPL), 'none (root)'],
++    ['template-ambiguous', () => templateOf(frame(['screen-header', 'list']), { a: TPL.list, b: TPL.list }), 'ambiguous (a, b)'],
++    ['fingerprint-s6', () => fingerprint(), 'c903170484396973'],
++    ['converge-mismatch', () => {
++      const v = (skel2) => ({ turns: ['turn-1', 'turn-2', 'turn-3', 'fork'].map((name) => ({ name, filed: 1 })), b5: ['a', 'b', 'c', 'd'].map((screenId, i) => ({ screenId, kind: 'list', skeleton: i === 1 ? skel2 : 'stack(column) › screen-header · list' })) });
++      return convergeOf(v('stack(column) › screen-header · list'), v('stack(column) › screen-header · text · list'), 'A', 'B').footer;
++    }, 'converged: 3/4 · mismatched: turn-2'],
++    ['opens-with-header', () => {
++      const [p] = outlineOf([{ id: 'f1', screenId: 'x', why: 'fixture', composition: frame(['screen-header', 'text']) }], TPL).proxies;
++      return `${p.opensWithHeader}/${p.firstChildHeading}`;
++    }, 'y/n'],
++    ['converge-unsafe', () => {
++      // an escape turn (0) and a two-screen turn (2): the totals agree with b5's length, the per-turn guard does not
++      const v = { turns: [0, 2, 1, 1].map((filed, i) => ({ name: `t${i}`, filed })), b5: [{}, {}, {}, {}] };
++      return convergeOf(v, v, 'X', 'Y').footer;
++    }, 'threw converge: X has a turn that filed ≠ 1 screen — pairing by index is unsafe'],
+   ];
+   let bad = 0;
+   for (const [name, fn, want] of cases) {
+@@ -312,10 +386,10 @@
+ const ROLE = 'You compose screens for a product flow on a build canvas, from the PRD below, using only the vocabulary below.';
+ const LOOP = 'The canvas works one screen per turn: each turn you propose one screen by calling `screen_compose` once, with a `why` naming the PRD decision (by seq) it serves and the reason. The owner accepts, edits or refuses it before the next turn starts.';
+ const ESCAPE = 'If a part the screen needs is not in the vocabulary, compose without it and name the missing part in `why`. If the screen cannot be composed at all, reply with a line starting `NOT COVERED:` naming the missing part, and call nothing.';
+-const YIELD_CONTRACT = 'When `screen_compose` replies `filed`, your turn is complete: reply with one sentence naming the screen you proposed. The next screen is the next turn\'s work.';
+ const TURN_ASK = 'Propose the next screen.';
+ const FORK_ASK = 'Next: the screen where the customer chooses the amount and sends the first payment.';
+-const STOP_REASON = 'No screen was filed this turn. File one screen_compose, or reply NOT COVERED: <part>.';
++// DESIGN.md is NOT in the fingerprint (the design sha tells runs apart); this is S6's own, c903170484396973.
++const fingerprint = () => sha([ROLE, LOOP, ESCAPE, TURN_ASK, FORK_ASK].join('\n'));
+ 
+ // ---- --run ---------------------------------------------------------------------------------------
+ function spentElsewhere(outDir) {
+@@ -337,18 +411,18 @@
+ async function run() {
+   const n = opt('--run');
+   const OUT = opt('--out');
+-  if (!n || !OUT) { console.error('s6: --run <n> needs --out <dir>'); process.exit(2); }
++  if (!n || !OUT) { console.error('s321: --run <n> needs --out <dir>'); process.exit(2); }
++  const DESIGN = loadDesign();
+   mkdirSync(OUT, { recursive: true });
+-  if (readdirSync(OUT).some((f) => f.endsWith('.jsonl'))) { console.error(`s6: ${OUT} already holds a run — run numbers are never reused`); process.exit(2); }
++  if (readdirSync(OUT).some((f) => f.endsWith('.jsonl'))) { console.error(`s321: ${OUT} already holds a run — run numbers are never reused`); process.exit(2); }
+   const { query } = await fromPortal('@anthropic-ai/claude-agent-sdk');
+   const versions = { model: 'claude-sonnet-5', sdk: pkgOf('@anthropic-ai/claude-agent-sdk').version, zod: pkgOf('zod').version, node: process.version };
+ 
+   const ctx = vocabContext(VOCAB);
+-  const fixed = [ROLE, LOOP, ESCAPE, ...(CONTRACT ? [YIELD_CONTRACT] : [])];
+-  const systemPrompt = [...fixed, '', '## Vocabulary', '', ctx, '', '## PRD', '', PRD].join('\n');
+-  const promptFingerprint = sha([...fixed, TURN_ASK, FORK_ASK, ...(STOP_HOOK ? [STOP_REASON] : [])].join('\n'));
++  const systemPrompt = S.buildSystemPrompt({ vocab: VOCAB, vocabSha: VOCAB_SHA, prd: PRD, design: DESIGN.text });
++  const promptFingerprint = fingerprint();
+   const earlier = spentElsewhere(OUT);
+-  log(`run ${n} · contract ${CONTRACT} · stop-hook ${STOP_HOOK} · fingerprint ${promptFingerprint} · vocab ${VOCAB_SHA} · context ${ctx.length} chars · system prompt ${systemPrompt.length} chars · spent by earlier runs $${earlier.toFixed(4)} of $${BUDGET.toFixed(2)}`);
++  log(`run ${n} · design v${DESIGN.version} ${DESIGN.sha} · auth subscription · fingerprint ${promptFingerprint} · vocab ${VOCAB_SHA} · context ${ctx.length} chars · system prompt ${systemPrompt.length} chars · spent by earlier runs $${earlier.toFixed(4)} of $${BUDGET.toFixed(2)}`);
+ 
+   const RUN_CWD = mkdtempSync(path.join(tmpdir(), `s6-run-${n}-`));   // ONE cwd for all four turns — resume is keyed by it
+   const state = { doc: emptyDoc(), turn: null, handlerCalls: [], onLine: null };
+@@ -375,7 +449,6 @@
+       const prompt = `The canvas holds:\n${holds}\n\n${kind === 'fork' ? FORK_ASK : TURN_ASK}`;
+       write({ k: 'driver', turn: name, text: prompt });
+ 
+-      let stopHookCalls = 0;
+       const hooks = {
+         PreToolUse: [{ hooks: [async (i) => {
+           if (i.tool_name === FULL) return {};
+@@ -393,17 +466,6 @@
+           return {};
+         }] }],
+       };
+-      if (STOP_HOOK) {
+-        hooks.Stop = [{ hooks: [async (i) => {
+-          stopHookCalls++;
+-          write({ k: 'hook', event: 'Stop', stop_hook_active: i.stop_hook_active });
+-          if (i.stop_hook_active) return {};
+-          const filedHere = lines.some((l) => l.k === 'op' && l.status === 'proposed');
+-          const escaped = lines.some((l) => l.k === 'text' && ESCAPE_RE.test(l.text));
+-          return filedHere || escaped ? {} : { decision: 'block', reason: STOP_REASON };
+-        }] }];
+-      }
+-
+       const abortController = new AbortController();
+       const killer = setTimeout(() => { log(`${name}: TIMEOUT 300s — aborting`); abortController.abort(); }, 300_000);
+       const w0 = Date.now();
+@@ -419,6 +481,7 @@
+           allowedTools: [],
+           mcpServers: { [SERVER]: server },
+           strictMcpConfig: true,
++          env: S.subscriptionEnv(),
+           abortController,
+           canUseTool: async (toolName, input) => {
+             if (toolName === FULL) return { behavior: 'allow', updatedInput: input };
+@@ -446,7 +509,7 @@
+               inputTokens: u.input_tokens ?? null, outputTokens: u.output_tokens ?? null,
+               cacheReadTokens: u.cache_read_input_tokens ?? null, cacheCreationTokens: u.cache_creation_input_tokens ?? null,
+               subtype: msg.subtype, isError: msg.is_error === true, result: typeof msg.result === 'string' ? msg.result.slice(0, 300) : null,
+-              promptFingerprint, vocabSha: VOCAB_SHA, contextChars: ctx.length, contract: CONTRACT, stopHook: STOP_HOOK, stopHookCalls, ...versions,
++              promptFingerprint, vocabSha: VOCAB_SHA, contextChars: ctx.length, designVersion: DESIGN.version, designSha: DESIGN.sha, auth: 'subscription', ...versions,
+             };
+             write(t.stats);
+             spent += t.stats.costUsd ?? 0;
+@@ -473,11 +536,11 @@
+     for (const t of turns) t.outcome ??= classifyTurn(t.lines, { kind: t.kind });
+     const run = classifyRun(turns);
+     if (threw) { run.verdict = 'failed'; run.why.push(`driver threw: ${threw}`); }
+-    const outline = outlineOf(state.doc.frames);
++    const outline = outlineOf(state.doc.frames, S.parseDesign(DESIGN.text, VOCAB).templates);
+     writeFileSync(path.join(OUT, 'outline.txt'), outline.text);
+     const sum = (k) => turns.reduce((a, t) => a + (t.stats?.[k] ?? 0), 0);
+     const verdict = {
+-      run: Number(n), flags: { contract: CONTRACT, stopHook: STOP_HOOK }, ...versions, promptFingerprint, vocabSha: VOCAB_SHA,
++      run: Number(n), ...versions, promptFingerprint, vocabSha: VOCAB_SHA, designVersion: DESIGN.version, designSha: DESIGN.sha, auth: 'subscription',
+       contextChars: ctx.length, systemPromptChars: systemPrompt.length,
+       verdict: run.verdict, failedBecause: run.why,
+       fork: turns.find((t) => t.kind === 'fork')?.outcome ?? null,
+@@ -491,6 +554,39 @@
+   }
+ }
+ 
++// ---- --reoutline <runDir> (zero tokens): re-derive a committed run's outline under today's templates ------
++function reoutline() {
++  const dir = opt('--reoutline');
++  if (!dir || !existsSync(path.join(dir, 'turn-1.jsonl'))) { console.error(`s321: --reoutline needs a run dir holding turn-1.jsonl (got ${dir})`); process.exit(2); }
++  const DESIGN = loadDesign();
++  let doc = emptyDoc();
++  for (const f of ['turn-1', 'turn-2', 'turn-3', 'fork']) {
++    const file = path.join(dir, `${f}.jsonl`);
++    if (!existsSync(file)) continue;
++    for (const l of readFileSync(file, 'utf8').split('\n').filter(Boolean).map((x) => JSON.parse(x))) {
++      if (l.k === 'op' && l.status === 'proposed') doc = applyOp(doc, { op: 'screen.compose', params: l.params });
++    }
++  }
++  const out = `# DERIVED at $0 by driver-321.txt --reoutline from turn-*.jsonl/fork.jsonl — not a run; DESIGN.md v${DESIGN.version} sha ${DESIGN.sha}\n${outlineOf(doc.frames, S.parseDesign(DESIGN.text, VOCAB).templates).text}`;
++  writeFileSync(path.join(dir, 'outline-321.txt'), out);
++  console.log(`wrote ${path.join(dir, 'outline-321.txt')} (${doc.frames.length} frames)`);
++}
++
++// ---- --converge <A> <B> (zero tokens) -------------------------------------------------------------
++function converge() {
++  const i = argv.indexOf('--converge');
++  const [A, B] = [argv[i + 1], argv[i + 2]];
++  if (!A || !B) { console.error('s321: --converge <runDirA> <runDirB>'); process.exit(2); }
++  const read = (d) => JSON.parse(readFileSync(path.join(d, 'verdict.json'), 'utf8'));
++  let r;
++  try { r = convergeOf(read(A), read(B), A, B); } catch (e) { console.error(e.message); process.exit(1); }
++  const outFile = path.join(path.dirname(A), `converge-${path.basename(A).slice(4)}-${path.basename(B).slice(4)}.txt`);
++  writeFileSync(outFile, `${r.text}\n`);
++  console.log(`${r.text}\nwrote ${outFile}`);
++}
++
+ if (flag('--selftest')) selftest();
+ else if (flag('--preflight')) await preflight();
++else if (flag('--reoutline')) reoutline();
++else if (flag('--converge')) converge();
+ else await run();

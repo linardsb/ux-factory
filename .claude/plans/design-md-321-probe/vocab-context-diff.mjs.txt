@@ -1,0 +1,12 @@
+// #321 R2 receipt, $0. Copy to a scratch .mjs and run from a checkout root:
+//   node vc.mjs <old-commit> <new-commit>
+// Builds canvas-session's vocabContext from vocabulary.json at both commits and diffs them line by line.
+import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+const { vocabContext } = await import(new URL('portal/lib/canvas-session.mjs', `file://${process.cwd()}/`).href);
+const at = (c) => execFileSync('git', ['show', `${c}:handoff/verdant/vocabulary.json`]);
+const ctx = (c) => { const b = at(c); return { sha: createHash('sha256').update(b).digest('hex').slice(0, 16), text: vocabContext(JSON.parse(b), createHash('sha256').update(b).digest('hex').slice(0, 16)) }; };
+const [a, b] = process.argv.slice(2).map(ctx);
+const A = a.text.split('\n'), B = b.text.split('\n');
+const diff = A.map((l, i) => (l === B[i] ? null : i + 1)).filter(Boolean);
+console.log(`old ${a.sha} ${a.text.length} chars · new ${b.sha} ${b.text.length} chars · lines ${A.length}/${B.length} · differing lines ${JSON.stringify(diff)}`);

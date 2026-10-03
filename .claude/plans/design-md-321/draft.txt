@@ -1,0 +1,213 @@
+// .claude/plans/design-md-321/draft.txt — epic #295 ticket #321, Task 2.1's drafter, TOOL-LESS. PARKED AS .txt
+// (tooling/drift-check.mjs `node --check`s every tracked .mjs; this is a spike script, not product code).
+//
+// WHY: the plan's Task 2.1 sent the brief to a general-purpose Agent, whose "read these files and nothing else"
+// was an instruction only (full tool access, reads unrecorded). Here isolation is VERIFIABLE: one SDK call with
+// no tools, no MCP, no setting sources, an empty temp cwd and a deny-all canUseTool; the init message is
+// checked BEFORE the model answers and the tools list is written into the transcript. The inputs are
+// assembled INLINE from the repo by text extraction (the script fails loudly if one is not found), and their
+// sha16s are printed, so what the drafter saw is the prompt file and nothing else.
+//
+// HONESTY: draft-<n>.md is the reply's text verbatim (never edited); draft-<n>.jsonl is the transcript, line by
+// line; prompt-<n>.txt is the exact user message. A bad draft is re-run with --fix, never edited. Refuses to
+// overwrite. Auth: the child runs under the subscription env (every ANTHROPIC_* and CLAUDE_CODE_USE_* removed).
+//
+// RUN (the copy must be .mjs; --draft needs `cd portal && npm ci` first):
+//   cp .claude/plans/design-md-321/draft.txt "$SCRATCH/draft.mjs"
+//   node "$SCRATCH/draft.mjs" --repo "$PWD" --dry [--out <dir>]                  (no call: prompt.txt + counts + hashes)
+//   node "$SCRATCH/draft.mjs" --repo "$PWD" --draft <n> --out <dir>              (ONE paid call)
+//   node "$SCRATCH/draft.mjs" --repo "$PWD" --draft <n> --out <dir> --fix <draft-m.md>   (adds the problems paragraph)
+import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
+
+const argv = process.argv.slice(2);
+const flag = (n) => argv.includes(n);
+const opt = (n) => { const i = argv.indexOf(n); return i >= 0 ? argv[i + 1] : undefined; };
+const REPO = opt('--repo');
+if (!REPO || !existsSync(path.join(REPO, 'system/canvas-ops.mjs'))) { console.error('draft: --repo <abs path to the ux-factory checkout> is required'); process.exit(2); }
+const DRY = flag('--dry');
+const N = opt('--draft');
+if (DRY === (N !== undefined)) { console.error('draft: exactly one of --dry | --draft <n> --out <dir>'); process.exit(2); }
+const OUT = opt('--out');
+if (N !== undefined && (!OUT || !/^[1-9]\d*$/.test(N))) { console.error('draft: --draft <n> needs a positive integer and --out <dir>'); process.exit(2); }
+
+// Matches canvas-session's MODEL (portal/lib/canvas-session.mjs:71), the model the conventions are for.
+const MODEL = 'claude-sonnet-5';
+const TIMEOUT_MS = 300_000;
+const sha = (s) => createHash('sha256').update(s).digest('hex').slice(0, 16);
+const read = (rel) => readFileSync(path.join(REPO, rel), 'utf8');
+
+// The shipped transport's rule (canvas-session.mjs subscriptionEnv): a copy, process.env is never mutated.
+const subscriptionEnv = (env = process.env) => Object.fromEntries(Object.entries(env).filter(([k]) => !k.startsWith('ANTHROPIC_') && !k.startsWith('CLAUDE_CODE_USE_')));
+
+const SYSTEM = 'You draft one markdown file for the ux-factory design system. You have no tools and no files: everything you may use is in the user message. Reply with the file\'s full content and nothing else.';
+
+// ---- the brief: Task 2.1's, with "read these files" turned into "the inputs are inline", and the parts-line
+// mark grammar (? + *) that parseDesign accepts ----------------------------------------------------
+const BRIEF = `
+You are drafting \`system/DESIGN.md\` for the ux-factory design system. It is a conventions file for an AI agent
+that composes mobile screens from a fixed component vocabulary, one screen at a time. The file is placed in that
+agent's system prompt verbatim, after the vocabulary and before the product's PRD.
+
+What the file is for: the vocabulary tells the agent which parts exist. It does not tell the agent how this
+system puts parts together into a screen. This file does that, and only that. Be opinionated about whole
+screens, and name only parts the vocabulary has.
+
+The inputs are given below, inline. You have no tools, and nothing else is available to you. They are:
+- Input 1: the vocabulary (every component: props, children, usage), as the JSON file the agent's vocabulary is generated from
+- Input 2: the five states every screen has (\`STATE_KEYS\`) and the code that adds a state to a screen. A state can
+  set props on parts that are already in the base screen, or hide them. It cannot add a part.
+- Input 3: the copy rules the system already states for its composition agent
+
+Use nothing beyond these inputs: not the repository, not any issue or pull request, not the web.
+
+The vocabulary's usage text mentions a demo product (Verdant, a plant-care app). The conventions must hold for
+any product composed from this vocabulary, so put none of Verdant's content into them.
+
+Write:
+1. A header. Line 1 is "# DESIGN.md — composition conventions for the compose agent". Then a line that reads
+   exactly "Version: 1". Then one short paragraph saying two things, in plain words with no backticks: this is
+   not the per-company build constitution that agent-layer/build.mjs copies to a deploy's site root, and it was
+   drafted by an agent from the inputs listed in its drafting brief.
+2. Conventions, each a short rule with its reason, covering:
+   - how a mobile screen is laid out: the root part, the header, and where the primary action sits. There is no
+     action-bar part, so say how the vocabulary expresses one.
+   - when a state is a dialog and when it is inline. A state can only set or hide parts that are present in the
+     base screen.
+   - what empty and error copy look like.
+   - what never goes in a screen: pictures, free styling, parts outside the vocabulary.
+3. A section headed \`## Screen templates\` with one \`### <kind>\` subsection for each of list, detail, form,
+   empty and error. You may add another kind if the vocabulary supports a distinct screen. Each subsection has
+   one sentence on when to use it and exactly one fenced block whose info string is \`parts\`. The block lists the
+   root stack's children in order, one vocabulary name per line. A name may carry one trailing mark: \`?\` for an
+   optional part (zero or one), \`+\` for a part that repeats (one or more), \`*\` for a part that may repeat or be
+   absent (zero or more). At least one line per block has no mark or a \`+\`.
+4. A closing line telling the agent to pick one template per screen rather than invent a layout.
+
+Format rules (a build check refuses the file otherwise):
+- Backticks hold vocabulary references only, in one of three forms: \`name\`, \`name.prop\`, or \`name.prop=value\`,
+  where the value comes from the prop's enum, or is true or false for a boolean. Nothing else goes in backticks.
+- Never put a file name, a path, a heading or a phrase in backticks. Write them as plain words.
+- The only fenced blocks are the \`parts\` blocks.
+- Do not mention the agent's tools or the phrase the agent uses when a screen cannot be composed. Those are set
+  elsewhere in its prompt.
+- Exactly one line starting \`Version:\`.
+
+Voice: plain declarative sentences, British English, sentence case. No filler, no hype words, no chains of
+dashes, no lists of three for rhythm. Write for the agent in the system's own words. The vocabulary's usage
+sentences are the model. Keep the file under 150 lines.
+
+Reply with the file's full content and nothing else.
+`.trim();
+
+// ---- the inputs, extracted by text; each failure is loud ----------------------------------------------
+function cut(text, start, endRe, what) {
+  const i = text.indexOf(start);
+  if (i < 0) throw new Error(`draft: ${what}: start marker not found: ${start}`);
+  const rest = text.slice(i);
+  const m = rest.slice(start.length).search(endRe);
+  if (m < 0) throw new Error(`draft: ${what}: end marker not found after: ${start}`);
+  const out = rest.slice(0, start.length + m);
+  if (out.length < start.length + 20) throw new Error(`draft: ${what}: extraction is empty`);
+  return out;
+}
+function inputs() {
+  const vocab = read('handoff/verdant/vocabulary.json');
+  const ops = read('system/canvas-ops.mjs');
+  const stateKeys = ops.split('\n').find((l) => l.startsWith('export const STATE_KEYS = '));
+  if (!stateKeys) throw new Error('draft: STATE_KEYS line not found in system/canvas-ops.mjs');
+  const stateAdd = cut(ops, '    case "state.add": {', /\n    case "/, 'state.add block');
+  if (!/frames\.push\(/.test(stateAdd)) throw new Error('draft: the state.add block was cut short (no frames.push)');
+  const rec = read('portal/record-composition.mjs');
+  if (!rec.includes('PIV_COMPOSE_SYSTEM')) throw new Error('draft: PIV_COMPOSE_SYSTEM not found in portal/record-composition.mjs');
+  const copy = cut(rec, '• Copy rules (#420)', /\n\s*\n/, 'Copy rules bullet');
+  if (!/sentence case|SENTENCE CASE/i.test(copy)) throw new Error('draft: the Copy rules bullet was cut short (no sentence-case clause)');
+  return [
+    { id: 1, label: 'handoff/verdant/vocabulary.json, in full', text: vocab },
+    { id: 2, label: 'system/canvas-ops.mjs: the STATE_KEYS line, then the case "state.add" block', text: `${stateKeys}\n\n${stateAdd}` },
+    { id: 3, label: 'portal/record-composition.mjs: the "Copy rules (#420)" bullet of PIV_COMPOSE_SYSTEM', text: copy },
+  ];
+}
+const render = (ins) => ins.map((i) => `=== INPUT ${i.id} BEGIN: ${i.label} ===\n${i.text}\n=== INPUT ${i.id} END ===`).join('\n\n');
+
+async function fixParagraph(prevFile) {
+  const prev = readFileSync(prevFile, 'utf8');
+  // parseDesign lives in the session; importing it runs portal/env.mjs, which is harmless here (the child env is stripped by name).
+  const S = await import(pathToFileURL(path.join(REPO, 'portal/lib/canvas-session.mjs')).href);
+  if (typeof S.parseDesign !== 'function') throw new Error('draft: --fix needs canvas-session.mjs to export parseDesign');
+  const vocab = JSON.parse(read('handoff/verdant/vocabulary.json'));
+  const { problems } = S.parseDesign(prev, vocab);
+  if (!problems.length) throw new Error(`draft: ${prevFile} has no parseDesign problems — nothing to fix`);
+  // A tool-less single-turn call has no memory of the earlier reply, so the reply travels with the paragraph.
+  return `\n\nYour previous reply is below, between the markers.\n=== PREVIOUS REPLY BEGIN ===\n${prev}\n=== PREVIOUS REPLY END ===\n\nIt broke these format rules:\n${problems.join('\n')}\n\nReply with the corrected file only.`;
+}
+
+async function main() {
+  const ins = inputs();
+  let prompt = `${BRIEF}\n\n${render(ins)}`;
+  const fix = opt('--fix');
+  if (fix) prompt += await fixParagraph(fix);
+  const hashes = ins.map((i) => `input ${i.id} ${i.text.length} chars sha16 ${sha(i.text)}  ${i.label}`);
+  if (DRY) {
+    if (OUT) { mkdirSync(OUT, { recursive: true }); writeFileSync(path.join(OUT, 'prompt.txt'), prompt); }
+    console.log(`brief ${BRIEF.length} chars sha16 ${sha(BRIEF)} · system ${SYSTEM.length} chars · model ${MODEL}`);
+    for (const h of hashes) console.log(h);
+    console.log(`user prompt ${prompt.length} chars sha16 ${sha(prompt)}${OUT ? ` · wrote ${path.join(OUT, 'prompt.txt')}` : ''}`);
+    return;
+  }
+  mkdirSync(OUT, { recursive: true });
+  const base = path.join(OUT, `draft-${N}`);
+  for (const f of [`${base}.jsonl`, `${base}.md`, path.join(OUT, `prompt-${N}.txt`)]) {
+    if (existsSync(f)) { console.error(`draft: ${f} exists — drafts are never overwritten`); process.exit(2); }
+  }
+  writeFileSync(path.join(OUT, `prompt-${N}.txt`), prompt);
+  const write = (l) => appendFileSync(`${base}.jsonl`, `${JSON.stringify({ ...l, ts: new Date().toISOString() })}\n`);
+  write({ k: 'prompt', file: `prompt-${N}.txt`, chars: prompt.length, sha16: sha(prompt), systemChars: SYSTEM.length, model: MODEL, fix: fix ?? null, inputs: ins.map((i) => ({ id: i.id, chars: i.text.length, sha16: sha(i.text) })) });
+
+  const { query } = await import(pathToFileURL(path.join(REPO, 'portal/node_modules/@anthropic-ai/claude-agent-sdk/sdk.mjs')).href);
+  const cwd = mkdtempSync(path.join(tmpdir(), `draft-${N}-`));
+  const abortController = new AbortController();
+  const killer = setTimeout(() => abortController.abort(), TIMEOUT_MS);
+  let result = null;
+  try {
+    const q = query({
+      prompt,
+      options: {
+        cwd, model: MODEL, maxTurns: 1, systemPrompt: SYSTEM,
+        tools: [], allowedTools: [], strictMcpConfig: true, mcpServers: {},
+        settingSources: [],
+        env: subscriptionEnv(),
+        abortController,
+        canUseTool: async (toolName, input) => { write({ k: 'denied', tool: toolName, input }); return { behavior: 'deny', message: 'no tools in this call' }; },
+      },
+    });
+    for await (const msg of q) {
+      if (msg.type === 'system' && msg.subtype === 'init') {
+        write({ k: 'init', sessionId: msg.session_id, model: msg.model, tools: msg.tools ?? null, mcpServers: msg.mcp_servers ?? null, skills: msg.skills ?? null, cwd: msg.cwd ?? null });
+        if (!Array.isArray(msg.tools) || msg.tools.length || (msg.mcp_servers ?? []).length) {
+          abortController.abort();
+          throw new Error(`draft: init advertised tools ${JSON.stringify(msg.tools)} / MCP servers ${JSON.stringify(msg.mcp_servers)} — refusing before the model answers`);
+        }
+      } else if (msg.type === 'assistant') {
+        for (const b of msg.message?.content || []) {
+          if (b.type === 'text') write({ k: 'text', text: b.text });
+          else write({ k: b.type, block: b });
+        }
+      } else if (msg.type === 'result') {
+        result = msg;
+        write({ k: 'stats', subtype: msg.subtype, isError: msg.is_error === true, numTurns: msg.num_turns ?? null, costUsd: msg.total_cost_usd ?? null, durationMs: msg.duration_ms ?? null, usage: msg.usage ?? null, modelUsage: msg.modelUsage ?? null, permissionDenials: msg.permission_denials ?? [] });
+      }
+    }
+  } finally {
+    clearTimeout(killer);
+    rmSync(cwd, { recursive: true, force: true });
+  }
+  if (!result) throw new Error('draft: no result message');
+  if (result.subtype !== 'success' || result.is_error === true || typeof result.result !== 'string') throw new Error(`draft: no draft — ${result.subtype}${result.is_error ? ' (is_error)' : ''}: ${String(result.result ?? result.errors ?? '').slice(0, 200)}`);
+  writeFileSync(`${base}.md`, result.result);
+  console.log(`wrote ${base}.md (${result.result.length} chars) · $${result.total_cost_usd ?? '?'}`);
+}
+await main().catch((e) => { console.error(e.message); process.exit(1); });
