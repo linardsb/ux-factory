@@ -96,11 +96,11 @@ converged: 0/4 · mismatched: turn-1, turn-2, turn-3, fork
 ```
 
 **converged: 0/4.** Every turn is a mismatch and each is a finding against `system/DESIGN.md` v1, not re-run
-(the plan's stop rule: no third run). The two runs chose different screens for the same turn on all four turns
-(`same screen n` ×4), so the PRD's flow was cut differently before any template was applied. Where both runs
-built a comparable screen (turn 1, the payee form), run 3 added a hidden `modal-dialog` that the form template
-does not list, following the States section, and read none; run 4 left it out and read form. The read of what
-to change is the owner's.
+(the plan's stop rule: no third run). `same screen` compares `screenId` strings only, and the ids differ on all
+four turns (`same screen n` ×4). On turn 1 both runs filed a payee form with name, sort code and account number
+fields and a pay-from `select-field`. Run 3's also holds a `modal-dialog` (its reply calls it hidden; the
+composition carries no prop that hides it), which the form template does not list, and reads none; run 4's holds
+none and reads form. The read of what to change is the owner's.
 
 ## Finding: the fork list
 
