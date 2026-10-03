@@ -1,0 +1,207 @@
+// PARKED PROBE for #331 (pre-flight, 2026-10-03) — .txt so drift-check's node --check skips it.
+// proto.mjs = the target shape of gen-handoff's three pure exports + build-checks' witnessOf.
+// Ran against origin/main 81a0a84 with the planned contract edits applied in memory: 31 passed, 0 failed.
+
+// ===== proto.mjs =====
+// Throwaway prototype of #331's pure exports — run against the real wt-331-plan tree, never committed.
+import { readFileSync } from "node:fs";
+import { join, posix } from "node:path";
+const ROOT = "/Users/Berzins/Desktop/Linards_current/wt-331-plan";
+const rd = (p) => JSON.parse(readFileSync(join(ROOT, p), "utf8"));
+
+export const BINDING_KEYS = Object.freeze({
+  statement: Object.freeze(["$description", "screens", "notInScope"]),
+  screen: Object.freeze(["screen", "views"]),
+  view: Object.freeze(["id", "title", "component", "collection", "filter", "order", "pick", "witness"]),
+  viewRequired: Object.freeze(["id", "component", "collection", "filter", "order", "witness"]),
+});
+export const BOUND_RE = /\/api\b|https?:\/\/|\b(GET|POST|PUT|PATCH|DELETE)\b|\bendpoint|\bpaginat|\bcach(e|ing)\b|\bauth\b|\benvelope|\bversion/i;
+const nonEmpty = (v) => typeof v === "string" && v.trim().length > 0;
+
+export function projectBindings(statement, { protoConfig, contractOf, at = "scenarios/verdant/bindings.json" }) {
+  const fail = (path, msg) => { throw new Error(`${at}: ${path} ${msg}`); };
+  const closed = (obj, keys, path) => {
+    if (!obj || typeof obj !== "object" || Array.isArray(obj)) fail(path || "(root)", "must be an object");
+    for (const k of Object.keys(obj)) if (!keys.includes(k)) fail(path ? `${path}.${k}` : k, `is an unknown key — allowed: ${keys.join(", ")} (the bound: a binding names a record, never an endpoint)`);
+  };
+  closed(statement, BINDING_KEYS.statement, "");
+  if (!Array.isArray(statement.screens) || !statement.screens.length) fail("screens", "must be a non-empty array");
+  if (!Array.isArray(statement.notInScope) || !statement.notInScope.every(nonEmpty)) fail("notInScope", "must be an array of non-empty strings");
+  statement.notInScope.forEach((s, i) => { if (BOUND_RE.test(s)) fail(`notInScope[${i}]`, `breaks the bound: ${JSON.stringify(s)}`); });
+  const screens = statement.screens.map((s, si) => {
+    const sp = `screens[${si}]`;
+    closed(s, BINDING_KEYS.screen, sp);
+    const proto = protoConfig.screens.find((x) => x.id === s.screen);
+    if (!proto) fail(`${sp}.screen`, `"${s.screen}" names no screen in proto.config.json (have: ${protoConfig.screens.map((x) => x.id).join(", ")})`);
+    if (!Array.isArray(s.views) || !s.views.length) fail(`${sp}.views`, "must be a non-empty array");
+    const seen = new Set();
+    const views = s.views.map((v, vi) => {
+      const vp = `${sp}.views[${vi}]`;
+      closed(v, BINDING_KEYS.view, vp);
+      for (const k of BINDING_KEYS.viewRequired.filter((k) => k !== "witness")) if (!nonEmpty(v[k])) fail(`${vp}.${k}`, "is required and must be a non-empty string");
+      for (const k of ["title", "pick"]) if (k in v && !nonEmpty(v[k])) fail(`${vp}.${k}`, "must be a non-empty string when present");
+      if (!Array.isArray(v.witness) || !v.witness.length || !v.witness.every(nonEmpty)) fail(`${vp}.witness`, "must be a non-empty array of record ids");
+      if (seen.has(v.id)) fail(`${vp}.id`, `"${v.id}" is a duplicate view id in ${s.screen}`);
+      seen.add(v.id);
+      if (!proto.collections.includes(v.collection)) fail(`${vp}.collection`, `"${v.collection}" is not one of ${s.screen}'s collections (${proto.collections.join(", ")})`);
+      const c = contractOf(v.component);
+      if (c === undefined) fail(`${vp}.component`, `"${v.component}" names no spec in system/specs/`);
+      if (c === null) fail(`${vp}.component`, `"${v.component}" has no DataContract — a view binds records, so its component must carry one`);
+      for (const k of ["title", "filter", "order", "pick"]) if (k in v && BOUND_RE.test(v[k])) fail(`${vp}.${k}`, `breaks the bound: ${JSON.stringify(v[k])}`);
+      return { id: v.id, ...(v.title && { title: v.title }), component: v.component, contract: `contracts/${c}`, collection: v.collection, filter: v.filter, order: v.order, ...(v.pick && { pick: v.pick }), witness: v.witness };
+    });
+    return { screen: s.screen, title: proto.title, views };
+  });
+  return { $description: statement.$description, screens, notInScope: statement.notInScope };
+}
+
+const ISO = /^\d{4}-\d{2}-\d{2}$/;
+const isoDay = (s) => { if (typeof s !== "string" || !ISO.test(s)) return false; const d = new Date(s + "T00:00:00Z"); return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s; };
+export function projectScenario(head, copy, { at = "scenarios/verdant" } = {}) {
+  if (!isoDay(head?.today)) throw new Error(`${at}/brief.md: head "today" ${JSON.stringify(head?.today)} is not a real YYYY-MM-DD day`);
+  if (!nonEmpty(copy?.fictionalNotice)) throw new Error(`${at}/copy.json: "fictionalNotice" is missing or empty`);
+  if (BOUND_RE.test(copy.fictionalNotice)) throw new Error(`${at}/copy.json: "fictionalNotice" breaks the bound`);
+  return { $description: "The Verdant scenario's constants: the fixed fictional today every derived field is computed against, and the notice the demo-notice component renders verbatim. Generated by agent-layer/gen-handoff.mjs from scenarios/verdant/brief.md and copy.json — do not edit.", scenario: head.slug, today: head.today, fictionalNotice: copy.fictionalNotice };
+}
+
+export const RECORD_ID_RE = /\b[a-z]+-\d{2,}\b/;
+export function derivedProblems(files) {
+  const problems = [];
+  for (const [rel, doc] of Object.entries(files)) {
+    if (!rel.startsWith("contracts/")) continue;
+    for (const [field, prop] of Object.entries(doc.properties ?? {})) {
+      const here = `handoff/verdant/${rel}: properties.${field}`;
+      const xd = prop["x-derived"];
+      if (xd === undefined) { if (prop.readOnly === true) problems.push(`${here} is readOnly with no x-derived — a field the backend computes states how`); continue; }
+      if (prop.readOnly !== true) problems.push(`${here} carries x-derived but readOnly is not true`);
+      if (!xd || typeof xd !== "object" || Array.isArray(xd)) { problems.push(`${here} x-derived must be an object`); continue; }
+      for (const k of Object.keys(xd)) if (k !== "from" && k !== "rule") problems.push(`${here} x-derived.${k} is an unknown key — allowed: from, rule`);
+      if (!nonEmpty(xd.rule)) problems.push(`${here} x-derived.rule must be a non-empty string`);
+      else {
+        if (BOUND_RE.test(xd.rule)) problems.push(`${here} x-derived.rule breaks the bound`);
+        if (RECORD_ID_RE.test(xd.rule)) problems.push(`${here} x-derived.rule names a record id (${xd.rule.match(RECORD_ID_RE)[0]}) — a rule is a definition, never a worked example (it reaches vocabulary.json, a prompt input)`);
+      }
+      if (!Array.isArray(xd.from) || !xd.from.length || !xd.from.every(nonEmpty)) { problems.push(`${here} x-derived.from must be a non-empty array of strings`); continue; }
+      for (const entry of xd.from) {
+        const hash = entry.indexOf("#");
+        if (hash === -1) { if (!Object.hasOwn(doc.properties, entry)) problems.push(`${here} x-derived.from "${entry}" names no property of this contract`); continue; }
+        const file = posix.normalize(posix.join(posix.dirname(rel), entry.slice(0, hash)));
+        const ptr = entry.slice(hash + 1);
+        if (!Object.hasOwn(files, file)) { problems.push(`${here} x-derived.from "${entry}" resolves to ${file}, which the pack does not carry`); continue; }
+        if (!ptr.startsWith("/")) { problems.push(`${here} x-derived.from "${entry}" — the pointer must start with "/"`); continue; }
+        let node = files[file];
+        for (const seg of ptr.slice(1).split("/")) {
+          if (seg.includes("~")) { problems.push(`${here} x-derived.from "${entry}" — pointer escapes are not supported`); node = undefined; break; }
+          if (node === null || typeof node !== "object" || !Object.hasOwn(node, seg)) { problems.push(`${here} x-derived.from "${entry}" — "${seg}" does not resolve in ${file}`); node = undefined; break; }
+          node = node[seg];
+        }
+      }
+    }
+  }
+  return problems;
+}
+
+// ---- build-checks side: the witness, derived INDEPENDENTLY from the fixtures by the stated rules ----
+export function witnessOf(fx) {
+  const SEV = { ok: 0, due: 1, overdue: 2 };
+  const sorted = fx.plants.map((p, i) => [p, i]).sort((a, b) => SEV[b[0].status] - SEV[a[0].status] || a[1] - b[1]).map(([p]) => p);
+  const featured = sorted[0];
+  return {
+    featured: [featured.id],
+    "featured-readings": fx.readings.filter((r) => r.plantId === featured.id).map((r) => r.id),
+    today: fx["care-tasks"].filter((t) => !t.done && (t.status === "due" || t.status === "overdue")).map((t) => t.id),
+    "all-plants": sorted.slice(1).map((p) => p.id),
+  };
+}
+
+// ===== run.mjs (the positive controls + every mutation in Task 8) =====
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { projectBindings, projectScenario, derivedProblems, witnessOf, BOUND_RE } from "./proto.mjs";
+const ROOT = "/Users/Berzins/Desktop/Linards_current/wt-331-plan";
+const rd = (p) => JSON.parse(readFileSync(join(ROOT, p), "utf8"));
+const clone = (o) => JSON.parse(JSON.stringify(o));
+const threw = (fn) => { try { fn(); return null; } catch (e) { return e.message; } };
+let pass = 0, fail = 0; const t = (n, c, x = "") => { c ? pass++ : (fail++, console.log("✗", n, x)); };
+
+const S = "status overdue, then due, then ok; plants of equal status keep the order the collection is served in";
+const statement = { $description: "Which view … never an endpoint (epic #329 D1).", screens: [{ screen: "plant-overview", views: [
+  { id: "featured", component: "plant-card", collection: "plants", filter: "every plant", order: S, pick: "the first plant after ordering is the featured plant; the page gives it no heading", witness: ["plant-03"] },
+  { id: "featured-readings", component: "stat-tile", collection: "readings", filter: "plantId equals the featured plant's id", order: "as served", witness: ["read-03", "read-04"] },
+  { id: "today", title: "Needs attention today", component: "care-task-row", collection: "care-tasks", filter: "done is false and status is due or overdue, which is every open task due on or before scenario.json's today; nothing later appears", order: "as served; the screen does not sort this list", witness: ["task-03", "task-05", "task-08", "task-18"] },
+  { id: "all-plants", title: "All plants", component: "plant-card", collection: "plants", filter: "every plant except the featured one", order: S, witness: ["plant-05","plant-08","plant-01","plant-02","plant-04","plant-06","plant-07","plant-09","plant-10","plant-11","plant-12","plant-13","plant-14","plant-15"] },
+]}], notInScope: ["a plant-detail screen: each plant card links to #plant-<id> and no screen renders that target"] };
+const protoConfig = rd("scenarios/verdant/proto.config.json");
+const pack = rd("handoff/verdant/pack.json");
+const contractOf = (name) => { const c = pack.components.find((x) => x.component === name); return c ? (c.contract ? c.contract.replace(/^contracts\//, "") : null) : undefined; };
+
+// positive
+let B; t("projectBindings real", threw(() => { B = projectBindings(statement, { protoConfig, contractOf }); }) === null, threw(() => projectBindings(statement, { protoConfig, contractOf })));
+const fx = Object.fromEntries(["plants", "care-tasks", "readings"].map((c) => [c, rd(`scenarios/verdant/fixtures/${c}.json`)]));
+const W = witnessOf(fx);
+for (const v of B.screens[0].views) t(`witness ${v.id}`, JSON.stringify(W[v.id]) === JSON.stringify(v.witness), JSON.stringify(W[v.id]));
+// mutated fixture changes the witness (control): plant-05 → due only? make plant-01 overdue
+const fx2 = clone(fx); fx2.plants[0].status = "overdue"; t("witness control: reordered fixture moves featured", witnessOf(fx2).featured[0] === "plant-01");
+
+const mut = (f) => { const s = clone(statement); f(s); return threw(() => projectBindings(s, { protoConfig, contractOf })); };
+const V = (s) => s.screens[0].views;
+for (const [label, f, words] of [
+  ["unknown collection", (s) => { V(s)[2].collection = "plantz"; }, ["screens[0].views[2].collection", "plantz"]],
+  ["unknown screen", (s) => { s.screens[0].screen = "plant-detail"; }, ["plant-detail"]],
+  ["contract-less", (s) => { V(s)[0].component = "text"; }, ["text", "no DataContract"]],
+  ["unknown component", (s) => { V(s)[0].component = "fern-card"; }, ["fern-card"]],
+  ["endpoint key", (s) => { V(s)[0].endpoint = "x"; }, ["endpoint", "unknown key"]],
+  ["bound text", (s) => { V(s)[2].filter = "GET /api/care-tasks?due=today"; }, ["views[2].filter"]],
+  ["dup id", (s) => { V(s)[3].id = "today"; }, ["today", "duplicate"]],
+  ["missing order", (s) => { delete V(s)[1].order; }, ["views[1].order"]],
+  ["empty witness", (s) => { V(s)[1].witness = []; }, ["views[1].witness"]],
+]) { const m = f && mut(f); t(`mut ${label}`, m && words.every((w) => m.includes(w)), m ?? "NO THROW"); }
+
+// scenario
+const brief = readFileSync(join(ROOT, "scenarios/verdant/brief.md"), "utf8");
+const head = JSON.parse(brief.match(/```json\s*\n([\s\S]*?)\n```/)[1]);
+const copy = rd("scenarios/verdant/copy.json");
+const sc = projectScenario(head, copy);
+t("scenario today", sc.today === "2026-07-14");
+t("scenario bad today", (threw(() => projectScenario({ ...head, today: "2026-07-32" }, copy)) ?? "").includes("brief.md"));
+t("scenario empty notice", (threw(() => projectScenario(head, { ...copy, fictionalNotice: "" })) ?? "").includes("copy.json"));
+
+// contracts with planned edits
+const ctr = rd("system/specs/care-task-row.contract.json"), pc = rd("system/specs/plant-card.contract.json");
+Object.assign(ctr.properties.status, { readOnly: true, "x-derived": { from: ["due", "done", "../scenario.json#/today"], rule: "done is true: ok. Otherwise compare due with today as calendar days (YYYY-MM-DD): due before today is overdue, due equal to today is due, due after today is ok." } });
+Object.assign(pc.properties.status, { readOnly: true, "x-derived": { from: ["id", "care-task-row.contract.json#/properties/plantId", "care-task-row.contract.json#/properties/done", "care-task-row.contract.json#/properties/status"], rule: "the worst status among the care tasks whose plantId is this plant's id and whose done is false, ranked overdue, then due, then ok; ok when it has none." } });
+const files = { "scenario.json": sc, "contracts/care-task-row.contract.json": ctr, "contracts/plant-card.contract.json": pc, "contracts/stat-tile.contract.json": rd("system/specs/stat-tile.contract.json"), "contracts/status-chip.contract.json": rd("system/specs/status-chip.contract.json") };
+t("derived clean", derivedProblems(files).length === 0, derivedProblems(files).join(" | "));
+const dm = (f) => { const c = clone(files); f(c); return derivedProblems(c); };
+const CT = "contracts/care-task-row.contract.json", PC = "contracts/plant-card.contract.json";
+for (const [label, f, path, word] of [
+  ["dew", (c) => { c[CT].properties.status["x-derived"].from[0] = "dew"; }, CT, "dew"],
+  ["tomorrow", (c) => { c[CT].properties.status["x-derived"].from[2] = "../scenario.json#/tomorrow"; }, CT, "tomorrow"],
+  ["plantID", (c) => { c[PC].properties.status["x-derived"].from[1] = "care-task-row.contract.json#/properties/plantID"; }, PC, "plantID"],
+  ["missing file", (c) => { c[CT].properties.status["x-derived"].from[2] = "../missing.json#/today"; }, CT, "missing.json"],
+  ["readOnly", (c) => { delete c[CT].properties.status.readOnly; }, CT, "readOnly"],
+  ["rule empty", (c) => { c[CT].properties.status["x-derived"].rule = ""; }, CT, "rule"],
+  ["extra key", (c) => { c[PC].properties.status["x-derived"].how = "x"; }, PC, "how"],
+  ["readOnly no xd", (c) => { c["contracts/stat-tile.contract.json"].properties.value.readOnly = true; }, "stat-tile", "x-derived"],
+  ["worked example", (c) => { c[CT].properties.status["x-derived"].rule += " e.g. task-03 is overdue"; }, CT, "task-03"],
+  ["tilde", (c) => { c[CT].properties.status["x-derived"].from[2] = "../scenario.json#/to~day"; }, CT, "escapes"],
+]) { const p = dm(f); t(`dmut ${label}`, p.some((x) => x.includes(path) && x.includes(word)), p.join(" | ") || "NONE"); }
+// independent key-set reading
+const fits = (recs, k) => recs.every((r) => Object.keys(r).every((x) => Object.hasOwn(k.properties, x)) && k.required.every((x) => Object.hasOwn(r, x)));
+t("keyset today ok", fits(fx["care-tasks"], ctr)); t("keyset plants-vs-ctr refused", !fits(fx.plants, ctr));
+console.log(`${pass} passed, ${fail} failed`);
+
+// ===== dom.cjs (headless chromium read of /proto/verdant.html) =====
+const pw = require("/Users/Berzins/Desktop/Linards_current/ux-factory/tooling/visual-regression/node_modules/@playwright/test");
+(async () => {
+  const b = await pw.chromium.launch(); const p = await b.newPage();
+  await p.goto("http://127.0.0.1:4831/proto/verdant.html", { waitUntil: "load" });
+  await p.waitForSelector("#today-list", { timeout: 20000 });
+  const r = await p.evaluate(() => ({
+    plants: [...document.querySelectorAll("#app .vd-plant-card")].map((e) => e.dataset.plantId),
+    today: [...document.querySelectorAll("#today-list .vd-care-task-row")].map((e) => e.dataset.taskId),
+    tiles: [...document.querySelectorAll("#app .vd-stat-tile")].map((e) => [e.querySelector(".vd-stat-label").textContent, e.querySelector(".vd-stat-value").textContent]),
+  }));
+  console.log(JSON.stringify(r)); await b.close();
+})();
+// observed: {"plants":["plant-03","plant-05","plant-08","plant-01","plant-02","plant-04","plant-06","plant-07","plant-09","plant-10","plant-11","plant-12","plant-13","plant-14","plant-15"],"today":["task-03","task-05","task-08","task-18"],"tiles":[["Moisture","22"],["Light","180"]]}

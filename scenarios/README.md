@@ -46,6 +46,7 @@ scenarios/
     intake.defaults.json      the 8 intake questions with defaults + reasoning, plus the axes block
     copy.json                 strings shipped pages render (incl. the fictional notice)
     proto.config.json         which prototype screens exist and which collections they use
+    bindings.json             (optional, Verdant) which view of each screen reads which collection, filtered and ordered how — projected into the handoff pack
     fixtures/<collection>.json  the mock data the Worker serves and the fallback ships
     rubric.json                 (optional) the screen's five-pillar AI-UX rubric — maker-authored, cited
 ```
@@ -121,6 +122,31 @@ provenance declares.
 Every name in `collections` must have a matching `fixtures/<name>.json`. `slots` names the
 designated agentic regions of a hybrid canvas (Fieldwork only for now — placeholder ids; #8
 designs the canvas, #13 fills the slots).
+
+### `bindings.json`
+
+Verdant only (#331). A hand-written design statement, read by `agent-layer/gen-handoff.mjs` and
+projected into `handoff/verdant/pack.json#/bindings`. It sits beside `proto.config.json` rather
+than inside it, because `gen-company-package.mjs` writes that file.
+
+```json
+{
+  "$description": "…",
+  "screens": [ { "screen": "plant-overview", "views": [
+    { "id": "today", "title": "…", "component": "care-task-row", "collection": "care-tasks",
+      "filter": "…", "order": "…", "pick": "…", "witness": ["task-03", "…"] } ] } ],
+  "notInScope": ["…"]
+}
+```
+
+The key sets are closed (`BINDING_KEYS` in `gen-handoff.mjs`): statement `$description · screens ·
+notInScope`, screen `screen · views`, view `id · title · component · collection · filter · order ·
+pick · witness`, where `title` and `pick` are optional. `screen` must be a `proto.config.json`
+screen, `collection` one of that screen's collections, and `component` a spec that carries a
+DataContract. `filter`, `order` and `pick` are text (epic #329 Q1) and name no endpoint, URL,
+HTTP verb, caching, pagination, envelope, auth or versioning. `witness` is the record ids the page
+renders for that view on the committed fixtures, in order: build-checks group 39 re-derives it
+from the fixtures, and `tooling/proto-journey.mjs` [11] reads it off the rendered page.
 
 ### `fixtures/<collection>.json`
 

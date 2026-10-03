@@ -247,6 +247,7 @@ import { validateExamples } from "../agent-layer/gen-vocabulary.mjs";
 // BUNDLE_NAME is aliased because both modules declare the name, which is one of the things pinned.
 import { BUNDLE_NAME as INDEX_BUNDLE_NAME, indexLine, INDEX_NAME, renderIndex, ROUTES, routeIndex, SEP } from "../agent-layer/gen-pack-index.mjs";
 import { BUNDLE_NAME } from "../agent-layer/gen-pack-bundle.mjs";
+import { BINDING_KEYS, BOUND_RE, derivedProblems, projectBindings, projectScenario } from "../agent-layer/gen-handoff.mjs";
 import { parseComponentSpec } from "../agent-layer/lib.mjs";
 import { prepareHandoff, renderMarkdown } from "../system/handoff-viewer.mjs";
 // #215's pure layer — DOM-free above the fold by design (vdMarkup's body is browser-only but is
@@ -13486,7 +13487,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   group("composition judge", `every one of ${Object.keys(PREDICATES).length} predicates restates a phrase found in its stated home (the exported PIV_COMPOSE_SYSTEM, a slot bound, the copy sentence) so no rule is graded that the agent was never told · ${scenarios.length} scenarios' evals.json resolve every slug to a committed composition and the judge runs every predicate over every one · MUTATIONS on a committed summary-strip with the unmutated composition as the positive control: a bare "4" label, a third toned tile and a sentence value each turn their predicate red · an undefined predicate refused BY NAME. What it cannot reach: whether the committed compositions PASS (that is the judge's own verdict, run by the operator, and a failure there is a re-record, not an edit), and whether a green composition is defensible`);
 }
 
-// --- 39 · the handoff pack's routing index (#419) -------------------------------------------------
+// --- 39 · the handoff seam: the routing index (#419) and the reading seam (#331) ---------------
 
 {
   // handoff/verdant/llms.txt — one line per pack file, `path · bytes · what it is · read when`,
@@ -13650,7 +13651,229 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       `${file} must call genPackIndex() AFTER genPackBundle() — bundle at ${iBundle}, index at ${iIndex}`);
   }
 
-  group("handoff-seam", `the pack's routing index (#419): handoff/verdant/${INDEX_NAME}, ${files.length} lines of \`path · bytes · what it is · read when\`, pinned twice over — the WHOLE artifact against renderIndex() (header and routing order included) and, line by line, against a SECOND walk of the directory that rebuilds each line through indexLine and reports every disagreement BY PATH · the four MUTATIONS that decide whether that audit can fail, each driven over an edited copy of the committed file with the unmutated file as the positive control: a dropped line, a byte count moved by one, a reworded purpose and a ghost line each named by path, and a renamed "## Files" heading refused ONCE rather than as ${files.length} missing files · a DELETED pack file REPORTS rather than ending the run — every existence check sits before its read, the mutation battery's subject is looked up instead of named as a literal, and an unwitnessed rule is filtered out of the field-count loop; measured three ways (llms.txt, pack.bundle.json and a wc wrapper each removed: named failures, exit 1, no stack trace) · the routing table proven TOTAL over every committed pack file plus the two paths #332 will add (components.css, contracts/commands/log-care.json) and the real-run-only figma-parity.json, so those land into a green gate and no rule ships undriven — with four unrouted paths each REFUSED by path, and every rule's rendered line proven to split into exactly four fields, because a ${JSON.stringify(SEP)} inside a purpose sentence would make the parser read the wrong columns and the audit would stay green while checking nothing · the bundle/index exclusion pinned in BOTH directions (${BUNDLE_NAME} inlines neither itself nor the index; the index carries a line for the bundle; the two key sets agree exactly) with both artifacts stating the reason in their own text, and handoff.html — the one surface that offers the bundle as a DOWNLOAD, and so the one place the exclusion is visible to a reader — pinned to link the map beside it · and the chain order source-pinned in drift-check.mjs and build.mjs, since an index that runs before the bundle measures a file that is about to be rewritten. What it cannot reach: whether a purpose or a read-when sentence is TRUE — that a file is what its line says, and that an engineer's agent routed by it opens the right file first — which is the epic's third fenced run, a real run, never a gate`);
+
+  // ---- the reading seam (#331): bindings, scenario.json and x-derived --------------------------
+  // The pack now says what the 2026-08-28 seam run had to guess: the fixed fictional today
+  // (scenario.json), how status is derived (readOnly + x-derived on two contracts), and which view
+  // of the one screen reads which collection, filtered and ordered how (pack.json#/bindings). The
+  // three projections are gen-handoff's PURE exports, driven here over the real inputs (positive
+  // control: they reproduce the committed pack) and over mutated copies (each must be named). Beside
+  // them sits an INDEPENDENT second reading that never calls the generator: the brief fence parsed
+  // here for today, every fixture record held against its contract's key set, the witness re-derived
+  // from the fixtures by the stated rules, and the closed-key / bound scan over the committed files.
+  //
+  // WHAT THIS CANNOT REACH: whether the filter, order and rule TEXT says what proto/verdant.html and
+  // scenarios/validate.mjs do. Text is not evaluated (epic #329 Q1). The witness narrows it: this
+  // group proves the witness follows from the fixtures by the stated rules, and proto-journey [11]
+  // proves the page renders the witness; text-to-witness stays a review read, until #334 or a grammar.
+  const SCEN = join(ROOT, "scenarios/verdant");
+  const readIf = (abs, fallback) => (existsSync(abs) ? JSON.parse(readFileSync(abs, "utf8")) : fallback);
+  const deep = (v) => JSON.stringify(v, (k, x) => (x && typeof x === "object" && !Array.isArray(x) ? Object.fromEntries(Object.keys(x).sort().map((key) => [key, x[key]])) : x));
+  const cloneJ = (v) => JSON.parse(JSON.stringify(v));
+
+  // 6 · bindings ↔ proto.config, fixtures ⊆ contract key sets, and the witness
+  for (const rel of ["bindings.json", "proto.config.json"]) ok(existsSync(join(SCEN, rel)), `scenarios/verdant/${rel} must exist — gen-handoff projects pack.json#/bindings from it`);
+  ok(onDisk.includes("pack.json"), "handoff/verdant/pack.json must exist (regenerate: node agent-layer/gen-handoff.mjs)");
+  const statement = readIf(join(SCEN, "bindings.json"), { screens: [], notInScope: [] });
+  const protoConfig = readIf(join(SCEN, "proto.config.json"), { screens: [] });
+  const pack = onDisk.includes("pack.json") ? JSON.parse(readFileSync(at("pack.json"), "utf8")) : { components: [] };
+  const packBindings = pack.bindings ?? { screens: [], notInScope: [] };
+  ok(pack.bindings !== undefined, "handoff/verdant/pack.json must carry bindings (regenerate: node agent-layer/gen-handoff.mjs)");
+  const contractOf = (name) => { const c = pack.components.find((x) => x.component === name); return c ? (c.contract ? c.contract.replace(/^contracts\//, "") : null) : undefined; };
+  let projected = null;
+  const projErr = threw(() => { projected = projectBindings(statement, { protoConfig, contractOf }); });
+  ok(projErr === null, `projectBindings() refused scenarios/verdant/bindings.json as it stands — ${projErr}`);
+  ok(projected !== null && deep(projected) === deep(pack.bindings),
+    "handoff/verdant/pack.json#/bindings is not what projectBindings() makes of scenarios/verdant/bindings.json — regenerate: node agent-layer/gen-handoff.mjs");
+
+  // The independent reading: pure over (bindings, proto.config, a contract reader, fixtures) so the
+  // mutation below drives the SAME function the positive pass used.
+  const readContract = (rel) => (onDisk.includes(rel) ? JSON.parse(readFileSync(at(rel), "utf8")) : null);
+  const fixtureOf = (c) => readIf(join(SCEN, "fixtures", `${c}.json`), null);
+  const bindingReadProblems = (b, cfg, contractAt, fixtures) => {
+    const problems = [];
+    for (const s of b.screens ?? []) {
+      const screen = cfg.screens.find((x) => x.id === s.screen);
+      if (!screen) { problems.push(`handoff/verdant/pack.json: bindings screen ${s.screen} is not in proto.config.json`); continue; }
+      for (const v of s.views ?? []) {
+        const here = `handoff/verdant/pack.json: bindings ${s.screen}.${v.id}`;
+        if (!screen.collections.includes(v.collection)) problems.push(`${here} reads ${v.collection}, not one of ${s.screen}'s collections`);
+        const k = contractAt(v.contract);
+        if (!k) { problems.push(`${here} names ${v.contract}, which the pack does not carry`); continue; }
+        const recs = fixtures[v.collection];
+        if (!Array.isArray(recs)) { problems.push(`${here}: scenarios/verdant/fixtures/${v.collection}.json is missing`); continue; }
+        const bad = recs.filter((r) => !Object.keys(r).every((x) => Object.hasOwn(k.properties, x)) || !k.required.every((x) => Object.hasOwn(r, x)));
+        if (bad.length) problems.push(`${here}: ${bad.length} of ${recs.length} ${v.collection} records do not fit ${v.contract}'s key set (first: ${bad[0].id})`);
+      }
+    }
+    return problems;
+  };
+  const FIX = Object.fromEntries(["plants", "care-tasks", "readings"].map((c) => [c, fixtureOf(c)]));
+  const readProblems = bindingReadProblems(packBindings, protoConfig, readContract, FIX);
+  ok(readProblems.length === 0, `the committed bindings must fit proto.config.json and the fixtures — got: ${readProblems.join(" | ")}`);
+  const viewsOf = (b) => (b.screens ?? []).flatMap((s) => s.views ?? []);
+  const asPlants = cloneJ(packBindings);
+  for (const v of viewsOf(asPlants)) if (v.id === "today") v.collection = "plants";
+  const rebound = bindingReadProblems(asPlants, protoConfig, readContract, FIX);
+  ok(rebound.some((p) => p.includes("care-task-row") && p.includes("plants")),
+    `the today view rebound to plants must be refused for the key set, naming care-task-row and plants — got ${rebound.join(" | ") || "NO PROBLEM REPORTED"}`);
+  ok((packBindings.notInScope ?? []).some((s) => /detail/.test(s)), "pack.json#/bindings.notInScope must say there is no plant-detail screen (seam-run Q12)");
+
+  // The witness, derived INDEPENDENTLY: the stated rules applied to the fixtures, never read from
+  // the statement. A data-moved control proves it reads the fixtures rather than echoing.
+  const witnessOf = (fx) => {
+    const SEV = { ok: 0, due: 1, overdue: 2 };
+    const sorted = (fx.plants ?? []).map((p, i) => [p, i]).sort((a, b) => SEV[b[0].status] - SEV[a[0].status] || a[1] - b[1]).map(([p]) => p);
+    const featured = sorted[0] ?? { id: null };
+    return {
+      featured: [featured.id],
+      "featured-readings": (fx.readings ?? []).filter((r) => r.plantId === featured.id).map((r) => r.id),
+      today: (fx["care-tasks"] ?? []).filter((t) => !t.done && (t.status === "due" || t.status === "overdue")).map((t) => t.id),
+      "all-plants": sorted.slice(1).map((p) => p.id),
+    };
+  };
+  const witnessProblems = (b, fx) => {
+    const W = witnessOf(fx);
+    const problems = [];
+    const ids = viewsOf(b).map((v) => v.id).sort();
+    if (deep(ids) !== deep(Object.keys(W).sort())) problems.push(`handoff/verdant/pack.json: bindings views are ${ids.join(", ")}, the witness rules cover ${Object.keys(W).sort().join(", ")}`);
+    for (const v of viewsOf(b)) if (W[v.id] && deep(v.witness) !== deep(W[v.id])) problems.push(`handoff/verdant/pack.json: bindings ${v.id} witness ${JSON.stringify(v.witness)} is not what the stated rules give on the fixtures, ${JSON.stringify(W[v.id])}`);
+    return problems;
+  };
+  const fxOk = Object.values(FIX).every(Array.isArray);
+  ok(fxOk, "scenarios/verdant/fixtures/{plants,care-tasks,readings}.json must all exist");
+  const wp = fxOk ? witnessProblems(packBindings, FIX) : ["fixtures missing"];
+  ok(wp.length === 0, `every committed witness must follow from the fixtures by the stated rules — got: ${wp.join(" | ")}`);
+  if (fxOk) {
+    const moved = cloneJ(FIX);
+    moved.plants[0].status = "overdue";
+    ok(witnessOf(moved).featured[0] === moved.plants[0].id && witnessOf(moved).featured[0] !== witnessOf(FIX).featured[0],
+      `the witness must read the data: an overdue first plant must become featured — got ${witnessOf(moved).featured[0]}`);
+    const dropped = cloneJ(packBindings);
+    for (const v of viewsOf(dropped)) if (v.id === "today") v.witness = v.witness.filter((id) => id !== "task-18");
+    const dp = witnessProblems(dropped, FIX);
+    ok(dp.some((p) => p.includes("today") && p.includes("task-18")), `a today witness missing task-18 must be named — got ${dp.join(" | ") || "NO PROBLEM REPORTED"}`);
+  }
+
+  // The generator's refusals, each named by path and word.
+  const V = (s) => s.screens[0].views;
+  const bindingMutations = [
+    ["an unknown collection", (s) => { V(s)[2].collection = "plantz"; }, ["screens[0].views[2].collection", "plantz"]],
+    ["an unknown screen", (s) => { s.screens[0].screen = "plant-detail"; }, ["plant-detail"]],
+    ["a contract-less component", (s) => { V(s)[0].component = "text"; }, ["text", "no DataContract"]],
+    ["an unknown component", (s) => { V(s)[0].component = "fern-card"; }, ["fern-card"]],
+    ["an extra key (the bound)", (s) => { V(s)[0].endpoint = "x"; }, ["endpoint", "unknown key"]],
+    ["bound text", (s) => { V(s)[2].filter = "GET /api/care-tasks?due=today"; }, ["views[2].filter"]],
+    ["a duplicate view id", (s) => { V(s)[3].id = "today"; }, ["today", "duplicate"]],
+    ["a missing order", (s) => { delete V(s)[1].order; }, ["views[1].order"]],
+    ["an empty witness", (s) => { V(s)[1].witness = []; }, ["views[1].witness"]],
+    ["bound text out of scope", (s) => { s.notInScope[0] = "a caching layer"; }, ["notInScope[0]", "bound"]],
+  ];
+  for (const [label, mutate, words] of bindingMutations) {
+    let got;
+    try { const s = cloneJ(statement); mutate(s); got = threw(() => projectBindings(s, { protoConfig, contractOf })); }
+    catch (e) { got = `MUTATION COULD NOT APPLY: ${e.message}`; }
+    ok(got !== null && words.every((w) => got.includes(w)), `${label} must be refused naming ${words.join(" + ")} — got ${got ?? "NO THROW"}`);
+  }
+
+  // 7 · scenario.json ↔ brief + copy
+  ok(onDisk.includes("scenario.json"), "handoff/verdant/scenario.json must exist — the pack states its fictional today (regenerate: node agent-layer/gen-handoff.mjs)");
+  const scenarioFile = onDisk.includes("scenario.json") ? JSON.parse(readFileSync(at("scenario.json"), "utf8")) : {};
+  const briefPath = join(SCEN, "brief.md");
+  ok(existsSync(briefPath), "scenarios/verdant/brief.md must exist — its head carries today");
+  const fence = existsSync(briefPath) ? readFileSync(briefPath, "utf8").match(/```json\s*\n([\s\S]*?)\n```/) : null;
+  const head = fence ? JSON.parse(fence[1]) : {};
+  const copy = readIf(join(SCEN, "copy.json"), {});
+  const scenarioProblems = (sc) => {
+    const problems = [];
+    if (sc.today !== head.today) problems.push(`handoff/verdant/scenario.json: today ${JSON.stringify(sc.today)} is not the brief head's ${JSON.stringify(head.today)}`);
+    if (sc.fictionalNotice !== copy.fictionalNotice) problems.push("handoff/verdant/scenario.json: fictionalNotice is not copy.json's, byte for byte");
+    if (deep(Object.keys(sc).sort()) !== deep(["$description", "fictionalNotice", "scenario", "today"])) problems.push(`handoff/verdant/scenario.json: keys ${Object.keys(sc).sort().join(", ")} are not exactly $description, fictionalNotice, scenario, today`);
+    return problems;
+  };
+  ok(scenarioProblems(scenarioFile).length === 0, `the committed scenario.json must match the brief and copy.json — got: ${scenarioProblems(scenarioFile).join(" | ")}`);
+  const seamGuess = scenarioProblems({ ...scenarioFile, today: "2026-07-15" });
+  ok(seamGuess.some((p) => p.includes("scenario.json") && p.includes("today")), `the seam run's wrong guess (2026-07-15) must be named — got ${seamGuess.join(" | ") || "NO PROBLEM REPORTED"}`);
+  let projScenario = null;
+  const scErr = threw(() => { projScenario = projectScenario(head, copy); });
+  ok(scErr === null && deep(projScenario) === deep(scenarioFile), `projectScenario() must reproduce the committed scenario.json — ${scErr ?? "it differs: regenerate: node agent-layer/gen-handoff.mjs"}`);
+  const scenarioMutations = [
+    ["a non-day today", () => projectScenario({ ...head, today: "2026-07-32" }, copy), ["brief.md"]],
+    ["an empty fictionalNotice", () => projectScenario(head, { ...copy, fictionalNotice: "" }), ["copy.json"]],
+    ["a fictionalNotice that breaks the bound", () => projectScenario(head, { ...copy, fictionalNotice: "see /api/notice" }), ["copy.json", "bound"]],
+  ];
+  for (const [label, run, words] of scenarioMutations) {
+    const got = threw(run);
+    ok(got !== null && words.every((w) => got.includes(w)), `${label} must be refused naming ${words.join(" + ")} — got ${got ?? "NO THROW"}`);
+  }
+
+  // 8 · x-derived resolves
+  const contractRels = onDisk.filter((rel) => /^contracts\/[^/]+\.contract\.json$/.test(rel));
+  const derivedFiles = { "scenario.json": scenarioFile, ...Object.fromEntries(contractRels.map((rel) => [rel, JSON.parse(readFileSync(at(rel), "utf8"))])) };
+  const derivedClean = derivedProblems(derivedFiles);
+  ok(derivedClean.length === 0, `every committed x-derived must resolve — got: ${derivedClean.join(" | ")}`);
+  const derivedSet = contractRels.flatMap((rel) => Object.entries(derivedFiles[rel].properties ?? {}).filter(([, p]) => p["x-derived"]).map(([f]) => `${rel}#${f}`)).sort();
+  ok(deep(derivedSet) === deep(["contracts/care-task-row.contract.json#status", "contracts/plant-card.contract.json#status"]),
+    `the derived fields must be exactly care-task-row and plant-card status — got ${JSON.stringify(derivedSet)}`);
+  const CT = "contracts/care-task-row.contract.json", PC = "contracts/plant-card.contract.json", ST = "contracts/stat-tile.contract.json";
+  const xd = (c, rel) => c[rel].properties.status["x-derived"];
+  const derivedMutations = [
+    ["a misspelt field", (c) => { xd(c, CT).from[0] = "dew"; }, CT, "dew"],
+    ["a missing scenario key", (c) => { xd(c, CT).from[2] = "../scenario.json#/tomorrow"; }, CT, "tomorrow"],
+    ["a misspelt cross-contract field", (c) => { xd(c, PC).from[1] = "care-task-row.contract.json#/properties/plantID"; }, PC, "plantID"],
+    ["a missing file", (c) => { xd(c, CT).from[2] = "../missing.json#/today"; }, CT, "missing.json"],
+    ["readOnly removed", (c) => { delete c[CT].properties.status.readOnly; }, CT, "readOnly"],
+    ["an empty rule", (c) => { xd(c, CT).rule = ""; }, CT, "rule"],
+    ["an extra x-derived key", (c) => { xd(c, PC).how = "x"; }, PC, "how"],
+    ["readOnly with no x-derived", (c) => { c[ST].properties.value.readOnly = true; }, ST, "x-derived"],
+    ["a worked example in the rule", (c) => { xd(c, CT).rule += " e.g. task-03 is overdue"; }, CT, "task-03"],
+    ["a pointer escape", (c) => { xd(c, CT).from[2] = "../scenario.json#/to~day"; }, CT, "escapes"],
+    ["a rule that breaks the bound", (c) => { xd(c, CT).rule += " via the endpoint"; }, CT, "bound"],
+  ];
+  for (const [label, mutate, mustName, mustSay] of derivedMutations) {
+    let problems;
+    try { const c = cloneJ(derivedFiles); mutate(c); problems = derivedProblems(c); }
+    catch (e) { problems = [`MUTATION COULD NOT APPLY: ${e.message}`]; }
+    ok(problems.some((p) => p.includes(mustName) && p.includes(mustSay) && (mustName === ST ? p.includes("value") : p.includes("status"))),
+      `${label} must be caught naming handoff/verdant/${mustName} and saying ${JSON.stringify(mustSay)} — got ${problems.length ? problems.join(" | ") : "NO PROBLEM REPORTED"}`);
+  }
+
+  // 9 · the bound, over the committed artifacts: a second, artifact-side reading of what the
+  // generator enforces on its inputs.
+  const boundProblems = (b, sc, contracts) => {
+    const problems = [];
+    const closedKeys = (obj, keys, where) => { for (const k of Object.keys(obj ?? {})) if (!keys.includes(k)) problems.push(`${where}.${k} is outside the closed key set`); };
+    const text = (v, where) => { if (typeof v === "string" && BOUND_RE.test(v)) problems.push(`${where} breaks the bound: ${JSON.stringify(v)}`); };
+    closedKeys(b, BINDING_KEYS.statement, "pack.json#/bindings");
+    (b.notInScope ?? []).forEach((s, i) => text(s, `pack.json#/bindings.notInScope[${i}]`));
+    (b.screens ?? []).forEach((s, si) => {
+      closedKeys(s, [...BINDING_KEYS.screen, "title"], `pack.json#/bindings.screens[${si}]`);
+      text(s.title, `pack.json#/bindings.screens[${si}].title`);
+      (s.views ?? []).forEach((v, vi) => {
+        const where = `pack.json#/bindings.screens[${si}].views[${vi}]`;
+        closedKeys(v, [...BINDING_KEYS.view, "contract"], where);
+        for (const k of ["title", "filter", "order", "pick"]) text(v[k], `${where}.${k}`);
+      });
+    });
+    text(sc.fictionalNotice, "scenario.json#/fictionalNotice");
+    for (const [rel, c] of Object.entries(contracts)) for (const [f, p] of Object.entries(c.properties ?? {})) if (p["x-derived"]) text(p["x-derived"].rule, `${rel}#/properties/${f}/x-derived/rule`);
+    return problems;
+  };
+  const contractsOnly = Object.fromEntries(contractRels.map((rel) => [rel, derivedFiles[rel]]));
+  const boundClean = boundProblems(packBindings, scenarioFile, contractsOnly);
+  ok(boundClean.length === 0, `the committed bindings, scenario.json and x-derived rules must keep the bound — got: ${boundClean.join(" | ")}`);
+  const cached = cloneJ(packBindings);
+  if (cached.screens?.[0]?.views?.[0]) cached.screens[0].views[0].cacheTtl = 300;
+  const cacheHit = boundProblems(cached, scenarioFile, contractsOnly);
+  ok(cacheHit.some((p) => p.includes("cacheTtl")), `a cacheTtl key on a committed view must be named — got ${cacheHit.join(" | ") || "NO PROBLEM REPORTED"}`);
+  const verbed = cloneJ(packBindings);
+  if (verbed.screens?.[0]?.views?.[2]) verbed.screens[0].views[2].filter = "GET /api/x";
+  const verbHit = boundProblems(verbed, scenarioFile, contractsOnly);
+  ok(verbHit.some((p) => p.includes(".filter") && p.includes("bound")), `bound text in a committed view's filter must be named — got ${verbHit.join(" | ") || "NO PROBLEM REPORTED"}`);
+  // the three batteries + the four single cases: rebound to plants, a dropped witness id, the seam guess, cacheTtl, a verb in a filter
+  const SEAM_MUTATIONS = bindingMutations.length + scenarioMutations.length + derivedMutations.length + 5;
+
+  group("handoff-seam", `the pack's reading seam (#331): bindings ↔ proto.config, fixtures ⊆ contract key sets, each view's witness re-derived from the fixtures by the stated rules, scenario.json ↔ brief + copy, x-derived resolved, the bound re-read over the committed files (${SEAM_MUTATIONS} mutations, each named) · the pack's routing index (#419): handoff/verdant/${INDEX_NAME}, ${files.length} lines of \`path · bytes · what it is · read when\`, pinned twice over — the WHOLE artifact against renderIndex() (header and routing order included) and, line by line, against a SECOND walk of the directory that rebuilds each line through indexLine and reports every disagreement BY PATH · the four MUTATIONS that decide whether that audit can fail, each driven over an edited copy of the committed file with the unmutated file as the positive control: a dropped line, a byte count moved by one, a reworded purpose and a ghost line each named by path, and a renamed "## Files" heading refused ONCE rather than as ${files.length} missing files · a DELETED pack file REPORTS rather than ending the run — every existence check sits before its read, the mutation battery's subject is looked up instead of named as a literal, and an unwitnessed rule is filtered out of the field-count loop; measured three ways (llms.txt, pack.bundle.json and a wc wrapper each removed: named failures, exit 1, no stack trace) · the routing table proven TOTAL over every committed pack file plus the two paths #332 will add (components.css, contracts/commands/log-care.json) and the real-run-only figma-parity.json, so those land into a green gate and no rule ships undriven — with four unrouted paths each REFUSED by path, and every rule's rendered line proven to split into exactly four fields, because a ${JSON.stringify(SEP)} inside a purpose sentence would make the parser read the wrong columns and the audit would stay green while checking nothing · the bundle/index exclusion pinned in BOTH directions (${BUNDLE_NAME} inlines neither itself nor the index; the index carries a line for the bundle; the two key sets agree exactly) with both artifacts stating the reason in their own text, and handoff.html — the one surface that offers the bundle as a DOWNLOAD, and so the one place the exclusion is visible to a reader — pinned to link the map beside it · and the chain order source-pinned in drift-check.mjs and build.mjs, since an index that runs before the bundle measures a file that is about to be rewritten. What it cannot reach: whether a purpose or a read-when sentence is TRUE — that a file is what its line says, and that an engineer's agent routed by it opens the right file first — which is the epic's third fenced run, a real run, never a gate; nor whether the bindings' filter and order TEXT and the x-derived rule TEXT say what proto/verdant.html and scenarios/validate.mjs do — text is not evaluated (epic Q1): the witness is checked against the fixtures here and against the rendered page by proto-journey [11], and text-to-witness is a review read`);
 }
 
 // --- 40 · the import chain (#304) ------------------------------------------------------------------

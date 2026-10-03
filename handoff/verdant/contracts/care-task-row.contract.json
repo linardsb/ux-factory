@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://factory-ux.pages.dev/handoff/verdant/contracts/care-task-row.contract.json",
   "title": "CareTask",
-  "description": "One scheduled care action as the Verdant mock API returns it (fictional demo data). The shape care-task-row binds; plantId references a Plant (plant-card.contract.json) by id. Derived fields are baked against the scenario's fixed fictional today (the brief's head) — committed demo data stays coherent forever.",
+  "description": "One scheduled care action as the Verdant mock API returns it (fictional demo data). The shape care-task-row binds; plantId references a Plant (plant-card.contract.json) by id. Derived fields are baked against the scenario's fixed fictional today (handoff/verdant/scenario.json's today) — committed demo data stays coherent forever.",
   "type": "object",
   "required": ["id", "plantId", "plantName", "type", "due", "done", "status"],
   "properties": {
@@ -12,7 +12,14 @@
     "type":      { "type": "string", "enum": ["water", "fertilise", "repot", "inspect"] },
     "due":       { "type": "string", "format": "date" },
     "done":      { "type": "boolean", "description": "already logged in the scenario's history; done tasks carry status \"ok\" and stay out of the Today list" },
-    "status":    { "type": "string", "enum": ["ok", "due", "overdue"], "description": "derived from due vs the scenario's fixed fictional today" }
+    "status":    {
+      "type": "string", "enum": ["ok", "due", "overdue"], "description": "derived from due vs the scenario's fixed fictional today",
+      "readOnly": true,
+      "x-derived": {
+        "from": ["due", "done", "../scenario.json#/today"],
+        "rule": "done is true: ok. Otherwise compare due with today as calendar days (YYYY-MM-DD): due before today is overdue, due equal to today is due, due after today is ok."
+      }
+    }
   },
   "additionalProperties": false
 }

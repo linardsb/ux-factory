@@ -46,8 +46,13 @@ export const ROUTES = [
   },
   {
     test: (rel) => rel === "pack.json",
-    purpose: () => "every ComponentSpec: the machine head, the engineer prose (purpose, states, accessibility) and the portability block",
-    readWhen: () => "you want the prose behind a component, or the whole spec set as one object",
+    purpose: () => "every ComponentSpec (machine head, engineer prose, portability block) and the bindings: which view of each screen reads which collection, filtered and ordered how",
+    readWhen: () => "you want the prose behind a component, or which records a screen shows and in what order",
+  },
+  {
+    test: (rel) => rel === "scenario.json",
+    purpose: () => "the scenario's constants: the fixed fictional today every derived field is computed against, and the fictional notice shown verbatim",
+    readWhen: () => "computing or serving any derived field (x-derived in the contracts), or rendering the demo notice",
   },
   {
     test: (rel) => /^contracts\/commands\/[^/]+\.json$/.test(rel),

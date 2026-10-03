@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reading seam brief</title>
+<style>
+  :root { --bg:#fbfaf7; --fg:#1d1d1b; --muted:#6b6a65; --line:#e3e0d8; --accent:#2f6b4f; --card:#fff; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#161615; --fg:#ecebe6; --muted:#9a988f; --line:#2c2b28; --accent:#7fbf9c; --card:#1e1e1c; } }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, sans-serif; }
+  main { max-width:760px; margin:0 auto; padding:32px 16px 64px; }
+  h1 { font-size:26px; margin:0 0 4px; } h2 { font-size:18px; margin:36px 0 10px; }
+  .src { color:var(--muted); font-size:14px; } a { color:var(--accent); }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:14px 16px; margin:10px 0; }
+  .card h3 { margin:0 0 6px; font-size:16px; }
+  pre { background:var(--card); border:1px solid var(--line); border-radius:6px; padding:10px 12px; overflow-x:auto; font-size:13px; margin:8px 0 0; }
+  code { font-size:13.5px; }
+  .flow { display:flex; flex-wrap:wrap; gap:8px; align-items:center; font-size:14px; }
+  .box { border:1px solid var(--accent); border-radius:6px; padding:6px 10px; background:var(--card); }
+  .arr { color:var(--muted); }
+  ul.plain { padding-left:18px; } ul.plain li { margin:4px 0; }
+  ul.prompts { list-style:none; padding:0; }
+  ul.prompts li { display:flex; justify-content:space-between; gap:12px; align-items:center; border-bottom:1px solid var(--line); padding:8px 0; }
+  .copy { opacity:.35; border:0; background:none; color:inherit; cursor:pointer; font-size:15px; line-height:1 }
+  .copy:hover, .copy:focus-visible { opacity:1 }
+  .copy::before { content:'⧉' } .copy.copied::before { content:'✓' }
+</style>
+</head>
+<body>
+<main>
+<h1>Telling the backend how to read</h1>
+<p class="src">Full plan: <a href="handoff-bindings-scenario-derived-331.md">handoff-bindings-scenario-derived-331.md</a></p>
+
+<h2>What we're building and why</h2>
+<p>Today the design pack describes what each record looks like, but not which records a screen shows, on which made-up date, or how “overdue” is worked out. After this ticket, the pack states all three, and a check fails if they stop matching the real files.</p>
+
+<h2>The concepts this plan rests on</h2>
+
+<div class="card">
+  <h3>A binding: which list shows which records</h3>
+  <p>A binding is a short note saying “this part of the screen shows these records, filtered and sorted like this.” It names a record shape, never a web address (an endpoint), so the backend keeps its own URLs.</p>
+<pre>today view   ← care-tasks
+  filter: not done, and due or overdue
+  order:  as served
+  witness: task-03, task-05, task-08, task-18</pre>
+  <p>The witness lists the exact records the page shows today. That lets a browser test prove the written rule matches the real page.</p>
+</div>
+
+<div class="card">
+  <h3>A scenario constant: the fixed “today”</h3>
+  <p>The demo lives on a frozen date, 14 July 2026, so its sample data never goes stale. That date was hidden in a brief, and an engineer guessed the 15th, which put every status a day off. Now it ships as data in <code>scenario.json</code>.</p>
+</div>
+
+<div class="card">
+  <h3>A derived field: computed, never typed in</h3>
+  <p>A derived field is worked out from other fields. A task's <code>status</code> comes from its due date and today. Marking it <code>readOnly</code> (the server sets it, the client never sends it) plus a written rule tells the backend to compute it.</p>
+<pre>"status": { "readOnly": true,
+  "x-derived": { "from": ["due", "done", "../scenario.json#/today"],
+                 "rule": "done → ok; before today → overdue; …" } }</pre>
+</div>
+
+<div class="card">
+  <h3>A check that can fail</h3>
+  <p>The build gate compares the pack against its sources. Every check is also tested with a deliberately broken input (a mutation), to prove it would actually go red.</p>
+</div>
+
+<h2>How the pieces fit</h2>
+<div class="flow">
+  <span class="box">brief + copy + bindings.json</span><span class="arr">→</span>
+  <span class="box">gen-handoff (generator)</span><span class="arr">→</span>
+  <span class="box">pack.json · scenario.json · contracts</span><span class="arr">→</span>
+  <span class="box">the pack's file map</span><span class="arr">→</span>
+  <span class="box">build gate</span>
+</div>
+
+<h2>The plan at a glance</h2>
+<ul class="plain">
+  <li><b>Phase 1</b>: write the bindings statement and mark the two <code>status</code> fields as derived.</li>
+  <li><b>Phase 2</b> (after 1): the generator projects them into the pack and refuses anything broken.</li>
+  <li><b>Phase 3</b> (after 2): regenerate the pack, extend the gate, update the docs.</li>
+  <li><b>Phase 4</b> (after 3): run every gate and fill in the question-to-line table.</li>
+</ul>
+<pre>scenarios/verdant/bindings.json      # new: the four views, as text
+system/specs/care-task-row.contract.json   # status: readOnly + x-derived
+system/specs/plant-card.contract.json      # status: readOnly + x-derived
+agent-layer/gen-handoff.mjs          # three pure projections + scenario.json
+agent-layer/gen-pack-index.mjs       # map line for scenario.json
+tooling/build-checks.mjs             # the build gate gains four checked sections
+tooling/proto-journey.mjs            # reads the witness off the rendered page
+handoff/verdant/*                    # regenerated, never hand-edited</pre>
+<ul class="plain">
+  <li>Everything in the pack is generated, and the drift check (rerun every generator, fail if any output changed) stays clean.</li>
+  <li>The gate checks bindings, today and derived fields, each against a mutation.</li>
+  <li>The PR maps seven seam-run questions to a file and line.</li>
+  <li>No URLs, caching, paging or auth enter the pack.</li>
+  <li>The real page, opened in three browsers, shows exactly the records each binding's witness lists.</li>
+</ul>
+
+<h2>Go deeper</h2>
+<ul class="prompts">
+  <li data-prompt="/learn view bindings vs endpoints in a design handoff"><span><b>/learn view bindings vs endpoints in a design handoff</b>: why the pack names records, not URLs.</span><button class="copy" aria-label="Copy prompt"></button></li>
+  <li data-prompt="/learn fixed fictional dates in demo data"><span><b>/learn fixed fictional dates in demo data</b>: why a frozen “today” keeps samples coherent.</span><button class="copy" aria-label="Copy prompt"></button></li>
+  <li data-prompt="/learn JSON Schema readOnly and custom x- keywords"><span><b>/learn JSON Schema readOnly and custom x- keywords</b>: declaring derived fields.</span><button class="copy" aria-label="Copy prompt"></button></li>
+  <li data-prompt="/learn mutation testing for build gates"><span><b>/learn mutation testing for build gates</b>: proving a check can fail.</span><button class="copy" aria-label="Copy prompt"></button></li>
+</ul>
+</main>
+<script>
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.copy')
+  if (!btn) return
+  const text = btn.closest('[data-prompt]').dataset.prompt
+  try {
+    await navigator.clipboard.writeText(text)
+  } catch {
+    const ta = Object.assign(document.createElement('textarea'), { value: text })
+    ta.style.cssText = 'position:fixed;opacity:0'
+    document.body.append(ta)
+    ta.select()
+    document.execCommand('copy')
+    ta.remove()
+  }
+  btn.classList.add('copied')
+  setTimeout(() => btn.classList.remove('copied'), 1200)
+})
+</script>
+</body>
+</html>
