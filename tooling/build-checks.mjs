@@ -17945,6 +17945,13 @@ const synthPng = (w, h, ct, px) => {
       ["required kind missing", (x) => x.replace("### error", "### oops"), '"error"'],
       ["foreign fence", (x) => x + "\n```js\nx\n```\n", "fences"],
       ["all-optional template", firstBlock((b) => b.split("\n").map((l) => (l.trim() ? `${l.trim().replace(/[?+*]$/, "")}?` : l)).join("\n")), "non-optional"],
+      // PR #524: an inherited key is not a part or a prop; a CR and an indented fence are refused for what they are.
+      ["inherited name in prose", (x) => x + "\n`constructor`\n", '"constructor"'],
+      ["inherited name in a template", firstBlock((b) => ["constructor", ...b.split("\n").slice(1)].join("\n")), '"constructor"'],
+      ["inherited name with a prop", (x) => x + "\n`constructor.x`\n", '"constructor"'],
+      ["inherited prop", (x) => x + "\n`screen-header.constructor`\n", 'no prop "constructor"'],
+      ["CRLF line endings", (x) => x.replace(/\n/g, "\r\n"), "CRLF"],
+      ["indented fence", (x) => x + "\n  ```parts\n  zzzpart\n  ```\n", "indented fence"],
     ]) {
       const m = mutate(D_TEXT);
       ok(m !== D_TEXT, `47.21 ${label}: mutation did not apply`);

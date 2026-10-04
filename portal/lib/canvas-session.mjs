@@ -105,6 +105,9 @@ export function parseDesign(text, vocab) {
   const lines = String(text).split("\n");
   const lineOf = (i) => text.slice(0, i).split("\n").length;
 
+  // 0. LF only: a \r defeats every line-anchored check below, which would then refuse for the wrong reason (PR #524 F2).
+  if (text.includes("\r")) return { version: null, templates, refs, problems: [`line ${lineOf(text.indexOf("\r"))}: a carriage return (CRLF line endings); DESIGN.md is LF only`] };
+
   // 1. Version: exactly one line.
   const versions = [...text.matchAll(/^Version: ([1-9]\d*)$/gm)];
   const version = versions.length === 1 ? Number(versions[0][1]) : null;
@@ -122,6 +125,8 @@ export function parseDesign(text, vocab) {
       if (/^```\s*$/.test(l)) { blocks.push(open); open = null; } else open.body.push({ text: l, line: i + 1 });
       return;
     }
+    // An indented fence opens nothing here, so its lines would reach the prompt unchecked (PR #524 F3).
+    if (/^\s+```/.test(l)) { problems.push(`line ${i + 1}: an indented fence; fences start at column 0`); return; }
     const fence = l.match(/^```(.*)$/);
     if (fence) {
       masked[i] = "";
@@ -143,10 +148,11 @@ export function parseDesign(text, vocab) {
       const r = span.match(REF_RE);
       if (!r) { problems.push(`line ${i + 1}: backticks hold vocabulary references only (found "${span}")`); continue; }
       const [, name, prop, value] = r;
-      const c = vocab.components[name];
+      // Own keys only: `constructor` resolves through the prototype chain (PR #524 F1).
+      const c = Object.hasOwn(vocab.components, name) ? vocab.components[name] : null;
       if (!c) { problems.push(`line ${i + 1}: unknown part "${name}"`); continue; }
       if (prop !== undefined) {
-        const s = c.props[prop];
+        const s = Object.hasOwn(c.props, prop) ? c.props[prop] : null;
         if (!s) { problems.push(`line ${i + 1}: "${name}" has no prop "${prop}"`); continue; }
         if (value !== undefined) {
           const okValue = s.enum ? s.enum.includes(value) : s.type === "boolean" ? value === "true" || value === "false" : true;
@@ -169,7 +175,7 @@ export function parseDesign(text, vocab) {
       if (!t.trim()) continue;
       const p = t.trim().match(PART_RE);
       if (!p) { problems.push(`line ${line}: a parts line is one vocabulary name with an optional ?, + or * (found "${t.trim()}")`); continue; }
-      if (!vocab.components[p[1]]) { problems.push(`line ${line}: unknown part "${p[1]}"`); continue; }
+      if (!Object.hasOwn(vocab.components, p[1])) { problems.push(`line ${line}: unknown part "${p[1]}"`); continue; }
       parts.push({ name: p[1], mark: p[2] ?? "" });
     }
     if (!parts.some((p) => p.mark === "" || p.mark === "+")) problems.push(`line ${b.line}: template "${kind}" has no non-optional part`);
