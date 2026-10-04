@@ -546,3 +546,6 @@ regeneration. The only residual variable is `origin/main` moving before implemen
   speculative Worker noise filter from [8] (zero errors observed); approach regeneration is now decided by the
   `loc-summary` diff alone (observed empty); recorded why Q1/Q2 cannot block.
 
+- 2026-10-04 — implementation: M1's expected reds were wrong. The table swap reddens [3], [4] and [5] but
+  leaves [7] green, because the act tally reads the same table as the labels and so agrees with them by design.
+  Observed on chromium; recorded in the report's Deviations and in gates.md.
