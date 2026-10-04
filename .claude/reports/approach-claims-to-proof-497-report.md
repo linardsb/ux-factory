@@ -2,14 +2,15 @@
 
 **Plan**: `.claude/plans/approach-claims-to-proof-497.md`   **Branch**: `feat/approach-claims-497` (worktree `../wt-497`)
 **Base**: ec35d6d (origin/main at start) → ec35d6d (origin/main at report; `git fetch` + merge: "Already up to date")
-**Status**: COMPLETE, with one owner question (Q1 below) about phone-width paths
+**Status**: COMPLETE. Q1 (phone-width paths) was answered by the owner during implementation; see Deviations.
 
 ## Summary
 
-`system/claim-manifest.json` audits all 77 sentences in approach.html's 45 blocks: 34 claims (3 at 0 steps, 25 at 1,
-6 at 2), 27 labels, 6 attributions, 5 definitions, 5 stances. Build-checks group 52 (`claims`) re-derives every
+`system/claim-manifest.json` audits all 77 sentences in approach.html's 45 blocks: 34 claims (3 at 0 steps, 27 at 1,
+4 at 2), 27 labels, 6 attributions, 5 definitions, 5 stances (`node -e` count over the manifest, observed). Build-checks group 52 (`claims`) re-derives every
 block from the page, refuses an unlisted block or sentence, resolves every target against the tree, verifies hop 1
-and pins `maxSteps` at 2. The owner's P1–P14 copy adds 13 proof links and removes the two false claims. Group
+and pins `maxSteps` at 2. The owner's P1–P14 copy adds 11 proof links (P1–P4, P6–P9, P11–P13; `<a href` in `<main>`
+19 on the branch against 8 on main, observed) and removes the two false claims. Group
 count 51 → 52 in all five places; the three approach VR baselines are regenerated.
 
 Owner sign-off, quoted from the plan: **"P1–P14 approved as written, 2026-10-04, at planning (AskUserQuestion)"**
@@ -90,12 +91,15 @@ to the tree, which no current code path does.
 | 4 | "the real trigger" → `/factory#method` | PASS, band top 235px, ready, 12 cards, first "Act 1 · Hooked · Internal trigger" | PASS, top 659px |
 | 6 | Verdant / Fieldwork → fictional notice | PASS both | PASS both |
 | 7 | dock (1) → another pack (2) | PASS, accent #2563eb → #F59E0B (saulera) | **FAIL**: the dock is hidden below 1100px (`components.css:3163`) |
-| 8 | inspect (1) → hover a card (2) | bubble opened and visible on the method card with `--color-bg-surface --color-border --radius-md` (observed once); other hovers populated the bubble, but it closed before the read | populated, not observed visible |
+| 8 | inspect (1) → hover a card (2) | PASS: the method card's bubble opens, visible, with `--color-bg-surface --color-border --radius-md` | **FAIL**: no hover shows a visible bubble (it fills, but stays closed) |
 | 10 | "llms.txt index" → `/handoff/verdant/llms.txt` | PASS, 200 | PASS, 200 |
 
-Item 8's intermittent close happens on origin/main too: the same probe on an unmodified detached worktree showed
-`describedby null` on every hover. The engine hides the bubble on any scroll (`inspect.mjs:244`), and the probe's
-scroll-then-hover races that. This is a driver limit, not a change in behaviour.
+Item 8 was run with `insp2.cjs` (scroll, wait 1.5 s, hover, read): twice per width on this branch and twice on a
+detached origin/main worktree (`data-claim` count 0, so the unmodified page). The results were identical every
+time. At 1280 the method card opens visible. At 390 nothing is visible on either tree. The
+case-study card's bubble fills but stays closed at both widths on both trees. `inspect.mjs` has no width gate (grep
+for a media query or `matchMedia` → none), so the 390 cause is not identified. It is unchanged by this branch.
+An earlier, weaker probe (`insp.cjs`, no settle) missed opens that `insp2` sees, so it is not cited as evidence.
 
 ## Not run
 
@@ -115,9 +119,16 @@ scroll-then-hover races that. This is a driver limit, not a change in behaviour.
   before group 52 runs. The `prd.md` variant is still covered in process by 52.4 ("not tracked" and "not on disk").
 - **Level 5 CodeQL command amended** (plan error). The plan's `sed` slice is syntactically unclosed and CodeQL
   extracted nothing from it.
-- **Six `how` lines carry a viewport or pointer condition** (plan error: Task 11 assumed the dock at 390). The pack
-  rows (case-title, card-system S4, case-outcome S1) now start "At 1100px and wider (the dock is not shown below
-  that)". The inspect rows (case-build S2–S4) start "With a pointer (touch has no hover)". Steps stay at 2. See Q1.
+- **Phone-width paths, Q1, owner decision 2026-10-04** (plan error: Task 11 assumed the dock and Inspect at 390).
+  Six claims had no ≤ 2-step path at 390. Asked by AskUserQuestion; owner answer: **"Retarget two, flag rest
+  (Recommended)"**. Applied:
+  - case-title and case-outcome S1 now target `blob/main/approach.html` at 1 step, `via: "case-build"`, which is the
+    "Three stylesheets" link in the same `#case` section and works at any width. Gate ✓ (observed).
+  - card-system S4 keeps `control:input[name="pack"]` at 2 steps. Its `how` starts "At 1100px and wider (the dock is
+    not shown below that)".
+  - case-build S2–S4 keep `control:[data-inspect-toggle]` at 2 steps. Their `how` starts "At desktop width (the
+    bubble opens at 1280px, and not at 390px, on main too)".
+  - No copy changed.
 - Case numbering groups mutations by leg: 52.2–52.9 hold 17 controls (`grep -c "fires(\"52"`), where the plan listed 12.
   The legs are the same, and the five added controls are: two sentences in one row, an unlisted control, a target gone
   from disk, a claim with target `none`, and a label with a target.
@@ -137,11 +148,9 @@ scroll-then-hover races that. This is a driver limit, not a change in behaviour.
 
 ## Issues encountered
 
-- **Q1 (owner)**: on a phone, six claims have no path within two steps. The dock is desktop-only, and the palette
-  has no pack command by an earlier owner decision. Inspect needs hover. Options: (a) accept, with the conditioned
-  `how` lines as committed (recommended; no copy change); (b) retarget the three pack claims at a static proof, for
-  example the "Three stylesheets" source link, which reads at any width but proves the one-line swap less directly;
-  (c) a ticket for a mobile pack switcher.
+- Four claims still have no path at 390 (card-system S4 and case-build S2–S4). The owner chose to flag them in `how`
+  rather than change copy. The gate does not model viewports, and its CANNOT REACH clause covers hops after the first.
+  Inspect at 390 not opening is unexplained and pre-existing; it is worth its own ticket if phones matter.
 - Pre-existing: group 47's failure message at `build-checks.mjs:17775` throws a TypeError when `prd.md` is missing,
   which aborts the whole gate. Not fixed here (out of scope); worth a one-line follow-up.
 - The `factory · neutral` VR update failure is pre-existing flake territory on an untouched page. CI's visual job is the authority.

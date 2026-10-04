@@ -89,7 +89,7 @@
           {"text":"In practice","kind":"label","reason":"section kicker"}
         ] },
         { "id": "case-title", "sentences": [
-          {"text":"This site re-skins itself from one line of CSS.","kind":"claim","target":"control:input[name=\"pack\"]","steps":2,"how":"At 1100px and wider (the dock is not shown below that): open the appearance dock (1), choose another pack (2), and the whole page re-skins from the one pack file"}
+          {"text":"This site re-skins itself from one line of CSS.","kind":"claim","target":"https://github.com/linardsb/ux-factory/blob/main/approach.html","steps":1,"how":"The \"Three stylesheets\" link in the Build card opens this page's source, where the brand pack is the one <link> line in its head; any width","via":"case-build"}
         ] },
         { "id": "case-lead", "sentences": [
           {"text":"The clearest example of the method is this site itself, because the method was used to build it.","kind":"claim","target":"https://github.com/linardsb/ux-factory/tree/main/docs/epics","steps":1,"how":"The linked words open the PRD and architecture decisions the build followed"}
@@ -116,9 +116,9 @@
         ] },
         { "id": "case-build", "sentences": [
           {"text":"Three stylesheets load in order.","kind":"claim","target":"https://github.com/linardsb/ux-factory/blob/main/approach.html","steps":1,"how":"The linked words open this page's source on GitHub; its three stylesheet links load in order"},
-          {"text":"One lists every value a component may ask for and gives each a neutral default.","kind":"claim","target":"control:[data-inspect-toggle]","steps":2,"how":"With a pointer (touch has no hover): turn on Inspect this surface (1), hover a card (2): its contract token names show"},
-          {"text":"One overrides those values for a single brand.","kind":"claim","target":"control:[data-inspect-toggle]","steps":2,"how":"With a pointer (touch has no hover): turn on Inspect this surface (1), hover a card (2): its token values show under the loaded pack"},
-          {"text":"One holds the components, which name values but never set them.","kind":"claim","target":"control:[data-inspect-toggle]","steps":2,"how":"With a pointer (touch has no hover): turn on Inspect this surface (1), hover a card (2): the component names tokens and sets none"},
+          {"text":"One lists every value a component may ask for and gives each a neutral default.","kind":"claim","target":"control:[data-inspect-toggle]","steps":2,"how":"At desktop width (the bubble opens at 1280px, and not at 390px, on main too): turn on Inspect this surface (1), hover a card (2): its contract token names show"},
+          {"text":"One overrides those values for a single brand.","kind":"claim","target":"control:[data-inspect-toggle]","steps":2,"how":"At desktop width (the bubble opens at 1280px, and not at 390px, on main too): turn on Inspect this surface (1), hover a card (2): its token values show under the loaded pack"},
+          {"text":"One holds the components, which name values but never set them.","kind":"claim","target":"control:[data-inspect-toggle]","steps":2,"how":"At desktop width (the bubble opens at 1280px, and not at 390px, on main too): turn on Inspect this surface (1), hover a card (2): the component names tokens and sets none"},
           {"text":"In that order they are the token contract, a swappable brand pack, and the components.","kind":"definition","reason":"names the three layers the sentences before describe"},
           {"text":"Accessibility defaults sit in the component styles, so every component inherits them.","kind":"claim","target":"https://github.com/linardsb/ux-factory/blob/main/system/components.css","steps":1,"how":"The linked words open components.css, which holds the :focus-visible and prefers-reduced-motion rules"}
         ] },
@@ -126,7 +126,7 @@
           {"text":"Outcome","kind":"label","reason":"card title"}
         ] },
         { "id": "case-outcome", "sentences": [
-          {"text":"Re-theming went from edits on every page to one line in each page's <head>.","kind":"claim","target":"control:input[name=\"pack\"]","steps":2,"how":"At 1100px and wider (the dock is not shown below that): open the appearance dock (1), choose another pack (2), and the whole page re-skins from the one pack file"},
+          {"text":"Re-theming went from edits on every page to one line in each page's <head>.","kind":"claim","target":"https://github.com/linardsb/ux-factory/blob/main/approach.html","steps":1,"how":"The \"Three stylesheets\" link in the Build card opens this page's source, where the brand pack is the one <link> line in its head; any width","via":"case-build"},
           {"text":"The design system's handoff pack also ships an llms.txt index, so an AI assistant can read the system as easily as a browser can.","kind":"claim","target":"/handoff/verdant/llms.txt","steps":1,"how":"The linked words open the handoff pack's llms.txt"}
         ] },
         { "id": "inspect-row", "sentences": [

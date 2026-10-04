@@ -745,5 +745,5 @@ N, fallback href). What remains is execution, each step with an expected output.
   group 47 at `build-checks.mjs:17775` (TypeError in a failure message) before group 52 runs; leg (a) is proven on
   disk with `mv .claude/system-reviews`, a target only group 52 reads. (4) Task 11 item 7 assumed the dock at both
   widths; `components.css:3163` hides it below 1100px and the palette has no pack command, so the three pack claims
-  have no path on a phone; the `how` lines now state the width, and the gap is an owner question.
+  have no path on a phone, and Inspect does not open at 390 (main too). Owner answer to Q1, 2026-10-04: "Retarget two, flag rest" — case-title and case-outcome S1 now target the "Three stylesheets" source link via case-build; the other four state the width in `how`.
   (5) approach.html is 324 lines on main, not 305; build-checks' pass line was at 19415, not 19416.
