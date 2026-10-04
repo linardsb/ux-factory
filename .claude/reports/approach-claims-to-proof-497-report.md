@@ -1,0 +1,147 @@
+# Implementation Report — every claim on approach.html reaches its proof in at most two steps (#497)
+
+**Plan**: `.claude/plans/approach-claims-to-proof-497.md`   **Branch**: `feat/approach-claims-497` (worktree `../wt-497`)
+**Base**: ec35d6d (origin/main at start) → ec35d6d (origin/main at report; `git fetch` + merge: "Already up to date")
+**Status**: COMPLETE, with one owner question (Q1 below) about phone-width paths
+
+## Summary
+
+`system/claim-manifest.json` audits all 77 sentences in approach.html's 45 blocks: 34 claims (3 at 0 steps, 25 at 1,
+6 at 2), 27 labels, 6 attributions, 5 definitions, 5 stances. Build-checks group 52 (`claims`) re-derives every
+block from the page, refuses an unlisted block or sentence, resolves every target against the tree, verifies hop 1
+and pins `maxSteps` at 2. The owner's P1–P14 copy adds 13 proof links and removes the two false claims. Group
+count 51 → 52 in all five places; the three approach VR baselines are regenerated.
+
+Owner sign-off, quoted from the plan: **"P1–P14 approved as written, 2026-10-04, at planning (AskUserQuestion)"**
+(answer: "Approve all as written"). The 14 rows render character for character as signed off: walker output
+compared row by row against the plan's §Owner-approved wording.
+
+## Tasks completed
+
+- T1 worktree `../wt-497` from origin/main, `npm ci` in `tooling/icons` + `tooling/style-dictionary`; N = 51 observed, so G = 52.
+- T2 sign-off quoted above.
+- T3 → `system/claim-manifest.json` (CREATE). Texts were taken from the plan's walker output, never retyped. Kinds and targets follow §Audit.
+- T4 → `tooling/build-checks.mjs` (UPDATE): group 52, inside the enclosing block after group 51, before `if (failures)`.
+- T5 on-disk mutations, below.
+- T6 → `approach.html` (UPDATE): P1–P14, 45 `data-claim` attributes, the underline rule widened from `#method .max-prose a` to `main p a`, and the `structured-data` and `llms-txt` dfns removed (see Deviations).
+- T7 manifest re-pinned to the new copy (0 `"none"` targets).
+- T8 → `tooling/build-checks.mjs` (pass line, spelt-out header "Fifty-two"), `CLAUDE.md` ×2 counts + map line + "Where new code goes" bullet, `.claude/references/gates.md` (count + Group 52 paragraph), `tooling/ratify-journey.mjs:228` (both literals).
+- T9 `gen-loc-summary --check` after `git add approach.html` → `loc summary ✓  3 groups — no drift` (observed); nothing regenerated.
+- T10 → `tooling/visual-regression/baselines/approach-{neutral,saulera,verdant}.png` regenerated (rm first, clean detached worktree under /Users).
+- T11 browser walk, below.
+
+## Tests added
+
+Group 52, cases 52.1–52.11. Each case runs `auditClaims` or `walkClaims`, and none reads source as text for its verdict:
+52.1 real page/manifest/tree → no problems · 52.2 (c) a new `<p>`, a sentence appended to card-shape, two sentences
+in one row · 52.3 (b) steps 3, `maxSteps: 3` · 52.4 (a) untracked target, target gone from disk, unlisted control ·
+52.5 (a) outside URL · 52.6 (a) `#success-metric`, `#L13-L15` · 52.7 hop 1: the hero's `#case` link removed, a link
+borrowed from method-scope, steps 0 at another section · 52.8 a `loc-proof` fragment reworded · 52.9 a claim with
+target `none`, a label with a target · 52.10 walker and manifest both at 45 blocks · 52.11 `git status` unchanged.
+The `mutate` helper fails the case by name if a mutation does not apply.
+
+## Proving the checks
+
+In-process positive controls (52.2–52.9): first observed firing with the current-copy manifest. That run printed
+`build claims ✗ 1 failure(s)` with 52.1 alone listing the 17 `"target": "none"` rows by block and sentence and
+nothing else, so every control case passed (observed, `node tooling/build-checks.mjs`). They fire again on the final tree,
+where the group is ✓ only if every `fires(...)` matched.
+
+On-disk mutations (Task 5), each restored and followed by `build ✓  all 51 groups pass` (observed, before the count moved):
+
+| Leg | Mutation | Observed |
+|---|---|---|
+| (a) | `mv .claude/system-reviews <scratch>` | `build claims ✗ 1 failure(s)` — `block "method-title" sentence 1 — target: .claude/system-reviews is not on disk`, same for method-lead 1–2 and card-prove 2 and 4 |
+| (a) as planned | `mv discovery/faster-payment/prd.md <scratch>` | exit 1, but group 47 crashes first: `TypeError: Cannot read properties of undefined (reading 'slice')` at `build-checks.mjs:17775`, so group 52 never ran (pre-existing; see Issues) |
+| (b) | case-title `steps: 3` | `build claims ✗` — `block "case-title" sentence 1 — steps: steps 3 exceeds maxSteps 2` |
+| (c) | `<p class="muted">I ship faster than anyone.</p>` after the method lead | `build claims ✗ 2 failure(s)` — `block <p> "I ship faster than anyone." — coverage: block has no data-claim` and `52.10: the walker found 46 blocks and the manifest lists 45` |
+| (c) | ` I never miss.` appended in card-shape | `build claims ✗` — `block "card-shape" — coverage: sentences do not match the page, which reads "…"` |
+| count | CLAUDE.md:150 left at 51 | `drift ✗  group-count drift: CLAUDE.md (architecture map): says 51 groups, build-checks defines 52` |
+
+Driver proofs: the CodeQL scan flagged 2 alerts on a known-bad line appended to the same extract (`js/incomplete-sanitization`
+and a self-replacement), against 0 without it. The GitHub anchor grep returns 0 for a made-up heading
+(`user-content-zz-no-such-heading`). The browser walk opens with an absent-selector check that reports not visible.
+
+Kept, though no single mutation reddens it: 52.11 (`git status` unchanged). It guards against the group writing
+to the tree, which no current code path does.
+
+## Validation results
+
+- L1 `node --check tooling/build-checks.mjs` → no output; manifest `JSON.parse` → no output (observed).
+- L2 `node tooling/build-checks.mjs` → `build ✓  all 52 groups pass` (observed, final tree).
+- L3 `node tooling/drift-check.mjs` → `drift-check ✓ syntax · … · group-count` (observed); `node tooling/token-lint.mjs` →
+  `63 contract tokens · 0 undeclared · 0 orphan · DTCG valid` (observed).
+- L5 CodeQL 2.27.0, `javascript-code-scanning.qls`, over group 52 extracted with its imports, `ok`/`group` stubs and
+  the closing brace → `0` rows (observed; "scanned 2 out of 2" files).
+- CANNOT REACH clause: byte-identical after whitespace/comment normalisation in gates.md, the group string, the
+  section header and the manifest `$description` (one md5 `c54d21f4` across all four, observed).
+- VR `npm run update:docker` in a clean detached worktree: three "snapshot doesn't exist … writing actual" lines for
+  approach; `git diff --stat origin/main -- tooling/visual-regression/baselines/` → exactly the three approach PNGs
+  (observed). The run exited 1 on `factory · neutral` ("Failed to re-generate expected"), a page this branch does not
+  touch; its baseline is unchanged. The neutral PNG's method band was viewed: all 11 prose links in the band are underlined at rest.
+- T11 walk (headless Chromium, `tooling/visual-regression/serve.mjs` on an OS-assigned port, `curl` confirmed the
+  served page carries `data-claim`; server killed by PID):
+
+| # | Path | 1280 | 390 |
+|---|---|---|---|
+| 1 | hero "The case study" → `#case` | PASS, top 192px | PASS, top 194px |
+| 1b | every `main p a` underlined, buttons not | PASS, 15 links | PASS, 15 links |
+| 2,3,5,9,10a | GitHub targets (8 URLs) | `curl` 200 for all 8; `#success-metrics` and `#transition-note` present as `user-content-` anchors | same URLs |
+| 4 | "the real trigger" → `/factory#method` | PASS, band top 235px, ready, 12 cards, first "Act 1 · Hooked · Internal trigger" | PASS, top 659px |
+| 6 | Verdant / Fieldwork → fictional notice | PASS both | PASS both |
+| 7 | dock (1) → another pack (2) | PASS, accent #2563eb → #F59E0B (saulera) | **FAIL**: the dock is hidden below 1100px (`components.css:3163`) |
+| 8 | inspect (1) → hover a card (2) | bubble opened and visible on the method card with `--color-bg-surface --color-border --radius-md` (observed once); other hovers populated the bubble, but it closed before the read | populated, not observed visible |
+| 10 | "llms.txt index" → `/handoff/verdant/llms.txt` | PASS, 200 | PASS, 200 |
+
+Item 8's intermittent close happens on origin/main too: the same probe on an unmodified detached worktree showed
+`describedby null` on every hover. The engine hides the bubble on any scroll (`inspect.mjs:244`), and the probe's
+scroll-then-hover races that. This is a driver limit, not a change in behaviour.
+
+## Not run
+
+- Firefox/WebKit legs of the walk: Chromium only (owner's call; the plan asked for 1280 + 390, not engines).
+- The click-through of GitHub targets in a browser. They were verified by HTTP status plus the anchor id in the
+  served HTML. Seeing each page scroll to its heading is a visual check not done here.
+- `tooling/ratify-journey.mjs` (R7 now reads 52): not run; it spawns the full ratify chain. Tracker: the PR.
+- CI's visual job: runs on the PR.
+
+## Deviations from the plan
+
+- **P13 also drops the `llms-txt` dfn** (plan error). The owner's link text "llms.txt index" overlaps the existing
+  `<dfn data-term="llms-txt" tabindex="0">`, and the plan forbids a dfn inside a link. The words and link placement
+  are the owner's, character for character; the glossary bubble on "llms.txt" is gone. Both glossary keys stay
+  in `system/glossary.mjs`, now unused (`git grep` found no other reader).
+- **AC leg (a) on disk used `.claude/system-reviews`, not `prd.md`** (plan error). Removing `prd.md` crashes group 47
+  before group 52 runs. The `prd.md` variant is still covered in process by 52.4 ("not tracked" and "not on disk").
+- **Level 5 CodeQL command amended** (plan error). The plan's `sed` slice is syntactically unclosed and CodeQL
+  extracted nothing from it.
+- **Six `how` lines carry a viewport or pointer condition** (plan error: Task 11 assumed the dock at 390). The pack
+  rows (case-title, card-system S4, case-outcome S1) now start "At 1100px and wider (the dock is not shown below
+  that)". The inspect rows (case-build S2–S4) start "With a pointer (touch has no hover)". Steps stay at 2. See Q1.
+- Case numbering groups mutations by leg: 52.2–52.9 hold 17 controls (`grep -c "fires(\"52"`), where the plan listed 12.
+  The legs are the same, and the five added controls are: two sentences in one row, an unlisted control, a target gone
+  from disk, a claim with target `none`, and a label with a target.
+
+## Assumptions carried
+
+- `hero-cta` and `end-cta` are split into two label rows each ("The method" / "The case study"), as §Edge Cases describes.
+- Manifest `how` text is mine, written against what each target shows. The PRD's success metrics list a kill
+  criterion per decision, and its transition note holds seq 10–12 (appetite, rabbit holes, out of bounds). Both were read before the rows were written.
+- `rendered` rows check `steps === 0` as well as id, source and fragments.
+
+## Additions beyond the plan
+
+- `headingSlugs` skips fenced code blocks, so a `#` line inside a code fence cannot vouch for an anchor.
+- Target ids for `/path#id` are matched in the comment-stripped file, because `factory.html:300` contains
+  `id="method"` inside a comment.
+
+## Issues encountered
+
+- **Q1 (owner)**: on a phone, six claims have no path within two steps. The dock is desktop-only, and the palette
+  has no pack command by an earlier owner decision. Inspect needs hover. Options: (a) accept, with the conditioned
+  `how` lines as committed (recommended; no copy change); (b) retarget the three pack claims at a static proof, for
+  example the "Three stylesheets" source link, which reads at any width but proves the one-line swap less directly;
+  (c) a ticket for a mobile pack switcher.
+- Pre-existing: group 47's failure message at `build-checks.mjs:17775` throws a TypeError when `prd.md` is missing,
+  which aborts the whole gate. Not fixed here (out of scope); worth a one-line follow-up.
+- The `factory · neutral` VR update failure is pre-existing flake territory on an untouched page. CI's visual job is the authority.

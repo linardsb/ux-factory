@@ -736,3 +736,14 @@ N, fallback href). What remains is execution, each step with an expected output.
 - 2026-10-04 — risk pass: owner approved P1–P14 (P6 new; old P6–P13 renumbered P7–P14); P11 loses its line
   anchor; gate proves GitHub heading anchors and refuses line ranges; G computed in Task 1; CodeQL scan
   observed clean; Task 11 gets an expected-landing list.
+- 2026-10-04 — implementation (plan errors, each logged in the report's Deviations):
+  (1) P13's link text "llms.txt index" overlaps the existing `llms-txt` `<dfn tabindex>`, so "every P-row's link
+  text avoids a dfn" was false for P13; the `llms-txt` dfn was dropped with `structured-data`'s (both glossary keys
+  stay, unused; nothing else reads either). (2) Level 5's `sed -n '/Group 52/,/group("claims"/p'` slice leaves the
+  group's block unclosed, so CodeQL extracts nothing ("could not process any of it"); the scan needs the imports it
+  uses, `ok`/`group` stubs and the closing brace. (3) Task 5 (a)'s `mv discovery/faster-payment/prd.md` crashes
+  group 47 at `build-checks.mjs:17775` (TypeError in a failure message) before group 52 runs; leg (a) is proven on
+  disk with `mv .claude/system-reviews`, a target only group 52 reads. (4) Task 11 item 7 assumed the dock at both
+  widths; `components.css:3163` hides it below 1100px and the palette has no pack command, so the three pack claims
+  have no path on a phone; the `how` lines now state the width, and the gap is an owner question.
+  (5) approach.html is 324 lines on main, not 305; build-checks' pass line was at 19415, not 19416.
