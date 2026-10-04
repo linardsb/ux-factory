@@ -411,11 +411,11 @@ check 8 passed. Console headroom ≥ the paid table's total high figure (R16).
 `cd portal && npm start` → `http://localhost:4747/canvas.html?provenance=fictional&slug=faster-payment`. Compose turns back to back (5-min cache TTL, memory `discovery-run-cache-ttl-cost`); one run at a time on the machine.
 
 0. **Brilliant first, at $0 (R11):** open the Brilliant tab, then **Check binding** in the canvas import panel. Green → continue. Red or a 120 s timeout → **Re-bind**; still red → stop the sitting with nothing spent. Do not import yet (step 5 keeps `elapsed.ratify` free of compose time).
-1. **Screens** (3 agent turns; add-payee is the spine's owner screen): brief in `#cv-brief` (≤500 chars) → **Ask for a screen** → read the `why` and the "States declared" line → **Accept** / **Refuse**. At least one briefed turn (D3). If the CoP or send screen arrives without its declared states, refuse with a brief naming them (R5 fallback); the refusal and the retry are both recorded.
+1. **Screens** (3 agent turns; add-payee is the spine's owner screen): brief in `#cv-brief` (≤500 chars) → **Ask for a screen** → read the `why` and the "States declared" line → **Accept** / **Refuse**. At least one briefed turn (D3). If the CoP or send screen arrives without its declared states, refuse with a brief naming them (R5 fallback); the refusal and the retry are both recorded. **One of the three is the fork turn (step 3)** — a fork turn is itself a `screen.compose` that lands one new frame on Pick A/B, so asking it after three plain screens would add a fourth agent screen (observed: `screen.compose` keys frames by generated id, not `screenId`, so nothing refuses a second copy of a screen).
 2. **States**: the `[data-cv-ask-state]` chips, accept/refuse each. Target: `missingStates` on lane A reads zero, or each remaining gap gets the owner's own reason, noted for the report.
-3. **D5 fork** (#320's UI): the PRD parks no open question, so the owner flags a **current decision** — type its seq into **Fork on a question or decision (its seq)** (`#cv-fork`; current seqs at 82054e0: 3, 4, 6–12, 14–17, 22, 23, 26–30) → the turn drafts options A and B of one screen → **Pick A** / **Pick B** (or **Neither**, which leaves the fork open and needs a second fork turn).
+3. **D5 fork** (#320's UI) — **asked in place of one of step 1's plain screen turns**, for the screen the flagged decision governs, with that screen's state asks (step 2) after the pick. The PRD parks no open question, so the owner flags a **current decision** — type its seq into **Fork on a question or decision (its seq)** (`#cv-fork`; current seqs at 82054e0: 3, 4, 6–12, 14–17, 22, 23, 26–30) → the turn drafts options A and B of that screen → **Pick A** / **Pick B**. **Neither** lands no frame and leaves the fork open: the owner then asks a second fork turn or a plain compose for that screen, both recorded.
 4. **D2 — Not run (Q3, owner 2026-10-04), tracked by #528.** #498 refuses a revisit on a fictional package, and lifting that refusal aborts build-checks group 30 (T10c). The report names it under Not run; nothing in the sitting writes to `discovery/faster-payment/` outside `build/`.
-5. **Import:** in Brilliant, pick an element **the owner did not draw for a test**. #493 is fixed (PR #525: an unnamed container never outscores the structural fallback), so a container is no longer a paid re-pin risk; ratify's CHAIN regenerates the importer's committed verdict either way. **Check binding** (Re-bind if stale — a 120 s timeout, not an error; memory `brilliant-mcp-binding`) → **Import selection** / **Browse the page** → side-by-side → mapping editor → **Measure fidelity**. Note the grain (static / interactive / data-bound) — the owner's annotation; the code's `grain` is component/screen only (`import/ir.mjs:50`).
+5. **Import:** in Brilliant, pick an element **the owner did not draw for a test**. #493 is fixed (PR #525: an unnamed container never outscores the structural fallback), so a container is no longer a paid re-pin risk; ratify's CHAIN regenerates the importer's committed verdict either way (#493's report re-ran the original `top-bar` `children: "many"` admission end to end: ten steps, code 0, `build-checks` green). **Check binding** (Re-bind if stale — a 120 s timeout, not an error; memory `brilliant-mcp-binding`) → **Import selection** / **Browse the page** → side-by-side → mapping editor → **Measure fidelity**. Note the grain (static / interactive / data-bound) — the owner's annotation; the code's `grain` is component/screen only (`import/ir.mjs:50`).
 6. Optional: compose-and-name (**Promote**) where a shape repeats.
 7. **Mark the pause, then commit (R3):** **annotate** a note "commit pause before ratify" (an owner op, so its `at` is a server timestamp in the ledger) → **Write handoff pack** → commit `discovery/faster-payment/build/` (ratify's second CLEAN_GUARD call includes `discovery`, `ratify.mjs:71-74`; unavoidable) → return.
 8. **Ratify**: **Preview the ratify** → **Ratify: write, run every gate, show the diff**. Red: leave the files, take the revert command, report it.
@@ -517,7 +517,8 @@ Every added check has a REDDENS row and a positive control: T4 (a declaration-fr
 | T9/T13 VR update:docker | Docker, $0, ~2 min each | yes (their PR) | — |
 | ~~R9 Grill turn~~ | — not needed: a fork names a current decision (T10b) | — | — |
 | ~~R10 revisit turn~~ | — D2 Not run (Q3) | — | #528 |
-| Console spend headroom | owner check, ≥ $4.09 (the compose table's high; the three rows above no longer spend) | — | — |
+| T12 the fork turn (two proposals in one turn) and step 9's placement turn | unmeasured on their own; ≤ $0.36 at the per-turn high ($0.1538 × 2 + escape) — derived, expected | PR B yes | #316 stays open |
+| Console spend headroom | owner check, ≥ $4.45 (the compose table's $4.09 high plus the row above) | — | — |
 
 ---
 
@@ -558,7 +559,7 @@ Every added check has a REDDENS row and a positive control: T4 (a declaration-fr
 | R13 | canvas-journey G2 races `saveRun`'s `groups/g1.json` write, so PR B's journey can red for no reason | T10a: G2 polls for the file (≤6 s, the `waitLines` budget) before asserting | none once fixed; T13's re-run rule stays as a fallback |
 | R14 | The portal inherits `ANTHROPIC_API_KEY` from the login shell, an environment check 8 never saw | T11 starts the portal **through** the ready gate in one command: `env -u ANTHROPIC_API_KEY sh -c 'node tooling/run-316-ready.mjs && cd portal && npm start'` — the portal cannot start in an environment the gate did not pass | none |
 | R15 | #318–#320's real names and routes are unknown today, and T12 steps 3, 4 and 10 drive their UIs | T10 reads the merged diffs, and requires each ticket's own journey AC (#318: link → re-record → flag → re-confirm; #319: open → follow → clear; #320: fork → two lanes → pick) green on `main` — those journeys are the exact gestures T12 uses | none: T12 only drives gestures a merged journey has already driven |
-| R16 | Credit or spend limit stops the sitting part-way | T11 confirms Console headroom ≥ the paid table's high figure ($4.09; R9/R10 spend nothing since 82054e0); a stop leaves `ok:false` stats (memory `sdk-error-result-wears-success`) and the sitting resumes in the same package — lines are never edited | none: resumable from disk, as #293's run 2 did (memory `run-2-audit-result-for-293`) |
+| R16 | Credit or spend limit stops the sitting part-way | T11 confirms Console headroom ≥ the paid table's high figure ($4.45; R9/R10 spend nothing since 82054e0); a stop leaves `ok:false` stats (memory `sdk-error-result-wears-success`) and the sitting resumes in the same package — lines are never edited | none: resumable from disk, as #293's run 2 did (memory `run-2-audit-result-for-293`) |
 
 ## OPEN QUESTIONS / ASSUMPTIONS
 
@@ -700,7 +701,7 @@ Ran in `wt-316-t10` (under `/Users`, detached at 82054e0, `node_modules` from 94
 - #493 fixed (PR #525) → R4 closed, the step 5 leaf rule and the paid row dropped.
 - PR #516 F2 (on the ticket body) → a T14 reading.
 
-Changed because of it: T10 status, T10b, T10c, T10d, T11 (12 checks), T12 steps 3–5, T14 (design sha, F2), the paid
+Changed because of it: T10 status, T10b, T10c, T10d, T11 (12 checks), T12 steps 1 and 3–5 (the fork is one of the three screen turns), T14 (design sha, F2), the paid
 table, R4, R9, R10, R16, Q1–Q3.
 
 ### Why confidence is 10 for Segment A
@@ -769,5 +770,5 @@ Each risk R1–R16 now closes with an observable gate and none has an open resid
   ratify-journey green. T10b: no Grill turn; the owner forks on a current decision seq. T10c: #498 refuses fictional
   packages and a $0 probe lifting that aborted build-checks group 30, so **D2 is Not run** (Q3, owner's choice),
   tracked by #528. #493 fixed → R4 closed and step 5's leaf rule dropped. #321's DESIGN.md noted (cost within range;
-  T14 records `designSha`). PR #516 F2 added to T14. Paid table: three rows retired, headroom $4.09. No AC changed;
+  T14 records `designSha`). PR #516 F2 added to T14. Paid table: three rows retired, one added (fork + placement turns), headroom $4.45. T12: the fork turn replaces one of step 1's three screen turns (a fork is a `screen.compose`; asked after three screens it adds a fourth). No AC changed;
   Segment B's T11 may start.
