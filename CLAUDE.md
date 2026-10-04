@@ -152,6 +152,7 @@ tooling/
   proto-journey.mjs           the two proto pages ×3 engines              (→ references/gates.md)
   studio-journey.mjs          the studio ×3 engines + the INP gate        (→ references/gates.md)
   catalog-journey.mjs         /components ×3 engines                      (→ references/gates.md)
+  trace-journey.mjs           the trace player ×3 engines (Said/Did)      (→ references/gates.md)
   instance-journey.mjs        a BUILT instance dir ×3 engines             (→ references/gates.md)
   canvas-journey.mjs          the canvas page ×3 engines, boots its own portal (→ references/gates.md)
   ratify-journey.mjs          a real ratify in a scratch CLONE, then the part rendered ×3 (→ references/gates.md)
