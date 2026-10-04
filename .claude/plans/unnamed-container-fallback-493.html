@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Container fallback brief</title>
+<style>
+  :root { --bg:#fafaf8; --fg:#1d1d1b; --muted:#66655f; --line:#dedcd5; --card:#fff; --accent:#2f6b4f; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#161615; --fg:#ecebe6; --muted:#a3a29b; --line:#33322f; --card:#1f1f1d; --accent:#7fc4a2; } }
+  * { box-sizing: border-box }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, sans-serif }
+  main { max-width:760px; margin:0 auto; padding:32px 16px 64px }
+  h1 { font-size:26px; margin:0 0 4px } h2 { font-size:18px; margin:36px 0 10px }
+  .src { color:var(--muted); font-size:14px } a { color:var(--accent) }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:14px 16px; margin:10px 0 }
+  .card h3 { margin:0 0 6px; font-size:16px }
+  pre { background:var(--card); border:1px solid var(--line); border-radius:6px; padding:10px 12px; overflow-x:auto; font-size:13px; margin:8px 0 0 }
+  .flow { display:flex; flex-wrap:wrap; gap:8px; align-items:center }
+  .box { border:1px solid var(--line); background:var(--card); border-radius:6px; padding:8px 10px; font-size:14px }
+  .arrow { color:var(--muted) }
+  table { border-collapse:collapse; width:100%; font-size:14px } td { border-top:1px solid var(--line); padding:6px 4px; vertical-align:top }
+  ul.prompts { list-style:none; padding:0 } ul.prompts li { display:flex; justify-content:space-between; gap:12px; border-top:1px solid var(--line); padding:8px 0 }
+  .copy { opacity:.35; border:0; background:none; color:inherit; cursor:pointer; font-size:15px; line-height:1 }
+  .copy:hover, .copy:focus-visible { opacity:1 } .copy::before { content:'⧉' } .copy.copied::before { content:'✓' }
+</style>
+</head>
+<body><main>
+<h1>Unnamed containers lose to the fallback</h1>
+<p class="src">Full plan: <a href="unnamed-container-fallback-493.md">unnamed-container-fallback-493.md</a></p>
+
+<h2>What we're building and why</h2>
+<p>Today, admitting a new "holds many things" component makes the importer mislabel plain boxes, and three checks fail. After this fix, such a component only wins a box when the designer actually named the box after it.</p>
+
+<h2>The concepts this rests on</h2>
+<div class="card"><h3>A matcher that scores evidence</h3>
+<p>The importer guesses what each drawn box is by adding up clues: the box's name, its shape, what text it holds. A total of 0.5 or more wins. This build changes which totals may win.</p>
+<pre>name matches   +0.45
+shape fits     +0.25
+text fills it  +0.25
+--------------------
+win if ≥ 0.50</pre></div>
+
+<div class="card"><h3>The fallback ("stack")</h3>
+<p>When nothing wins, a laid-out box is called a <code>stack</code>, a plain "box of things". It is honest: "we know it's a box, not what kind". This build makes more boxes reach it.</p></div>
+
+<div class="card"><h3>Free evidence</h3>
+<p>Some clues fire on almost everything. Like a detective counting "the suspect has hands" as evidence. A container component gets "shape fits" from every laid-out box and "text fills it" from any box with words. That free 0.5 is the bug.</p></div>
+
+<div class="card"><h3>A name is real evidence</h3>
+<p>The fix: a container wins only if the box's name matches it. "Top bar" can still be a top bar. An anonymous "Text block" stays a stack.</p></div>
+
+<h2>How the pieces fit</h2>
+<div class="flow">
+  <span class="box">Drawn box</span><span class="arrow">→</span>
+  <span class="box">Score every component</span><span class="arrow">→</span>
+  <span class="box">Skip unnamed containers</span><span class="arrow">→</span>
+  <span class="box">Best ≥ 0.5 wins</span><span class="arrow">→</span>
+  <span class="box">Else: stack</span>
+</div>
+
+<h2>The plan at a glance</h2>
+<table>
+  <tr><td>Phase 1</td><td>Add the rule to the matcher. Nothing before it.</td></tr>
+  <tr><td>Phase 2</td><td>Add a check that fails without the rule. Needs phase 1.</td></tr>
+  <tr><td>Phase 3</td><td>Update the three written descriptions of the check.</td></tr>
+  <tr><td>Phase 4</td><td>Admit a real container end to end; all ten steps pass. Needs 1–2 committed.</td></tr>
+</table>
+<pre>import/recognise.mjs           # the rule + its explanation
+tooling/build-checks.mjs       # new check 40.30
+.claude/references/gates.md    # the check, described</pre>
+<table>
+  <tr><td>1</td><td>Admitting a container no longer breaks the checks.</td></tr>
+  <tr><td>2</td><td>Unnamed containers lose; named ones still win.</td></tr>
+  <tr><td>3</td><td>No saved result changes; no paid re-run.</td></tr>
+  <tr><td>4</td><td>The three descriptions agree.</td></tr>
+  <tr><td>5</td><td>The pull request closes #493.</td></tr>
+</table>
+
+<h2>Go deeper</h2>
+<ul class="prompts">
+  <li data-prompt="/learn weighted evidence scoring with a threshold"><span><b>/learn weighted evidence scoring with a threshold</b> — how clues add up to a verdict.</span><button class="copy" aria-label="Copy prompt"></button></li>
+  <li data-prompt="/learn fallback classes in classifiers"><span><b>/learn fallback classes in classifiers</b> — why "plain box" beats a guess.</span><button class="copy" aria-label="Copy prompt"></button></li>
+  <li data-prompt="/learn non-discriminating features"><span><b>/learn non-discriminating features</b> — clues that fire on everything.</span><button class="copy" aria-label="Copy prompt"></button></li>
+  <li data-prompt="/learn names as evidence in design import"><span><b>/learn names as evidence in design import</b> — why the layer name decides.</span><button class="copy" aria-label="Copy prompt"></button></li>
+</ul>
+</main>
+<script>
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.copy')
+  if (!btn) return
+  const text = btn.closest('[data-prompt]').dataset.prompt
+  try {
+    await navigator.clipboard.writeText(text)
+  } catch {
+    const ta = Object.assign(document.createElement('textarea'), { value: text })
+    ta.style.cssText = 'position:fixed;opacity:0'
+    document.body.append(ta)
+    ta.select()
+    document.execCommand('copy')
+    ta.remove()
+  }
+  btn.classList.add('copied')
+  setTimeout(() => btn.classList.remove('copied'), 1200)
+})
+</script>
+</body></html>

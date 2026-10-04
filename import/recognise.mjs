@@ -38,6 +38,20 @@
 //        verdict and case 40.1 now names the chip. What IS invisible is that `stack` is a PLAUSIBLE
 //        answer for a laid-out chip, so the diff reads as a judgement call rather than as a defect —
 //        which is why the number is here, and why case 40.14 asserts the property.
+//        R2 COVERS EVERY `many` ENTRY, NOT ONLY `stack` (#493). kind-fit's container branch fires on
+//        every laid-out node, and a first-text prop fills from any node that holds a word, so a
+//        container with a required title slot takes 0.5 on every laid-out box with text by structure
+//        alone — a second `stack`. So AN UNNAMED CONTAINER IS PASSED OVER FOR THE SCORED OUTCOME: a
+//        `many` candidate counts only when name-match fired; otherwise the next candidate is read,
+//        and a laid-out node with none above the threshold is a `stack`. It STAYS in the candidates
+//        list at its score, so the record shows it competed; its hits carry no name-match, which is
+//        the reason it lost. Floor verdicts are untouched — the floor still reports candidates[0].
+//        A NAMED container still wins: the name is the evidence and the structure corroborates (R3
+//        read the other way). Child-fit alone does not stand in for the name — for an entry that
+//        allows generic children (`icon`, `ghost-button`) it fires on ordinary content, the same
+//        structural-only evidence this rule refuses. On today's vocabulary the rule changes no
+//        verdict: `stack` is excluded and `list` tops out at 0.35 unnamed (kind-fit 0.25 + child-fit
+//        0.1; `list.empty` has no source slot). Case 40.30 is what proves it, on a synthetic entry.
 //
 //   R3 · A NAME ALONE NEVER CLEARS THE THRESHOLD. `name-match` is word-containment, so `{text}` ⊆
 //        `{text, block}` fires on a node that is plainly not a `text`. A name is EVIDENCE; one
@@ -408,12 +422,15 @@ export function recognise(ir, vocab, path = "ir") {
     || (a.slug < b.slug ? -1 : a.slug > b.slug ? 1 : 0));
 
   const top = candidates[0] ?? null;
+  // R2 OVER EVERY `many` ENTRY (#493): an unnamed container is passed over for the scored outcome only.
+  const container = (c) => vocab.components[c.slug]?.childrenCardinality === "many";
+  const pick = candidates.find((c) => !(container(c) && !named(c))) ?? null;
   const drops = [];
   let name = null, via = "floor", covered = false, score = top ? top.score : 0, hits = top ? top.hits : [];
 
   // THREE OUTCOMES, RESOLVED IN THIS ORDER AND NO OTHER.
-  if (top && top.score >= THRESHOLD) {
-    name = top.slug; via = "scored"; covered = true;
+  if (pick && pick.score >= THRESHOLD) {
+    name = pick.slug; via = "scored"; covered = true; score = pick.score; hits = pick.hits;
   } else if (ir.layout) {
     name = STRUCTURAL_FALLBACK; via = "structural-fallback"; covered = true; score = 0; hits = [];
   } else {
