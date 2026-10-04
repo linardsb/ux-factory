@@ -153,10 +153,17 @@ async function journey(engineName, results, held) {
     for (const a of acts) {
       const m = /^(\d+) steps?(?: · (\d+) said)?(?: · (\d+) did)?$/.exec(a.line);
       const [total, s, d] = m ? [Number(m[1]), Number(m[2] || 0), Number(m[3] || 0)] : [NaN, NaN, NaN];
-      const want = c.steps.filter((st) => st.phase === a.key).length;
+      const inPhase = c.steps.filter((st) => st.phase === a.key);
+      const want = inPhase.length;
       t(`[7] ${a.key}: "${a.line}" — said + did = total = its cards = parseTrace's ${want}, said/did = its labels`,
         m && s + d === total && total === a.cards && s === a.said && d === a.did && total === want,
         `parsed ${total}/${s}/${d}, cards ${a.cards} (${a.said} said, ${a.did} did), parseTrace ${want}`);
+      // Read from parseTrace's kind, not the player's table — a swapped table keeps the head and the
+      // labels in agreement, so only the trace itself can see it (mutation M1).
+      const wantSaid = inPhase.filter((st) => st.kind === "text").length;
+      const wantDid = inPhase.filter((st) => st.kind === "tool").length;
+      t(`[7] ${a.key}: said ${wantSaid} / did ${wantDid} = parseTrace's text / tool steps`,
+        s === wantSaid && d === wantDid, `head says ${s} said / ${d} did`);
     }
 
     await page.close();
