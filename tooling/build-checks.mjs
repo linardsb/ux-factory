@@ -17336,6 +17336,7 @@ const synthPng = (w, h, ct, px) => {
 // never a committed package. CANNOT REACH (the fake's header and gates.md carry the same clause):
 // a model's behaviour (whether it yields, names the brief in its why, or escapes), the SDK's option handling, hook delivery by the CLI, and the page — those are the preflight's, the journey compose pass's and --live-compose's.
 // For #320's fork turn (47.19): whether a model files two options under FORK_ASK while LOOP says once — the sitting's.
+// For system/DESIGN.md (#321, 47.20–47.24): whether a model FOLLOWS it (the S6 re-runs', canvas-spike-s6/raw/run-3 and run-4); a part named in plain prose without backticks (the parser sees backticked spans and parts blocks only); and its voice (C4, the owner's read).
 // Every case RUNS the function; 47.14 alone is a source pin, and says so.
 {
   const { cpSync } = await import("node:fs");
@@ -17425,9 +17426,16 @@ const synthPng = (w, h, ct, px) => {
     plus.components["zz-probe"] = { props: { label: { type: "string", required: true } }, children: [], usage: "A synthetic probe." };
     const minus = structuredClone(VOCAB);
     delete minus.components[keys[0]];
-    ok(S.buildSystemPrompt({ vocab: plus, vocabSha: "x", prd: "P" }).includes("### zz-probe\n  label!: string")
-      && !S.buildSystemPrompt({ vocab: minus, vocabSha: "x", prd: "P" }).includes(`### ${keys[0]}\n`),
+    ok(S.buildSystemPrompt({ vocab: plus, vocabSha: "x", prd: "P", design: "D" }).includes("### zz-probe\n  label!: string")
+      && !S.buildSystemPrompt({ vocab: minus, vocabSha: "x", prd: "P", design: "D" }).includes(`### ${keys[0]}\n`),
       "47.3: a component added to the vocabulary does not reach the system prompt, or a removed one stays — the context is not generated from the file");
+
+    // --- 47.20 the committed DESIGN.md (#321), FIRST: every turn case below reads it, and a bad file would otherwise surface as 47.17's unrelated crash ---
+    const D_TEXT = readFileSync(join(ROOT, "system/DESIGN.md"), "utf8");
+    const D = S.parseDesign(D_TEXT, VOCAB);
+    ok(D.problems.length === 0 && S.REQUIRED_KINDS.every((k) => D.templates[k]?.length) && D.refs.length + Object.keys(D.templates).length > 0 && Number.isInteger(D.version),
+      `47.20: system/DESIGN.md has problems ${deep(D.problems)} or misses a required kind`);
+    if (D.problems.length) throw new Error(`47.20: system/DESIGN.md has problems ${deep(D.problems)} — every compose turn below reads it, so the group stops here`);
 
     // --- 47.4 the escape marker (F2) --------------------------------------------------------------------
     const esc = (t) => S.ESCAPE_RE.test(t);
@@ -17698,6 +17706,8 @@ const synthPng = (w, h, ct, px) => {
         "47.14: the compose route does not check saveConflict before runComposeTurn, does not name every field, or reaches `transport`");
       const runAt = srv.indexOf("'/api/canvas/run'");
       ok(srv.slice(runAt, srv.indexOf("if (p ===", runAt + 10)).includes("compose: composeView(root)"), "47.14: GET /api/canvas/run does not carry compose: composeView(root)");
+      ok(sessCode.indexOf("readDesign(DESIGN_PATH") >= 0 && sessCode.indexOf("readDesign(DESIGN_PATH") < sessCode.indexOf("appendComposeLine(pkgRoot, turnLine("),
+        "47.14: runComposeTurn reads DESIGN.md after the turn's first appended line — a refused file would leave owner lines with no stats line (#321)");
     }
 
     // --- 47.17 PR #485 review F2–F8, each RUN ---------------------------------------------------------
@@ -17919,13 +17929,63 @@ const synthPng = (w, h, ct, px) => {
         ok(ledger(pkg).length === b0 + 2 && ledger(pkg).slice(b0).every((l) => l.params?.alternative?.fork === fork), `47.19f: a fork on ${label} (seq ${fork}) filed ${ledger(pkg).length - b0} lines — want its two options`);
       }
     }
+
+    // --- 47.21 the mutation table: each refused BY NAME, each mutation asserted to have applied ----------
+    ok(S.parseDesign(D_TEXT, VOCAB).problems.length === 0, "47.21: the positive control (the committed file) has problems");
+    const firstBlock = (fn) => (text) => text.replace(/```parts\n([\s\S]*?)\n```/, (_m, body) => `\`\`\`parts\n${fn(body)}\n\`\`\``);
+    for (const [label, mutate, mustName] of [
+      ["unknown part in prose", (x) => x + "\nUse `action-bar` here.\n", "action-bar"],
+      ["unknown part in a template", firstBlock((b) => ["hero-banner", ...b.split("\n").slice(1)].join("\n")), "hero-banner"],
+      ["unknown prop", (x) => x + "\n`screen-header.colour`\n", "colour"],
+      ["value outside the enum", (x) => x + "\n`text.role=banner`\n", "banner"],
+      ["non-reference in backticks", (x) => x + "\n`one primary action`\n", "vocabulary references only"],
+      ["loop mechanics", (x) => x + "\nReply NOT COVERED: x\n", "LOOP/ESCAPE"],
+      ["no version", (x) => x.replace(/^Version: .*\n/m, ""), "Version"],
+      ["two versions", (x) => x + "\nVersion: 2\n", "Version"],
+      ["required kind missing", (x) => x.replace("### error", "### oops"), '"error"'],
+      ["foreign fence", (x) => x + "\n```js\nx\n```\n", "fences"],
+      ["all-optional template", firstBlock((b) => b.split("\n").map((l) => (l.trim() ? `${l.trim().replace(/[?+*]$/, "")}?` : l)).join("\n")), "non-optional"],
+      // PR #524: an inherited key is not a part or a prop; a CR and an indented fence are refused for what they are.
+      ["inherited name in prose", (x) => x + "\n`constructor`\n", '"constructor"'],
+      ["inherited name in a template", firstBlock((b) => ["constructor", ...b.split("\n").slice(1)].join("\n")), '"constructor"'],
+      ["inherited name with a prop", (x) => x + "\n`constructor.x`\n", '"constructor"'],
+      ["inherited prop", (x) => x + "\n`screen-header.constructor`\n", 'no prop "constructor"'],
+      ["CRLF line endings", (x) => x.replace(/\n/g, "\r\n"), "CRLF"],
+      ["indented fence", (x) => x + "\n  ```parts\n  zzzpart\n  ```\n", "indented fence"],
+    ]) {
+      const m = mutate(D_TEXT);
+      ok(m !== D_TEXT, `47.21 ${label}: mutation did not apply`);
+      const pr = S.parseDesign(m, VOCAB).problems;
+      ok(pr.some((p) => p.includes(mustName)), `47.21 ${label}: no problem names ${JSON.stringify(mustName)} (${deep(pr)})`);
+    }
+
+    // --- 47.22 the prompt include -----------------------------------------------------------------------
+    const P22 = S.buildSystemPrompt({ vocab: VOCAB, vocabSha: "x", prd: "P", design: D_TEXT });
+    ok(P22.includes(D_TEXT) && P22.indexOf("## Vocabulary") < P22.indexOf("## Conventions") && P22.indexOf("## Conventions") < P22.lastIndexOf("## PRD") && P22.includes(`Version: ${D.version}`),
+      "47.22: the system prompt does not carry DESIGN.md between the vocabulary and the PRD, with its version");
+    ok(threw(() => S.buildSystemPrompt({ vocab: VOCAB, vocabSha: "x", prd: "P" }))?.includes("needs design"), "47.22: buildSystemPrompt without design did not throw naming it");
+
+    // --- 47.23 the stats line carries the version and sha --------------------------------------------------
+    const pk23 = pkgCopy("design23");
+    await afold("a fake turn (47.23)", () => S.runComposeTurn({ pkgRoot: pk23, base: ledger(pk23).length, ask: { kind: "screen" }, transport: F.composeQuery }));
+    const st23 = tx(pk23).find((l) => l.type === "stats");
+    ok(st23?.designVersion === D.version && st23?.designSha === sha16(readFileSync(join(ROOT, "system/DESIGN.md"))),
+      `47.23: the stats line carries designVersion ${st23?.designVersion} and designSha ${st23?.designSha}, not the committed file's ${D.version} / ${sha16(readFileSync(join(ROOT, "system/DESIGN.md")))}`);
+    const f23 = join(scratch("d23"), "DESIGN.md");
+    writeFileSync(f23, D_TEXT + "\n`action-bar`\n");
+    ok(threw(() => S.readDesign(f23, VOCAB))?.includes("action-bar"), "47.23: readDesign on a file naming action-bar did not throw naming it");
+
+    // --- 47.24 not counted ------------------------------------------------------------------------------------
+    const { GROUPS: LG } = await import("../agent-layer/gen-loc-summary.mjs");
+    ok(LG.filter((g) => g.test("system/DESIGN.md")).length === 0 && LG.some((g) => g.test("system/canvas-ops.mjs")),
+      `47.24: system/DESIGN.md matches loc-summary group(s) ${deep(LG.filter((g) => g.test("system/DESIGN.md")).map((g) => g.id))} — #321 says it is read by the compose prompt, not shipped code`);
   }
 
   // --- 47.15 nothing tracked moved -------------------------------------------------------------------
   for (const d of temps) rmSync(d, { recursive: true, force: true });
   ok(gitSnap() === GIT_BEFORE, `47.15: the group moved a tracked path — git status for discovery portal/lib system handoff went from ${JSON.stringify(GIT_BEFORE)} to ${JSON.stringify(gitSnap())}`);
 
-  group("compose session", `portal/lib/canvas-session.mjs + the store's verdict lines (#312): IMPORTED in CI with no portal/node_modules, statically SDK- and zod-free with ONE dynamic import naming ./canvas-transport.mjs, the only canvas-*.mjs naming the SDK · S6's four constants reproduce c903170484396973 and the whole prompt surface #320's 32e186e7fedd687d (probe run 4's was 9690d4c955be652c, #316 Segment A's f7e7f54e5a5c5809; #320's is unprobed by a paid run), FORK_ASK #320's generic ask and never S6's screen-specific string, YIELD_CONTRACT unshipped · the vocabulary context generated from vocabulary.json (a synthetic entry in, a removed one out) · ESCAPE_RE after numbering and markup, never mid-sentence, the old regex's miss as the control · the fence: one predicate, two sites, Write/WebFetch/MCP each denied with a denied line at both, a warmup Glob denied with none, a hostile allow-set denied · a fake turn's lines in order (turn → owner brief → init → op → stats), maxTurns on the stats line, no second turn while a proposal waits, one call per turn, every refusal kind by the ledger-or-transcript list, the root exempt from the id rule and a / in an id refused as reserved for a placed copy's parts (#315), the outcome from the lines never the words, subtype success + is_error as failed · subscriptionEnv drops every ANTHROPIC_* and CLAUDE_CODE_USE_* name (the API key, an auth token, a base URL, Bedrock/Vertex/Foundry) and keeps CLAUDE_CODE_OAUTH_TOKEN · the AC #1 ledger proposed → accepted → proposed → refused → undone, agent/owner sourced, verifyBuild [] and a mutated ledger refused, the gate's own duplicate-verdict and forward-fromStep clauses included · PR #485's review cases (47.17): a refused x-keyed proposal leaves a params-less line and a clean gate, the state tree's vocabulary check, the not-missing guard, the fake's cwd guard, a refusing transport before any transcript line, session-reset after a resume that fails before init, isSaveConflict on the in-lock conflict, added exposing a second writer · the run lock both ways with an import (ratify's leg is #313's) · the transport's option block and the route pinned as source. Every agent line here is the fake's or an inline script's, in a scratch copy. CANNOT REACH: a model's behaviour (whether it yields, names the brief in its why, or escapes), the SDK's option handling, hook delivery by the CLI, and the page — those are the preflight's, the journey compose pass's and --live-compose's · #320's fork turn (47.19): a fork ask's exact shape (an extra key, a non-seq and a number refused), its prompt ending in FORK_ASK with the fork named; a fake fork turn filing two proposed composes of one screen tagged c1 a/b fork 11 on the ledger and the transcript, maxTurns FORK_MAX_TURNS, composeView's options and forks, the next turn refused while they wait; one option leaving a not-drafted line; a third reaching the APPLIER as an agent refused line naming "a third"; a second screen a transcript-only wrong-target; a file_evidence seq, a superseded decision and a picked fork each refused as a fork refusal with nothing written, a current decision and a parked question each running; and the pick (accept b + refuse a in one save) reading last.fork picked b, notPicked [a], verifyBuild [] with the trace rule on. CANNOT REACH (47.19): whether a model files two options under FORK_ASK while LOOP says once — the sitting's`);
+  group("compose session", `portal/lib/canvas-session.mjs + the store's verdict lines (#312): IMPORTED in CI with no portal/node_modules, statically SDK- and zod-free with ONE dynamic import naming ./canvas-transport.mjs, the only canvas-*.mjs naming the SDK · S6's four constants reproduce c903170484396973 and the whole prompt surface #320's 32e186e7fedd687d (probe run 4's was 9690d4c955be652c, #316 Segment A's f7e7f54e5a5c5809; #320's is unprobed by a paid run), FORK_ASK #320's generic ask and never S6's screen-specific string, YIELD_CONTRACT unshipped · the vocabulary context generated from vocabulary.json (a synthetic entry in, a removed one out) · ESCAPE_RE after numbering and markup, never mid-sentence, the old regex's miss as the control · the fence: one predicate, two sites, Write/WebFetch/MCP each denied with a denied line at both, a warmup Glob denied with none, a hostile allow-set denied · a fake turn's lines in order (turn → owner brief → init → op → stats), maxTurns on the stats line, no second turn while a proposal waits, one call per turn, every refusal kind by the ledger-or-transcript list, the root exempt from the id rule and a / in an id refused as reserved for a placed copy's parts (#315), the outcome from the lines never the words, subtype success + is_error as failed · subscriptionEnv drops every ANTHROPIC_* and CLAUDE_CODE_USE_* name (the API key, an auth token, a base URL, Bedrock/Vertex/Foundry) and keeps CLAUDE_CODE_OAUTH_TOKEN · the AC #1 ledger proposed → accepted → proposed → refused → undone, agent/owner sourced, verifyBuild [] and a mutated ledger refused, the gate's own duplicate-verdict and forward-fromStep clauses included · PR #485's review cases (47.17): a refused x-keyed proposal leaves a params-less line and a clean gate, the state tree's vocabulary check, the not-missing guard, the fake's cwd guard, a refusing transport before any transcript line, session-reset after a resume that fails before init, isSaveConflict on the in-lock conflict, added exposing a second writer · the run lock both ways with an import (ratify's leg is #313's) · the transport's option block and the route pinned as source. Every agent line here is the fake's or an inline script's, in a scratch copy. CANNOT REACH: a model's behaviour (whether it yields, names the brief in its why, or escapes), the SDK's option handling, hook delivery by the CLI, and the page — those are the preflight's, the journey compose pass's and --live-compose's · #320's fork turn (47.19): a fork ask's exact shape (an extra key, a non-seq and a number refused), its prompt ending in FORK_ASK with the fork named; a fake fork turn filing two proposed composes of one screen tagged c1 a/b fork 11 on the ledger and the transcript, maxTurns FORK_MAX_TURNS, composeView's options and forks, the next turn refused while they wait; one option leaving a not-drafted line; a third reaching the APPLIER as an agent refused line naming "a third"; a second screen a transcript-only wrong-target; a file_evidence seq, a superseded decision and a picked fork each refused as a fork refusal with nothing written, a current decision and a parked question each running; and the pick (accept b + refuse a in one save) reading last.fork picked b, notPicked [a], verifyBuild [] with the trace rule on. CANNOT REACH (47.19): whether a model files two options under FORK_ASK while LOOP says once — the sitting's · system/DESIGN.md (#321) parsed clean against the vocabulary with the five required templates, eleven mutations each refused by name with the mutation asserted to apply, included between the vocabulary and the PRD with its version, its version and sha on a fake turn's stats line, read before the turn's first line, and matching no loc-summary group. CANNOT REACH (#321): whether a model FOLLOWS DESIGN.md (the S6 re-runs, canvas-spike-s6/raw/run-3 and run-4), a part named in plain prose without backticks, and its voice (C4, the owner's read)`);
 }
 
 // ===================================================================================================

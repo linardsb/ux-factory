@@ -1,0 +1,41 @@
+f1 pay-someone-new — Entry screen for the MVP's core solution (seq 7: payee-creation API callable from the app channel) scoped to a single UK sort-code/account-number payee (seq 12's in-bounds case). Includes a hidden modal-dialog for the close-match decision customers must resolve unaided (seq 6, seq 23) before continuing.
+    stack {direction: "column", gap: "md", pad: "lg"}
+      screen-header {title: "Pay someone new", showBack: true}
+      text {role: "body", content: "Enter the details for the person you want to pay."}
+      text-field {label: "Payee name", placeholder: "e.g. Jane Smith"}
+      text-field {label: "Sort code", placeholder: "00-00-00", hint: "6 digits, no spaces"}
+      text-field {label: "Account number", placeholder: "12345678", hint: "8 digits"}
+      select-field {label: "Pay from", value: "Current account"}
+      modal-dialog {title: "This name is a close match", body: "The name you entered is close to, but not exactly, the name on the account. Check it's correct before you continue.", confirmLabel: "Use this name", dismissLabel: "Edit details"}
+      primary-button {label: "Check details"}
+  B5: root stack column y · opens with screen-header y · first child heading n · one primary-button, last y · Verdant-locked none · depth 2 · kind none · skeleton stack(column) › screen-header · text · text-field · text-field · text-field · select-field · modal-dialog · primary-button
+
+f2 confirm-and-send — Follows pay-someone-new once Confirmation of Payee has run: shows the match result and the first-payment limit (seq 23's stated refusal — no skipping the check, a cap on day one), and carries the scam-intervention decision as a hidden modal-dialog (seq 8, seq 17: the screen must do the job the agent's ear used to do) whose shown text and the customer's response are exactly what the audit trail and security boundary require (seq 14, seq 30).
+    stack {direction: "column", gap: "md", pad: "lg"}
+      screen-header {title: "Confirm and send payment", showBack: true}
+      text {role: "body", content: "We've checked these details and they match the name on the account."}
+      text-field {label: "Amount", placeholder: "£0.00", hint: "You can send up to £250 to a new payee today."}
+      modal-dialog {title: "Before you send this payment", body: "If someone is guiding you through this payment right now, stop and call us first.", confirmLabel: "Continue", dismissLabel: "I need help"}
+      primary-button {label: "Send payment"}
+  B5: root stack column y · opens with screen-header y · first child heading n · one primary-button, last y · Verdant-locked none · depth 2 · kind none · skeleton stack(column) › screen-header · text · text-field · modal-dialog · primary-button
+
+f3 payment-sent — Closes the journey confirm-and-send commits to: the completion point seq 16's eval counts toward the 85% first-attempt-without-a-call pass rate, and the record shown here (payee, amount, reference, timestamp) is the customer-facing slice of the audit trail seq 18/19 require to be kept in order.
+    stack {direction: "column", gap: "md", pad: "lg"}
+      screen-header {title: "Payment sent", showBack: false}
+      text {role: "heading", content: "Your payment has been sent"}
+      list {header: "Payment details", empty: "No details available"}
+        list-row {label: "Paid to", value: "Jane Smith"}
+        list-row {label: "Amount", value: "150.00", unit: "GBP"}
+        list-row {label: "Reference", value: "Rent August"}
+        list-row {label: "Sent", value: "11:42, 14 Oct 2026"}
+      primary-button {label: "Done"}
+  B5: root stack column y · opens with screen-header y · first child heading n · one primary-button, last y · Verdant-locked none · depth 3 · kind list · skeleton stack(column) › screen-header · text · list · primary-button
+
+f4 choose-amount — The amount-entry and send step itself, separated from confirm-and-send's match-result/warning decision: enforces the first-payment limit stated as a day-one refusal (seq 23) and is the interaction the two-second/three-minute performance budget (seq 27) is measured against.
+    stack {direction: "column", gap: "md", pad: "lg"}
+      screen-header {title: "How much do you want to send?", showBack: true}
+      text {role: "body", content: "You're sending to Jane Smith."}
+      text-field {label: "Amount", placeholder: "£0.00", hint: "You can send up to £250 to a new payee today."}
+      text {role: "caption", content: "Enter an amount of £250 or less to continue."}
+      primary-button {label: "Send payment"}
+  B5: root stack column y · opens with screen-header y · first child heading n · one primary-button, last y · Verdant-locked none · depth 2 · kind none · skeleton stack(column) › screen-header · text · text-field · text · primary-button

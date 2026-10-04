@@ -1,0 +1,58 @@
+# DESIGN.md — composition conventions for the compose agent
+
+Version: 1
+
+Synthetic fixture for the plan's pre-flight, not the real conventions. Drafted by an agent from the inputs listed in its drafting brief.
+
+## Layout
+
+Every screen is one `stack` with `stack.direction=column`, opened by one `screen-header`. The main action is one `primary-button`, last; a second action is a `ghost-button` before it. Headings are `text.role=heading`. `screen-header.showBack=true` on every screen but the first.
+
+## Screen templates
+
+### list
+Use for a set of like items.
+```parts
+screen-header
+text?
+list
+primary-button?
+```
+
+### detail
+Use for one item.
+```parts
+screen-header
+text+
+primary-button
+ghost-button?
+```
+
+### form
+Use when the person enters data.
+```parts
+screen-header
+text?
+select-field*
+text-field*
+primary-button
+ghost-button?
+```
+
+### empty
+Use when there is nothing yet.
+```parts
+screen-header
+empty-state
+```
+
+### error
+Use when the step failed.
+```parts
+screen-header
+text
+ghost-button?
+primary-button
+```
+
+Pick one template per screen; never invent a layout.

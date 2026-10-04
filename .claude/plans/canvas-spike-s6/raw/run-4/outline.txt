@@ -1,0 +1,38 @@
+f1 add-payee-form — Serves seq 7/seq 12: the in-app payee-creation form is the core MVP move — "the customer has to be able to complete it alone" for a personal customer paying a new UK sort code and account number, once, now (seq 12 scope). This is the first screen of the journey that today only exists as an eleven-minute phone call (seq 3, seq 4).
+    stack {direction: "column", gap: "md", pad: "md", size: "fill"}
+      screen-header {title: "Add new payee", showBack: true}
+      text {role: "body", content: "Enter the details of who you want to pay."}
+      text-field {label: "Payee name", placeholder: "Name as it appears on their account", hint: "Use the name on their bank account, not a nickname."}
+      text-field {label: "Sort code", placeholder: "00-00-00"}
+      text-field {label: "Account number", placeholder: "8 digits"}
+      select-field {label: "Pay from", value: "Current account"}
+      primary-button {label: "Check details", disabled: false}
+  B5: root stack column y · opens with screen-header y · first child heading n · one primary-button, last y · Verdant-locked none · depth 2 · kind form · skeleton stack(column) › screen-header · text · text-field · text-field · text-field · select-field · primary-button
+
+f2 confirmation-of-payee-result — Serves seq 7/seq 6/seq 23: today an agent reads the Confirmation of Payee result and explains a close-match or no-match to the customer by voice (seq 6); this screen has to let the customer "resolve a non-match result unaided" (seq 7) while never silently blocking or skipping the check (seq 23's stated refusals). The result sits inline; the no-match decision — continue anyway or go back — is the one question this screen asks, so it is the modal.
+    stack {direction: "column", gap: "md", pad: "md", size: "fill"}
+      screen-header {title: "Check the name", showBack: true}
+      text {role: "body", content: "We checked the name against the account you entered."}
+      card {title: "Name check result", footnote: "This check protects you from paying the wrong account."}
+        list-row {label: "Jordan Hicks Ltd", value: "Close match", meta: "The account is held in a different name than you entered.", tone: "warn"}
+      modal-dialog {title: "This isn't a match", body: "The name you entered doesn't match the name on the account. If you continue, you're responsible for checking it's the right account.", confirmLabel: "Continue anyway", dismissLabel: "Go back and check"}
+      primary-button {label: "Confirm and continue", disabled: false}
+  B5: root stack column y · opens with screen-header y · first child heading n · one primary-button, last y · Verdant-locked none · depth 3 · kind none · skeleton stack(column) › screen-header · text · card · modal-dialog · primary-button
+
+f3 payment-scam-check — Serves seq 8/seq 6/seq 30: the riskiest assumption is that "a screen can do" the job of the agent's ear, which today "slow[s] it down, ask[s] why, and sometimes refuse[s]" a coached customer (seq 6) — this is that intervention. It's drawn as the confirm template's modal because it is a genuine two-way decision, not a fact to report; seq 30 bounds it further — we store only the customer's response, nothing else about the exchange.
+    stack {direction: "column", gap: "md", pad: "md", size: "fill"}
+      screen-header {title: "Before you pay", showBack: true}
+      card {title: "You're paying", footnote: "Check this is who you meant to pay."}
+        list-row {label: "Jordan Hicks Ltd", value: "£150.00", meta: "New payee", tone: "neutral"}
+      modal-dialog {title: "Has anyone contacted you about this payment?", body: "If someone told you what to do, call us before you continue — once a payment is sent, we can't get it back.", confirmLabel: "No, I'm making this payment myself", dismissLabel: "Get help before continuing"}
+  B5: root stack column y · opens with screen-header y · first child heading n · one primary-button, last n · Verdant-locked none · depth 3 · kind confirm · skeleton stack(column) › screen-header · card · modal-dialog
+
+f4 send-first-payment — Serves seq 6/seq 23: today the agent asks which account to pay from, finds the customer "frequently does not know what is in it," looks it up, and about one first payment in twenty is retried because the account was short — showing the balance inline here is that look-up, done without the agent. The amount field's hint states the first-payment limit from seq 23 out loud, as a refusal the customer sees before they hit it, not after.
+    stack {direction: "column", gap: "md", pad: "md", size: "fill"}
+      screen-header {title: "Send payment", showBack: true}
+      text {role: "body", content: "You're paying Jordan Hicks Ltd."}
+      card {title: "Pay from", footnote: "This is the account the payment will leave."}
+        list-row {label: "Current account", value: "£1,240.16", meta: "Available balance", tone: "neutral"}
+      text-field {label: "Amount", placeholder: "£0.00", hint: "First payments to a new payee are limited to £250."}
+      primary-button {label: "Send payment", disabled: false}
+  B5: root stack column y · opens with screen-header y · first child heading n · one primary-button, last y · Verdant-locked none · depth 3 · kind none · skeleton stack(column) › screen-header · text · card · text-field · primary-button

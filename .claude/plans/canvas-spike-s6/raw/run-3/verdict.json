@@ -1,0 +1,246 @@
+{
+  "run": 3,
+  "model": "claude-sonnet-5",
+  "sdk": "0.1.77",
+  "zod": "4.4.3",
+  "node": "v20.20.2",
+  "promptFingerprint": "c903170484396973",
+  "vocabSha": "59380758647765a7",
+  "designVersion": 1,
+  "designSha": "608f6c393d6ffd39",
+  "auth": "subscription",
+  "contextChars": 5549,
+  "systemPromptChars": 49259,
+  "verdict": "clean",
+  "failedBecause": [],
+  "fork": {
+    "filed": 1,
+    "refused": 0,
+    "ids": [
+      "choose-amount"
+    ],
+    "attempted": [
+      "choose-amount"
+    ],
+    "outcome": "picked-one",
+    "repeat": false
+  },
+  "turns": [
+    {
+      "name": "turn-1",
+      "kind": "screen",
+      "filed": 1,
+      "refused": 0,
+      "ids": [
+        "pay-someone-new"
+      ],
+      "attempted": [
+        "pay-someone-new"
+      ],
+      "outcome": "clean",
+      "corrections": 0,
+      "stats": {
+        "k": "stats",
+        "turn": "turn-1",
+        "sessionId": "88be84d2-4ff3-4453-bd45-bbc1f7ed3ecf",
+        "numTurns": 2,
+        "durationMs": 32435,
+        "wallMs": 34704,
+        "costUsd": 0.24396565000000003,
+        "inputTokens": 4,
+        "outputTokens": 2885,
+        "cacheReadTokens": 17938,
+        "cacheCreationTokens": 20713,
+        "subtype": "success",
+        "isError": false,
+        "result": "Screen **pay-someone-new** has been proposed: a single-column form carrying the payee-name, sort-code and account-number fields plus the pay-from account selector, with a hidden `modal-dialog` ready to surface the close-match decision (seq 6/23) before the customer commits via \"Check details\" — the ",
+        "promptFingerprint": "c903170484396973",
+        "vocabSha": "59380758647765a7",
+        "contextChars": 5549,
+        "designVersion": 1,
+        "designSha": "608f6c393d6ffd39",
+        "auth": "subscription",
+        "model": "claude-sonnet-5",
+        "sdk": "0.1.77",
+        "zod": "4.4.3",
+        "node": "v20.20.2"
+      }
+    },
+    {
+      "name": "turn-2",
+      "kind": "screen",
+      "filed": 1,
+      "refused": 0,
+      "ids": [
+        "confirm-and-send"
+      ],
+      "attempted": [
+        "confirm-and-send"
+      ],
+      "outcome": "clean",
+      "corrections": 0,
+      "stats": {
+        "k": "stats",
+        "turn": "turn-2",
+        "sessionId": "88be84d2-4ff3-4453-bd45-bbc1f7ed3ecf",
+        "numTurns": 2,
+        "durationMs": 24804,
+        "wallMs": 26647,
+        "costUsd": 0.09266864999999999,
+        "inputTokens": 4,
+        "outputTokens": 1882,
+        "cacheReadTokens": 41720,
+        "cacheCreationTokens": 2057,
+        "subtype": "success",
+        "isError": false,
+        "result": "Screen **confirm-and-send** has been proposed: it reports the Confirmation of Payee result, states the first-payment limit inline (seq 23), and carries the scam-intervention question as a hidden `modal-dialog` — the one decision surface this journey needs, whose exact wording and the customer's resp",
+        "promptFingerprint": "c903170484396973",
+        "vocabSha": "59380758647765a7",
+        "contextChars": 5549,
+        "designVersion": 1,
+        "designSha": "608f6c393d6ffd39",
+        "auth": "subscription",
+        "model": "claude-sonnet-5",
+        "sdk": "0.1.77",
+        "zod": "4.4.3",
+        "node": "v20.20.2"
+      }
+    },
+    {
+      "name": "turn-3",
+      "kind": "screen",
+      "filed": 1,
+      "refused": 0,
+      "ids": [
+        "payment-sent"
+      ],
+      "attempted": [
+        "payment-sent"
+      ],
+      "outcome": "clean",
+      "corrections": 0,
+      "stats": {
+        "k": "stats",
+        "turn": "turn-3",
+        "sessionId": "88be84d2-4ff3-4453-bd45-bbc1f7ed3ecf",
+        "numTurns": 2,
+        "durationMs": 26400,
+        "wallMs": 28531,
+        "costUsd": 0.09743454999999998,
+        "inputTokens": 4,
+        "outputTokens": 2035,
+        "cacheReadTokens": 45998,
+        "cacheCreationTokens": 2383,
+        "subtype": "success",
+        "isError": false,
+        "result": "Screen **payment-sent** has been proposed: the completion screen that closes the pay-someone-new → confirm-and-send flow. It shows the payee, amount, reference and timestamp — the customer-facing record that mirrors what seq 18/19's audit trail retains — and is the point at which seq 16's \"85% finis",
+        "promptFingerprint": "c903170484396973",
+        "vocabSha": "59380758647765a7",
+        "contextChars": 5549,
+        "designVersion": 1,
+        "designSha": "608f6c393d6ffd39",
+        "auth": "subscription",
+        "model": "claude-sonnet-5",
+        "sdk": "0.1.77",
+        "zod": "4.4.3",
+        "node": "v20.20.2"
+      }
+    },
+    {
+      "name": "fork",
+      "kind": "fork",
+      "filed": 1,
+      "refused": 0,
+      "ids": [
+        "choose-amount"
+      ],
+      "attempted": [
+        "choose-amount"
+      ],
+      "outcome": "picked-one",
+      "repeat": false,
+      "stats": {
+        "k": "stats",
+        "turn": "fork",
+        "sessionId": "88be84d2-4ff3-4453-bd45-bbc1f7ed3ecf",
+        "numTurns": 2,
+        "durationMs": 21468,
+        "wallMs": 23463,
+        "costUsd": 0.08208750000000001,
+        "inputTokens": 4,
+        "outputTokens": 1745,
+        "cacheReadTokens": 50872,
+        "cacheCreationTokens": 2172,
+        "subtype": "success",
+        "isError": false,
+        "result": "Screen **choose-amount** has been proposed: a dedicated amount-entry step between confirm-and-send's match/warning decision and payment-sent's receipt. It states the first-payment limit inline rather than as a decision (seq 23's refusal is a hard rule, not a question, so it's a `text` line, not a `m",
+        "promptFingerprint": "c903170484396973",
+        "vocabSha": "59380758647765a7",
+        "contextChars": 5549,
+        "designVersion": 1,
+        "designSha": "608f6c393d6ffd39",
+        "auth": "subscription",
+        "model": "claude-sonnet-5",
+        "sdk": "0.1.77",
+        "zod": "4.4.3",
+        "node": "v20.20.2"
+      }
+    }
+  ],
+  "b5": [
+    {
+      "screenId": "pay-someone-new",
+      "rootStackColumn": "y",
+      "opensWithHeader": "y",
+      "firstChildHeading": "n",
+      "onePrimaryLast": "y",
+      "verdantLocked": "none",
+      "depth": 2,
+      "kind": "none",
+      "skeleton": "stack(column) › screen-header · text · text-field · text-field · text-field · select-field · modal-dialog · primary-button"
+    },
+    {
+      "screenId": "confirm-and-send",
+      "rootStackColumn": "y",
+      "opensWithHeader": "y",
+      "firstChildHeading": "n",
+      "onePrimaryLast": "y",
+      "verdantLocked": "none",
+      "depth": 2,
+      "kind": "none",
+      "skeleton": "stack(column) › screen-header · text · text-field · modal-dialog · primary-button"
+    },
+    {
+      "screenId": "payment-sent",
+      "rootStackColumn": "y",
+      "opensWithHeader": "y",
+      "firstChildHeading": "n",
+      "onePrimaryLast": "y",
+      "verdantLocked": "none",
+      "depth": 3,
+      "kind": "list",
+      "skeleton": "stack(column) › screen-header · text · list · primary-button"
+    },
+    {
+      "screenId": "choose-amount",
+      "rootStackColumn": "y",
+      "opensWithHeader": "y",
+      "firstChildHeading": "n",
+      "onePrimaryLast": "y",
+      "verdantLocked": "none",
+      "depth": 2,
+      "kind": "none",
+      "skeleton": "stack(column) › screen-header · text · text-field · text · primary-button"
+    }
+  ],
+  "totals": {
+    "costUsd": 0.51615635,
+    "inputTokens": 16,
+    "outputTokens": 8547,
+    "cacheReadTokens": 156528,
+    "cacheCreationTokens": 27325,
+    "durationMs": 105107,
+    "wallMs": 113345
+  },
+  "spentBeforeThisRun": 0.28076295
+}

@@ -14,6 +14,7 @@ system/                       the shipped design system — brand-agnostic core 
   tokens.neutral.css          GENERATED layer 2 — the neutral pack; a company build clones it
   components.css              layer 3 — token-only components, plus the site chrome the protos need
   portfolio.css · proto.css   surface styles for portfolio pages · prototypes
+  DESIGN.md                   the compose agent's composition conventions — screen templates, read per turn (≠ a deploy's site-root DESIGN.md)
   catalog.css                 docs-surface styles, linked wherever renderComponentDocs mounts
   site.js                     injects chrome (header/footer/nav) from window.CLIENT_CONFIG
   pack-boot.js                pre-paint pack restore; its tag stays LAST in every head that carries it
