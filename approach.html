@@ -33,11 +33,12 @@
        than the cap (components.css). Layout call recorded in the PR — st-ux-fusion T1. */
     #sources .sources-wide { grid-column: 1 / -1; max-width: 76ch; }
 
-    /* The scope note under the method cards (#487) links to the three worked examples.
-       components.css resets every <a> to inherit colour with no underline, which leaves these
-       links with no at-rest signal; an underline in the text's own colour marks them without
-       adding a colour. Page-scoped: the site-wide link treatment is a separate decision. */
-    #method .max-prose a { text-decoration: underline; text-underline-offset: 0.2em; }
+    /* Every prose link on the page: the scope note's worked examples (#487) and the proof links
+       the claims audit added (#497). components.css resets every <a> to inherit colour with no
+       underline, which leaves these links with no at-rest signal; an underline in the text's own
+       colour marks them without adding a colour. The buttons sit in div.hero-cta-row, not a <p>,
+       so they are untouched. Page-scoped: the site-wide link treatment is a separate decision. */
+    main p a { text-decoration: underline; text-underline-offset: 0.2em; }
   </style>
 </head>
 <body data-page="approach">
@@ -45,19 +46,19 @@
   <main>
     <section class="page-hero" data-inspect="page-hero">
       <div class="container">
-        <div class="hero-eyebrow">
+        <div class="hero-eyebrow" data-claim="hero-eyebrow">
           <span class="pill"></span>
           <span class="stamp">Approach · how I work</span>
           <span class="meta"></span>
         </div>
-        <h1 class="text-balance">I design the interface and build the system <span class="hl">behind</span> it.</h1>
-        <p class="hero-sub">
+        <h1 class="text-balance" data-claim="hero-title">I design the interface and build the system <span class="hl">behind</span> it.</h1>
+        <p class="hero-sub" data-claim="hero-sub">
           I'm a design engineer. Designers decide what a thing should be; engineers make it
           real. The expensive mistakes happen in the gap between those two jobs, so that gap
           is where I work: close enough to design to shape what gets built, close enough to
           the code to ship it.
         </p>
-        <div class="hero-cta-row">
+        <div class="hero-cta-row" data-claim="hero-cta">
           <a class="btn btn-primary btn-arrow" href="#method" data-inspect="buttons">The method</a>
           <a class="btn btn-secondary" href="#case" data-inspect="buttons">The case study</a>
         </div>
@@ -68,55 +69,58 @@
       <div class="container">
         <div class="beat-head">
           <div class="beat-head-text">
-            <p class="beat-kicker">The method</p>
-            <h2 class="beat-title">Four habits, run as one loop.</h2>
+            <p class="beat-kicker" data-claim="method-kicker">The method</p>
+            <h2 class="beat-title" data-claim="method-title">Four habits, run as one loop.</h2>
           </div>
         </div>
-        <p class="beat-lead">I run all four on every piece of work, and I go back to check whether the last one actually worked.</p>
+        <p class="beat-lead" data-claim="method-lead">I run all four on every piece of work, and I go back to check whether the last one actually worked. <a href="https://github.com/linardsb/ux-factory/tree/main/.claude/system-reviews">The checks on this site are committed</a>.</p>
         <div class="grid grid-2 mt-2xl stagger">
           <article class="card" data-inspect="cards">
             <div class="card-body">
-              <div class="card-kicker">How I decide and pace work</div>
-              <h3 class="h3 mb-md">Shape it</h3>
-              <p class="muted">
-                A vague ask becomes a scoped bet with a time budget. I design the solution to
-                fit that budget, name the risks, and say what's out of scope before anyone
-                writes code. The outcome: bad bets die on paper, where they cost a
-                conversation instead of a build cycle.
+              <div class="card-kicker" data-claim="card-shape-kicker">How I decide and pace work</div>
+              <h3 class="h3 mb-md" data-claim="card-shape-title">Shape it</h3>
+              <p class="muted" data-claim="card-shape">
+                A vague ask becomes <a href="https://github.com/linardsb/ux-factory/blob/main/discovery/faster-payment/prd.md#transition-note">a scoped bet with a time budget</a>.
+                I design the solution to fit that budget, name the risks, and say what's out of
+                scope before anyone writes code. Every decision names
+                <a href="https://github.com/linardsb/ux-factory/blob/main/discovery/faster-payment/prd.md#success-metrics">the result that would kill it</a>,
+                so a bad bet dies on paper, where it costs a conversation instead of a build cycle.
               </p>
             </div>
           </article>
           <article class="card" data-inspect="cards">
             <div class="card-body">
-              <div class="card-kicker">How I make it work for real people</div>
-              <h3 class="h3 mb-md">Design for behaviour</h3>
-              <p class="muted">
-                A feature only matters if someone actually uses it. I find the real trigger,
-                cut the friction between the person and the payoff, and make the behaviour
-                easier before trying to make it more motivating. The outcome is a feature
-                people come back to without being nudged. If a pattern lifts a metric
-                by making someone feel worse, it doesn't ship.
+              <div class="card-kicker" data-claim="card-behaviour-kicker">How I make it work for real people</div>
+              <h3 class="h3 mb-md" data-claim="card-behaviour-title">Design for behaviour</h3>
+              <p class="muted" data-claim="card-behaviour">
+                A feature only matters if someone actually uses it. I find
+                <a href="/factory#method">the real trigger</a>, cut the friction between the person
+                and the payoff, and make the behaviour easier before trying to make it more
+                motivating. The aim is a feature people come back to without being nudged. If a
+                pattern lifts a metric by making someone feel worse,
+                <a href="https://github.com/linardsb/ux-factory/blob/main/system/derive.rules.mjs">it doesn't ship</a>.
               </p>
             </div>
           </article>
           <article class="card" data-inspect="cards">
             <div class="card-body">
-              <div class="card-kicker">How I know it worked</div>
-              <h3 class="h3 mb-md">Prove it</h3>
-              <p class="muted">
+              <div class="card-kicker" data-claim="card-prove-kicker">How I know it worked</div>
+              <h3 class="h3 mb-md" data-claim="card-prove-title">Prove it</h3>
+              <p class="muted" data-claim="card-prove">
                 The outcome I'm after is what changed for the person using it, so before building
-                I write down what would show it worked: an early signal like
+                I <a href="https://github.com/linardsb/ux-factory/blob/main/discovery/faster-payment/prd.md#success-metrics">write down what would show it worked</a>: an early signal like
                 <dfn class="term" data-term="activation" tabindex="0">activation</dfn>, and the slower outcome
-                behind it like <dfn class="term" data-term="retention" tabindex="0">retention</dfn>. After it
-                ships, I go back and check. Most work never gets that second look. I make it a step.
+                behind it like <dfn class="term" data-term="retention" tabindex="0">retention</dfn>. After each
+                change ships, I <a href="https://github.com/linardsb/ux-factory/tree/main/.claude/system-reviews">go back and check it against the plan</a>.
+                Most work never gets that second look. I make it a step.
               </p>
             </div>
           </article>
           <article class="card" data-inspect="cards">
             <div class="card-body">
-              <div class="card-kicker">How I make it durable</div>
-              <h3 class="h3 mb-md">Ship it as a system</h3>
-              <p class="muted">
+              <div class="card-kicker" data-claim="card-system-kicker">How I make it durable</div>
+              <h3 class="h3 mb-md" data-claim="card-system-title">Ship it as a system</h3>
+              <p class="muted" data-claim="card-system">
                 Accessible markup, motion with a reason, and nothing hard-coded: a component asks
                 for a colour or a size by name, and one shared file answers. Those named values are
                 <dfn class="term" data-term="design-token" tabindex="0">design tokens</dfn>. Colour
@@ -127,7 +131,7 @@
             </div>
           </article>
         </div>
-        <p class="muted max-prose mt-2xl">
+        <p class="muted max-prose mt-2xl" data-claim="method-scope">
           The worked examples on this site are narrow on purpose, and all three are fictional.
           <a href="/proto/verdant.html">Verdant</a> is one plant owner and one screen, the overview
           she opens for a daily check-in; the rest of a plant-care app is left general.
@@ -147,22 +151,22 @@
       <div class="container">
         <div class="beat-head">
           <div class="beat-head-text">
-            <p class="beat-kicker">In practice</p>
-            <h2 class="beat-title">This site re-skins itself from one line of CSS.</h2>
+            <p class="beat-kicker" data-claim="case-kicker">In practice</p>
+            <h2 class="beat-title" data-claim="case-title">This site re-skins itself from one line of CSS.</h2>
           </div>
         </div>
-        <p class="beat-lead">The clearest example of the method is this site itself, because the method was used to build it.</p>
+        <p class="beat-lead" data-claim="case-lead">The clearest example of the method is this site itself, because <a href="https://github.com/linardsb/ux-factory/tree/main/docs/epics">the method was used to build it</a>.</p>
         <div class="grid mt-2xl">
           <div class="decision-card" data-inspect="decision-card-organism">
-            <h3 class="decision-card-title">Problem &amp; budget</h3>
-            <p>
-              Re-theming the portfolio for each company meant hand-editing CSS on every page:
+            <h3 class="decision-card-title" data-claim="case-problem-title">Problem &amp; budget</h3>
+            <p data-claim="case-problem">
+              Re-theming the portfolio for each company would have meant hand-editing CSS on every page:
               slow, and easy to get inconsistent. Worth one focused cycle.
             </p>
           </div>
           <div class="decision-card" data-inspect="decision-card-organism">
-            <h3 class="decision-card-title">The one rule</h3>
-            <p>
+            <h3 class="decision-card-title" data-claim="case-rule-title">The one rule</h3>
+            <p data-claim="case-rule">
               Nothing in the markup is allowed to name a colour. A component asks for a role — the
               accent, the page background — and whichever brand file is loaded answers. Those roles
               are <dfn class="term" data-term="semantic-token" tabindex="0">semantic tokens</dfn>.
@@ -173,24 +177,23 @@
             </p>
           </div>
           <div class="decision-card" data-inspect="decision-card-organism">
-            <h3 class="decision-card-title">Build</h3>
-            <p>
-              Three stylesheets load in order. One lists every value a component may ask for and
+            <h3 class="decision-card-title" data-claim="case-build-title">Build</h3>
+            <p data-claim="case-build">
+              <a href="https://github.com/linardsb/ux-factory/blob/main/approach.html">Three stylesheets</a> load in order. One lists every value a component may ask for and
               gives each a neutral default. One overrides those values for a single brand. One holds
               the components, which name values but never set them. In that order they are the
               <dfn class="term" data-term="token-contract" tabindex="0">token contract</dfn>, a
               swappable <dfn class="term" data-term="brand-pack" tabindex="0">brand pack</dfn>, and
-              the components. Accessibility defaults sit in the contract, so every component
-              inherits them.
+              the components. Accessibility defaults sit in
+              <a href="https://github.com/linardsb/ux-factory/blob/main/system/components.css">the component styles</a>,
+              so every component inherits them.
             </p>
           </div>
           <div class="decision-card" data-inspect="decision-card-organism">
-            <h3 class="decision-card-title">Outcome</h3>
-            <p>
-              Re-theming went from edits on every page to one line in each page's
-              <code>&lt;head&gt;</code>. The site also ships
-              <dfn class="term" data-term="structured-data" tabindex="0">structured data</dfn> and an
-              <dfn class="term" data-term="llms-txt" tabindex="0"><code>llms.txt</code></dfn> index, so an
+            <h3 class="decision-card-title" data-claim="case-outcome-title">Outcome</h3>
+            <p data-claim="case-outcome">
+              Re-theming is one line in each page's <code>&lt;head&gt;</code>. The design system's handoff pack also ships an
+              <a href="/handoff/verdant/llms.txt"><code>llms.txt</code> index</a>, so an
               AI assistant can read the system as easily as a browser can.
             </p>
           </div>
@@ -209,7 +212,7 @@
         </div>
         <!-- Outside #asrc on purpose: the exhibit above is hidden until its fetch succeeds, and
              the toggle must stay operable when it doesn't. inspect.mjs wires it. -->
-        <p class="inspect-toggle-row"><button type="button" class="btn btn-secondary inspect-toggle" data-inspect-toggle aria-pressed="false">Inspect this surface</button></p>
+        <p class="inspect-toggle-row" data-claim="inspect-row"><button type="button" class="btn btn-secondary inspect-toggle" data-inspect-toggle aria-pressed="false">Inspect this surface</button></p>
         <!-- Measured size of the shipped system, from the drift-checked artifact
              (system/loc-summary.json, agent-layer/gen-loc-summary.mjs) — never a hand-written number. -->
         <p class="loc-proof" id="loc-proof" hidden></p>
@@ -224,30 +227,30 @@
       <div class="container">
         <div class="beat-head">
           <div class="beat-head-text">
-            <p class="beat-kicker">Sources</p>
-            <h2 class="beat-title">I learn from the primary sources.</h2>
+            <p class="beat-kicker" data-claim="sources-kicker">Sources</p>
+            <h2 class="beat-title" data-claim="sources-title">The primary sources behind the method.</h2>
           </div>
         </div>
         <div class="grid grid-2 mt-2xl">
           <div>
-            <h3 class="caption">Process</h3>
-            <p class="muted">Shape Up (Ryan Singer / Basecamp), Bob Moesta on Jobs-to-be-Done.</p>
+            <h3 class="caption" data-claim="sources-process-title">Process</h3>
+            <p class="muted" data-claim="sources-process">Shape Up (Ryan Singer / Basecamp), Bob Moesta on Jobs-to-be-Done.</p>
           </div>
           <div>
-            <h3 class="caption">Behaviour &amp; ethics</h3>
-            <p class="muted">Nir Eyal, BJ Fogg's behaviour model, Growth.Design, Harry Brignull's Deceptive Patterns, Nielsen Norman Group.</p>
+            <h3 class="caption" data-claim="sources-behaviour-title">Behaviour &amp; ethics</h3>
+            <p class="muted" data-claim="sources-behaviour">Nir Eyal, BJ Fogg's behaviour model, Growth.Design, Harry Brignull's Deceptive Patterns, Nielsen Norman Group.</p>
           </div>
           <div>
-            <h3 class="caption">UI craft &amp; front-end</h3>
-            <p class="muted">Josh Comeau, Ahmad Shadeed, Rauno Freiberg's Web Interface Guidelines, Emil Kowalski on motion, web.dev.</p>
+            <h3 class="caption" data-claim="sources-craft-title">UI craft &amp; front-end</h3>
+            <p class="muted" data-claim="sources-craft">Josh Comeau, Ahmad Shadeed, Rauno Freiberg's Web Interface Guidelines, Emil Kowalski on motion, web.dev.</p>
           </div>
           <div>
-            <h3 class="caption">Design systems &amp; tokens</h3>
-            <p class="muted">the W3C Design Tokens spec, Style Dictionary, Nathan Curtis (EightShapes), the Component Gallery.</p>
+            <h3 class="caption" data-claim="sources-systems-title">Design systems &amp; tokens</h3>
+            <p class="muted" data-claim="sources-systems">the W3C Design Tokens spec, Style Dictionary, Nathan Curtis (EightShapes), the Component Gallery.</p>
           </div>
           <div class="sources-wide">
-            <h3 class="caption">Strategy &amp; systems</h3>
-            <p class="muted">Jared Spool and Center Centre on outcomes over outputs, Leslie Jensen-Inman on "Yes, And", Luke Wroblewski on AI product UX, Donella Meadows' Thinking in Systems, Daniel Kim's systems-thinking tools, John Morecroft on strategic modelling, Gothelf &amp; Seiden's Lean UX, Hartson &amp; Pyla's The UX Book.</p>
+            <h3 class="caption" data-claim="sources-strategy-title">Strategy &amp; systems</h3>
+            <p class="muted" data-claim="sources-strategy">Jared Spool and Center Centre on outcomes over outputs, Leslie Jensen-Inman on "Yes, And", Luke Wroblewski on AI product UX, Donella Meadows' Thinking in Systems, Daniel Kim's systems-thinking tools, John Morecroft on strategic modelling, Gothelf &amp; Seiden's Lean UX, Hartson &amp; Pyla's The UX Book.</p>
           </div>
         </div>
       </div>
@@ -255,7 +258,7 @@
 
     <section class="section">
       <div class="container">
-        <div class="hero-cta-row">
+        <div class="hero-cta-row" data-claim="end-cta">
           <a class="btn btn-primary btn-arrow" href="/factory">Open the studio</a>
           <a class="btn btn-secondary" href="/contact">Get in touch</a>
         </div>

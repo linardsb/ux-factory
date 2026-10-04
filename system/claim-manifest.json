@@ -1,0 +1,182 @@
+{
+  "$description": "Hand-maintained audit of every sentence on approach.html (#497) — the one input to build-checks group 52 (claims), which re-derives every block from the page and fails on any sentence this file does not list. A copy change on approach.html re-pins its sentences here in the same PR (CLAUDE.md convention). BLOCKS: a block is the nearest non-inline ancestor of a text node inside <main> (inline: a abbr b button code dfn em i kbd mark q s small span strong sub sup time u br), so a navigation row is a block too; every block carries data-claim=\"<id>\" on itself, and its sentences, joined with one space, equal its text (entities decoded, whitespace collapsed). One row = one sentence. KINDS: claim — states something the site can show; needs target, steps and how. label — names a page, section, card, button or list. definition — says what a term means. attribution — names a source. stance — a judgement or an aim stated as one, never a past fact or an outcome. Every non-claim needs a reason a reviewer reads; none has a target. TARGETS: #id (an id on this page); /path[#id] (a tracked file the site serves; an extensionless path is .html, and #id must be in that file); https://github.com/linardsb/ux-factory/{blob|tree}/main/<path> (a tracked repo path; a fragment only as a heading anchor on a blob .md, proven against the file's headings — a line range goes stale silently and is refused); control:<selector> (a chrome or /approach entry in system/param-manifest.json). STEPS: one click, toggle or navigation is one step; 0 means the target sits in the claim's own <section>. maxSteps is 2 and the gate pins it, so raising it is a gate edit, not a data edit. The gate verifies hop 1 — a link equal to the target in the claim's own block, or in the block named by via (same section) — and that the target resolves; the rest of the path is declared in how and walked by hand. RENDERED: the two proof lines a script writes, pinned by element id, source artifact and the literal fragments in the page source. CANNOT REACH: whether a sentence's kind is honest (a stance or definition hiding an unproven claim — a reviewer reads each reason), whether the hops after the first land where how says (the dock and the inspect toggle are walked by hand), whether a GitHub target renders on github.com (the gate proves the path is tracked and on disk, not that the push landed or the repo is public), the page's <head>, the injected chrome, glossary bubbles and any text a script renders (annotated-source, derive-probe, inspect), attribute text (aria-label, title, alt), which sentence of a block a link sits in (hop 1 is block-scoped, so a sentence may use a link in another sentence of its block, and its how says so), and every page but approach.html.",
+  "maxSteps": 2,
+  "pages": {
+    "approach.html": {
+      "route": "/approach",
+      "blocks": [
+        { "id": "hero-eyebrow", "sentences": [
+          {"text":"Approach · how I work","kind":"label","reason":"names the page"}
+        ] },
+        { "id": "hero-title", "sentences": [
+          {"text":"I design the interface and build the system behind it.","kind":"claim","target":"#case","steps":1,"how":"The case study button in the hero lands on the case study band","via":"hero-cta"}
+        ] },
+        { "id": "hero-sub", "sentences": [
+          {"text":"I'm a design engineer.","kind":"claim","target":"#case","steps":1,"how":"The case study button in the hero lands on the case study band","via":"hero-cta"},
+          {"text":"Designers decide what a thing should be; engineers make it real.","kind":"definition","reason":"defines the two jobs the next sentence places the work between"},
+          {"text":"The expensive mistakes happen in the gap between those two jobs, so that gap is where I work: close enough to design to shape what gets built, close enough to the code to ship it.","kind":"claim","target":"#case","steps":1,"how":"The case study button in the hero lands on the case study band","via":"hero-cta"}
+        ] },
+        { "id": "hero-cta", "sentences": [
+          {"text":"The method","kind":"label","reason":"button label: a jump to the method"},
+          {"text":"The case study","kind":"label","reason":"button label: a jump to the case study"}
+        ] },
+        { "id": "method-kicker", "sentences": [
+          {"text":"The method","kind":"label","reason":"section kicker"}
+        ] },
+        { "id": "method-title", "sentences": [
+          {"text":"Four habits, run as one loop.","kind":"claim","target":"https://github.com/linardsb/ux-factory/tree/main/.claude/system-reviews","steps":1,"how":"The committed-checks link at the end of the lead below opens the system reviews on GitHub","via":"method-lead"}
+        ] },
+        { "id": "method-lead", "sentences": [
+          {"text":"I run all four on every piece of work, and I go back to check whether the last one actually worked.","kind":"claim","target":"https://github.com/linardsb/ux-factory/tree/main/.claude/system-reviews","steps":1,"how":"The linked sentence opens the committed system reviews, each checking finished work against its plan"},
+          {"text":"The checks on this site are committed.","kind":"claim","target":"https://github.com/linardsb/ux-factory/tree/main/.claude/system-reviews","steps":1,"how":"The linked words open the system reviews folder on GitHub"}
+        ] },
+        { "id": "card-shape-kicker", "sentences": [
+          {"text":"How I decide and pace work","kind":"label","reason":"card kicker naming the habit"}
+        ] },
+        { "id": "card-shape-title", "sentences": [
+          {"text":"Shape it","kind":"label","reason":"card title"}
+        ] },
+        { "id": "card-shape", "sentences": [
+          {"text":"A vague ask becomes a scoped bet with a time budget.","kind":"claim","target":"https://github.com/linardsb/ux-factory/blob/main/discovery/faster-payment/prd.md#transition-note","steps":1,"how":"The linked words open the Faster Payment PRD at its transition note: appetite, rabbit holes, out of bounds"},
+          {"text":"I design the solution to fit that budget, name the risks, and say what's out of scope before anyone writes code.","kind":"claim","target":"https://github.com/linardsb/ux-factory/blob/main/discovery/faster-payment/prd.md#transition-note","steps":1,"how":"The same link: the transition note names the risks (rabbit holes) and what is out of bounds, written before any code"},
+          {"text":"Every decision names the result that would kill it, so a bad bet dies on paper, where it costs a conversation instead of a build cycle.","kind":"claim","target":"https://github.com/linardsb/ux-factory/blob/main/discovery/faster-payment/prd.md#success-metrics","steps":1,"how":"The linked words open the PRD's success metrics: a kill criterion for every decision, by seq"}
+        ] },
+        { "id": "card-behaviour-kicker", "sentences": [
+          {"text":"How I make it work for real people","kind":"label","reason":"card kicker naming the habit"}
+        ] },
+        { "id": "card-behaviour-title", "sentences": [
+          {"text":"Design for behaviour","kind":"label","reason":"card title"}
+        ] },
+        { "id": "card-behaviour", "sentences": [
+          {"text":"A feature only matters if someone actually uses it.","kind":"stance","reason":"a judgement about what makes a feature matter"},
+          {"text":"I find the real trigger, cut the friction between the person and the payoff, and make the behaviour easier before trying to make it more motivating.","kind":"claim","target":"/factory#method","steps":1,"how":"The linked words open the studio's method band, whose Hook loop starts at the trigger card"},
+          {"text":"The aim is a feature people come back to without being nudged.","kind":"stance","reason":"an aim, stated as one: no real users exist to measure it against"},
+          {"text":"If a pattern lifts a metric by making someone feel worse, it doesn't ship.","kind":"claim","target":"https://github.com/linardsb/ux-factory/blob/main/system/derive.rules.mjs","steps":1,"how":"The linked words open derive.rules.mjs, whose ethics matrix is the rule that refuses a dark pattern"}
+        ] },
+        { "id": "card-prove-kicker", "sentences": [
+          {"text":"How I know it worked","kind":"label","reason":"card kicker naming the habit"}
+        ] },
+        { "id": "card-prove-title", "sentences": [
+          {"text":"Prove it","kind":"label","reason":"card title"}
+        ] },
+        { "id": "card-prove", "sentences": [
+          {"text":"The outcome I'm after is what changed for the person using it, so before building I write down what would show it worked: an early signal like activation, and the slower outcome behind it like retention.","kind":"claim","target":"https://github.com/linardsb/ux-factory/blob/main/discovery/faster-payment/prd.md#success-metrics","steps":1,"how":"The linked words open the PRD's success metrics: the thresholds (completion, scam loss, complaints) written down before the build"},
+          {"text":"After each change ships, I go back and check it against the plan.","kind":"claim","target":"https://github.com/linardsb/ux-factory/tree/main/.claude/system-reviews","steps":1,"how":"The linked words open the committed system reviews, each checking a finished ticket against its plan"},
+          {"text":"Most work never gets that second look.","kind":"stance","reason":"a judgement about common practice"},
+          {"text":"I make it a step.","kind":"claim","target":"https://github.com/linardsb/ux-factory/tree/main/.claude/system-reviews","steps":1,"how":"The link in the sentence before: the reviews are committed as a step"}
+        ] },
+        { "id": "card-system-kicker", "sentences": [
+          {"text":"How I make it durable","kind":"label","reason":"card kicker naming the habit"}
+        ] },
+        { "id": "card-system-title", "sentences": [
+          {"text":"Ship it as a system","kind":"label","reason":"card title"}
+        ] },
+        { "id": "card-system", "sentences": [
+          {"text":"Accessible markup, motion with a reason, and nothing hard-coded: a component asks for a colour or a size by name, and one shared file answers.","kind":"claim","target":"#case","steps":2,"how":"The case study link at the end of this card (1), then the Build card's \"the component styles\" link (2) opens components.css: its :focus-visible and prefers-reduced-motion rules, and components that name tokens and set no literal value"},
+          {"text":"Those named values are design tokens.","kind":"definition","reason":"names the values the sentence before describes"},
+          {"text":"Colour and spacing can't drift, because there is nowhere for them to drift to.","kind":"claim","target":"#case","steps":1,"how":"The case study link at the end of this card opens the band, whose annotated source shows a component asking for roles and never naming a colour"},
+          {"text":"The outcome: change stays cheap — a rebrand is one file.","kind":"claim","target":"control:input[name=\"pack\"]","steps":2,"how":"At 1100px and wider (the dock is not shown below that): open the appearance dock (1), choose another pack (2), and the whole page re-skins from the one pack file"},
+          {"text":"This site is built that way (see the case study).","kind":"claim","target":"#case","steps":1,"how":"The case study link in this sentence"}
+        ] },
+        { "id": "method-scope", "sentences": [
+          {"text":"The worked examples on this site are narrow on purpose, and all three are fictional.","kind":"claim","target":"/proto/verdant.html","steps":1,"how":"The Verdant link in the next sentence opens a prototype that carries its fictional-scenario notice"},
+          {"text":"Verdant is one plant owner and one screen, the overview she opens for a daily check-in; the rest of a plant-care app is left general.","kind":"claim","target":"/proto/verdant.html","steps":1,"how":"The Verdant link opens the one screen"},
+          {"text":"Fieldwork is one dispatcher and one screen, the dispatch board; the technicians' side is left general.","kind":"claim","target":"/proto/fieldwork.html","steps":1,"how":"The Fieldwork link opens the dispatch board"},
+          {"text":"Faster Payment, a real discovery run on a fictional bank, covers paying a new UK payee from the app; international and business payments are left out of this release.","kind":"claim","target":"https://github.com/linardsb/ux-factory/blob/main/discovery/faster-payment/prd.md","steps":1,"how":"The Faster Payment link opens the PRD, whose MVP and non-goals name the scope"},
+          {"text":"The reason is Ryan Singer's advice on what to define before hiring a developer: start with the concrete cases that matter now and generalise once they are solved, because every added \"if\" multiplies the complexity.","kind":"attribution","reason":"attributes the scoping advice to its source"}
+        ] },
+        { "id": "case-kicker", "sentences": [
+          {"text":"In practice","kind":"label","reason":"section kicker"}
+        ] },
+        { "id": "case-title", "sentences": [
+          {"text":"This site re-skins itself from one line of CSS.","kind":"claim","target":"https://github.com/linardsb/ux-factory/blob/main/approach.html","steps":1,"how":"The \"Three stylesheets\" link in the Build card opens this page's source, where the brand pack is the one <link> line in its head; any width","via":"case-build"}
+        ] },
+        { "id": "case-lead", "sentences": [
+          {"text":"The clearest example of the method is this site itself, because the method was used to build it.","kind":"claim","target":"https://github.com/linardsb/ux-factory/tree/main/docs/epics","steps":1,"how":"The linked words open the PRD and architecture decisions the build followed"}
+        ] },
+        { "id": "case-problem-title", "sentences": [
+          {"text":"Problem & budget","kind":"label","reason":"card title"}
+        ] },
+        { "id": "case-problem", "sentences": [
+          {"text":"Re-theming the portfolio for each company would have meant hand-editing CSS on every page: slow, and easy to get inconsistent.","kind":"stance","reason":"a counterfactual: no pre-contract version of the site was committed to show"},
+          {"text":"Worth one focused cycle.","kind":"stance","reason":"a judgement about the appetite"}
+        ] },
+        { "id": "case-rule-title", "sentences": [
+          {"text":"The one rule","kind":"label","reason":"card title"}
+        ] },
+        { "id": "case-rule", "sentences": [
+          {"text":"Nothing in the markup is allowed to name a colour.","kind":"claim","target":"#asrc","steps":0,"how":"The annotated source in this band shows a component asking for roles, never a colour"},
+          {"text":"A component asks for a role — the accent, the page background — and whichever brand file is loaded answers.","kind":"claim","target":"#asrc","steps":0,"how":"The annotated source in this band shows the role names and the probe answering them"},
+          {"text":"Those roles are semantic tokens.","kind":"definition","reason":"names the roles the sentence before describes"},
+          {"text":"The industry name for encoding intent this way is a steering layer: design intent encoded where neither a person nor an AI agent can drift from it.","kind":"definition","reason":"gives the industry term for the rule"},
+          {"text":"No framework, no build step either: plain HTML and CSS.","kind":"claim","target":"#asrc","steps":0,"how":"The annotated source in this band is plain CSS read from the shipped file"}
+        ] },
+        { "id": "case-build-title", "sentences": [
+          {"text":"Build","kind":"label","reason":"card title"}
+        ] },
+        { "id": "case-build", "sentences": [
+          {"text":"Three stylesheets load in order.","kind":"claim","target":"https://github.com/linardsb/ux-factory/blob/main/approach.html","steps":1,"how":"The linked words open this page's source on GitHub; its three stylesheet links load in order"},
+          {"text":"One lists every value a component may ask for and gives each a neutral default.","kind":"claim","target":"control:[data-inspect-toggle]","steps":2,"how":"At desktop width (the bubble opens at 1280px, and not at 390px, on main too): turn on Inspect this surface (1), hover a card (2): its contract token names show"},
+          {"text":"One overrides those values for a single brand.","kind":"claim","target":"control:[data-inspect-toggle]","steps":2,"how":"At desktop width (the bubble opens at 1280px, and not at 390px, on main too): turn on Inspect this surface (1), hover a card (2): its token values show under the loaded pack"},
+          {"text":"One holds the components, which name values but never set them.","kind":"claim","target":"control:[data-inspect-toggle]","steps":2,"how":"At desktop width (the bubble opens at 1280px, and not at 390px, on main too): turn on Inspect this surface (1), hover a card (2): the component names tokens and sets none"},
+          {"text":"In that order they are the token contract, a swappable brand pack, and the components.","kind":"definition","reason":"names the three layers the sentences before describe"},
+          {"text":"Accessibility defaults sit in the component styles, so every component inherits them.","kind":"claim","target":"https://github.com/linardsb/ux-factory/blob/main/system/components.css","steps":1,"how":"The linked words open components.css, which holds the :focus-visible and prefers-reduced-motion rules"}
+        ] },
+        { "id": "case-outcome-title", "sentences": [
+          {"text":"Outcome","kind":"label","reason":"card title"}
+        ] },
+        { "id": "case-outcome", "sentences": [
+          {"text":"Re-theming is one line in each page's <head>.","kind":"claim","target":"https://github.com/linardsb/ux-factory/blob/main/approach.html","steps":1,"how":"The \"Three stylesheets\" link in the Build card opens this page's source, where the brand pack is the one <link> line in its head; any width","via":"case-build"},
+          {"text":"The design system's handoff pack also ships an llms.txt index, so an AI assistant can read the system as easily as a browser can.","kind":"claim","target":"/handoff/verdant/llms.txt","steps":1,"how":"The linked words open the handoff pack's llms.txt"}
+        ] },
+        { "id": "inspect-row", "sentences": [
+          {"text":"Inspect this surface","kind":"label","reason":"control label: the toggle is itself the proof surface case-build points at"}
+        ] },
+        { "id": "sources-kicker", "sentences": [
+          {"text":"Sources","kind":"label","reason":"section kicker"}
+        ] },
+        { "id": "sources-title", "sentences": [
+          {"text":"The primary sources behind the method.","kind":"label","reason":"names the list below"}
+        ] },
+        { "id": "sources-process-title", "sentences": [
+          {"text":"Process","kind":"label","reason":"names the source cluster"}
+        ] },
+        { "id": "sources-process", "sentences": [
+          {"text":"Shape Up (Ryan Singer / Basecamp), Bob Moesta on Jobs-to-be-Done.","kind":"attribution","reason":"names sources; a reading list, not a claim of result"}
+        ] },
+        { "id": "sources-behaviour-title", "sentences": [
+          {"text":"Behaviour & ethics","kind":"label","reason":"names the source cluster"}
+        ] },
+        { "id": "sources-behaviour", "sentences": [
+          {"text":"Nir Eyal, BJ Fogg's behaviour model, Growth.Design, Harry Brignull's Deceptive Patterns, Nielsen Norman Group.","kind":"attribution","reason":"names sources; a reading list, not a claim of result"}
+        ] },
+        { "id": "sources-craft-title", "sentences": [
+          {"text":"UI craft & front-end","kind":"label","reason":"names the source cluster"}
+        ] },
+        { "id": "sources-craft", "sentences": [
+          {"text":"Josh Comeau, Ahmad Shadeed, Rauno Freiberg's Web Interface Guidelines, Emil Kowalski on motion, web.dev.","kind":"attribution","reason":"names sources; a reading list, not a claim of result"}
+        ] },
+        { "id": "sources-systems-title", "sentences": [
+          {"text":"Design systems & tokens","kind":"label","reason":"names the source cluster"}
+        ] },
+        { "id": "sources-systems", "sentences": [
+          {"text":"the W3C Design Tokens spec, Style Dictionary, Nathan Curtis (EightShapes), the Component Gallery.","kind":"attribution","reason":"names sources; a reading list, not a claim of result"}
+        ] },
+        { "id": "sources-strategy-title", "sentences": [
+          {"text":"Strategy & systems","kind":"label","reason":"names the source cluster"}
+        ] },
+        { "id": "sources-strategy", "sentences": [
+          {"text":"Jared Spool and Center Centre on outcomes over outputs, Leslie Jensen-Inman on \"Yes, And\", Luke Wroblewski on AI product UX, Donella Meadows' Thinking in Systems, Daniel Kim's systems-thinking tools, John Morecroft on strategic modelling, Gothelf & Seiden's Lean UX, Hartson & Pyla's The UX Book.","kind":"attribution","reason":"names sources; a reading list, not a claim of result"}
+        ] },
+        { "id": "end-cta", "sentences": [
+          {"text":"Open the studio","kind":"label","reason":"button label: navigation to the studio"},
+          {"text":"Get in touch","kind":"label","reason":"button label: navigation to the contact page"}
+        ] }
+      ],
+      "rendered": [
+        {"id":"loc-proof","source":"system/loc-summary.json","steps":0,"fragments":["Counted at build time and checked in CI: the design system this site ships is "," files, about "," lines. No framework, no build step."]},
+        {"id":"param-proof","source":"system/param-count.json","steps":0,"fragments":[" of the things on these pages are live controls you can operate — inputs, switches ","and editable surfaces, counted from a committed manifest and checked in CI."]}
+      ]
+    }
+  }
+}
