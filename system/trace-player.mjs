@@ -13,11 +13,11 @@
 //
 // Said / Did (#496): every card carries a kind label as its first child and its accessible name
 // (aria-labelledby) — "Said" for a `text` step (the agent's own account, a claim) and "Did" for a `tool`
-// step (a call it actually made, the record). Chen et al. (Anthropic, 2025, arXiv:2505.05410) found
-// reasoning models' stated reasons often omit what drove the answer, so the two are not equal evidence;
-// /factory's ledger makes the same narrated/did split (replay-driver.mjs). The card builder, the label and
-// the act tally all key off the same `step.kind`, so they cannot disagree. The label is text, not colour
-// (WCAG 1.4.1). A kind outside the table labels itself verbatim — never a Said/Did the trace did not record.
+// step (a call it made, the record; a call the fence refused is still Did). Chen et al. (Anthropic, 2025,
+// arXiv:2505.05410) found reasoning models' stated reasons often omit what drove the answer, so the two are
+// not equal evidence; /factory's ledger makes the same narrated/did split (replay-driver.mjs). The card
+// builder, the label and the act tally all key off the same `step.kind`, so they cannot disagree. The label
+// is text, not colour (WCAG 1.4.1). A kind outside the table labels itself verbatim, never as Said or Did.
 //
 // No imports, no fetch: the page fetches the JSONL and hands the text to parseTrace; the
 // player only renders (keeps #10 free to inline or preload). Zero runtime deps — shipped
@@ -31,11 +31,11 @@
 
 const ACTS = [['plan', 'Plan'], ['gate', 'Gate'], ['implement', 'Implement'], ['validate', 'Validate']];
 
-// Said / Did (#496): the agent's own account vs a call it actually made. One table, read by the card
+// Said / Did (#496): the agent's own account vs a call it made, refused or not. One table, read by the card
 // label AND the act tally, so the two cannot disagree. A kind outside it labels itself verbatim.
 const KIND_LABEL = { text: 'Said', tool: 'Did' };
 const kindLabel = (step) => KIND_LABEL[step.kind] || String(step.kind);
-const KINDS_NOTE = 'Said cards are the agent\u2019s own account of what it was doing and Did cards are calls it actually made, so read Said as a claim: Claude 3.7 Sonnet and DeepSeek R1 mentioned the hint that changed their answer only 25% and 39% of the time (Chen et al., Anthropic, 2025, \u201cReasoning models don\u2019t always say what they think\u201d, arXiv:2505.05410).';
+const KINDS_NOTE = 'Said cards are the agent\u2019s own account of what it was doing and Did cards are calls it made, including ones the fence refused, so read Said as a claim: Claude 3.7 Sonnet and DeepSeek R1 mentioned the hint that changed their answer only 25% and 39% of the time (Chen et al., Anthropic, 2025, \u201cReasoning models don\u2019t always say what they think\u201d, arXiv:2505.05410).';
 let kindSeq = 0; // page-unique label ids — two players can share a page (see header)
 
 // parseTrace(jsonlText) → { meta, steps, result }. Pure (no DOM) so it runs under Node.
