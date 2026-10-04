@@ -19419,8 +19419,10 @@ const synthPng = (w, h, ct, px) => {
   // whether the hops after the first land where how says (the dock and the inspect toggle are walked by
   // hand), whether a GitHub target renders on github.com (the gate proves the path is tracked and on
   // disk, not that the push landed or the repo is public), the page's <head>, the injected chrome,
-  // glossary bubbles and any text a script renders (annotated-source, derive-probe, inspect), and every
-  // page but approach.html.
+  // glossary bubbles and any text a script renders (annotated-source, derive-probe, inspect), attribute
+  // text (aria-label, title, alt), which sentence of a block a link sits in (hop 1 is block-scoped, so a
+  // sentence may use a link in another sentence of its block, and its how says so), and every page but
+  // approach.html.
   // Every case RUNS auditClaims or walkClaims; none reads source as text for its verdict.
   {
     const PAGE = "approach.html";
@@ -19463,7 +19465,7 @@ const synthPng = (w, h, ct, px) => {
       while ((m = re.exec(main))) {
         if (!m[2]) { ownerOf()?.texts.push(m[4]); continue; }
         const tag = m[2].toLowerCase();
-        if (m[1]) { while (stack.length && stack.pop().tag !== tag); continue; }
+        if (m[1]) { if (stack.some((n) => n.tag === tag)) while (stack.pop().tag !== tag); continue; } // a stray close tag pops nothing
         const node = { tag, attrs: m[3], section: tag === "section" ? ++sections : (stack.at(-1)?.section ?? -1), texts: [], hrefs: [] };
         const id = m[3].match(ID_RE)?.[1];
         if (id !== undefined) ids.set(id, node.section);
@@ -19479,14 +19481,14 @@ const synthPng = (w, h, ct, px) => {
       return { blocks, ids };
     };
 
-    // GitHub's heading anchors: lower-case, everything but [a-z0-9 -] dropped, spaces to "-"; fenced code skipped.
+    // GitHub's heading anchors: lower-case, everything but [a-z0-9 _-] dropped, spaces to "-"; fenced code skipped.
     const headingSlugs = (md) => {
       const slugs = new Set();
       let fenced = false;
       for (const line of md.split("\n")) {
         if (/^\s*```/.test(line)) { fenced = !fenced; continue; }
         const h = !fenced && line.match(/^#{1,6}\s+(.+?)\s*#*\s*$/);
-        if (h) slugs.add(h[1].toLowerCase().replace(/[^a-z0-9 -]/g, "").replace(/ /g, "-"));
+        if (h) slugs.add(h[1].toLowerCase().replace(/[^a-z0-9 _-]/g, "").replace(/ /g, "-"));
       }
       return slugs;
     };
@@ -19514,7 +19516,7 @@ const synthPng = (w, h, ct, px) => {
         const missing = onDisk(world, file);
         if (missing) return missing;
         if (frag === undefined) return null;
-        return stripComments(world.read(file)).includes(`id="${frag}"`) ? null : `#${frag} is not an id in ${file}`;
+        return new Set([...stripComments(world.read(file)).matchAll(/\sid="([^"]*)"/g)].map((x) => x[1])).has(frag) ? null : `#${frag} is not an id in ${file}`;
       }
       return `${target} is not one of the four target forms`;
     };
@@ -19656,7 +19658,19 @@ const synthPng = (w, h, ct, px) => {
     // --- 52.11 nothing tracked moved -----------------------------------------------------------------------
     ok(gitSnap() === GIT_BEFORE, `52.11: the group moved a tracked path — git status went from ${JSON.stringify(GIT_BEFORE)} to ${JSON.stringify(gitSnap())}`);
 
-    group("claims", `system/claim-manifest.json against approach.html (#497): every block in <main> re-derived from the page and matched to its data-claim, every sentence a claim with a target, a step count of at most 2 and a how, or a label, definition, attribution or stance with a reason · 52.1 the real page, manifest and tree answer no problem · 52.2 (c) a new <p>, a sentence appended to a card and two sentences in one row each refused · 52.3 (b) steps 3 refused and maxSteps 3 in data refused against the pinned 2 · 52.4–52.6 (a) an untracked target, one gone from disk, an unlisted control, an outside URL, a heading one letter off and a line range each refused · 52.7 hop 1: the hero's link removed, a neighbour's link borrowed without via, and steps 0 pointed at another section each refused · 52.8 a proof line's literal reworded refused · 52.9 a claim with no target and a label with one refused · 52.10 the walker's ${BLOCK_COUNT} blocks pinned · 52.11 nothing tracked moved. CANNOT REACH: whether a sentence's kind is honest (a stance or definition hiding an unproven claim — a reviewer reads each reason), whether the hops after the first land where how says (the dock and the inspect toggle are walked by hand), whether a GitHub target renders on github.com (the gate proves the path is tracked and on disk, not that the push landed or the repo is public), the page's <head>, the injected chrome, glossary bubbles and any text a script renders (annotated-source, derive-probe, inspect), and every page but approach.html`);
+    // --- 52.12 a stray close tag pops nothing (PR #527 review F6) ----------------------------------------
+    const stray = audit("52.12", mutate("52.12", "Accessible markup, motion", "</em>Accessible markup, motion"));
+    ok(stray.length === 0, `52.12: a stray </em> in card-system emptied the walker's stack — ${stray.length} problem(s):\n      ${stray.join("\n      ")}`);
+
+    // --- 52.13 anchors: an underscore heading resolves, a data-id is not an id (PR #527 review F8) --------
+    const readAs = (path, text) => ({ ...REAL, read: (p) => (p === path ? text : REAL.read(p)) });
+    const underscore = audit("52.13", HTML, withRow("card-prove", 0, { target: `${GH}${PRD}#foo_bar` }), readAs(PRD, `${REAL.read(PRD)}\n## foo_bar\n`));
+    ok(!underscore.some((p) => p.includes("#foo_bar is not a heading")), `52.13: the heading "foo_bar" did not resolve as #foo_bar — ${JSON.stringify(underscore)}`);
+    const idIn = (html) => audit("52.13", HTML, withRow("method-scope", 0, { target: "/proto/verdant.html#zzz" }), readAs("proto/verdant.html", html)).filter((p) => p.includes("#zzz is not an id"));
+    ok(idIn('<div id="zzz"></div>').length === 0, `52.13: a real id="zzz" was refused (the control)`);
+    fires("52.13 data-id is not an id", idIn('<div data-id="zzz"></div>'), "#zzz is not an id in proto/verdant.html");
+
+    group("claims", `system/claim-manifest.json against approach.html (#497): every block in <main> re-derived from the page and matched to its data-claim, every sentence a claim with a target, a step count of at most 2 and a how, or a label, definition, attribution or stance with a reason · 52.1 the real page, manifest and tree answer no problem · 52.2 (c) a new <p>, a sentence appended to a card and two sentences in one row each refused · 52.3 (b) steps 3 refused and maxSteps 3 in data refused against the pinned 2 · 52.4–52.6 (a) an untracked target, one gone from disk, an unlisted control, an outside URL, a heading one letter off and a line range each refused · 52.7 hop 1: the hero's link removed, a neighbour's link borrowed without via, and steps 0 pointed at another section each refused · 52.8 a proof line's literal reworded refused · 52.9 a claim with no target and a label with one refused · 52.10 the walker's ${BLOCK_COUNT} blocks pinned · 52.11 nothing tracked moved · 52.12 a stray close tag in a block popping nothing (PR #527 F6) · 52.13 a heading with an underscore resolving as its anchor and a data-id refused as a page id, beside a real id as the control (F8). CANNOT REACH: whether a sentence's kind is honest (a stance or definition hiding an unproven claim — a reviewer reads each reason), whether the hops after the first land where how says (the dock and the inspect toggle are walked by hand), whether a GitHub target renders on github.com (the gate proves the path is tracked and on disk, not that the push landed or the repo is public), the page's <head>, the injected chrome, glossary bubbles and any text a script renders (annotated-source, derive-probe, inspect), attribute text (aria-label, title, alt), which sentence of a block a link sits in (hop 1 is block-scoped, so a sentence may use a link in another sentence of its block, and its how says so), and every page but approach.html`);
   }
 
   if (failures) {
