@@ -154,3 +154,36 @@ An earlier, weaker probe (`insp.cjs`, no settle) missed opens that `insp2` sees,
 - Pre-existing: group 47's failure message at `build-checks.mjs:17775` throws a TypeError when `prd.md` is missing,
   which aborts the whole gate. Not fixed here (out of scope); worth a one-line follow-up.
 - The `factory · neutral` VR update failure is pre-existing flake territory on an untouched page. CI's visual job is the authority.
+
+## Review round 1 (`.claude/code-reviews/pr-527-review.md`)
+
+Owner's triage: fix F1 F3 F6 F7 F8 on this PR, F2 by narrowing the sentence, defer F4 and F5.
+
+- **F1 fixed (data only).** Hop 1 must be a link in the claim's own block or a `via` block in the same section,
+  and `card-system`'s only link is `#case`, so `components.css` cannot be the target. S1 is now `#case` at 2 steps,
+  with `how` naming the Build card's "the component styles" link as the second hop. S3 stays at 1 step, and its
+  `how` now names the annotated source in the band (it shows `--color-accent*` roles only, so the `how` says colour,
+  not size). Probe (observed, reverted): a literal `#ff0000` in `components.css` turns no gate red. token-lint and
+  build-checks stay green, and only system-graph drifts. So S3's "can't drift" is shown by the exhibit, not enforced
+  by a gate. **Needs the owner's read:** whether S3 overclaims.
+- **F2 fixed (copy, owner's call).** `case-outcome` S1 now reads "Re-theming is one line in each page's `<head>`.",
+  which its target shows. The page and the manifest row changed together, and the three approach baselines were
+  regenerated (removed, then `update:docker` from a clean detached worktree at `71518eb`). Only those three PNGs changed.
+- **F3 + F7 fixed.** The CANNOT REACH clause now names attribute text (`aria-label`, `title`, `alt`) and states that
+  hop 1 is block-scoped. All four copies (manifest `$description`, `gates.md`, the group comment and the group string)
+  were changed by one script that asserted exactly one match per copy.
+- **F6 fixed.** A close tag with no open match is ignored. 52.12 inserts a stray `</em>` into `card-system` and
+  expects no problems.
+- **F8 fixed.** `headingSlugs` keeps `_`, and a `/path#id` fragment must be an `id` attribute: the ids are collected
+  with a fixed `\sid="…"` regex, never `new RegExp(frag)`. 52.13 checks that an appended `## foo_bar` heading resolves
+  as `#foo_bar`, that a `data-id="zzz"` is refused, and that a real `id="zzz"` passes (the control).
+- **Mutation proof (observed).** With each fix reverted in turn, the gate goes red: 52.12 on the stack fix, 52.13 on
+  the underscore fix, and "52.13 data-id is not an id … got []" on the id fix.
+- **Counts now.** Claims: 3 at 0 steps, 26 at 1, 5 at 2. In-memory cases: the original 17 plus four (52.12, and 52.13's
+  three).
+- **Deferred and dropped (F4, F5, both Low).** No open epic ticket touches group 52 or the claim manifest, and #497
+  closes with this PR, so per the triage rule they are recorded here only. F4: `control:` targets get no check against
+  the page DOM. F5: `BOUNDARY_RE` misses a merged "Foo. 3× faster." row. The next PR that touches group 52 will find
+  them again.
+- **Gates (observed, on `wt-497`).** `build-checks` all 52 groups pass. `drift-check` ✓ with the tree staged.
+  `token-lint` ✓ (63 · 0 · 0). `/api/health` answered `ok:true` on port 4791, killed by PID.
