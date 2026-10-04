@@ -42,6 +42,7 @@ system/                       the shipped design system — brand-agnostic core 
   icons.mjs                   GENERATED subset — name → path data; the icon template's only source
   param-manifest.json         hand-maintained: one entry per live-manipulable control (counting rules inside)
   param-count.json            GENERATED control totals — approach.html renders the total
+  claim-manifest.json         hand-maintained: every sentence on approach.html, its kind and its proof
   instance.mjs                view-time private-instance shell config; boots the studio band
   ── the studio (epic #202) ──
   studio-canvas.mjs           the canvas SUBSTRATE — native-scroll stage, free positions, continuous zoom
@@ -147,7 +148,7 @@ docs/epics/                   PRD + architecture decisions governing the platfor
 docs/figma-runbook.md         operator steps for the Figma boundary + the request-budget rules
 
 tooling/
-  build-checks.mjs            51 PURE groups, in CI — the repo's main gate  (→ references/gates.md)
+  build-checks.mjs            52 PURE groups, in CI — the repo's main gate  (→ references/gates.md)
   build-journey.mjs           /build ×3 engines, operator-run             (→ references/gates.md)
   proto-journey.mjs           the two proto pages ×3 engines              (→ references/gates.md)
   studio-journey.mjs          the studio ×3 engines + the INP gate        (→ references/gates.md)
@@ -194,6 +195,7 @@ The kb (`_factory/kb/` in the jobs folder) is the database — record shapes + p
 - **Pack imported from Figma** → `node tooling/figma/figma-pull.mjs --slug <slug> --accent <hue> [--page Color]` → `system/tokens.<slug>.css` (`--offline` re-runs off the cache for free; `--from <export.json>` reads a plugin export instead of the API — no token, no quota, no Enterprise gate). It targets a PACK, never the contract. Same honesty rule as traces: the pack header states whose design work it is, which ramps were mapped, and every contrast negotiation and remaining WCAG failure.
 - **View-time behaviour on shipped pages** → a hand-written ES module beside `system/site.js`.
 - **New live-manipulable control on a shipped page** → add its `system/param-manifest.json` entry in the same PR + regenerate `node agent-layer/gen-param-count.mjs` (CI `verify` drift-checks it).
+- **Copy change on approach.html** → re-pin its sentences (and any target) in `system/claim-manifest.json` in the same PR; build-checks group 52 reds until you do.
 - **kb record type or field** → `.claude/references/kb-format.md` (both parsers must stay in sync).
 - **New scenario** → clone a `scenarios/<slug>/` package per `scenarios/README.md` + one `scenarios/index.json` entry + its imports in `worker/fixtures.mjs`; the Worker's routes (`worker/api.mjs`) never change.
 - **New trace** → record a REAL run: `node portal/record-trace.mjs` → curate `node tooling/curate-trace.mjs <raw> <out>` → validate `node tooling/validate-trace.mjs`. Hand-writing or hand-editing trace content is forbidden (honesty contract, hard) — a bad run is fixed by a tighter agent prompt + re-run, never an edit.
@@ -232,7 +234,7 @@ The kb (`_factory/kb/` in the jobs folder) is the database — record shapes + p
 ## On-demand context
 Route on-demand detail to `.claude/references/` — never back into this file.
 
-- **`gates.md`** — the gate stack: build-checks' 51 groups, the seven journey drivers, the pixel gate, the morph gates, and what each one states it CANNOT reach. Read before adding or changing a gate, or before trusting a green run.
+- **`gates.md`** — the gate stack: build-checks' 52 groups, the seven journey drivers, the pixel gate, the morph gates, and what each one states it CANNOT reach. Read before adding or changing a gate, or before trusting a green run.
 - **`token-system.md`** — the three-layer mechanic and how to add a token.
 - **`kb-format.md`** — kb record shapes + the ComponentSpec / DataContract format.
 - **`backend-api-best-practices.md`** — API route work · **`frontend-component-best-practices.md`** — UI work.

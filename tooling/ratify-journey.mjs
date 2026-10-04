@@ -225,7 +225,7 @@ async function pagePass(base) {
     const steps = await page.locator("[data-ratify-step]").evaluateAll((ns) => ns.map((n) => ({ step: n.dataset.ratifyStep, exit: n.dataset.ratifyExit })));
     const lastTail = await page.locator("[data-ratify-tail]").last().textContent();
     t("R7 · ten steps, every exit 0", steps.length === 10 && steps.every((s) => s.exit === "0"), JSON.stringify(steps));
-    t("R7 · the last step's tail reads build ✓  all 51 groups pass", (lastTail ?? "").includes("build ✓  all 51 groups pass"), (lastTail ?? "").slice(-200));
+    t("R7 · the last step's tail reads build ✓  all 52 groups pass", (lastTail ?? "").includes("build ✓  all 52 groups pass"), (lastTail ?? "").slice(-200));
 
     // R8 — git status equals the response's porcelain and exactly the expected set.
     const shown = new Set(await page.locator("[data-ratify-porcelain] li").allTextContents());

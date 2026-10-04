@@ -1,7 +1,7 @@
 // tooling/build-checks.mjs — the committed unit gate for /build's pattern chain (epic #134,
 // ticket #137; .claude/plans/build-pattern-render-keep-rail.md).
 //
-// Thirty-six groups, one ✓ line each, exit 1 on any failure — the tooling/validate-trace.mjs shape.
+// Fifty-two groups, one ✓ line each, exit 1 on any failure — the tooling/validate-trace.mjs shape.
 // SPELT OUT, AND THEREFORE NOT GATED: drift-check's group-count leg reads /all (\d+) groups pass/,
 // which cannot see a word. This is the fifth prose copy of the count and the only one a ticket has to
 // move by hand — recorded here so the next person moving it knows why their green run said nothing.
@@ -19408,9 +19408,260 @@ const synthPng = (w, h, ct, px) => {
     group("inbox", `portal/lib/inbox.mjs (#319, D1): every build run's waiting items as rows, a pure read · 51.1 IMPORTED in CI with no portal/node_modules, its parsed specifiers node: built-ins plus exactly canvas-ops, the store, discovery/ops.mjs and discovery/proposals.mjs, no SDK, zod, MCP or dynamic import, and its node: imports exactly node:fs {existsSync, readFileSync} and node:path {join} (an allowlist, so no write call, node:fs/promises, namespace or default import is in reach) · 51.2 no roots, an absent root and a package whose build/ is empty each answering no rows and no errors, the last counted 0 · 51.3 a seeded copy of the spine answering exactly f1's three missing-state rows (empty, loading, partial — field by field, href included), entryFrames ["f1"] there, the first base frame over a cycle and [] over junk, and the committed discovery/ answering no errors, known kinds and counts summing to its rows · 51.4 one positive control per kind, each on its own seeded copy and cleared by its own verb through the real writer with every other row unchanged and no row the case does not name: stale-frame (a REAL discovery-applier supersede, Re-confirm by reconfirmRefs; blocking on the entry f1, not on a non-entry f3), dangling-ref (a 99 saved with decisions null, re-linked), missing-state (one state.add clears one of three), unlinked-frame (a composed f3, linked; a stand-in lists none), unbound-import (43.7's synthetic unbound export, editMapping confirms the snap), ratify-pending (the Mode 1 proposal, a ratify line clears it; a Mode 2 proposal never lists, its snaps still do), agent-proposal (appendAgentLine's open line, first and blocking, accepted), open-question (a park on a reopened copy cleared by a later decision on its question — which clears its fork row too, named as such — and by finishing; a finished session lists none), fork (#320: the same park on a FINISHED copy listed with href …&fork=<seq>, non-blocking, cleared by a pick saved through the real writer and, on a second copy, by a later decision; a stand-in whose build transcript flags a fork lists none — derived forks only), feature-proposal (a hand-authored proposal passed by checkProposalLines, cleared by a parked verdict) · 51.5 blocking first by KINDS (the newest agent proposal before an older stale entry frame) then oldest first, an undated row after every dated one in its band, and two reads equal · 51.5b two roots answering one provenance/slug each read from its own root (3 + 2 rows, counted 5) · 51.6 every one of the ten KINDS produced by some fixture · 51.7 every file of a package hashed unchanged across inbox() · 51.8 a malformed ledger beside the spine answering one error naming its slug and line 2, the spine's three rows intact · 51.9 hrefFor's five canvas shapes (fork among them) and the discovery shape as exact strings, frame and fork together refused naming both, a junk page refused by name. CANNOT REACH: whether the page renders the rows and whether following one lands on the right control (canvas-journey pass W, and F7 for a fork row), and whether the order is the order the owner wants (a human read)`);
   }
 
+  // =================================================================================================
+  // Group 52 — the claims on approach.html (#497): system/claim-manifest.json against the page. Every
+  // block in <main> is re-derived from the page source and must carry a data-claim the manifest lists,
+  // its sentences joined must equal its text, every claim names a target that resolves in the tree and a
+  // step count of at most 2 (pinned here as MAX_STEPS), and hop 1 — a link equal to the target in the
+  // claim's own block or its named via block — must be on the page.
+  // CANNOT REACH (the manifest's $description and gates.md carry the same clause): whether a sentence's
+  // kind is honest (a stance or definition hiding an unproven claim — a reviewer reads each reason),
+  // whether the hops after the first land where how says (the dock and the inspect toggle are walked by
+  // hand), whether a GitHub target renders on github.com (the gate proves the path is tracked and on
+  // disk, not that the push landed or the repo is public), the page's <head>, the injected chrome,
+  // glossary bubbles and any text a script renders (annotated-source, derive-probe, inspect), and every
+  // page but approach.html.
+  // Every case RUNS auditClaims or walkClaims; none reads source as text for its verdict.
+  {
+    const PAGE = "approach.html";
+    const MAX_STEPS = 2;      // the ticket's N — a decision, so raising it is a gate edit, not a data edit
+    const BLOCK_COUNT = 45;   // blocks on approach.html as of #497; a block added or cut re-pins this
+    const gitSnap = () => execFileSync("git", ["status", "--porcelain", "--", PAGE, "system", "discovery", "handoff"], { cwd: ROOT, encoding: "utf8" });
+    const GIT_BEFORE = gitSnap();
+    const INLINE = new Set(["a", "abbr", "b", "button", "code", "dfn", "em", "i", "kbd", "mark", "q", "s", "small", "span", "strong", "sub", "sup", "time", "u", "br"]);
+    const VOID = new Set(["br", "img", "input", "hr", "meta", "link", "source", "wbr"]);
+    const NON_CLAIM = ["label", "definition", "attribution", "stance"];
+    const BOUNDARY_RE = /[.!?]["”)]?\s+[A-Z"“(]/;
+    const ID_RE = /(?:^|\s)id="([^"]*)"/;
+    const HREF_RE = /(?:^|\s)href="([^"]*)"/;
+    const CLAIM_RE = /(?:^|\s)data-claim="([^"]*)"/;
+    const GH_RE = /^https:\/\/github\.com\/linardsb\/ux-factory\/(blob|tree)\/main\/([^#?]+)(?:#(.*))?$/;
+    // Comments go by indexOf, not a regex alternative: tooling/ is CodeQL-scanned, and this removes the question.
+    const stripComments = (s) => {
+      let out = "", i = 0;
+      for (;;) {
+        const a = s.indexOf("<!--", i);
+        if (a === -1) return out + s.slice(i);
+        const b = s.indexOf("-->", a + 4);
+        out += s.slice(i, a);
+        if (b === -1) return out;
+        i = b + 3;
+      }
+    };
+    const decode = (s) => s.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&");
+
+    // The page's blocks: the nearest non-inline ancestor of every text node in <main>, with its attrs,
+    // its <section> index, its text and every <a href> it holds; plus every id on the page by section.
+    const walkClaims = (html) => {
+      const a = html.indexOf("<main>"), b = html.indexOf("</main>");
+      if (a === -1 || b === -1) throw new Error(`${PAGE} has no <main>…</main>`);
+      const main = stripComments(html.slice(a, b + 7));
+      const re = /<(\/?)([a-zA-Z][a-zA-Z0-9-]*)([^>]*)>|([^<]+)/g;
+      const stack = [], owners = [], ids = new Map();
+      const ownerOf = () => { for (let i = stack.length - 1; i >= 0; i--) if (!INLINE.has(stack[i].tag)) return stack[i]; return null; };
+      let sections = -1, m;
+      while ((m = re.exec(main))) {
+        if (!m[2]) { ownerOf()?.texts.push(m[4]); continue; }
+        const tag = m[2].toLowerCase();
+        if (m[1]) { while (stack.length && stack.pop().tag !== tag); continue; }
+        const node = { tag, attrs: m[3], section: tag === "section" ? ++sections : (stack.at(-1)?.section ?? -1), texts: [], hrefs: [] };
+        const id = m[3].match(ID_RE)?.[1];
+        if (id !== undefined) ids.set(id, node.section);
+        const href = tag === "a" ? m[3].match(HREF_RE)?.[1] : undefined;
+        if (href !== undefined) ownerOf()?.hrefs.push(href);
+        if (VOID.has(tag) || m[3].trim().endsWith("/")) continue;
+        stack.push(node);
+        if (!INLINE.has(tag)) owners.push(node);
+      }
+      const blocks = owners
+        .map((o) => ({ tag: o.tag, section: o.section, hrefs: o.hrefs, claim: o.attrs.match(CLAIM_RE)?.[1], text: decode(o.texts.join("")).replace(/\s+/g, " ").trim() }))
+        .filter((o) => o.text);
+      return { blocks, ids };
+    };
+
+    // GitHub's heading anchors: lower-case, everything but [a-z0-9 -] dropped, spaces to "-"; fenced code skipped.
+    const headingSlugs = (md) => {
+      const slugs = new Set();
+      let fenced = false;
+      for (const line of md.split("\n")) {
+        if (/^\s*```/.test(line)) { fenced = !fenced; continue; }
+        const h = !fenced && line.match(/^#{1,6}\s+(.+?)\s*#*\s*$/);
+        if (h) slugs.add(h[1].toLowerCase().replace(/[^a-z0-9 -]/g, "").replace(/ /g, "-"));
+      }
+      return slugs;
+    };
+    const onDisk = (world, path) => (!world.tracked.has(path) ? `${path} is not tracked` : !world.exists(path) ? `${path} is not on disk` : null);
+
+    // A target resolves in the tree, or the reason it does not.
+    const resolveTarget = (target, ids, world) => {
+      if (target.startsWith("#")) return ids.has(target.slice(1)) ? null : `${target} is not an id on the page`;
+      if (target.startsWith("control:"))
+        return world.controls.has(target.slice(8)) ? null : `${target} is not a chrome or /approach entry in system/param-manifest.json`;
+      const gh = target.match(GH_RE);
+      if (gh) {
+        const [, kind, path, frag] = gh;
+        const tracked = kind === "blob" ? world.tracked.has(path) : [...world.tracked].some((p) => p.startsWith(`${path}/`));
+        if (!tracked) return `${path} is not tracked`;
+        if (!world.exists(path)) return `${path} is not on disk`;
+        if (frag === undefined) return null;
+        if (kind !== "blob" || !path.endsWith(".md")) return `#${frag} — only a heading anchor on a blob .md is accepted (a line range goes stale silently)`;
+        return headingSlugs(world.read(path)).has(frag) ? null : `#${frag} is not a heading in ${path}`;
+      }
+      if (/^https?:/.test(target)) return `${target} is outside this repo — refused`;
+      if (target.startsWith("/") && !target.startsWith("//")) {
+        const [p, frag] = target.slice(1).split("#");
+        const file = p === "" ? "index.html" : /\.[a-z0-9]+$/i.test(p) ? p : `${p}.html`;
+        const missing = onDisk(world, file);
+        if (missing) return missing;
+        if (frag === undefined) return null;
+        return stripComments(world.read(file)).includes(`id="${frag}"`) ? null : `#${frag} is not an id in ${file}`;
+      }
+      return `${target} is not one of the four target forms`;
+    };
+
+    // Every problem with the page against the manifest, as strings naming the block, the sentence and the leg.
+    const auditClaims = (html, manifest, world) => {
+      const out = [];
+      const say = (where, leg, detail) => out.push(`${PAGE} ${where} — ${leg}: ${detail}`);
+      if (manifest.maxSteps !== MAX_STEPS) say("manifest", "steps", `maxSteps is ${manifest.maxSteps}, the gate pins ${MAX_STEPS}`);
+      const page = manifest.pages?.[PAGE];
+      if (!page) { say("manifest", "coverage", "has no pages entry"); return out; }
+      const { blocks, ids } = walkClaims(html);
+      const onPage = new Map();
+      for (const b of blocks) {
+        if (b.claim === undefined) { say(`block <${b.tag}> ${JSON.stringify(b.text.slice(0, 48))}`, "coverage", "block has no data-claim"); continue; }
+        if (onPage.has(b.claim)) say(`block "${b.claim}"`, "coverage", "the data-claim is on two blocks");
+        onPage.set(b.claim, b);
+      }
+      const listed = new Map();
+      for (const mb of page.blocks) {
+        if (listed.has(mb.id)) say(`block "${mb.id}"`, "coverage", "is listed twice in the manifest");
+        listed.set(mb.id, mb);
+      }
+      for (const id of onPage.keys()) if (!listed.has(id)) say(`block "${id}"`, "coverage", "carries a data-claim the manifest does not list");
+      for (const [id, mb] of listed) {
+        const b = onPage.get(id);
+        if (!b) { say(`block "${id}"`, "coverage", "is in the manifest but not on the page"); continue; }
+        if (mb.sentences.map((s) => s.text).join(" ") !== b.text) say(`block "${id}"`, "coverage", `sentences do not match the page, which reads ${JSON.stringify(b.text)}`);
+        mb.sentences.forEach((s, k) => {
+          const where = `block "${id}" sentence ${k + 1}`;
+          if (BOUNDARY_RE.test(s.text)) say(where, "coverage", "holds more than one sentence");
+          if (NON_CLAIM.includes(s.kind)) {
+            if (typeof s.reason !== "string" || !s.reason.trim()) say(where, "kind", `a ${s.kind} needs a reason`);
+            if (s.target !== undefined) say(where, "kind", `a ${s.kind} carries a target`);
+            return;
+          }
+          if (s.kind !== "claim") { say(where, "kind", `unknown kind ${JSON.stringify(s.kind)}`); return; }
+          if (typeof s.target !== "string" || s.target === "none") { say(where, "kind", "a claim with no target"); return; }
+          if (typeof s.how !== "string" || !s.how.trim()) say(where, "kind", "a claim with no how");
+          if (!Number.isInteger(s.steps) || s.steps < 0) { say(where, "steps", `steps ${JSON.stringify(s.steps)} is not a count`); return; }
+          if (s.steps > MAX_STEPS) say(where, "steps", `steps ${s.steps} exceeds maxSteps ${MAX_STEPS}`);
+          const bad = resolveTarget(s.target, ids, world);
+          if (bad) say(where, "target", bad);
+          if (s.steps === 0) {
+            if (!s.target.startsWith("#") || ids.get(s.target.slice(1)) !== b.section) say(where, "hop 1", `steps 0 needs a #id in the claim's own <section>; ${s.target} is not`);
+          } else if (!s.target.startsWith("control:")) {
+            const from = s.via === undefined ? b : onPage.get(s.via);
+            if (!from) say(where, "hop 1", `via "${s.via}" names no block on the page`);
+            else if (from.section !== b.section) say(where, "hop 1", `via "${s.via}" is in another <section>`);
+            else if (!from.hrefs.includes(s.target)) say(where, "hop 1", `no <a href="${s.target}"> in block "${s.via ?? id}"`);
+          }
+        });
+      }
+      for (const r of page.rendered ?? []) {
+        const where = `rendered "${r.id}"`;
+        if (!ids.has(r.id)) say(where, "rendered", "is not an id on the page");
+        const missing = onDisk(world, r.source);
+        if (missing) say(where, "rendered", missing);
+        if (r.steps !== 0) say(where, "rendered", `steps ${r.steps} — a rendered line is its artifact's output, steps 0`);
+        for (const f of r.fragments ?? []) if (!html.includes(f)) say(where, "rendered", `fragment ${JSON.stringify(f)} is not in the page source`);
+      }
+      return out;
+    };
+
+    const HTML = readFileSync(join(ROOT, PAGE), "utf8");
+    const MANIFEST = JSON.parse(readFileSync(join(ROOT, "system/claim-manifest.json"), "utf8"));
+    const PARAMS = JSON.parse(readFileSync(join(ROOT, "system/param-manifest.json"), "utf8"));
+    const REAL = {
+      tracked: new Set(execFileSync("git", ["ls-files"], { cwd: ROOT, encoding: "utf8" }).split("\n").filter(Boolean)),
+      exists: (p) => existsSync(join(ROOT, p)),
+      read: (p) => readFileSync(join(ROOT, p), "utf8"),
+      controls: new Set(PARAMS.entries.filter((e) => e.page === "chrome" || e.page === "/approach").map((e) => e.selector)),
+    };
+    const audit = (n, html, manifest = MANIFEST, world = REAL) => {
+      try { return auditClaims(html, manifest, world); } catch (e) { ok(false, `${n}: auditClaims threw ${e.message}`); return []; }
+    };
+    const mutate = (n, from, to) => {
+      const h = HTML.replace(from, to);
+      ok(h !== HTML, `${n}: the mutation did not apply — ${JSON.stringify(from)} is not in ${PAGE}; re-pin it`);
+      return h;
+    };
+    const withRow = (id, k, patch) => {
+      const m = structuredClone(MANIFEST);
+      const row = m.pages[PAGE].blocks.find((b) => b.id === id)?.sentences[k];
+      if (row) Object.assign(row, patch);
+      return m;
+    };
+    const fires = (n, problems, ...needles) =>
+      ok(problems.some((p) => needles.every((x) => p.includes(x))), `${n}: expected a problem naming ${needles.map((x) => JSON.stringify(x)).join(" + ")}, got ${JSON.stringify(problems)}`);
+
+    // --- 52.1 the real page against the real manifest and the real tree ---------------------------------
+    const real = audit("52.1", HTML);
+    ok(real.length === 0, `52.1: ${real.length} problem(s):\n      ${real.join("\n      ")}`);
+
+    // --- 52.2 (c) coverage: a new block, a new sentence --------------------------------------------------
+    fires("52.2 a new <p> in #method", audit("52.2", mutate("52.2", '<div class="grid grid-2 mt-2xl stagger">', '<p class="muted">I ship faster than anyone.</p><div class="grid grid-2 mt-2xl stagger">')),
+      '"I ship faster than anyone."', "coverage", "block has no data-claim");
+    fires("52.2 a sentence appended in card-shape", audit("52.2", mutate("52.2", "instead of a build cycle.", "instead of a build cycle. I never miss.")),
+      'block "card-shape"', "coverage", "sentences do not match");
+    fires("52.2 two sentences in one row", audit("52.2", HTML, withRow("hero-sub", 0, { text: "I'm a design engineer. Designers decide" })), 'block "hero-sub" sentence 1', "holds more than one sentence");
+
+    // --- 52.3 (b) steps: a row above the cap, the cap raised in data ------------------------------------
+    fires("52.3 steps 3", audit("52.3", HTML, withRow("case-title", 0, { steps: 3 })), 'block "case-title" sentence 1', "steps", "exceeds maxSteps 2");
+    fires("52.3 maxSteps 3", audit("52.3", HTML, { ...structuredClone(MANIFEST), maxSteps: 3 }), "manifest", "maxSteps is 3, the gate pins 2");
+
+    // --- 52.4 (a) targets: untracked, gone from disk ----------------------------------------------------
+    const PRD = "discovery/faster-payment/prd.md";
+    fires("52.4 untracked", audit("52.4", HTML, MANIFEST, { ...REAL, tracked: new Set([...REAL.tracked].filter((p) => p !== PRD)) }), 'block "method-scope"', "target", `${PRD} is not tracked`);
+    fires("52.4 not on disk", audit("52.4", HTML, MANIFEST, { ...REAL, exists: (p) => p !== PRD && REAL.exists(p) }), 'block "method-scope"', "target", `${PRD} is not on disk`);
+    fires("52.4 a control the param manifest does not list", audit("52.4", HTML, withRow("case-title", 0, { target: "control:.nope" })), "target", "control:.nope is not a chrome");
+
+    // --- 52.5 (a) targets: an outside URL ---------------------------------------------------------------
+    fires("52.5 example.com", audit("52.5", HTML, withRow("case-title", 0, { target: "https://example.com/proof" })), "target", "is outside this repo — refused");
+
+    // --- 52.6 (a) targets: a heading one letter off, a line range ---------------------------------------
+    const GH = "https://github.com/linardsb/ux-factory/blob/main/";
+    fires("52.6 #success-metric", audit("52.6", HTML, withRow("card-prove", 0, { target: `${GH}${PRD}#success-metric` })), "target", `#success-metric is not a heading in ${PRD}`);
+    fires("52.6 a line range", audit("52.6", HTML, withRow("case-build", 0, { target: `${GH}approach.html#L13-L15` })), "target", "only a heading anchor on a blob .md");
+
+    // --- 52.7 hop 1: the hero link gone, a neighbour's link borrowed, steps 0 in another section --------
+    fires("52.7 the hero's #case link removed", audit("52.7", mutate("52.7", 'href="#case" data-inspect="buttons"', 'href="#method" data-inspect="buttons"')),
+      'block "hero-title" sentence 1', "hop 1", 'no <a href="#case"> in block "hero-cta"');
+    fires("52.7 a link borrowed from method-scope", audit("52.7", HTML, withRow("card-shape", 0, { target: "/proto/verdant.html" })),
+      'block "card-shape" sentence 1', "hop 1", 'no <a href="/proto/verdant.html"> in block "card-shape"');
+    fires("52.7 steps 0 at another section", audit("52.7", HTML, withRow("case-rule", 0, { target: "#sources" })), 'block "case-rule" sentence 1', "hop 1", "steps 0 needs");
+
+    // --- 52.8 rendered: a proof line's fragment reworded -------------------------------------------------
+    fires("52.8 loc-proof reworded", audit("52.8", mutate("52.8", '" files, about "', '" files, roughly "')), 'rendered "loc-proof"', "is not in the page source");
+
+    // --- 52.9 kinds: a claim with no target, a label with one --------------------------------------------
+    fires("52.9 target none", audit("52.9", HTML, withRow("case-lead", 0, { target: "none" })), 'block "case-lead" sentence 1', "a claim with no target");
+    fires("52.9 a label with a target", audit("52.9", HTML, withRow("case-kicker", 0, { target: "#case" })), 'block "case-kicker" sentence 1', "a label carries a target");
+
+    // --- 52.10 the walker's block count, pinned -----------------------------------------------------------
+    const walked = (() => { try { return walkClaims(HTML).blocks.length; } catch (e) { return e.message; } })();
+    ok(walked === BLOCK_COUNT && MANIFEST.pages[PAGE].blocks.length === BLOCK_COUNT,
+      `52.10: the walker found ${walked} blocks and the manifest lists ${MANIFEST.pages[PAGE].blocks.length}; both are pinned at ${BLOCK_COUNT}`);
+
+    // --- 52.11 nothing tracked moved -----------------------------------------------------------------------
+    ok(gitSnap() === GIT_BEFORE, `52.11: the group moved a tracked path — git status went from ${JSON.stringify(GIT_BEFORE)} to ${JSON.stringify(gitSnap())}`);
+
+    group("claims", `system/claim-manifest.json against approach.html (#497): every block in <main> re-derived from the page and matched to its data-claim, every sentence a claim with a target, a step count of at most 2 and a how, or a label, definition, attribution or stance with a reason · 52.1 the real page, manifest and tree answer no problem · 52.2 (c) a new <p>, a sentence appended to a card and two sentences in one row each refused · 52.3 (b) steps 3 refused and maxSteps 3 in data refused against the pinned 2 · 52.4–52.6 (a) an untracked target, one gone from disk, an unlisted control, an outside URL, a heading one letter off and a line range each refused · 52.7 hop 1: the hero's link removed, a neighbour's link borrowed without via, and steps 0 pointed at another section each refused · 52.8 a proof line's literal reworded refused · 52.9 a claim with no target and a label with one refused · 52.10 the walker's ${BLOCK_COUNT} blocks pinned · 52.11 nothing tracked moved. CANNOT REACH: whether a sentence's kind is honest (a stance or definition hiding an unproven claim — a reviewer reads each reason), whether the hops after the first land where how says (the dock and the inspect toggle are walked by hand), whether a GitHub target renders on github.com (the gate proves the path is tracked and on disk, not that the push landed or the repo is public), the page's <head>, the injected chrome, glossary bubbles and any text a script renders (annotated-source, derive-probe, inspect), and every page but approach.html`);
+  }
+
   if (failures) {
     console.error(`\nbuild ✗  ${failures} failure(s)`);
     process.exit(1);
   }
-  console.log("\nbuild ✓  all 51 groups pass");
+  console.log("\nbuild ✓  all 52 groups pass");
 }
