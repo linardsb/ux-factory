@@ -1,0 +1,11 @@
+ok: true gatesRed: undefined error:  ms: 18906
+ step agent-layer/gen-handoff.mjs code 0 350ms 
+ step agent-layer/gen-vocabulary.mjs code 0 65ms 
+ step agent-layer/gen-pack-bundle.mjs code 0 61ms 
+ step agent-layer/gen-pack-index.mjs code 0 62ms 
+ step agent-layer/gen-system-graph.mjs code 0 63ms 
+ step import/regen-expected.mjs code 0 73ms 
+ step tooling/regen-import-records.mjs code 0 527ms 
+ step agent-layer/gen-loc-summary.mjs code 0 1066ms 
+ step tooling/token-lint.mjs code 0 74ms 
+ step tooling/build-checks.mjs code 0 16278ms 
