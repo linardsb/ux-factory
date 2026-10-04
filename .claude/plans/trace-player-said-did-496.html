@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Said or Did</title>
+<style>
+  :root { --bg:#fbfbf9; --fg:#1d1d1b; --muted:#6b6b66; --line:#e2e2dc; --accent:#2f6f5e; --card:#fff; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#161615; --fg:#ececea; --muted:#9a9a94; --line:#2e2e2b; --accent:#7cc3ac; --card:#1e1e1c; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 28px; margin: 0 0 6px; }
+  h2 { font-size: 18px; margin: 36px 0 10px; border-top: 1px solid var(--line); padding-top: 20px; }
+  h3 { font-size: 16px; margin: 18px 0 4px; }
+  p { margin: 6px 0; }
+  .src { color: var(--muted); font-size: 14px; }
+  code, pre { font-family: ui-monospace, Menlo, monospace; font-size: 13px; }
+  pre { background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; overflow-x: auto; margin: 8px 0; }
+  .demo { display: grid; gap: 8px; margin: 10px 0; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; }
+  .kick { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); display: block; margin-bottom: 4px; }
+  .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 10px 0; }
+  .box { border: 1px solid var(--accent); border-radius: 6px; padding: 8px 10px; font-size: 14px; background: var(--card); }
+  .arr { color: var(--muted); }
+  ul { padding-left: 20px; margin: 6px 0; }
+  li { margin: 3px 0; }
+  .learn { list-style: none; padding: 0; }
+  .learn li { display: flex; justify-content: space-between; gap: 12px; align-items: center; border-bottom: 1px solid var(--line); padding: 8px 0; }
+  .copy { opacity: .35; border: 0; background: none; color: inherit; cursor: pointer; font-size: 15px; line-height: 1 }
+  .copy:hover, .copy:focus-visible { opacity: 1 }
+  .copy::before { content: '⧉' }
+  .copy.copied::before { content: '✓' }
+</style>
+</head>
+<body>
+<main>
+<h1>Said or Did</h1>
+<p class="src">Brief for <code>.claude/plans/trace-player-said-did-496.md</code>, which is the source of truth.</p>
+
+<h2>What we're building and why</h2>
+<p>Today the trace player shows an agent's words and its actions as identical cards. After this change, every card says whether the agent <b>said</b> it or <b>did</b> it, and the page explains why that difference matters.</p>
+
+<h2>The concepts this plan rests on</h2>
+
+<h3>1. A claim versus a record</h3>
+<p>When an agent explains itself, that explanation is a claim. A tool call is a record of what actually ran. Research found that reasoning models mentioned the hint that changed their answer only 25–39% of the time. Readers should weigh the two kinds of card differently.</p>
+<div class="demo">
+  <div class="card"><span class="kick">Said</span>Before touching any tools, here is my plan: I will read the two Verdant screenshots (phone overview and full page) to extract the actual pixel values for colour, typography, spacing, and radius, …</div>
+  <div class="card"><span class="kick">Did</span><code>Write tooling/round-trip/verdant.seed.json ✓</code></div>
+</div>
+<p class="src">Two real steps from <code>traces/pack-seed-verdant.jsonl</code>, the Said text cut short.</p>
+
+<h3>2. One decision, used everywhere</h3>
+<p>The card's shape, its label and the act's count all come from the same field on the step: <code>kind</code>. They can't contradict each other because they all read from that one place.</p>
+<pre>kind "text" → Said
+kind "tool" → Did
+anything else → shown as-is, never guessed</pre>
+
+<h3>3. An accessible name</h3>
+<p>Screen readers announce an element by its accessible name, which is the short label assistive technology reads out. Each card points its name at its visible label (<code>aria-labelledby</code>), so the card is announced as "Said" or "Did" when you reach it.</p>
+
+<h3>4. A check that runs the real page</h3>
+<p>A journey driver is a script that opens the real page in three browsers and checks what appears. It takes the expected numbers from the trace file itself rather than hard-coding them. Each check is also tested by breaking the code on purpose and confirming the check fails.</p>
+
+<h2>How the pieces fit</h2>
+<div class="flow">
+  <span class="box">trace file (kind per step)</span><span class="arr">→</span>
+  <span class="box">trace player: label + count</span><span class="arr">→</span>
+  <span class="box">four pages show it</span><span class="arr">→</span>
+  <span class="box">journey checks two of them</span><span class="arr">→</span>
+  <span class="box">screenshots updated</span>
+</div>
+
+<h2>The plan at a glance</h2>
+<ul>
+  <li><b>Branch</b> from main.</li>
+  <li><b>Player</b>: add the labels, the header sentence and the split counts.</li>
+  <li><b>Driver</b>: write the new browser checks. Needs the player change.</li>
+  <li><b>Gate notes</b>: list the driver in the gate docs. Can run alongside the driver work.</li>
+  <li><b>Cascade</b>: regenerate the line count and the roundtrip screenshots, then run the CI gates.</li>
+</ul>
+<pre>system/trace-player.mjs       # labels, header sentence, split counts
+tooling/trace-journey.mjs     # new: checks /trace.html and /roundtrip.html in 3 browsers
+.claude/references/gates.md   # documents the new driver
+CLAUDE.md                     # one map line
+system/loc-summary.json       # regenerated line count
+tooling/visual-regression/baselines/roundtrip-*.png   # new screenshots</pre>
+<ul>
+  <li>Every card shows Said or Did, matching its step.</li>
+  <li>The header sentence and its citation show under the neutral theme.</li>
+  <li>Each act's said and did counts add up to its step count.</li>
+  <li>A screen reader hears the label as part of the card.</li>
+  <li>CI gates are green and the screenshots are updated in the same PR.</li>
+</ul>
+
+<h2>Go deeper</h2>
+<ul class="learn">
+  <li data-prompt="/learn chain-of-thought faithfulness"><span><b>/learn chain-of-thought faithfulness</b>: why an agent's stated reasons are a claim.</span><button class="copy" aria-label="Copy prompt"></button></li>
+  <li data-prompt="/learn single source of truth in UI rendering"><span><b>/learn single source of truth in UI rendering</b>: one field drives the label, the shape and the count.</span><button class="copy" aria-label="Copy prompt"></button></li>
+  <li data-prompt="/learn accessible names and aria-labelledby"><span><b>/learn accessible names and aria-labelledby</b>: how a screen reader names a card.</span><button class="copy" aria-label="Copy prompt"></button></li>
+  <li data-prompt="/learn mutation-proving a test"><span><b>/learn mutation-proving a test</b>: break the code to prove a check can fail.</span><button class="copy" aria-label="Copy prompt"></button></li>
+</ul>
+</main>
+<script>
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.copy')
+  if (!btn) return
+  const text = btn.closest('[data-prompt]').dataset.prompt
+  try {
+    await navigator.clipboard.writeText(text)
+  } catch {
+    const ta = Object.assign(document.createElement('textarea'), { value: text })
+    ta.style.cssText = 'position:fixed;opacity:0'
+    document.body.append(ta)
+    ta.select()
+    document.execCommand('copy')
+    ta.remove()
+  }
+  btn.classList.add('copied')
+  setTimeout(() => btn.classList.remove('copied'), 1200)
+})
+</script>
+</body>
+</html>

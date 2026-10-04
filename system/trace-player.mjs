@@ -11,6 +11,14 @@
 // textContent, never interpolated as HTML — trace content is real agent output, treated
 // as untrusted.
 //
+// Said / Did (#496): every card carries a kind label as its first child and its accessible name
+// (aria-labelledby) — "Said" for a `text` step (the agent's own account, a claim) and "Did" for a `tool`
+// step (a call it made, the record; a call the fence refused is still Did). Chen et al. (Anthropic, 2025,
+// arXiv:2505.05410) found reasoning models' stated reasons often omit what drove the answer, so the two are
+// not equal evidence; /factory's ledger makes the same narrated/did split (replay-driver.mjs). The card
+// builder, the label and the act tally all key off the same `step.kind`, so they cannot disagree. The label
+// is text, not colour (WCAG 1.4.1). A kind outside the table labels itself verbatim, never as Said or Did.
+//
 // No imports, no fetch: the page fetches the JSONL and hands the text to parseTrace; the
 // player only renders (keeps #10 free to inline or preload). Zero runtime deps — shipped
 // raw via <script type="module">. The designed surface is the Factory page (#10);
@@ -22,6 +30,13 @@
 // it before re-rendering or removing a player (cleanup hygiene; the listener no longer stacks).
 
 const ACTS = [['plan', 'Plan'], ['gate', 'Gate'], ['implement', 'Implement'], ['validate', 'Validate']];
+
+// Said / Did (#496): the agent's own account vs a call it made, refused or not. One table, read by the card
+// label AND the act tally, so the two cannot disagree. A kind outside it labels itself verbatim.
+const KIND_LABEL = { text: 'Said', tool: 'Did' };
+const kindLabel = (step) => KIND_LABEL[step.kind] || String(step.kind);
+const KINDS_NOTE = 'Said cards are the agent\u2019s own account of what it was doing and Did cards are calls it made, including ones the fence refused, so read Said as a claim: Claude 3.7 Sonnet and DeepSeek R1 mentioned the hint that changed their answer only 25% and 39% of the time (Chen et al., Anthropic, 2025, \u201cReasoning models don\u2019t always say what they think\u201d, arXiv:2505.05410).';
+let kindSeq = 0; // page-unique label ids — two players can share a page (see header)
 
 // parseTrace(jsonlText) → { meta, steps, result }. Pure (no DOM) so it runs under Node.
 // Throws naming the offending line (project error convention).
@@ -68,6 +83,16 @@ const hint = (input) =>
 // it only shortens absolute local paths in the machine fields (tool hints/responses/errors)
 // so the exhibit doesn't ship a home-directory tree. The agent's narration is never touched.
 const relativize = (s, cwd) => (cwd ? String(s).split(cwd + '/').join('').split(cwd).join('.') : String(s));
+
+// The kind label is the card's first child and its accessible name (aria-labelledby), so a screen reader
+// announces "Said" / "Did" on entering the card. .card-kicker is the shipped eyebrow register.
+function labelCard(card, step) {
+  const kind = el('span', 'card-kicker trace-kind', kindLabel(step));
+  kind.id = `trace-kind-${++kindSeq}`;
+  card.setAttribute('aria-labelledby', kind.id);
+  card.prepend(kind);
+  return card;
+}
 
 function textCard(step) {
   const card = el('article', 'card trace-step trace-step--text');
@@ -129,6 +154,7 @@ export function renderTracePlayer(container, trace) {
     line.append(el('span', 'muted', `~$${Number(result.totalCostUsd).toFixed(2)} (SDK estimate)`));
   line.append(el('span', 'muted', `${steps.length} steps`));
   header.append(line);
+  header.append(el('p', 'max-prose muted trace-kinds-note', KINDS_NOTE));
 
   const controls = el('div', 'trace-controls');
   const btnPrev = el('button', 'btn btn-secondary', '◀ Prev');
@@ -150,11 +176,15 @@ export function renderTracePlayer(container, trace) {
   const ordered = [...steps].sort((a, b) => a.seq - b.seq);
   const bodies = {};
   ACTS.forEach(([key, label], i) => {
-    const count = ordered.filter((s) => s.phase === key).length;
+    const inAct = ordered.filter((s) => s.phase === key);
+    const count = inAct.length;
+    const tally = new Map([['said', 0], ['did', 0]]);
+    for (const s of inAct) { const k = kindLabel(s).toLowerCase(); tally.set(k, (tally.get(k) || 0) + 1); }
+    const split = [...tally].filter(([, n]) => n).map(([k, n]) => `${n} ${k}`).join(' · ');
     const act = el('section', `trace-act trace-act--${key}`);
     const h = el('div', 'trace-act-head');
     h.append(el('span', 'trace-act-num', String(i + 1)), el('span', 'trace-act-name', label),
-      el('span', 'trace-act-count muted', `${count} step${count === 1 ? '' : 's'}`));
+      el('span', 'trace-act-count muted', `${count} step${count === 1 ? '' : 's'}${split ? ` · ${split}` : ''}`));
     act.append(h);
     const body = el('div', 'trace-act-body');
     act.append(body);
@@ -164,7 +194,7 @@ export function renderTracePlayer(container, trace) {
 
   // One card per step, appended to its act; hidden until stepped to.
   const cards = ordered.map((step) => {
-    const card = step.kind === 'text' ? textCard(step) : toolCard(step, meta.cwd);
+    const card = labelCard(step.kind === 'text' ? textCard(step) : toolCard(step, meta.cwd), step);
     card.classList.add('trace-step-hidden');
     (bodies[step.phase] || root).append(card);
     return card;
