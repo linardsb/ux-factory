@@ -67,6 +67,7 @@ Positive control [0]: observed true on both traces (demo-notice 8 said / 15 did;
 
 ## Open question for the owner
 - **Q3** A refused tool call (e.g. pack-seed-verdant's `Bash` denied by the fence, ✕ on the card) is labelled **Did**, because the label keys on `kind` alone as planned. `replay-driver.mjs` files refusals as a third class. Is "Did" right for an attempted-and-refused call, or should a refused call read e.g. "Refused"? Not changed here; it would be a follow-up touching the label table and [4]/[5]/[7].
+  - **Answered (owner, after review F1):** keep Did; reword the header note to "calls it made, including ones the fence refused". Roundtrip baselines regenerated (heights 6908→6933, 7265→7265, 6896→6922); `trace-journey all` 37/37 on chromium, firefox, webkit after the change.
 
 ## Issues encountered
 - None. The served file was curl-verified (`KIND_LABEL` present) on private port 4791 before the first run; that server was started from this worktree and killed by its own PID.
