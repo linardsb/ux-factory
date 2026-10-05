@@ -12797,8 +12797,12 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     const noEmbodies = { ...pkg, canvas: { ...pkg.canvas, edges: (pkg.canvas?.edges ?? []).filter((e) => e.relation !== "embodies") } };
     ok(verifyBuild(noEmbodies).some((f) => f.includes("missing edges") && f.includes("e-f1-d")),
       `dropping the embodies edges did not fail verifyBuild: ${deep(verifyBuild(noEmbodies))}`);
-    const extraNote = { ...pkg, canvas: { ...pkg.canvas, nodes: [...(pkg.canvas?.nodes ?? []), { id: "n1", type: "note", x: 0, y: 900, width: 200, ref: "note:n1" }] } };
-    ok(verifyBuild(extraNote).some((f) => f.includes('"n1"') && f.includes("carries a fact the ops do not")),
+    // The forged note takes the next id the package has NOT used: the owner's own annotate lands as n1 on a grown package (#316).
+    const nodeIds = new Set((pkg.canvas?.nodes ?? []).map((n) => n.id));
+    let forged = 1; while (nodeIds.has(`n${forged}`)) forged += 1;
+    const fid = `n${forged}`;
+    const extraNote = { ...pkg, canvas: { ...pkg.canvas, nodes: [...(pkg.canvas?.nodes ?? []), { id: fid, type: "note", x: 0, y: 900, width: 200, ref: `note:${fid}` }] } };
+    ok(verifyBuild(extraNote).some((f) => f.includes(`"${fid}"`) && f.includes("carries a fact the ops do not")),
       `a note the ops never made did not fail verifyBuild: ${deep(verifyBuild(extraNote))}`);
   }
   // The `why` is asserted on the LEDGER, because corrupting it changes nothing the artifact carries —
