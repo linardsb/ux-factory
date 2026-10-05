@@ -1,0 +1,7 @@
+{
+  "tool": "brilliant",
+  "entrance": "selection",
+  "file": null,
+  "sha256": "25ce743e8cbcd721366183f6c2fd6bc2fd41c9b18114972fb9a79d1b29a8f918",
+  "text": "f75882d14e8c10fb al(h,x(c),y(c),pad(15,60)) p(9,0) s(hug:272,hug:54) f[(06207d7928ac364f,#EF3E5D)] rd(100) clip \"mj-button\"\n  48c2d627e07fad64 t(\"ADD YOUR CTA\",Inter v3,20,b,align(c),valign(c),lh(1.2)) s(hug:136.89,hug:24) f[(9442a3b907755356,#FFFFFF)] \"mj-button-text, (group:button)\""
+}

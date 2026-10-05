@@ -1,0 +1,1408 @@
+{
+  "drops": [
+    {
+      "class": "read-then-dropped",
+      "kind": "qualifier-dropped",
+      "path": "ir.children[0]",
+      "reason": "hug:272 → hug (spike C README:92)",
+      "ref": null,
+      "slot": "size.w",
+      "value": 272
+    },
+    {
+      "class": "read-then-dropped",
+      "kind": "qualifier-dropped",
+      "path": "ir.children[0]",
+      "reason": "hug:54 → hug (spike C README:92)",
+      "ref": null,
+      "slot": "size.h",
+      "value": 54
+    },
+    {
+      "class": "never-read",
+      "kind": "unread-atom",
+      "path": "ir.children[0]",
+      "reason": "atom \"clip\" has no reader in this converter",
+      "ref": null,
+      "slot": "line",
+      "value": "clip"
+    },
+    {
+      "class": "read-then-dropped",
+      "kind": "no-snap-target",
+      "path": "ir.children[0]",
+      "reason": "no spacing token within 2px of 60 — nearest --spacing-3xl (4)",
+      "ref": null,
+      "slot": "layout.pad[1]",
+      "value": 60
+    },
+    {
+      "class": "read-then-dropped",
+      "kind": "no-snap-target",
+      "path": "ir.children[0]",
+      "reason": "no spacing token within 2px of 60 — nearest --spacing-3xl (4)",
+      "ref": null,
+      "slot": "layout.pad[3]",
+      "value": 60
+    },
+    {
+      "class": "read-then-dropped",
+      "kind": "no-snap-target",
+      "path": "ir.children[0]",
+      "reason": "no radius token within 2px of 100 — nearest --radius-lg (-84)",
+      "ref": null,
+      "slot": "style.radius",
+      "value": 100
+    },
+    {
+      "class": "read-then-dropped",
+      "kind": "no-snap-target",
+      "path": "ir.children[0]",
+      "reason": "no colour token within 2.3 ΔE2000 of #EF3E5D — nearest --color-fg-muted (32.9067)",
+      "ref": null,
+      "slot": "style.fill",
+      "value": "#EF3E5D"
+    },
+    {
+      "class": "never-read",
+      "kind": "unread-atom",
+      "path": "ir.children[0].children[0]",
+      "reason": "t() argument \"Inter v3\" has no reader — read but not understood",
+      "ref": null,
+      "slot": "t",
+      "value": "Inter v3"
+    },
+    {
+      "class": "never-read",
+      "kind": "unread-atom",
+      "path": "ir.children[0].children[0]",
+      "reason": "t() argument \"20\" has no reader — read but not understood",
+      "ref": null,
+      "slot": "t",
+      "value": "20"
+    },
+    {
+      "class": "never-read",
+      "kind": "unread-atom",
+      "path": "ir.children[0].children[0]",
+      "reason": "t() argument \"valign(c)\" has no reader — read but not understood",
+      "ref": null,
+      "slot": "t",
+      "value": "valign(c)"
+    },
+    {
+      "class": "read-then-dropped",
+      "kind": "qualifier-dropped",
+      "path": "ir.children[0].children[0]",
+      "reason": "hug:136.89 → hug (spike C README:92)",
+      "ref": null,
+      "slot": "style.size.w",
+      "value": 136.89
+    },
+    {
+      "class": "read-then-dropped",
+      "kind": "qualifier-dropped",
+      "path": "ir.children[0].children[0]",
+      "reason": "hug:24 → hug (spike C README:92)",
+      "ref": null,
+      "slot": "style.size.h",
+      "value": 24
+    },
+    {
+      "class": "read-then-dropped",
+      "kind": "no-snap-target",
+      "path": "ir.children[0].children[0]",
+      "reason": "the contract has no text.lineHeight family — an unbound text.lineHeight has nothing to snap to",
+      "ref": null,
+      "slot": "text.lineHeight",
+      "value": 1.2
+    },
+    {
+      "class": "read-then-dropped",
+      "kind": "no-token",
+      "path": "build",
+      "reason": "unbound pad [15px, 60px, 15px, 60px] not snapped to spacing tokens — see the record's snaps",
+      "ref": null,
+      "slot": "layout.pad",
+      "value": "15px,60px,15px,60px"
+    },
+    {
+      "class": "read-then-dropped",
+      "kind": "prop-shape",
+      "path": "build",
+      "reason": "stack.align is the CROSS axis only; the read's main-axis \"center\" has no prop",
+      "ref": null,
+      "slot": "layout.align.main",
+      "value": "center"
+    },
+    {
+      "class": "read-but-never-emitted",
+      "kind": "unfillable-required-prop",
+      "path": "build",
+      "reason": "text.role is required and a design read carries nothing that fills it — which step of the type scale this text is — the ONLY size decision; there is no font-size prop",
+      "ref": null,
+      "slot": "text.role",
+      "value": null
+    }
+  ],
+  "elapsed": {
+    "ratify": null,
+    "recognition": 3
+  },
+  "fidelity": {
+    "deltaEMin": {
+      "candidate": {
+        "file": "imports/i2.candidate.png",
+        "sha256": "9f86174aa8da6c207d6ebd97bb773d7d7d5ad068a0873ab25c747f7400e14c9c",
+        "source": "the importer's composition rendered by system/agentic-renderer.mjs under tokens.neutral.css in chromium 149.0.7827.55 at DSF 1 on #ffffff, cropped top-left to 272×54 (tooling/measure-render.mjs)"
+      },
+      "reference": {
+        "sha256": "d0640b5f03758d6dbcd6c9bd27bfdbe44f4867ddd0c60e29a29fdd5d84c99d01",
+        "source": "Brilliant export(png) of f75882d14e8c10fb at scale 1, flattened over #ffffff"
+      },
+      "regions": [
+        {
+          "area": 14688,
+          "excluded": null,
+          "name": "root",
+          "value": 13.5596
+        }
+      ],
+      "rung": "ink-colour",
+      "scored": 1,
+      "threshold": 5,
+      "worst": {
+        "region": "root",
+        "value": 13.5596
+      }
+    },
+    "verdict": "red",
+    "wcag": {
+      "failing": [],
+      "pass": 12,
+      "total": 12
+    }
+  },
+  "id": "i2",
+  "ir": {
+    "children": [
+      {
+        "children": [
+          {
+            "children": [],
+            "component": null,
+            "drops": [
+              {
+                "class": "never-read",
+                "kind": "unread-atom",
+                "reason": "t() argument \"Inter v3\" has no reader — read but not understood",
+                "ref": null,
+                "slot": "t",
+                "value": "Inter v3"
+              },
+              {
+                "class": "never-read",
+                "kind": "unread-atom",
+                "reason": "t() argument \"20\" has no reader — read but not understood",
+                "ref": null,
+                "slot": "t",
+                "value": "20"
+              },
+              {
+                "class": "never-read",
+                "kind": "unread-atom",
+                "reason": "t() argument \"valign(c)\" has no reader — read but not understood",
+                "ref": null,
+                "slot": "t",
+                "value": "valign(c)"
+              },
+              {
+                "class": "read-then-dropped",
+                "kind": "qualifier-dropped",
+                "reason": "hug:136.89 → hug (spike C README:92)",
+                "ref": null,
+                "slot": "style.size.w",
+                "value": 136.89
+              },
+              {
+                "class": "read-then-dropped",
+                "kind": "qualifier-dropped",
+                "reason": "hug:24 → hug (spike C README:92)",
+                "ref": null,
+                "slot": "style.size.h",
+                "value": 24
+              },
+              {
+                "class": "read-then-dropped",
+                "kind": "no-snap-target",
+                "reason": "the contract has no text.lineHeight family — an unbound text.lineHeight has nothing to snap to",
+                "ref": null,
+                "slot": "text.lineHeight",
+                "value": 1.2
+              }
+            ],
+            "icon": null,
+            "id": "48c2d627e07fad64",
+            "kind": "text",
+            "layout": null,
+            "name": "mj-button-text, (group:button)",
+            "position": null,
+            "snaps": [
+              {
+                "candidates": [],
+                "distance": null,
+                "family": null,
+                "outcome": "dropped",
+                "path": "ir.children[0].children[0]",
+                "ref": null,
+                "slot": "text.lineHeight",
+                "value": 1.2
+              },
+              {
+                "candidates": [
+                  {
+                    "distance": 0,
+                    "ref": "--color-accent-fg",
+                    "value": "#ffffff"
+                  },
+                  {
+                    "distance": 0,
+                    "ref": "--color-bg",
+                    "value": "#ffffff"
+                  },
+                  {
+                    "distance": 0,
+                    "ref": "--color-fg-on-inverse-strong",
+                    "value": "#ffffff"
+                  },
+                  {
+                    "distance": 0,
+                    "ref": "--color-white",
+                    "value": "#ffffff"
+                  }
+                ],
+                "distance": 0,
+                "family": "colour",
+                "outcome": "proposed",
+                "path": "ir.children[0].children[0]",
+                "ref": null,
+                "slot": "style.fill",
+                "value": "#FFFFFF"
+              }
+            ],
+            "style": {
+              "fill": {
+                "ref": null,
+                "value": "#FFFFFF"
+              },
+              "size": {
+                "h": "hug",
+                "w": "hug"
+              }
+            },
+            "text": {
+              "align": "c",
+              "content": "ADD YOUR CTA",
+              "family": null,
+              "lineHeight": {
+                "ref": null,
+                "value": 1.2
+              },
+              "size": null,
+              "weight": "b"
+            }
+          }
+        ],
+        "component": null,
+        "drops": [
+          {
+            "class": "read-then-dropped",
+            "kind": "qualifier-dropped",
+            "reason": "hug:272 → hug (spike C README:92)",
+            "ref": null,
+            "slot": "size.w",
+            "value": 272
+          },
+          {
+            "class": "read-then-dropped",
+            "kind": "qualifier-dropped",
+            "reason": "hug:54 → hug (spike C README:92)",
+            "ref": null,
+            "slot": "size.h",
+            "value": 54
+          },
+          {
+            "class": "never-read",
+            "kind": "unread-atom",
+            "reason": "atom \"clip\" has no reader in this converter",
+            "ref": null,
+            "slot": "line",
+            "value": "clip"
+          },
+          {
+            "class": "read-then-dropped",
+            "kind": "no-snap-target",
+            "reason": "no spacing token within 2px of 60 — nearest --spacing-3xl (4)",
+            "ref": null,
+            "slot": "layout.pad[1]",
+            "value": 60
+          },
+          {
+            "class": "read-then-dropped",
+            "kind": "no-snap-target",
+            "reason": "no spacing token within 2px of 60 — nearest --spacing-3xl (4)",
+            "ref": null,
+            "slot": "layout.pad[3]",
+            "value": 60
+          },
+          {
+            "class": "read-then-dropped",
+            "kind": "no-snap-target",
+            "reason": "no radius token within 2px of 100 — nearest --radius-lg (-84)",
+            "ref": null,
+            "slot": "style.radius",
+            "value": 100
+          },
+          {
+            "class": "read-then-dropped",
+            "kind": "no-snap-target",
+            "reason": "no colour token within 2.3 ΔE2000 of #EF3E5D — nearest --color-fg-muted (32.9067)",
+            "ref": null,
+            "slot": "style.fill",
+            "value": "#EF3E5D"
+          }
+        ],
+        "icon": null,
+        "id": "f75882d14e8c10fb",
+        "kind": "frame",
+        "layout": {
+          "align": {
+            "cross": "center",
+            "main": "center"
+          },
+          "dir": "row",
+          "gap": null,
+          "pad": [
+            {
+              "ref": null,
+              "value": 15
+            },
+            {
+              "ref": null,
+              "value": 60
+            },
+            {
+              "ref": null,
+              "value": 15
+            },
+            {
+              "ref": null,
+              "value": 60
+            }
+          ],
+          "size": {
+            "h": "hug",
+            "w": "hug"
+          }
+        },
+        "name": "mj-button",
+        "position": {
+          "x": 9,
+          "y": 0
+        },
+        "snaps": [
+          {
+            "candidates": [
+              {
+                "distance": 1,
+                "ref": "--spacing-md",
+                "value": 16
+              }
+            ],
+            "distance": 1,
+            "family": "spacing",
+            "outcome": "proposed",
+            "path": "ir.children[0]",
+            "ref": null,
+            "slot": "layout.pad[0]",
+            "value": 15
+          },
+          {
+            "candidates": [
+              {
+                "distance": 4,
+                "ref": "--spacing-3xl",
+                "value": 64
+              }
+            ],
+            "distance": 4,
+            "family": "spacing",
+            "outcome": "dropped",
+            "path": "ir.children[0]",
+            "ref": null,
+            "slot": "layout.pad[1]",
+            "value": 60
+          },
+          {
+            "candidates": [
+              {
+                "distance": 1,
+                "ref": "--spacing-md",
+                "value": 16
+              }
+            ],
+            "distance": 1,
+            "family": "spacing",
+            "outcome": "proposed",
+            "path": "ir.children[0]",
+            "ref": null,
+            "slot": "layout.pad[2]",
+            "value": 15
+          },
+          {
+            "candidates": [
+              {
+                "distance": 4,
+                "ref": "--spacing-3xl",
+                "value": 64
+              }
+            ],
+            "distance": 4,
+            "family": "spacing",
+            "outcome": "dropped",
+            "path": "ir.children[0]",
+            "ref": null,
+            "slot": "layout.pad[3]",
+            "value": 60
+          },
+          {
+            "candidates": [
+              {
+                "distance": -84,
+                "ref": "--radius-lg",
+                "value": 16
+              }
+            ],
+            "distance": -84,
+            "family": "radius",
+            "outcome": "dropped",
+            "path": "ir.children[0]",
+            "ref": null,
+            "slot": "style.radius",
+            "value": 100
+          },
+          {
+            "candidates": [
+              {
+                "distance": 32.9067,
+                "ref": "--color-fg-muted",
+                "value": "#6b7280"
+              }
+            ],
+            "distance": 32.9067,
+            "family": "colour",
+            "outcome": "dropped",
+            "path": "ir.children[0]",
+            "ref": null,
+            "slot": "style.fill",
+            "value": "#EF3E5D"
+          }
+        ],
+        "style": {
+          "fill": {
+            "ref": null,
+            "value": "#EF3E5D"
+          },
+          "radius": {
+            "ref": null,
+            "value": 100
+          }
+        },
+        "text": null
+      }
+    ],
+    "drops": [],
+    "grain": "component",
+    "mode": 1,
+    "source": {
+      "bound": false,
+      "ids": [
+        "f75882d14e8c10fb",
+        "48c2d627e07fad64"
+      ],
+      "tool": "brilliant"
+    }
+  },
+  "mapping": {
+    "drops": [],
+    "map": "parts",
+    "pack": "tokens.neutral.css",
+    "parts": {},
+    "roles": {}
+  },
+  "provenance": {
+    "attribution": null,
+    "licence": null,
+    "mode": 1
+  },
+  "recognition": {
+    "buildDrops": [
+      {
+        "class": "read-then-dropped",
+        "kind": "no-token",
+        "reason": "unbound pad [15px, 60px, 15px, 60px] not snapped to spacing tokens — see the record's snaps",
+        "ref": null,
+        "slot": "layout.pad",
+        "value": "15px,60px,15px,60px"
+      },
+      {
+        "class": "read-then-dropped",
+        "kind": "prop-shape",
+        "reason": "stack.align is the CROSS axis only; the read's main-axis \"center\" has no prop",
+        "ref": null,
+        "slot": "layout.align.main",
+        "value": "center"
+      },
+      {
+        "class": "read-but-never-emitted",
+        "kind": "unfillable-required-prop",
+        "reason": "text.role is required and a design read carries nothing that fills it — which step of the type scale this text is — the ONLY size decision; there is no font-size prop",
+        "ref": null,
+        "slot": "text.role",
+        "value": null
+      }
+    ],
+    "verdict": {
+      "children": [
+        {
+          "candidates": [
+            {
+              "hits": [
+                {
+                  "detail": "1/1 required props fillable from the read (name)",
+                  "field": "name",
+                  "signal": "prop-fit"
+                }
+              ],
+              "score": 0.25,
+              "slug": "avatar"
+            },
+            {
+              "hits": [
+                {
+                  "detail": "1/1 required props fillable from the read (title)",
+                  "field": "title",
+                  "signal": "prop-fit"
+                }
+              ],
+              "score": 0.25,
+              "slug": "card"
+            },
+            {
+              "hits": [
+                {
+                  "detail": "1/1 required props fillable from the read (title)",
+                  "field": "title",
+                  "signal": "prop-fit"
+                }
+              ],
+              "score": 0.25,
+              "slug": "empty-state"
+            },
+            {
+              "hits": [
+                {
+                  "detail": "1/1 required props fillable from the read (label)",
+                  "field": "label",
+                  "signal": "prop-fit"
+                }
+              ],
+              "score": 0.25,
+              "slug": "ghost-button"
+            },
+            {
+              "hits": [
+                {
+                  "detail": "a laid-out node against an entry that takes many children",
+                  "field": "layout",
+                  "signal": "kind-fit"
+                }
+              ],
+              "score": 0.25,
+              "slug": "list"
+            },
+            {
+              "hits": [
+                {
+                  "detail": "1/1 required props fillable from the read (label)",
+                  "field": "label",
+                  "signal": "prop-fit"
+                }
+              ],
+              "score": 0.25,
+              "slug": "search-input"
+            },
+            {
+              "hits": [
+                {
+                  "detail": "1/1 required props fillable from the read (label)",
+                  "field": "label",
+                  "signal": "prop-fit"
+                }
+              ],
+              "score": 0.25,
+              "slug": "text-field"
+            },
+            {
+              "hits": [
+                {
+                  "detail": "1/1 required props fillable from the read (label)",
+                  "field": "label",
+                  "signal": "prop-fit"
+                }
+              ],
+              "score": 0.25,
+              "slug": "toggle-switch"
+            },
+            {
+              "hits": [
+                {
+                  "detail": "1/1 required props fillable from the read (label)",
+                  "field": "label",
+                  "signal": "prop-fit"
+                }
+              ],
+              "score": 0.25,
+              "slug": "primary-button"
+            },
+            {
+              "hits": [
+                {
+                  "detail": "1/1 required props fillable from the read (title)",
+                  "field": "title",
+                  "signal": "prop-fit"
+                }
+              ],
+              "score": 0.25,
+              "slug": "screen-header"
+            },
+            {
+              "hits": [
+                {
+                  "detail": "1/2 required props fillable from the read (name)",
+                  "field": "name",
+                  "signal": "prop-fit"
+                }
+              ],
+              "score": 0.125,
+              "slug": "icon"
+            },
+            {
+              "hits": [
+                {
+                  "detail": "1/2 required props fillable from the read (label)",
+                  "field": "label",
+                  "signal": "prop-fit"
+                }
+              ],
+              "score": 0.125,
+              "slug": "list-row"
+            },
+            {
+              "hits": [
+                {
+                  "detail": "1/2 required props fillable from the read (label)",
+                  "field": "label",
+                  "signal": "prop-fit"
+                }
+              ],
+              "score": 0.125,
+              "slug": "metric-tile"
+            },
+            {
+              "hits": [
+                {
+                  "detail": "1/2 required props fillable from the read (label)",
+                  "field": "label",
+                  "signal": "prop-fit"
+                }
+              ],
+              "score": 0.125,
+              "slug": "progress-indicator"
+            },
+            {
+              "hits": [
+                {
+                  "detail": "1/2 required props fillable from the read (label)",
+                  "field": "label",
+                  "signal": "prop-fit"
+                }
+              ],
+              "score": 0.125,
+              "slug": "select-field"
+            },
+            {
+              "hits": [
+                {
+                  "detail": "1/2 required props fillable from the read (name)",
+                  "field": "name",
+                  "signal": "prop-fit"
+                }
+              ],
+              "score": 0.125,
+              "slug": "plant-card"
+            },
+            {
+              "hits": [
+                {
+                  "detail": "1/2 required props fillable from the read (label)",
+                  "field": "label",
+                  "signal": "prop-fit"
+                }
+              ],
+              "score": 0.125,
+              "slug": "status-chip"
+            },
+            {
+              "hits": [
+                {
+                  "detail": "1/3 required props fillable from the read (label)",
+                  "field": "label",
+                  "signal": "prop-fit"
+                }
+              ],
+              "score": 0.083,
+              "slug": "choice"
+            },
+            {
+              "hits": [
+                {
+                  "detail": "1/3 required props fillable from the read (title)",
+                  "field": "title",
+                  "signal": "prop-fit"
+                }
+              ],
+              "score": 0.083,
+              "slug": "modal-dialog"
+            },
+            {
+              "hits": [
+                {
+                  "detail": "1/3 required props fillable from the read (label)",
+                  "field": "label",
+                  "signal": "prop-fit"
+                }
+              ],
+              "score": 0.083,
+              "slug": "sequence-step"
+            },
+            {
+              "hits": [
+                {
+                  "detail": "1/4 required props fillable from the read (label)",
+                  "field": "label",
+                  "signal": "prop-fit"
+                }
+              ],
+              "score": 0.063,
+              "slug": "stat-tile"
+            }
+          ],
+          "children": [
+            {
+              "candidates": [
+                {
+                  "hits": [
+                    {
+                      "detail": "\"mj-button-text, (group:button)\" contains every word of \"text\"",
+                      "field": "name",
+                      "signal": "name-match"
+                    },
+                    {
+                      "detail": "a text node against a childless entry with a text-bearing required prop",
+                      "field": "kind",
+                      "signal": "kind-fit"
+                    },
+                    {
+                      "detail": "1/2 required props fillable from the read (content)",
+                      "field": "content",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.825,
+                  "slug": "text"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "a text node against a childless entry with a text-bearing required prop",
+                      "field": "kind",
+                      "signal": "kind-fit"
+                    },
+                    {
+                      "detail": "1/1 required props fillable from the read (text)",
+                      "field": "text",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.5,
+                  "slug": "demo-notice"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "1/1 required props fillable from the read (name)",
+                      "field": "name",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.25,
+                  "slug": "avatar"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "1/1 required props fillable from the read (title)",
+                      "field": "title",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.25,
+                  "slug": "card"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "1/1 required props fillable from the read (title)",
+                      "field": "title",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.25,
+                  "slug": "empty-state"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "1/1 required props fillable from the read (label)",
+                      "field": "label",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.25,
+                  "slug": "ghost-button"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "1/1 required props fillable from the read (label)",
+                      "field": "label",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.25,
+                  "slug": "search-input"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "1/1 required props fillable from the read (label)",
+                      "field": "label",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.25,
+                  "slug": "text-field"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "1/1 required props fillable from the read (label)",
+                      "field": "label",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.25,
+                  "slug": "toggle-switch"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "1/1 required props fillable from the read (label)",
+                      "field": "label",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.25,
+                  "slug": "primary-button"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "1/1 required props fillable from the read (title)",
+                      "field": "title",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.25,
+                  "slug": "screen-header"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "1/2 required props fillable from the read (name)",
+                      "field": "name",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.125,
+                  "slug": "icon"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "1/2 required props fillable from the read (label)",
+                      "field": "label",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.125,
+                  "slug": "list-row"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "1/2 required props fillable from the read (label)",
+                      "field": "label",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.125,
+                  "slug": "metric-tile"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "1/2 required props fillable from the read (label)",
+                      "field": "label",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.125,
+                  "slug": "progress-indicator"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "1/2 required props fillable from the read (label)",
+                      "field": "label",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.125,
+                  "slug": "select-field"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "1/2 required props fillable from the read (name)",
+                      "field": "name",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.125,
+                  "slug": "plant-card"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "1/2 required props fillable from the read (label)",
+                      "field": "label",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.125,
+                  "slug": "status-chip"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "1/3 required props fillable from the read (label)",
+                      "field": "label",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.083,
+                  "slug": "choice"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "1/3 required props fillable from the read (title)",
+                      "field": "title",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.083,
+                  "slug": "modal-dialog"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "1/3 required props fillable from the read (label)",
+                      "field": "label",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.083,
+                  "slug": "sequence-step"
+                },
+                {
+                  "hits": [
+                    {
+                      "detail": "1/4 required props fillable from the read (label)",
+                      "field": "label",
+                      "signal": "prop-fit"
+                    }
+                  ],
+                  "score": 0.063,
+                  "slug": "stat-tile"
+                }
+              ],
+              "children": [],
+              "covered": true,
+              "drops": [
+                {
+                  "class": "never-read",
+                  "kind": "unread-atom",
+                  "reason": "t() argument \"Inter v3\" has no reader — read but not understood",
+                  "ref": null,
+                  "slot": "t",
+                  "value": "Inter v3"
+                },
+                {
+                  "class": "never-read",
+                  "kind": "unread-atom",
+                  "reason": "t() argument \"20\" has no reader — read but not understood",
+                  "ref": null,
+                  "slot": "t",
+                  "value": "20"
+                },
+                {
+                  "class": "never-read",
+                  "kind": "unread-atom",
+                  "reason": "t() argument \"valign(c)\" has no reader — read but not understood",
+                  "ref": null,
+                  "slot": "t",
+                  "value": "valign(c)"
+                },
+                {
+                  "class": "read-then-dropped",
+                  "kind": "qualifier-dropped",
+                  "reason": "hug:136.89 → hug (spike C README:92)",
+                  "ref": null,
+                  "slot": "style.size.w",
+                  "value": 136.89
+                },
+                {
+                  "class": "read-then-dropped",
+                  "kind": "qualifier-dropped",
+                  "reason": "hug:24 → hug (spike C README:92)",
+                  "ref": null,
+                  "slot": "style.size.h",
+                  "value": 24
+                },
+                {
+                  "class": "read-then-dropped",
+                  "kind": "no-snap-target",
+                  "reason": "the contract has no text.lineHeight family — an unbound text.lineHeight has nothing to snap to",
+                  "ref": null,
+                  "slot": "text.lineHeight",
+                  "value": 1.2
+                }
+              ],
+              "hits": [
+                {
+                  "detail": "\"mj-button-text, (group:button)\" contains every word of \"text\"",
+                  "field": "name",
+                  "signal": "name-match"
+                },
+                {
+                  "detail": "a text node against a childless entry with a text-bearing required prop",
+                  "field": "kind",
+                  "signal": "kind-fit"
+                },
+                {
+                  "detail": "1/2 required props fillable from the read (content)",
+                  "field": "content",
+                  "signal": "prop-fit"
+                }
+              ],
+              "kind": "text",
+              "name": "text",
+              "path": "ir.children[0].children[0]",
+              "score": 0.825,
+              "via": "scored"
+            }
+          ],
+          "covered": true,
+          "drops": [
+            {
+              "class": "read-then-dropped",
+              "kind": "qualifier-dropped",
+              "reason": "hug:272 → hug (spike C README:92)",
+              "ref": null,
+              "slot": "size.w",
+              "value": 272
+            },
+            {
+              "class": "read-then-dropped",
+              "kind": "qualifier-dropped",
+              "reason": "hug:54 → hug (spike C README:92)",
+              "ref": null,
+              "slot": "size.h",
+              "value": 54
+            },
+            {
+              "class": "never-read",
+              "kind": "unread-atom",
+              "reason": "atom \"clip\" has no reader in this converter",
+              "ref": null,
+              "slot": "line",
+              "value": "clip"
+            },
+            {
+              "class": "read-then-dropped",
+              "kind": "no-snap-target",
+              "reason": "no spacing token within 2px of 60 — nearest --spacing-3xl (4)",
+              "ref": null,
+              "slot": "layout.pad[1]",
+              "value": 60
+            },
+            {
+              "class": "read-then-dropped",
+              "kind": "no-snap-target",
+              "reason": "no spacing token within 2px of 60 — nearest --spacing-3xl (4)",
+              "ref": null,
+              "slot": "layout.pad[3]",
+              "value": 60
+            },
+            {
+              "class": "read-then-dropped",
+              "kind": "no-snap-target",
+              "reason": "no radius token within 2px of 100 — nearest --radius-lg (-84)",
+              "ref": null,
+              "slot": "style.radius",
+              "value": 100
+            },
+            {
+              "class": "read-then-dropped",
+              "kind": "no-snap-target",
+              "reason": "no colour token within 2.3 ΔE2000 of #EF3E5D — nearest --color-fg-muted (32.9067)",
+              "ref": null,
+              "slot": "style.fill",
+              "value": "#EF3E5D"
+            }
+          ],
+          "hits": [],
+          "kind": "frame",
+          "name": "stack",
+          "path": "ir.children[0]",
+          "score": 0,
+          "via": "structural-fallback"
+        }
+      ],
+      "drops": [],
+      "grain": "component",
+      "mode": 1,
+      "path": "ir",
+      "source": {
+        "bound": false,
+        "ids": [
+          "f75882d14e8c10fb",
+          "48c2d627e07fad64"
+        ],
+        "tool": "brilliant"
+      }
+    }
+  },
+  "snaps": [
+    {
+      "candidates": [
+        {
+          "distance": 1,
+          "ref": "--spacing-md",
+          "value": 16
+        }
+      ],
+      "distance": 1,
+      "family": "spacing",
+      "outcome": "proposed",
+      "path": "ir.children[0]",
+      "ref": null,
+      "slot": "layout.pad[0]",
+      "value": 15
+    },
+    {
+      "candidates": [
+        {
+          "distance": 4,
+          "ref": "--spacing-3xl",
+          "value": 64
+        }
+      ],
+      "distance": 4,
+      "family": "spacing",
+      "outcome": "dropped",
+      "path": "ir.children[0]",
+      "ref": null,
+      "slot": "layout.pad[1]",
+      "value": 60
+    },
+    {
+      "candidates": [
+        {
+          "distance": 1,
+          "ref": "--spacing-md",
+          "value": 16
+        }
+      ],
+      "distance": 1,
+      "family": "spacing",
+      "outcome": "proposed",
+      "path": "ir.children[0]",
+      "ref": null,
+      "slot": "layout.pad[2]",
+      "value": 15
+    },
+    {
+      "candidates": [
+        {
+          "distance": 4,
+          "ref": "--spacing-3xl",
+          "value": 64
+        }
+      ],
+      "distance": 4,
+      "family": "spacing",
+      "outcome": "dropped",
+      "path": "ir.children[0]",
+      "ref": null,
+      "slot": "layout.pad[3]",
+      "value": 60
+    },
+    {
+      "candidates": [
+        {
+          "distance": -84,
+          "ref": "--radius-lg",
+          "value": 16
+        }
+      ],
+      "distance": -84,
+      "family": "radius",
+      "outcome": "dropped",
+      "path": "ir.children[0]",
+      "ref": null,
+      "slot": "style.radius",
+      "value": 100
+    },
+    {
+      "candidates": [
+        {
+          "distance": 32.9067,
+          "ref": "--color-fg-muted",
+          "value": "#6b7280"
+        }
+      ],
+      "distance": 32.9067,
+      "family": "colour",
+      "outcome": "dropped",
+      "path": "ir.children[0]",
+      "ref": null,
+      "slot": "style.fill",
+      "value": "#EF3E5D"
+    },
+    {
+      "candidates": [],
+      "distance": null,
+      "family": null,
+      "outcome": "dropped",
+      "path": "ir.children[0].children[0]",
+      "ref": null,
+      "slot": "text.lineHeight",
+      "value": 1.2
+    },
+    {
+      "candidates": [
+        {
+          "distance": 0,
+          "ref": "--color-accent-fg",
+          "value": "#ffffff"
+        },
+        {
+          "distance": 0,
+          "ref": "--color-bg",
+          "value": "#ffffff"
+        },
+        {
+          "distance": 0,
+          "ref": "--color-fg-on-inverse-strong",
+          "value": "#ffffff"
+        },
+        {
+          "distance": 0,
+          "ref": "--color-white",
+          "value": "#ffffff"
+        }
+      ],
+      "distance": 0,
+      "family": "colour",
+      "outcome": "proposed",
+      "path": "ir.children[0].children[0]",
+      "ref": null,
+      "slot": "style.fill",
+      "value": "#FFFFFF"
+    }
+  ],
+  "source": {
+    "bound": false,
+    "file": null,
+    "ids": [
+      "f75882d14e8c10fb",
+      "48c2d627e07fad64"
+    ],
+    "project": "the-ultimate-email-design-system-community",
+    "sha256": "25ce743e8cbcd721366183f6c2fd6bc2fd41c9b18114972fb9a79d1b29a8f918",
+    "tool": "brilliant"
+  },
+  "suggestions": [
+    {
+      "confidence": 0.61,
+      "model": "jev-1.13.0",
+      "path": "ir.children[0]",
+      "top": [
+        {
+          "p": 0.64,
+          "slug": "primary-button"
+        },
+        {
+          "p": 0.18,
+          "slug": "none"
+        },
+        {
+          "p": 0.06,
+          "slug": "ghost-button"
+        }
+      ],
+      "ts": "2026-10-05T09:36:28.497Z"
+    }
+  ],
+  "unbound": {
+    "dropped": 5,
+    "exact": 0,
+    "overridden": 0,
+    "proposed": 3,
+    "slots": 8
+  }
+}

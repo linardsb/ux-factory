@@ -18,20 +18,236 @@
       "ref": "state:error of f1"
     },
     {
+      "id": "f3",
+      "type": "frame",
+      "x": 1611.0710625052454,
+      "y": 193,
+      "width": 390,
+      "ref": "screen:payee-name-check-result"
+    },
+    {
+      "id": "f4",
+      "type": "frame",
+      "x": 931.8047302067282,
+      "y": 45.04424408078192,
+      "width": 390,
+      "ref": "state:empty of f3"
+    },
+    {
+      "id": "f5",
+      "type": "frame",
+      "x": 1332.114708006382,
+      "y": 761,
+      "width": 390,
+      "ref": "state:error of f3"
+    },
+    {
+      "id": "f6",
+      "type": "frame",
+      "x": 1748.0083371996877,
+      "y": 53.26291769742964,
+      "width": 390,
+      "ref": "state:partial of f3"
+    },
+    {
+      "id": "f7",
+      "type": "frame",
+      "x": 701.7403515279292,
+      "y": 669,
+      "width": 390,
+      "ref": "state:loading of f3"
+    },
+    {
+      "id": "f8",
+      "type": "frame",
+      "x": 1335.5174893736837,
+      "y": 41.0429783165455,
+      "width": 390,
+      "ref": "state:close-match of f3"
+    },
+    {
+      "id": "f9",
+      "type": "frame",
+      "x": 1557.9743171334267,
+      "y": 368,
+      "width": 390,
+      "ref": "state:no-match of f3"
+    },
+    {
+      "id": "f10",
+      "type": "frame",
+      "x": 1733.6890558004377,
+      "y": 436,
+      "width": 390,
+      "ref": "state:unavailable of f3"
+    },
+    {
+      "id": "f11",
+      "type": "frame",
+      "x": 1546.3019815087318,
+      "y": 363,
+      "width": 390,
+      "ref": "screen:scam-safety-stop"
+    },
+    {
+      "id": "f12",
+      "type": "frame",
+      "x": 1895.3949073553085,
+      "y": 685.9901286959648,
+      "width": 390,
+      "ref": "state:empty of f11"
+    },
+    {
+      "id": "f13",
+      "type": "frame",
+      "x": 1877.5317678451538,
+      "y": 695.4340748786926,
+      "width": 390,
+      "ref": "state:error of f11"
+    },
+    {
+      "id": "f14",
+      "type": "frame",
+      "x": 1523.684845328331,
+      "y": 413.65047174692154,
+      "width": 390,
+      "ref": "state:partial of f11"
+    },
+    {
+      "id": "f15",
+      "type": "frame",
+      "x": 1487.708226799965,
+      "y": 114.90591990947723,
+      "width": 390,
+      "ref": "state:loading of f11"
+    },
+    {
+      "id": "f16",
+      "type": "frame",
+      "x": 2173.6211237311363,
+      "y": 38.625422894954696,
+      "width": 390,
+      "ref": "screen:send-payment"
+    },
+    {
+      "id": "f17",
+      "type": "frame",
+      "x": 1507.401377916336,
+      "y": 455.7881243824959,
+      "width": 390,
+      "ref": "state:empty of f16"
+    },
+    {
+      "id": "f18",
+      "type": "frame",
+      "x": 1328.0220935344696,
+      "y": 523.2687034010887,
+      "width": 390,
+      "ref": "state:error of f16"
+    },
+    {
+      "id": "f19",
+      "type": "frame",
+      "x": 969.7200963497162,
+      "y": 813,
+      "width": 390,
+      "ref": "state:partial of f16"
+    },
+    {
+      "id": "f20",
+      "type": "frame",
+      "x": 1538.2876107692719,
+      "y": 756,
+      "width": 390,
+      "ref": "state:loading of f16"
+    },
+    {
+      "id": "f21",
+      "type": "frame",
+      "x": 1632.7934572696686,
+      "y": 745,
+      "width": 390,
+      "ref": "state:pending of f16"
+    },
+    {
+      "id": "f22",
+      "type": "frame",
+      "x": 1593.4671322107315,
+      "y": 686,
+      "width": 390,
+      "ref": "state:success of f16"
+    },
+    {
+      "id": "f23",
+      "type": "frame",
+      "x": 2177.325249671936,
+      "y": 423.9969440102577,
+      "width": 390,
+      "ref": "state:fail of f16"
+    },
+    {
+      "id": "f24",
+      "type": "frame",
+      "x": 1407.686532497406,
+      "y": 721.895769238472,
+      "width": 390,
+      "ref": "state:empty of f1"
+    },
+    {
+      "id": "f25",
+      "type": "frame",
+      "x": 2180.4115781784058,
+      "y": 694.2892074584961,
+      "width": 390,
+      "ref": "state:partial of f1"
+    },
+    {
+      "id": "f26",
+      "type": "frame",
+      "x": 1772.5615808963776,
+      "y": 237.38279938697815,
+      "width": 390,
+      "ref": "state:loading of f1"
+    },
+    {
+      "id": "n1",
+      "type": "note",
+      "x": 878,
+      "y": 1232,
+      "width": 240,
+      "ref": "note:n1"
+    },
+    {
       "id": "d7",
       "type": "decision",
-      "x": 894,
-      "y": 0,
+      "x": 7.674144260585308,
+      "y": 1063.1629414856434,
       "width": 280,
       "ref": "decision:7"
     },
     {
       "id": "d8",
       "type": "decision",
-      "x": 1206,
-      "y": 0,
+      "x": 391.4012496769428,
+      "y": 472.79355302453035,
       "width": 280,
       "ref": "decision:8"
+    },
+    {
+      "id": "d23",
+      "type": "decision",
+      "x": 33.256097659468736,
+      "y": 517.1163626015186,
+      "width": 280,
+      "ref": "decision:23"
+    },
+    {
+      "id": "d14",
+      "type": "decision",
+      "x": 2195.353345632553,
+      "y": 941.6975193023682,
+      "width": 280,
+      "ref": "decision:14"
     }
   ],
   "edges": [
@@ -51,6 +267,48 @@
       "id": "e-f1-d8",
       "fromNode": "f1",
       "toNode": "d8",
+      "relation": "embodies"
+    },
+    {
+      "id": "e-f3-d7",
+      "fromNode": "f3",
+      "toNode": "d7",
+      "relation": "embodies"
+    },
+    {
+      "id": "e-f3-d23",
+      "fromNode": "f3",
+      "toNode": "d23",
+      "relation": "embodies"
+    },
+    {
+      "id": "e-f3-d8",
+      "fromNode": "f3",
+      "toNode": "d8",
+      "relation": "embodies"
+    },
+    {
+      "id": "e-f11-d8",
+      "fromNode": "f11",
+      "toNode": "d8",
+      "relation": "embodies"
+    },
+    {
+      "id": "e-f16-d7",
+      "fromNode": "f16",
+      "toNode": "d7",
+      "relation": "embodies"
+    },
+    {
+      "id": "e-f16-d8",
+      "fromNode": "f16",
+      "toNode": "d8",
+      "relation": "embodies"
+    },
+    {
+      "id": "e-f16-d14",
+      "fromNode": "f16",
+      "toNode": "d14",
       "relation": "embodies"
     }
   ]

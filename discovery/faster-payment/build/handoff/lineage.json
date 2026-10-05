@@ -49,6 +49,391 @@
       "stale": false,
       "flags": [],
       "parts": []
+    },
+    {
+      "frameId": "f3",
+      "label": "payee-name-check-result",
+      "baseId": null,
+      "decisionRefs": [
+        "7",
+        "23",
+        "8"
+      ],
+      "via": null,
+      "stale": false,
+      "flags": [],
+      "parts": [
+        {
+          "partId": "root",
+          "name": "stack",
+          "provenance": "vocabulary",
+          "via": null
+        },
+        {
+          "partId": "header",
+          "name": "screen-header",
+          "provenance": "vocabulary",
+          "via": null
+        },
+        {
+          "partId": "result-card",
+          "name": "card",
+          "provenance": "vocabulary",
+          "via": null
+        },
+        {
+          "partId": "result-row",
+          "name": "list-row",
+          "provenance": "vocabulary",
+          "via": null
+        },
+        {
+          "partId": "recovery-notice",
+          "name": "text",
+          "provenance": "vocabulary",
+          "via": null
+        },
+        {
+          "partId": "decision-modal",
+          "name": "modal-dialog",
+          "provenance": "vocabulary",
+          "via": null
+        },
+        {
+          "partId": "continue-button",
+          "name": "primary-button",
+          "provenance": "vocabulary",
+          "via": null
+        }
+      ]
+    },
+    {
+      "frameId": "f4",
+      "label": "empty of payee-name-check-result",
+      "baseId": "f3",
+      "decisionRefs": [],
+      "via": "f3",
+      "stale": false,
+      "flags": [],
+      "parts": []
+    },
+    {
+      "frameId": "f5",
+      "label": "error of payee-name-check-result",
+      "baseId": "f3",
+      "decisionRefs": [],
+      "via": "f3",
+      "stale": false,
+      "flags": [],
+      "parts": []
+    },
+    {
+      "frameId": "f6",
+      "label": "partial of payee-name-check-result",
+      "baseId": "f3",
+      "decisionRefs": [],
+      "via": "f3",
+      "stale": false,
+      "flags": [],
+      "parts": []
+    },
+    {
+      "frameId": "f7",
+      "label": "loading of payee-name-check-result",
+      "baseId": "f3",
+      "decisionRefs": [],
+      "via": "f3",
+      "stale": false,
+      "flags": [],
+      "parts": []
+    },
+    {
+      "frameId": "f8",
+      "label": "close-match of payee-name-check-result",
+      "baseId": "f3",
+      "decisionRefs": [],
+      "via": "f3",
+      "stale": false,
+      "flags": [],
+      "parts": []
+    },
+    {
+      "frameId": "f9",
+      "label": "no-match of payee-name-check-result",
+      "baseId": "f3",
+      "decisionRefs": [],
+      "via": "f3",
+      "stale": false,
+      "flags": [],
+      "parts": []
+    },
+    {
+      "frameId": "f10",
+      "label": "unavailable of payee-name-check-result",
+      "baseId": "f3",
+      "decisionRefs": [],
+      "via": "f3",
+      "stale": false,
+      "flags": [],
+      "parts": []
+    },
+    {
+      "frameId": "f11",
+      "label": "scam-safety-stop",
+      "baseId": null,
+      "decisionRefs": [
+        "8"
+      ],
+      "via": null,
+      "stale": false,
+      "flags": [],
+      "parts": [
+        {
+          "partId": "root",
+          "name": "stack",
+          "provenance": "vocabulary",
+          "via": null
+        },
+        {
+          "partId": "header",
+          "name": "screen-header",
+          "provenance": "vocabulary",
+          "via": null
+        },
+        {
+          "partId": "intro",
+          "name": "text",
+          "provenance": "vocabulary",
+          "via": null
+        },
+        {
+          "partId": "recovery-notice",
+          "name": "text",
+          "provenance": "vocabulary",
+          "via": null
+        },
+        {
+          "partId": "decision-modal",
+          "name": "modal-dialog",
+          "provenance": "vocabulary",
+          "via": null
+        },
+        {
+          "partId": "continue-button",
+          "name": "primary-button",
+          "provenance": "vocabulary",
+          "via": null
+        }
+      ]
+    },
+    {
+      "frameId": "f12",
+      "label": "empty of scam-safety-stop",
+      "baseId": "f11",
+      "decisionRefs": [],
+      "via": "f11",
+      "stale": false,
+      "flags": [],
+      "parts": []
+    },
+    {
+      "frameId": "f13",
+      "label": "error of scam-safety-stop",
+      "baseId": "f11",
+      "decisionRefs": [],
+      "via": "f11",
+      "stale": false,
+      "flags": [],
+      "parts": []
+    },
+    {
+      "frameId": "f14",
+      "label": "partial of scam-safety-stop",
+      "baseId": "f11",
+      "decisionRefs": [],
+      "via": "f11",
+      "stale": false,
+      "flags": [],
+      "parts": []
+    },
+    {
+      "frameId": "f15",
+      "label": "loading of scam-safety-stop",
+      "baseId": "f11",
+      "decisionRefs": [],
+      "via": "f11",
+      "stale": false,
+      "flags": [],
+      "parts": []
+    },
+    {
+      "frameId": "f16",
+      "label": "send-payment",
+      "baseId": null,
+      "decisionRefs": [
+        "7",
+        "8",
+        "14"
+      ],
+      "via": null,
+      "stale": false,
+      "flags": [],
+      "parts": [
+        {
+          "partId": "root",
+          "name": "stack",
+          "provenance": "vocabulary",
+          "via": null
+        },
+        {
+          "partId": "header",
+          "name": "screen-header",
+          "provenance": "vocabulary",
+          "via": null
+        },
+        {
+          "partId": "payment-summary",
+          "name": "list",
+          "provenance": "vocabulary",
+          "via": null
+        },
+        {
+          "partId": "payee-row",
+          "name": "list-row",
+          "provenance": "vocabulary",
+          "via": null
+        },
+        {
+          "partId": "amount-row",
+          "name": "list-row",
+          "provenance": "vocabulary",
+          "via": null
+        },
+        {
+          "partId": "reference-row",
+          "name": "list-row",
+          "provenance": "vocabulary",
+          "via": null
+        },
+        {
+          "partId": "time-row",
+          "name": "list-row",
+          "provenance": "vocabulary",
+          "via": null
+        },
+        {
+          "partId": "money-status",
+          "name": "text",
+          "provenance": "vocabulary",
+          "via": null
+        },
+        {
+          "partId": "send-button",
+          "name": "primary-button",
+          "provenance": "vocabulary",
+          "via": null
+        }
+      ]
+    },
+    {
+      "frameId": "f17",
+      "label": "empty of send-payment",
+      "baseId": "f16",
+      "decisionRefs": [],
+      "via": "f16",
+      "stale": false,
+      "flags": [],
+      "parts": []
+    },
+    {
+      "frameId": "f18",
+      "label": "error of send-payment",
+      "baseId": "f16",
+      "decisionRefs": [],
+      "via": "f16",
+      "stale": false,
+      "flags": [],
+      "parts": []
+    },
+    {
+      "frameId": "f19",
+      "label": "partial of send-payment",
+      "baseId": "f16",
+      "decisionRefs": [],
+      "via": "f16",
+      "stale": false,
+      "flags": [],
+      "parts": []
+    },
+    {
+      "frameId": "f20",
+      "label": "loading of send-payment",
+      "baseId": "f16",
+      "decisionRefs": [],
+      "via": "f16",
+      "stale": false,
+      "flags": [],
+      "parts": []
+    },
+    {
+      "frameId": "f21",
+      "label": "pending of send-payment",
+      "baseId": "f16",
+      "decisionRefs": [],
+      "via": "f16",
+      "stale": false,
+      "flags": [],
+      "parts": []
+    },
+    {
+      "frameId": "f22",
+      "label": "success of send-payment",
+      "baseId": "f16",
+      "decisionRefs": [],
+      "via": "f16",
+      "stale": false,
+      "flags": [],
+      "parts": []
+    },
+    {
+      "frameId": "f23",
+      "label": "fail of send-payment",
+      "baseId": "f16",
+      "decisionRefs": [],
+      "via": "f16",
+      "stale": false,
+      "flags": [],
+      "parts": []
+    },
+    {
+      "frameId": "f24",
+      "label": "empty of add-payee",
+      "baseId": "f1",
+      "decisionRefs": [],
+      "via": "f1",
+      "stale": false,
+      "flags": [],
+      "parts": []
+    },
+    {
+      "frameId": "f25",
+      "label": "partial of add-payee",
+      "baseId": "f1",
+      "decisionRefs": [],
+      "via": "f1",
+      "stale": false,
+      "flags": [],
+      "parts": []
+    },
+    {
+      "frameId": "f26",
+      "label": "loading of add-payee",
+      "baseId": "f1",
+      "decisionRefs": [],
+      "via": "f1",
+      "stale": false,
+      "flags": [],
+      "parts": []
     }
   ],
   "decisions": [
@@ -77,6 +462,36 @@
       "flags": [
         "no-evidence"
       ]
+    },
+    {
+      "id": "23",
+      "seq": 23,
+      "stale": false,
+      "latest": null,
+      "questionId": "s6-edge-cases-or-refusals",
+      "answerRef": "a19",
+      "answer": "resolved",
+      "evidence": [],
+      "flags": [
+        "no-evidence"
+      ]
+    },
+    {
+      "id": "14",
+      "seq": 14,
+      "stale": false,
+      "latest": null,
+      "questionId": "s6-accountable-when-wrong",
+      "answerRef": "a10",
+      "answer": "resolved",
+      "evidence": [
+        {
+          "seq": 13,
+          "name": "PSR APP scam reimbursement rules / FCA Consumer Duty",
+          "provenance": "secondary-source"
+        }
+      ],
+      "flags": []
     }
   ],
   "embodies": [
@@ -87,12 +502,40 @@
     {
       "frameId": "f1",
       "decisionId": "8"
+    },
+    {
+      "frameId": "f3",
+      "decisionId": "7"
+    },
+    {
+      "frameId": "f3",
+      "decisionId": "23"
+    },
+    {
+      "frameId": "f3",
+      "decisionId": "8"
+    },
+    {
+      "frameId": "f11",
+      "decisionId": "8"
+    },
+    {
+      "frameId": "f16",
+      "decisionId": "7"
+    },
+    {
+      "frameId": "f16",
+      "decisionId": "8"
+    },
+    {
+      "frameId": "f16",
+      "decisionId": "14"
     }
   ],
   "partsByProvenance": {
     "imported": 0,
     "admitted": 0,
     "composed": 0,
-    "vocabulary": 4
+    "vocabulary": 26
   }
 }
