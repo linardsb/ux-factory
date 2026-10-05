@@ -129,9 +129,19 @@ export const SPINE_LENGTH = 6;
 // seedSpine(srcPkg, destPkg, { discovery }) → destPkg — a scratch package holding the source's SPINE and nothing a run
 // added (#316). Copies run.json and prd.md (with `discovery`, answers.jsonl and the discovery transcript.jsonl too, which
 // loadDecisions reads), then writes build/ through saveBuild: the first SPINE_LENGTH ledger lines and the arrangement
-// they derive under the source canvas.json's own positions. NEVER build/transcript.jsonl, imports/, proposals/ or
-// groups/ — so every fixture that seeds from the committed package starts from the same document however long the
-// committed run grows, and the next id it mints (f3, g1, i1, pr1) is free.
+// they derive under SPINE_POSITIONS. NEVER build/transcript.jsonl, imports/, proposals/ or groups/ — so every fixture
+// that seeds from the committed package starts from the same document however long the committed run grows, and the
+// next id it mints (f3, g1, i1, pr1) is free.
+//
+// THE POSITIONS ARE FROZEN, NOT READ. They are the arrangement canvas.json held for the six spine lines before #316's
+// sitting (origin/main 5e42472). Reading them from the committed canvas.json made a seed's layout depend on the run:
+// the sitting's owner moved d7 and d8, so an exhibit placed beside the seed landed at x 894, not 1518.
+export const SPINE_POSITIONS = Object.freeze({
+  f1: Object.freeze({ x: 0, y: 0 }),
+  f2: Object.freeze({ x: 472, y: 0 }),
+  d7: Object.freeze({ x: 894, y: 0, w: 280 }),
+  d8: Object.freeze({ x: 1206, y: 0, w: 280 }),
+});
 export function seedSpine(srcPkg, destPkg, { discovery = false } = {}) {
   const src = loadBuild(join(srcPkg, "build"));
   if (!src || src.ops.length < SPINE_LENGTH) throw new Error(`seedSpine: ${srcPkg} has no ${SPINE_LENGTH}-line spine in build/${OPS_FILE}`);
@@ -140,7 +150,7 @@ export function seedSpine(srcPkg, destPkg, { discovery = false } = {}) {
     if (existsSync(join(srcPkg, f))) copyFileSync(join(srcPkg, f), join(destPkg, f));
   }
   const spine = src.ops.slice(0, SPINE_LENGTH);
-  saveBuild(join(destPkg, "build"), arrangement(foldLedger(spine).doc, positionsOf(src.canvas)), spine);
+  saveBuild(join(destPkg, "build"), arrangement(foldLedger(spine).doc, SPINE_POSITIONS), spine);
   return destPkg;
 }
 

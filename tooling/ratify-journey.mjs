@@ -5,7 +5,8 @@
 //
 // WHAT IT PROVES. Over spike C's fixture: the Ratify section appears for a Mode 1 proposal and not for a Mode 2
 // one (R1); the form is prefilled from the drafts (R2); filled (R3) and previewed, it lists the six writes, the
-// pin 3/23 → 3/24 and ten steps while the tree stays clean (R4); a confirm whose form changed after the preview is
+// pin's without-count up by one (read from the clone's own WRAPPER_PIN line, so a real ratify on main does not move
+// the expectation) and ten steps while the tree stays clean (R4); a confirm whose form changed after the preview is
 // refused `stale` ON A CLEAN TREE — so the hash is what refused it, not the dirt (R5); a cross-origin confirm is a
 // 403 (R6); the page's confirm runs ten steps green and reloads onto the result (R7); `git status` is exactly the
 // writes plus the named regenerations (R8); the ledger, the record's elapsed.ratify and licence, and the view
@@ -191,7 +192,10 @@ async function pagePass(base) {
     const writes = await page.locator("[data-ratify-write]").evaluateAll((ns) => ns.map((n) => n.dataset.ratifyWrite));
     t("R4 · preview lists the six writes", JSON.stringify(writes) === JSON.stringify(["system/specs/person-row.md", "system/components.css", "system/templates.admitted.mjs", "system/palette.mjs", "tooling/build-checks.mjs", "system/specs/stack.md"]),
       `${JSON.stringify(writes)} ${refusal}`);
-    t("R4 · the pin moves 3/23 → 3/24, ten steps", (await page.locator("[data-ratify-pin]").textContent())?.includes("3/23 → 3/24") && (await page.locator("[data-ratify-chain] li").count()) === 10);
+    // The pin as the clone holds it now: every real ratify moves it (#316's mj-button made it 3/24), so a literal goes stale.
+    const pinNow = readFileSync(path.join(T, "tooling/build-checks.mjs"), "utf8").match(/^ {2}const WRAPPER_PIN = \{ with: (\d+), without: (\d+) \}; \/\/ ratify-pin/m);
+    const pinMove = pinNow ? `${pinNow[1]}/${pinNow[2]} → ${pinNow[1]}/${Number(pinNow[2]) + 1}` : null;
+    t(`R4 · the pin moves ${pinMove ?? "(no WRAPPER_PIN line in the clone)"}, ten steps`, pinMove !== null && (await page.locator("[data-ratify-pin]").textContent())?.includes(pinMove) && (await page.locator("[data-ratify-chain] li").count()) === 10);
     t("R4 · the clone is still clean after the preview", porcelainSet().size === 0, [...porcelainSet()].join(" | "));
 
     // R12 — 44×44 on the form, measured before the confirm replaces it.
