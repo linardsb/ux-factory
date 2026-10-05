@@ -434,6 +434,124 @@
       "stale": false,
       "flags": [],
       "parts": []
+    },
+    {
+      "frameId": "f27",
+      "label": "review-payment",
+      "baseId": null,
+      "decisionRefs": [
+        "7",
+        "8",
+        "30"
+      ],
+      "via": null,
+      "stale": false,
+      "flags": [],
+      "parts": [
+        {
+          "partId": "root",
+          "name": "stack",
+          "provenance": "vocabulary",
+          "via": null
+        },
+        {
+          "partId": "header",
+          "name": "screen-header",
+          "provenance": "vocabulary",
+          "via": null
+        },
+        {
+          "partId": "summary-list",
+          "name": "list",
+          "provenance": "vocabulary",
+          "via": null
+        },
+        {
+          "partId": "payee-row",
+          "name": "list-row",
+          "provenance": "vocabulary",
+          "via": null
+        },
+        {
+          "partId": "sort-code-row",
+          "name": "list-row",
+          "provenance": "vocabulary",
+          "via": null
+        },
+        {
+          "partId": "account-row",
+          "name": "list-row",
+          "provenance": "vocabulary",
+          "via": null
+        },
+        {
+          "partId": "amount-row",
+          "name": "list-row",
+          "provenance": "vocabulary",
+          "via": null
+        },
+        {
+          "partId": "reference-row",
+          "name": "list-row",
+          "provenance": "vocabulary",
+          "via": null
+        },
+        {
+          "partId": "edit-button",
+          "name": "ghost-button",
+          "provenance": "vocabulary",
+          "via": null
+        },
+        {
+          "partId": "confirm-button",
+          "name": "mj-button",
+          "provenance": "imported",
+          "via": {
+            "proposalId": "pr2",
+            "recordId": "i2"
+          }
+        }
+      ]
+    },
+    {
+      "frameId": "f28",
+      "label": "empty of review-payment",
+      "baseId": "f27",
+      "decisionRefs": [],
+      "via": "f27",
+      "stale": false,
+      "flags": [],
+      "parts": []
+    },
+    {
+      "frameId": "f29",
+      "label": "error of review-payment",
+      "baseId": "f27",
+      "decisionRefs": [],
+      "via": "f27",
+      "stale": false,
+      "flags": [],
+      "parts": []
+    },
+    {
+      "frameId": "f30",
+      "label": "partial of review-payment",
+      "baseId": "f27",
+      "decisionRefs": [],
+      "via": "f27",
+      "stale": false,
+      "flags": [],
+      "parts": []
+    },
+    {
+      "frameId": "f31",
+      "label": "loading of review-payment",
+      "baseId": "f27",
+      "decisionRefs": [],
+      "via": "f27",
+      "stale": false,
+      "flags": [],
+      "parts": []
     }
   ],
   "decisions": [
@@ -492,6 +610,19 @@
         }
       ],
       "flags": []
+    },
+    {
+      "id": "30",
+      "seq": 30,
+      "stale": false,
+      "latest": null,
+      "questionId": "s4-security-boundary",
+      "answerRef": "a24",
+      "answer": "resolved",
+      "evidence": [],
+      "flags": [
+        "no-evidence"
+      ]
     }
   ],
   "embodies": [
@@ -530,12 +661,24 @@
     {
       "frameId": "f16",
       "decisionId": "14"
+    },
+    {
+      "frameId": "f27",
+      "decisionId": "7"
+    },
+    {
+      "frameId": "f27",
+      "decisionId": "8"
+    },
+    {
+      "frameId": "f27",
+      "decisionId": "30"
     }
   ],
   "partsByProvenance": {
-    "imported": 0,
+    "imported": 1,
     "admitted": 0,
     "composed": 0,
-    "vocabulary": 26
+    "vocabulary": 35
   }
 }

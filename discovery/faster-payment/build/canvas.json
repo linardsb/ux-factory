@@ -210,6 +210,46 @@
       "ref": "state:loading of f1"
     },
     {
+      "id": "f27",
+      "type": "frame",
+      "x": 2239.6989772319794,
+      "y": 124.84049148112534,
+      "width": 390,
+      "ref": "screen:review-payment"
+    },
+    {
+      "id": "f28",
+      "type": "frame",
+      "x": 213.56357729434967,
+      "y": 831,
+      "width": 390,
+      "ref": "state:empty of f27"
+    },
+    {
+      "id": "f29",
+      "type": "frame",
+      "x": 1090.911836385727,
+      "y": 581.1125198677182,
+      "width": 390,
+      "ref": "state:error of f27"
+    },
+    {
+      "id": "f30",
+      "type": "frame",
+      "x": 1192.811341047287,
+      "y": 585.2874154523015,
+      "width": 390,
+      "ref": "state:partial of f27"
+    },
+    {
+      "id": "f31",
+      "type": "frame",
+      "x": 2426,
+      "y": 124.84049148112534,
+      "width": 390,
+      "ref": "state:loading of f27"
+    },
+    {
       "id": "n1",
       "type": "note",
       "x": 878,
@@ -248,6 +288,14 @@
       "y": 941.6975193023682,
       "width": 280,
       "ref": "decision:14"
+    },
+    {
+      "id": "d30",
+      "type": "decision",
+      "x": 2536,
+      "y": 791.4049849212169,
+      "width": 280,
+      "ref": "decision:30"
     }
   ],
   "edges": [
@@ -309,6 +357,24 @@
       "id": "e-f16-d14",
       "fromNode": "f16",
       "toNode": "d14",
+      "relation": "embodies"
+    },
+    {
+      "id": "e-f27-d7",
+      "fromNode": "f27",
+      "toNode": "d7",
+      "relation": "embodies"
+    },
+    {
+      "id": "e-f27-d8",
+      "fromNode": "f27",
+      "toNode": "d8",
+      "relation": "embodies"
+    },
+    {
+      "id": "e-f27-d30",
+      "fromNode": "f27",
+      "toNode": "d30",
       "relation": "embodies"
     }
   ]
