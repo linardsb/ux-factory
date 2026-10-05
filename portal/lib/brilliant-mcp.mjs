@@ -23,7 +23,11 @@
 //      rejected with it — never data. A line carrying a `method` (a server request or notification) is
 //      not a reply and is ignored; only a {id, result|error} line settles a request.
 //   4. EVERY SHAPE IT KNOWS IS PINNED BY A COMMITTED CAPTURE under import/fixtures/brilliant-live/
-//      (43.11 reads every file there). A Brilliant change is a re-capture, never a guess here.
+//      (43.11 reads every file there; the set was re-captured whole at #530, when Brilliant retired
+//      `lookup`). A Brilliant change is a re-capture, never a guess here.
+//      `read` answers a fence, not JSON: ```bl / file(path) / rows / ``` (captures read-*.json). `lookup`
+//      is listed but retired. It answers a plain redirect, not an error, so only parseRead's fence test
+//      catches a client still calling it (lookup-retired.json).
 //   5. ONE PROCESS PER SESSION, killed by its own handle in close() — never by name or port.
 //
 // WHAT IT CANNOT KNOW: whether a tab is paired, until tools/list answers. `initialize` is answered
@@ -36,7 +40,8 @@ import { createHash } from "node:crypto";
 
 // The read allow-list, BARE MCP names (the `mcp__brilliant__` prefix was the SDK's). `init` joined it at
 // PR B: get_selection needs the canvasId only init names (fixtures get-selection-no-canvas.json, init.json).
-export const TOOLS = Object.freeze(["init", "get_selection", "lookup", "export"]);
+// `read` replaced `lookup` when Brilliant retired it (#530).
+export const TOOLS = Object.freeze(["init", "get_selection", "read", "export"]);
 
 // Moved from import-run.mjs unchanged: UXF_BRILLIANT_MCP (a JSON server config — the journey's fake) or
 // the published package through npx.
@@ -199,12 +204,22 @@ export function parseSelection(reply) {
   return { canvasId: v.canvasId, selectedIds: v.selectedIds, blueprint: typeof v.blueprint === "string" ? v.blueprint : "" };
 }
 
-// lookup { format: "blueprint" } → the results' blueprints joined in order, and their element ids.
-export function parseLookup(reply) {
-  const v = jsonText(reply, "lookup");
-  if (!Array.isArray(v?.results)) throw new Error("brilliant-mcp: lookup.results is not an array");
-  v.results.forEach((r, i) => { if (typeof r?.blueprint !== "string") throw new Error(`brilliant-mcp: lookup.results[${i}].blueprint is not a string`); });
-  return { text: v.results.map((r) => r.blueprint).join("\n"), elementIds: v.results.flatMap((r) => (Array.isArray(r.elementIds) ? r.elementIds : [])) };
+// read { paths, ids?, format } → the one ```bl fence's canvas path and the rows inside it, unchanged.
+// One fence per read: a paths:[canvas] read cannot span canvases, so a second fence means the call
+// changed. A `films:` line above the fence is refused by name — read's description names that shape,
+// no capture pins it (invariant 4). Anything else that is not one fence — the retired lookup's redirect
+// among it — throws quoting the bridge's own first words.
+const FENCE_RE = /^```bl\nfile\("([^"]*)"\)\n([\s\S]*?)\n```$/;
+export function parseRead(reply) {
+  refusedBy(reply, "read");
+  const t = String(textOf(reply) ?? "").trim();
+  const films = t.slice(0, Math.max(0, t.indexOf("```bl"))).split("\n").find((l) => l.startsWith("films:"));
+  if (films) throw new Error(`brilliant-mcp: read listed films above the fence (${films}) — no capture pins that shape; re-capture a canvas a film names (#530)`);
+  const fences = (t.match(/^```bl$/gm) ?? []).length;
+  if (fences > 1) throw new Error(`brilliant-mcp: read answered ${fences} fences — one canvas per read`);
+  const m = t.match(FENCE_RE);
+  if (!m) throw new Error(`brilliant-mcp: read answered no single \`\`\`bl fence: ${t.slice(0, 80)}`);
+  return { path: m[1], text: m[2] };
 }
 
 // export { format: "png" } → the image block, checked against the bridge's own
@@ -221,13 +236,19 @@ export function parseExport(reply) {
   return { bytes, width: Number(m[1]), height: Number(m[2]), sha256: m[4] };
 }
 
-// lookup { format: "summary" } over a canvas → its TOP-LEVEL elements (no parentId), in order.
+// read { paths:[canvas], format: "summary" } → its TOP-LEVEL elements, in order, and the match count.
 export function parsePage(reply) {
-  const v = jsonText(reply, "lookup");
-  if (!Array.isArray(v?.results)) throw new Error("brilliant-mcp: lookup.results is not an array");
-  return v.results.flatMap((r) => (Array.isArray(r?.elements) ? r.elements : []))
-    .filter((e) => e && !e.parentId && typeof e.id === "string" && ID_RE.test(e.id))
-    .map((e) => ({ id: e.id, name: typeof e.name === "string" ? e.name : "", type: typeof e.type === "string" ? e.type : "" }));
+  const { text } = parseRead(reply);
+  let v;
+  try { v = JSON.parse(text); } catch { throw new Error(`brilliant-mcp: read's summary is not JSON: ${text.slice(0, 80)}`); }
+  if (!Array.isArray(v?.elements)) throw new Error("brilliant-mcp: read's summary .elements is not an array");
+  if (v.returnedCount !== v.elements.length) throw new Error(`brilliant-mcp: read's summary returnedCount ${v.returnedCount} is not its ${v.elements.length} elements`);
+  return {
+    // A summary over the path is top-level only today (read-page.json); the !parentId filter guards a future read that lists descendants.
+    elements: v.elements.filter((e) => e && !e.parentId && typeof e.id === "string" && ID_RE.test(e.id))
+      .map((e) => ({ id: e.id, name: typeof e.name === "string" ? e.name : "", type: typeof e.type === "string" ? e.type : "" })),
+    total: v.matchCount,
+  };
 }
 
 // --- the classifier: an outcome → at most ONE refusal, each with ONE action ------------------------

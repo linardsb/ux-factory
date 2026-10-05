@@ -5,17 +5,17 @@
     "content": [
       {
         "type": "text",
-        "text": "{\"canvasId\":\"playground\",\"count\":0,\"selectedIds\":[],\"blueprint\":\"\"}"
+        "text": "{\"canvasId\":\"main.bl\",\"count\":0,\"selectedIds\":[],\"blueprint\":\"\"}"
       }
     ],
     "_meta": {
       "brilliant": {
         "project": {
-          "handle": "",
-          "name": "",
-          "title": ""
+          "handle": "indigo-cherry",
+          "name": "scratch-import-probe",
+          "title": "scratch-import-probe"
         },
-        "tabId": "tab-222a9bd0-eade-49a3-a33b-de0c8e409d4b",
+        "tabId": "tab-04647386-e9fb-457c-b07c-5108fb41a006",
         "viewOnly": false,
         "surface": "web",
         "otherTabs": []

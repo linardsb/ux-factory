@@ -1,0 +1,89 @@
+// Throwaway (#530 Task 0.2): captures import/fixtures/brilliant-live/ in the committed shape — the bare
+// JSON-RPC reply object, 2-space indent, PNG base64 kept whole (checked against the bridge's own sha256
+// line before writing). Raw stdio against @brilliant-hq/mcp. No model, no spend. READ tools only.
+// Parked as .txt (drift-check node --checks tracked .mjs); copy to a scratch .mjs to run:
+//   node capture530.mjs A <outdir>   rectangle selected
+//   node capture530.mjs B <outdir>   nothing selected
+//   node capture530.mjs C <outdir>   rectangle, then "Pay", selected
+import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
+import { mkdirSync, writeFileSync } from "node:fs";
+
+const [PASS, OUT] = process.argv.slice(2);
+if (!["A", "B", "C"].includes(PASS) || !OUT) { console.error("usage: capture530.mjs A|B|C <outdir>"); process.exit(2); }
+const p = spawn("npx", ["-y", "@brilliant-hq/mcp"], { stdio: ["pipe", "pipe", "pipe"] });
+const t0 = Date.now(), log = (s) => console.log(`[${((Date.now() - t0) / 1000).toFixed(1)}s] ${s}`);
+p.stderr.resume();
+const pending = new Map(); let buf = "", nid = 1;
+p.stdout.setEncoding("utf8");
+p.stdout.on("data", (d) => { buf += d; let i; while ((i = buf.indexOf("\n")) >= 0) { const l = buf.slice(0, i); buf = buf.slice(i + 1); let m; try { m = JSON.parse(l); } catch { log("NONJSON " + l.slice(0, 120)); continue; } pending.get(m.id)?.(m); } });
+const rpc = (method, params) => new Promise((r) => { const id = nid++; pending.set(id, r); p.stdin.write(JSON.stringify({ jsonrpc: "2.0", id, method, params }) + "\n"); });
+const textOf = (m) => (m.result?.content ?? []).filter((c) => c.type === "text").map((c) => c.text).join("\n");
+const die = (msg) => { console.error(`capture530: ${msg}`); p.kill(); process.exit(1); };
+
+// Held in memory and written only after every guard passed — a wrong-canvas run writes nothing.
+const files = new Map();
+const keep = (name, reply) => files.set(name, reply);
+const call = async (name, args) => {
+  const m = await rpc("tools/call", { name, arguments: args });
+  log(`${name} ${JSON.stringify(args)} → ${m.error ? "ERROR " + m.error.message : m.result?.isError ? "isError " + textOf(m).slice(0, 160) : "ok " + textOf(m).slice(0, 120).replace(/\n/g, "⏎")}`);
+  return m;
+};
+const pngChecked = (m) => {
+  const img = m.result?.content?.find((c) => c.type === "image");
+  const sha = textOf(m).match(/sha256:([0-9a-f]{64})/)?.[1];
+  if (!img || !sha || createHash("sha256").update(Buffer.from(img.data, "base64")).digest("hex") !== sha) die("export PNG does not match its own sha256 line");
+  return m;
+};
+
+const initialize = await rpc("initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "uxf-capture-530", version: "0" } });
+p.stdin.write(JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }) + "\n");
+const tl = await rpc("tools/list", {});
+if (!tl.result?.tools?.length) die(`tools/list: ${tl.error?.message ?? "no tools"}`);
+const init = await call("init", { agentName: "uxf capture 530" });
+const canvasId = textOf(init).match(/\*\*sessionCanvasId:\*\*\s*`([^`]+)`/)?.[1];
+log(`canvasId=${JSON.stringify(canvasId)}`);
+// The owner drew it as project `scratch-import-probe`, canvas `main.bl` (2026-10-05) — the guard reads both.
+const project = init.result?._meta?.brilliant?.project?.name;
+if (project !== "scratch-import-probe" || canvasId !== "main.bl") die(`init bound ${JSON.stringify(project)} / ${JSON.stringify(canvasId)}, not scratch-import-probe / main.bl — close every other Brilliant tab`);
+
+const sel = await call("get_selection", { canvasId });
+const ids = JSON.parse(textOf(sel)).selectedIds ?? [];
+const want = { A: 1, B: 0, C: 2 }[PASS];
+if (ids.length !== want) die(`pass ${PASS} needs ${want} selected, got ${JSON.stringify(ids)}`);
+
+if (PASS === "A") {
+  keep("initialize.json", initialize);
+  keep("tools-list.json", { names: tl.result.tools.map((t) => t.name), _meta: tl.result._meta ?? null,
+    schemas: Object.fromEntries(["get_selection", "export", "read", "lookup", "list_projects", "init"].map((n) => [n, tl.result.tools.find((t) => t.name === n)?.inputSchema])) });
+  keep("init.json", init);
+  keep("get-selection-one.json", sel);
+  keep("get-selection-no-canvas.json", await call("get_selection", {}));
+  const one = await call("read", { paths: [canvasId], ids, format: "blueprint", expandInstances: true });
+  keep("read-blueprint-one.json", one);
+  const fill = textOf(one).match(/f\[\(([0-9a-f]{16}),/)?.[1];
+  let unresolved = await call("read", { paths: [canvasId], ids: [fill ?? "0000000000000000"], format: "blueprint" });
+  let usedId = fill ?? "0000000000000000";
+  if (!(unresolved.result?.isError === true && textOf(unresolved).includes("Could not resolve"))) {
+    usedId = "0000000000000000";
+    unresolved = await call("read", { paths: [canvasId], ids: [usedId], format: "blueprint" });
+    if (!(unresolved.result?.isError === true && textOf(unresolved).includes("Could not resolve"))) die("no unresolved id answers isError + Could not resolve");
+  }
+  log(`unresolved id used: ${usedId} (fill id was ${fill})`);
+  keep("read-unresolved.json", unresolved);
+  keep("read-page.json", await call("read", { paths: [canvasId], format: "summary" }));
+  keep("lookup-retired.json", await call("lookup", { scope: ids, format: "blueprint", expandInstances: true }));
+  keep("export-png.json", pngChecked(await call("export", { canvasId, ids, format: "png", scale: 1 })));
+  keep("export-thumb.json", pngChecked(await call("export", { canvasId, ids, format: "png", width: 160 })));
+  keep("list-projects.json", await call("list_projects", {}));
+}
+if (PASS === "B") keep("get-selection-none.json", sel);
+if (PASS === "C") {
+  keep("get-selection-two.json", sel);
+  keep("read-blueprint-two.json", await call("read", { paths: [canvasId], ids, format: "blueprint", expandInstances: true }));
+}
+
+mkdirSync(OUT, { recursive: true });
+for (const [name, v] of files) writeFileSync(`${OUT}/${name}`, JSON.stringify(v, null, 2) + "\n");
+log(`wrote ${[...files.keys()].join(", ")} → ${OUT}`);
+p.kill(); process.exit(0);

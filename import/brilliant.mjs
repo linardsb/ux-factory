@@ -2,7 +2,8 @@
 // → the IR (epic #295 ticket #304; docs/epics/canvas-design-import.architecture.md:159-172;
 // .claude/plans/import-ir-brilliant-recognise-304.md).
 //
-// A "blueprint read" is the structured text a Brilliant `lookup { format:"blueprint" }` returns: one
+// A "blueprint read" is the structured text a Brilliant `read { format:"blueprint" }` returns inside its
+// ```bl fence, which portal/lib/brilliant-mcp.mjs strips (`lookup` returned it bare until #530): one
 // line per element, two spaces of indent per depth level, of the shape
 //   <id> <atoms…> "<name>" [#tag]
 // The two committed fixtures under import/fixtures/ are verbatim reads from a real run (2026-08-27).
@@ -52,13 +53,18 @@
 // prop in the vocabulary — that is the committed never-read row, and it is real rather than
 // hypothetical. The record of what was never read starts here.
 //
-// ─── TWO CONVENTIONS THIS FILE DECIDES ───────────────────────────────────────────────────────────
+// ─── THREE CONVENTIONS THIS FILE DECIDES ─────────────────────────────────────────────────────────
 //   · A `tok(color.text.primary,#454545,…)` atom normalises to ref `$color.text.primary`. Brilliant
 //     writes $-prefixed refs for spacing/type/radius and bare ones inside tok(); one convention in
 //     the IR beats two, and the prefix is the one the rest of the read already uses.
 //   · A tokenisable slot read with no ref at all (fixture 2's raw `#7C6BF0` stroke and its `rd(16)`)
 //     yields `tok(value, null)` and sets the root's `source.bound` false. NOTHING IS GUESSED — the
 //     snap step is import/snap-rules.mjs (#307, architecture:168), run after this converter.
+//   · An AUTO line height, `lh(auto,1.21)` (Brilliant's `read` since #530; import/fixtures/brilliant-live/
+//     read-blueprint-two.json), reads lineHeight null — the computed ratio after `auto,` is not a choice
+//     the designer made. Null is what #311's capture of the same drawing read (its t() carried no lh at
+//     all) and what figma.mjs reads for AUTO (its F3), so one drawing gives one IR through either
+//     converter. Only `auto,<finite number>` is read; any other lh(auto…) still throws — no capture pins it.
 
 import { checkIr, drop, node as irNode, root as irRoot, tok, walk } from "./ir.mjs";
 
@@ -504,7 +510,7 @@ const readLine = (line) => {
         if (p.startsWith('"')) { out.content = p.slice(1, p.lastIndexOf('"')); continue; }
         if (p.includes(":$font.family")) { out.family = tok(p.slice(0, p.indexOf(":")), "$font.family"); continue; }
         if (p.includes(":$font.size.")) { out.size = parseValue(p); continue; }
-        if (p.startsWith("lh(")) { out.lineHeight = parseValue(args(p, "lh")); continue; }
+        if (p.startsWith("lh(")) { const a = args(p, "lh"); out.lineHeight = a.startsWith("auto,") && /^\d+(\.\d+)?$/.test(a.slice(5).trim()) ? null : parseValue(a); continue; }
         if (p.startsWith("align(")) { out.align = args(p, "align").trim(); continue; }
         if (/^[a-z]{1,3}$/.test(p)) { out.weight = p; continue; }
         drops.push(drop({ kind: "unread-atom", slot: "t", value: p, reason: `t() argument "${p}" has no reader — read but not understood` }));

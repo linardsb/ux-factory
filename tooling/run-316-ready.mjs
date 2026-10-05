@@ -10,7 +10,7 @@
 //   4  #320 landed: PARAMS["screen.compose"] carries "alternative"                 (D5, forks)
 //   5  build/ops.jsonl is exactly the six-line spine and verifyBuild passes          (PRE-RUN: inverts, see below)
 //   6  the tree is clean by ratify's own CLEAN_GUARD, both argv arrays printing nothing
-//   7  brilliant-mcp.mjs's TOOLS are exactly the four read tools
+//   7  brilliant-mcp.mjs's TOOLS are exactly the four read tools (init · get_selection · read · export since #530)
 //   8  no ANTHROPIC_* or CLAUDE_CODE_USE_* name in the env or portal/.env, and subscriptionEnv drops one
 //   9  node_modules in portal, tooling/icons, tooling/visual-regression and tooling/style-dictionary (ratify's chain
 //      runs gen-handoff → Style Dictionary and build-checks → 41.7 icons; both failed without them, observed)
@@ -44,7 +44,7 @@ import { CLEAN_GUARD } from '../portal/lib/ratify.mjs';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PACKAGE = path.join(ROOT, 'discovery', 'faster-payment');
 const PRD = path.join(PACKAGE, 'prd.md');
-const READ_TOOLS = ['init', 'get_selection', 'lookup', 'export'];
+const READ_TOOLS = ['init', 'get_selection', 'read', 'export'];
 const MODULE_DIRS = ['portal', 'tooling/icons', 'tooling/visual-regression', 'tooling/style-dictionary'];
 const BILLING_RE = /^(ANTHROPIC_|CLAUDE_CODE_USE_)/;
 

@@ -5,17 +5,17 @@
     "content": [
       {
         "type": "text",
-        "text": "{\"canvasId\":\"playground\",\"count\":1,\"selectedIds\":[\"630fe03901352c90\"],\"blueprint\":\"630fe03901352c90 r p(910,351) s(395,201) f[(9df0cbadf986e307,#000000)] \\\"Rectangle 1\\\"\"}"
+        "text": "{\"canvasId\":\"main.bl\",\"count\":1,\"selectedIds\":[\"d37836a642d995ba\"],\"blueprint\":\"d37836a642d995ba r p(651,441) s(387,122) f[(9df0cbadf986e307,#000000)] rd(12:$radius.xl) \\\"Rectangle 1\\\"\"}"
       }
     ],
     "_meta": {
       "brilliant": {
         "project": {
-          "handle": "",
-          "name": "",
-          "title": ""
+          "handle": "indigo-cherry",
+          "name": "scratch-import-probe",
+          "title": "scratch-import-probe"
         },
-        "tabId": "tab-222a9bd0-eade-49a3-a33b-de0c8e409d4b",
+        "tabId": "tab-04647386-e9fb-457c-b07c-5108fb41a006",
         "viewOnly": false,
         "surface": "web",
         "otherTabs": []

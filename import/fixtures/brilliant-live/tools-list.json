@@ -2,17 +2,22 @@
   "names": [
     "get_selection",
     "export",
-    "lookup",
-    "objects_result",
+    "read",
     "list_projects",
+    "edit",
     "create_modify_elements",
     "create_html",
+    "lookup",
+    "read_objects_result",
+    "objects_result",
+    "convert_html",
     "execute_commands",
     "get_knowledge",
     "init",
     "generate_image",
     "generate_svg",
     "vectorize_image",
+    "remove_background",
     "capture_ui",
     "list_capture_targets",
     "render_ui",
@@ -41,14 +46,14 @@
       "type": "object",
       "properties": {
         "canvasId": {
-          "description": "Canvas ID to export from. REQUIRED.",
+          "description": "Canvas ID to export from. REQUIRED, except with `pages` (each item names its canvas).",
           "type": "string"
         },
         "ids": {
-          "description": "Element IDs (or #refs) to export. REQUIRED. `elementIds` is accepted as an alias.",
+          "description": "Element IDs (or #refs) to export. REQUIRED, except with `motion` (a film names its own canvases) or `pages`. `elementIds` is accepted as an alias.",
           "anyOf": [
             {
-              "description": "Element IDs (or #refs) to export. REQUIRED. `elementIds` is accepted as an alias.",
+              "description": "Element IDs (or #refs) to export. REQUIRED, except with `motion` (a film names its own canvases) or `pages`. `elementIds` is accepted as an alias.",
               "type": "array",
               "items": {
                 "type": "string"
@@ -59,8 +64,42 @@
             }
           ]
         },
+        "pages": {
+          "description": "pdf: one page per item, in order: an element id or #ref (the element, a frame exactly its frame) or a canvas path (the whole canvas), on any canvas. Replaces `ids`; the format defaults to pdf.",
+          "anyOf": [
+            {
+              "description": "pdf: one page per item, in order: an element id or #ref (the element, a frame exactly its frame) or a canvas path (the whole canvas), on any canvas. Replaces `ids`; the format defaults to pdf.",
+              "type": "array",
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "object"
+                  },
+                  {
+                    "type": "array"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
         "format": {
-          "description": "Export format: \"png\" (default), \"jpeg\", \"webp\", \"svg\", \"pdf\", \"html\" (snippet), \"htmlDoc\" (self-contained document), \"htmlFlex\" (snippet using semantic flexbox for auto-layout), \"react\" (JSX snippet pasteable into a .tsx file), or \"mp4\"/\"mov\" (video — writes a file, returns its path).",
+          "description": "Export format: \"png\" (default), \"jpeg\", \"webp\", \"svg\", \"pdf\", \"html\" (snippet), \"htmlDoc\" (self-contained document), \"htmlFlex\" (snippet using semantic flexbox for auto-layout), \"react\" (JSX snippet pasteable into a .tsx file), or \"mp4\"/\"mov\" (video: writes a file, returns its path).",
           "type": "string",
           "enum": [
             "png",
@@ -207,32 +246,20 @@
           ]
         },
         "outputPath": {
-          "description": "File path to write the exported data to. When provided, writes the file and returns a confirmation instead of inline data. Works with all formats.",
+          "description": "File path to write the exported data to. When provided, writes the file and returns a confirmation instead of inline data. A relative path is written under the project's Exports/ folder; a path ending in / names a folder. Works with all formats.",
           "type": "string"
         },
-        "sequence": {
-          "description": "mp4/mov only: render a MOTION clip that tweens between STATE frames (Smart Animate: elements match across states by name). {states: [\"<frameId>\", ...] (2+ top-level frames on canvasId, in order), transitions: [{from: 0, to: 1, duration: 1.2, ease: \"out-expo\", delays: {\"<element name>\": 0.15}, hold: 0.5, trim: {\"<element name>\": [[0, 0], [0, 1]]}, clampToBeat: false} | {state: 1, hold: 0.8}, ...], hold: 2.0 (optional seconds after the last state), patches: [[t, [\"<blueprint modify line>\", ...]], ...] (optional, per frame time, by element id or #ref: modify lines, CREATE lines for transient elements (a trailing #ref names one for later lines, drawn above the state) and delete(#ref), each applied from its time on), frames: [a, b] (optional: render only frames a..b-1 of the timeline), camera: [{state: 0, rect: [x, y, w, h]} | {state: 1, fit: \"<element name>\", padding: 40}] (optional, the readback region follows the transition), motionBlur: 1..8 (optional sub-frames averaged per frame)}. Eases: linear, in, out, in-out, out-expo, spring, spring(damping, stiffness). A duration of 0 is a hard cut, a {state, hold} entry rests on that state, a delay shifts the element's run past the beat (clampToBeat: true compresses it), a spring keeps its velocity into the next transition, matched vectors of different node counts morph, rotation interpolates the angle, trim draws the stroke along the path (0..1). The length derives from the transitions plus the holds (cap 3600 frames), the size is the states' frame (`width` scales it). Writes the mp4, `<name>.contact.png` (24 sampled frames, 6x4, time-stamped) and `<name>.timing.json`, and answers with the paths, the frame count and the per-frame timing summary. The engine evaluates it (the table is spelled as a .bm, motion L3). frameHashes: true stamps every frame with a 64-bit hash in the timing JSON, dumpFrames: {dir, frames: [i, ...]} writes the exact PNG of those frames.",
+        "motion": {
+          "description": "mp4/mov only: render a FILM through the engine evaluator (knowledge `motion/core`). Pass the film's name, \"Launch\" (or \"Motion/Launch.bm\"): `Motion/<film>.bm` in the folder of canvasId or at the project root, written by an edit whose ```bm fence opens with file(\"Motion/<film>.bm\"). Or an object {film: \"<name>\" | bm: \"<text>\", patches: [[t, [lines]], ...], tracks: [\"<track line>\", ...] (a compiled track program the engine evaluates at any t), frames: [a, b], motionBlur: 1..8, frameHashes: true, dumpFrames: {dir, frames}}. A film's states live on the canvases its canvases[...] line names. `fps` defaults to the film's header.",
           "anyOf": [
             {
-              "description": "mp4/mov only: render a MOTION clip that tweens between STATE frames (Smart Animate: elements match across states by name). {states: [\"<frameId>\", ...] (2+ top-level frames on canvasId, in order), transitions: [{from: 0, to: 1, duration: 1.2, ease: \"out-expo\", delays: {\"<element name>\": 0.15}, hold: 0.5, trim: {\"<element name>\": [[0, 0], [0, 1]]}, clampToBeat: false} | {state: 1, hold: 0.8}, ...], hold: 2.0 (optional seconds after the last state), patches: [[t, [\"<blueprint modify line>\", ...]], ...] (optional, per frame time, by element id or #ref: modify lines, CREATE lines for transient elements (a trailing #ref names one for later lines, drawn above the state) and delete(#ref), each applied from its time on), frames: [a, b] (optional: render only frames a..b-1 of the timeline), camera: [{state: 0, rect: [x, y, w, h]} | {state: 1, fit: \"<element name>\", padding: 40}] (optional, the readback region follows the transition), motionBlur: 1..8 (optional sub-frames averaged per frame)}. Eases: linear, in, out, in-out, out-expo, spring, spring(damping, stiffness). A duration of 0 is a hard cut, a {state, hold} entry rests on that state, a delay shifts the element's run past the beat (clampToBeat: true compresses it), a spring keeps its velocity into the next transition, matched vectors of different node counts morph, rotation interpolates the angle, trim draws the stroke along the path (0..1). The length derives from the transitions plus the holds (cap 3600 frames), the size is the states' frame (`width` scales it). Writes the mp4, `<name>.contact.png` (24 sampled frames, 6x4, time-stamped) and `<name>.timing.json`, and answers with the paths, the frame count and the per-frame timing summary. The engine evaluates it (the table is spelled as a .bm, motion L3). frameHashes: true stamps every frame with a 64-bit hash in the timing JSON, dumpFrames: {dir, frames: [i, ...]} writes the exact PNG of those frames.",
               "type": "object"
             },
             {
               "type": "string"
-            }
-          ]
-        },
-        "motion": {
-          "description": "mp4/mov only: render a `.bm` motion document through the engine evaluator (knowledge `motion/authoring`). Pass the .bm text as a string, `true` for the canvas's own `<name>.bm` beside it (written by bm_file), or an object {bm: \"<text>\" | file: true, patches: [[t, [lines]], ...], frames: [a, b], motionBlur: 1..8, frameHashes: true, dumpFrames: {dir, frames}}. `fps` defaults to the file's header. One of `motion` and `sequence`.",
-          "anyOf": [
-            {
-              "type": "object"
             },
             {
               "type": "boolean"
-            },
-            {
-              "type": "string"
             }
           ]
         },
@@ -244,19 +271,16 @@
           "description": "Optional: run THIS call against a project other than the session's bound one, a name or key from list_projects (or an unambiguous name/handle substring). Unknown/ambiguous is refused with candidates.",
           "type": "string"
         }
-      },
-      "required": [
-        "canvasId"
-      ]
+      }
     },
-    "lookup": {
+    "read": {
       "type": "object",
       "properties": {
-        "scope": {
-          "description": "Where to look: list of canvas paths (e.g. \"Projects/Dashboard\"), element IDs (16-hex), and/or session refs (`#card`). Omit to search all canvases. A canvas path beside element IDs on that canvas locates them, so the scope is those subtrees; a canvas path alone is the whole canvas.",
+        "paths": {
+          "description": "The documents to read: canvas paths (e.g. \"Projects/Dashboard\", .bl optional), films (\"Motion/Launch.bm\") and design systems (\"Styles/default.ds\"). Omit with a filter to search every canvas.",
           "anyOf": [
             {
-              "description": "Where to look: list of canvas paths (e.g. \"Projects/Dashboard\"), element IDs (16-hex), and/or session refs (`#card`). Omit to search all canvases. A canvas path beside element IDs on that canvas locates them, so the scope is those subtrees; a canvas path alone is the whole canvas.",
+              "description": "The documents to read: canvas paths (e.g. \"Projects/Dashboard\", .bl optional), films (\"Motion/Launch.bm\") and design systems (\"Styles/default.ds\"). Omit with a filter to search every canvas.",
               "type": "array",
               "items": {
                 "type": "string"
@@ -283,7 +307,7 @@
           ]
         },
         "query": {
-          "description": "Case-insensitive substring match on element name AND canvas path. Element matches land in `results`; canvas matches land in `canvases` (path + topLevelCount when loaded). Canvas matching only runs when no explicit `scope` is given.",
+          "description": "Case-insensitive substring match on element name AND canvas path. Element matches answer as fences; canvas matches ride the `canvases:` line. Canvas matching only runs when no `paths` are given.",
           "type": "string"
         },
         "textContent": {
@@ -291,11 +315,11 @@
           "type": "string"
         },
         "type": {
-          "description": "Filter by element type. One of: vector, line, circle, rectangle, text, parent. Note: a cold-reload `type:text` lookup can undercount text derived inside compressed component instances (their children materialize only after sync); this is a read artifact, the blueprint and stored bytes are authoritative.",
+          "description": "Filter by element type. One of: vector, line, circle, rectangle, text, parent.",
           "type": "string"
         },
         "fillColor": {
-          "description": "Find elements with a fill matching this hex color (e.g. \"#FFCC00\" for yellow). Perceptual color matching — close shades are included.",
+          "description": "Find elements with a fill matching this hex color (e.g. \"#FFCC00\" for yellow). Perceptual color matching, close shades are included.",
           "type": "string"
         },
         "componentName": {
@@ -303,7 +327,7 @@
           "type": "string"
         },
         "format": {
-          "description": "Output shape per match. \"summary\" (default) returns compact metadata (id, name, type, parentId, parentName, childCount, text snippet). \"skeleton\" adds the design-system tokenRefs the element uses and OMITS geometry (position/size/vector nodes); the cheap shape for a tiny property edit (find the id + which token to change). \"blueprint\" returns the full blueprint text (with geometry) including descendants up to `depth`.",
+          "description": "Output shape per canvas, inside its fence. \"blueprint\" (default) is the rows with their ids, what edit takes back. \"summary\" is compact metadata (id, name, type, parentId, parentName, childCount, text snippet). \"skeleton\" adds the design-system tokenRefs and omits geometry.",
           "type": "string",
           "enum": [
             "summary",
@@ -324,10 +348,10 @@
           ]
         },
         "expandInstances": {
-          "description": "READ-ONLY. When true (with format=\"blueprint\"), a component instance is not collapsed to its compact inst() line: its derived children are shown as full lines with their REAL ids so you can inspect and target them (via lookup/execute_commands). Those children are managed by the master and are read-only: do not re-create them; edit them with override(...) on the instance. Default false (the compact inst() form). Bounded by `depth` like any subtree.",
+          "description": "READ-ONLY. When true (with format=\"blueprint\"), a component instance is not collapsed to its compact inst() line: its derived children are shown as full lines with their REAL ids so you can inspect and target them (via read/execute_commands). Those children are managed by the master and are read-only; a change to them is a change to override(...) on the instance. Default false (the compact inst() form). Bounded by `depth` like any subtree.",
           "anyOf": [
             {
-              "description": "READ-ONLY. When true (with format=\"blueprint\"), a component instance is not collapsed to its compact inst() line: its derived children are shown as full lines with their REAL ids so you can inspect and target them (via lookup/execute_commands). Those children are managed by the master and are read-only: do not re-create them; edit them with override(...) on the instance. Default false (the compact inst() form). Bounded by `depth` like any subtree.",
+              "description": "READ-ONLY. When true (with format=\"blueprint\"), a component instance is not collapsed to its compact inst() line: its derived children are shown as full lines with their REAL ids so you can inspect and target them (via read/execute_commands). Those children are managed by the master and are read-only; a change to them is a change to override(...) on the instance. Default false (the compact inst() form). Bounded by `depth` like any subtree.",
               "type": "boolean"
             },
             {
@@ -348,10 +372,10 @@
           ]
         },
         "limit": {
-          "description": "Max top-level matches across all canvases. Defaults to 50. Always applies — even with explicit element IDs in scope.",
+          "description": "Max top-level matches across all canvases. Defaults to 50. It applies with explicit element IDs too.",
           "anyOf": [
             {
-              "description": "Max top-level matches across all canvases. Defaults to 50. Always applies — even with explicit element IDs in scope.",
+              "description": "Max top-level matches across all canvases. Defaults to 50. It applies with explicit element IDs too.",
               "type": "integer"
             },
             {
@@ -360,11 +384,63 @@
           ]
         },
         "sessionId": {
-          "description": "Session ID for ref resolution. Optional.",
+          "description": "Your session id from init: #refs resolve per session.",
           "type": "string"
         },
         "project": {
           "description": "Optional: run THIS call against a project other than the session's bound one, a name or key from list_projects (or an unambiguous name/handle substring). Unknown/ambiguous is refused with candidates.",
+          "type": "string"
+        }
+      }
+    },
+    "lookup": {
+      "type": "object",
+      "properties": {
+        "canvasId": {
+          "type": "string"
+        },
+        "elements": {
+          "type": "string"
+        },
+        "html": {
+          "type": "string"
+        },
+        "scope": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "paths": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "sessionId": {
+          "type": "string"
+        },
+        "blockId": {
+          "type": "string"
+        },
+        "format": {
+          "type": "string"
+        },
+        "query": {
           "type": "string"
         }
       }
@@ -381,10 +457,10 @@
           "type": "string"
         },
         "vision": {
-          "description": "Whether this client can READ inline images (default true). Set false if you cannot see images: preview requests (`previewRows` / `previewIds`) then return a compact TEXTUAL render summary: each element's bounds in parent and world space, layout/overflow checks, and a fill/text one-liner, in place of the inline PNG, so you can verify your write landed without seeing it.",
+          "description": "Whether this client can READ inline images (default true). Set false if you cannot see images: preview requests (a `preview()` row) then return a compact TEXTUAL render summary: each element's bounds in parent and world space, layout/overflow checks, and a fill/text one-liner, in place of the inline PNG, so you can verify your write landed without seeing it.",
           "anyOf": [
             {
-              "description": "Whether this client can READ inline images (default true). Set false if you cannot see images: preview requests (`previewRows` / `previewIds`) then return a compact TEXTUAL render summary: each element's bounds in parent and world space, layout/overflow checks, and a fill/text one-liner, in place of the inline PNG, so you can verify your write landed without seeing it.",
+              "description": "Whether this client can READ inline images (default true). Set false if you cannot see images: preview requests (a `preview()` row) then return a compact TEXTUAL render summary: each element's bounds in parent and world space, layout/overflow checks, and a fill/text one-liner, in place of the inline PNG, so you can verify your write landed without seeing it.",
               "type": "boolean"
             },
             {
