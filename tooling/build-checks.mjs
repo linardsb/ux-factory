@@ -14731,6 +14731,11 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     const payText = live?.children?.[1]?.text;
     ok(LIVE.includes("lh(auto,1.21)") && payText !== undefined && payText.lineHeight === null,
       `40.28: the "PAY" text's lh(auto,1.21) read lineHeight ${JSON.stringify(payText?.lineHeight)} — an AUTO line height is null, not its computed ratio`);
+    // SYNTHETIC — the reject half: lh(auto) with no computed ratio is not the shape the accept rule reads,
+    // so it must still throw; a rule widened to accept every lh(auto…) leaves the case above green (PR #531 F3).
+    const bareAuto = threw(() => B1.convert(LIVE.replace("lh(auto,1.21)", "lh(auto)")));
+    ok(LIVE.includes("lh(auto,1.21)") && bareAuto !== null,
+      `40.28: SYNTHETIC — the live read with lh(auto) in place of lh(auto,1.21) answered ${bareAuto ?? "no throw"} — a bare auto line height must throw`);
   }
 
   // --- 40.29 ONE RULE FOR EVERY BUILDER: EMITTED MEANS RENDERABLE (#477) --------------------------
@@ -15993,6 +15998,16 @@ const synthPng = (w, h, ct, px) => {
     ok((threw(() => BM.parseExport(bad)) ?? "").includes("does not match its own sha256"), "43.11: parseExport accepted a PNG with one byte flipped — the bridge's own sha256 line is the integrity check");
     const page = fold("parsePage(read-page.json)", () => BM.parsePage(live("read-page.json")), null);
     ok(deep(page) === deep({ elements: [{ id: ONE, name: "Rectangle 1", type: "rectangle" }, { id: TWO, name: "PAY", type: "text" }], total: 2 }), `43.11: parsePage read ${deep(page)} — the canvas's two top-level elements, total 2 from matchCount`);
+    // SYNTHETIC — read-page.json with matchCount removed, a string, and below returnedCount: browse's total is
+    // matchCount, so each must throw naming it rather than reach the Browse entry as undefined or "x" (PR #531 F2).
+    for (const [label, mc] of [["absent", undefined], ["a string", "x"], ["below returnedCount", 1]]) {
+      const bad = live("read-page.json");
+      const [o, f, j, c] = bad.result.content[0].text.split("\n");
+      const body = JSON.parse(j);
+      if (mc === undefined) delete body.matchCount; else body.matchCount = mc;
+      bad.result.content[0].text = [o, f, JSON.stringify(body), c].join("\n");
+      ok((threw(() => BM.parsePage(bad)) ?? "").includes("matchCount"), `43.11: SYNTHETIC — parsePage over a page whose matchCount is ${label} answered ${threw(() => BM.parsePage(bad)) ?? "no throw"} — it must throw naming matchCount`);
+    }
     const bOne = BM.bindingOf(live("get-selection-one.json"));
     ok(bOne?.project === PROJECT && bOne.surface === "web" && bOne.otherTabs === 0 && bOne.viewOnly === false && typeof bOne.tabId === "string",
       `43.11: bindingOf(get-selection-one.json) read ${deep(bOne)} — project ${PROJECT}, surface web, no other tabs`);
@@ -16050,6 +16065,12 @@ const synthPng = (w, h, ct, px) => {
     const c = await viaFake("paired", { entrance: "ids", ids: [ONE, TWO] });
     ok(c.r?.recordId === "i1" && deep(rec(c.p).source.ids) === deep([ONE, TWO]) && toolCalls(c.log, "get_selection").length === 0 && c.r.binding?.surface === "web",
       `43.12: an ids read (Browse → import) answered ${deep(c.r?.recordId ?? c.r ?? c.threwMsg)} with ${toolCalls(c.log, "get_selection").length} get_selection calls — the ids skip it, the binding comes from the read reply`);
+    // The arguments SENT, not just the reply chosen: the fake picks its reply from ids and format and never
+    // reads paths, so dropping the canvas scope left every case above green (PR #531 F1).
+    const readArgs = (log) => deep(toolCalls(log, "read").map((m) => m.params.arguments));
+    ok(readArgs(a.log) === deep([{ paths: [CANVAS], ids: [ONE], format: "blueprint", expandInstances: true }])
+      && readArgs(c.log) === deep([{ paths: [CANVAS], ids: [ONE, TWO], format: "blueprint", expandInstances: true }]),
+      `43.12: the import sent read ${readArgs(a.log)} (selection) and ${readArgs(c.log)} (ids) — expected one read each, scoped by paths [${CANVAS}], the ids, format blueprint, expandInstances`);
 
     // SYNTHETIC — a committed capture with ONE field changed: _meta.brilliant.project.name, so the
     // record's project is proven to be the binding's and not a constant that happens to match the capture.
@@ -16095,6 +16116,9 @@ const synthPng = (w, h, ct, px) => {
     ok(b1?.cached === false && b1.elements?.length === 2 && b1.elements.every((e) => /^data:image\/png;base64,iVBOR/.test(e.thumb)) && b1.truncated === false && b1.canvasId === "main.bl" && b1.binding?.surface === "web"
       && exportsIn(f1.log) === 2 && toolCalls(f1.log, "export").every((m) => m.params.arguments.width === 160),
       `43.13: the first browse answered ${deep({ cached: b1?.cached, n: b1?.elements?.length, truncated: b1?.truncated, refused: b1?.refused })} with ${exportsIn(f1.log)} exports — the two top-level elements, each a 160-px PNG data URL`);
+    const browseRead = deep(toolCalls(f1.log, "read").map((m) => m.params.arguments));
+    ok(browseRead === deep([{ paths: ["main.bl"], format: "summary" }]),
+      `43.13: browse sent read ${browseRead} — expected one read, scoped by paths [main.bl], format summary (PR #531 F1)`);
     const f2 = pair("paired");
     const b2 = await afold("a second browse()", () => IR_.browse({ streams: f2.streams, timeoutMs: 5000 }), {});
     ok(b2?.cached === true && b2.elements?.length === 2 && exportsIn(f2.log) === 0 && toolCalls(f2.log, "init").length === 1,

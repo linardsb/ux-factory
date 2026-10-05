@@ -243,8 +243,10 @@ export function parsePage(reply) {
   try { v = JSON.parse(text); } catch { throw new Error(`brilliant-mcp: read's summary is not JSON: ${text.slice(0, 80)}`); }
   if (!Array.isArray(v?.elements)) throw new Error("brilliant-mcp: read's summary .elements is not an array");
   if (v.returnedCount !== v.elements.length) throw new Error(`brilliant-mcp: read's summary returnedCount ${v.returnedCount} is not its ${v.elements.length} elements`);
+  if (!Number.isInteger(v.matchCount) || v.matchCount < v.returnedCount) throw new Error(`brilliant-mcp: read's summary matchCount ${JSON.stringify(v.matchCount)} is not an integer at least its returnedCount ${v.returnedCount}`);
   return {
-    // A summary over the path is top-level only today (read-page.json); the !parentId filter guards a future read that lists descendants.
+    // A summary over the path is top-level only today (plan A2, .claude/plans/import-read-paths-530.md: an
+    // 8-child frame listed with childCount and no children); the !parentId filter guards a future read that lists descendants.
     elements: v.elements.filter((e) => e && !e.parentId && typeof e.id === "string" && ID_RE.test(e.id))
       .map((e) => ({ id: e.id, name: typeof e.name === "string" ? e.name : "", type: typeof e.type === "string" ? e.type : "" })),
     total: v.matchCount,
