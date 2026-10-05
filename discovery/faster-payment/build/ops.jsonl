@@ -74,3 +74,4 @@
 {"seq":74,"at":"2026-10-05T09:33:57.429Z","source":"owner","op":"component.propose","params":{"name":"ecommerce-2","recordId":"i1","mode":1},"status":"applied"}
 {"seq":75,"at":"2026-10-05T09:36:28.505Z","source":"owner","op":"component.propose","params":{"name":"mj-button","recordId":"i2","mode":1},"status":"applied"}
 {"seq":76,"at":"2026-10-05T09:39:11.743Z","source":"owner","op":"annotate","params":{"text":"commit pause before ratify"},"status":"applied"}
+{"seq":77,"at":"2026-10-05T10:01:10.554Z","source":"owner","op":"proposal.ratify","params":{"proposalId":"pr2","component":"mj-button"},"status":"applied"}

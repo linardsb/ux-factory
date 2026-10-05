@@ -111,6 +111,19 @@ function deepFreeze(v) {
 
 // ---- BEGIN ADMITTED (portal/lib/ratify.mjs rewrites the JSON below; never edit by hand) ----
 export const ADMITTED = deepFreeze(
-{}
+{
+  "mj-button": {
+    "children": "none",
+    "class": "ds-mj-button",
+    "provenance": {
+      "from": "import",
+      "line": "imported from brilliant, licence: From The Ultimate Email Design System (Community), public Brilliant file. Terms: [as shown on file]",
+      "record": "i2",
+      "run": "faster-payment"
+    },
+    "slots": [],
+    "tag": "div"
+  }
+}
 );
 // ---- END ADMITTED ----

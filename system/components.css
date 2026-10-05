@@ -3246,3 +3246,12 @@ p, .body {
 .inspect-toggle[aria-pressed="true"] { border-color: var(--color-accent); color: var(--color-accent); }
 
 /* ---------- admitted components — portal/lib/ratify.mjs appends one block per ratify below this line (#313) ---------- */
+
+/* ---------- ds-mj-button (system/specs/mj-button.md) — admitted by ratify from import i2 ---------- */
+.ds-mj-button {
+  background: var(--color-accent);
+  color: var(--color-accent-fg);
+  padding: var(--spacing-md);
+  border-radius: var(--radius-lg);
+  font-family: var(--font-body);
+}

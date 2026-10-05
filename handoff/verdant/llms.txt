@@ -14,8 +14,8 @@
 > Verdant is a fictional demo scenario. The components, tokens and contracts are real.
 
 ## Files
-vocabulary.json · 63508 B · the agentic vocabulary: every component the renderer accepts, with its props, enums and children · read when composing a screen — a tree that does not validate against this is refused
-pack.json · 134800 B · every ComponentSpec (machine head, engineer prose, portability block) and the bindings: which view of each screen reads which collection, filtered and ordered how · read when you want the prose behind a component, or which records a screen shows and in what order
+vocabulary.json · 64228 B · the agentic vocabulary: every component the renderer accepts, with its props, enums and children · read when composing a screen — a tree that does not validate against this is refused
+pack.json · 136686 B · every ComponentSpec (machine head, engineer prose, portability block) and the bindings: which view of each screen reads which collection, filtered and ordered how · read when you want the prose behind a component, or which records a screen shows and in what order
 scenario.json · 473 B · the scenario's constants: the fixed fictional today every derived field is computed against, and the fictional notice shown verbatim · read when computing or serving any derived field (x-derived in the contracts), or rendering the demo notice
 contracts/care-task-row.contract.json · 1780 B · JSON Schema 2020-12 for the record care-task-row binds · read when binding real records to care-task-row
 contracts/plant-card.contract.json · 2388 B · JSON Schema 2020-12 for the record plant-card binds · read when binding real records to plant-card
@@ -31,4 +31,4 @@ wc/vd-care-task-row.mjs · 5312 B · a standalone custom element wrapping care-t
 wc/vd-plant-card.mjs · 6487 B · a standalone custom element wrapping plant-card, themed by the token contract alone · read when you want plant-card as an element instead of copy-paste markup
 wc/vd-status-chip.mjs · 2739 B · a standalone custom element wrapping status-chip, themed by the token contract alone · read when you want status-chip as an element instead of copy-paste markup
 figma-import.md · 13877 B · the DTCG-to-Figma import path, written for the design-tool end · read when taking the tokens into a design tool
-pack.bundle.json · 291424 B · every other file in this pack inlined into one JSON object, lossless UTF-8 · read when you want the whole pack in one fetch
+pack.bundle.json · 294203 B · every other file in this pack inlined into one JSON object, lossless UTF-8 · read when you want the whole pack in one fetch

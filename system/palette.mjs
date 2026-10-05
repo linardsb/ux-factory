@@ -45,6 +45,7 @@ export const CATALOG_COMPONENTS = [
   "list",
   "list-row",
   "metric-tile",
+  "mj-button",
   "modal-dialog",
   "nav-tabs",
   "plant-card",

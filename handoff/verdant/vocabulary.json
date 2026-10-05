@@ -443,6 +443,20 @@
       "usage": "A single computed metric: a label, a value, an optional unit, and an optional emphasis tone. Library-generic — the one primitive both demo scenarios reuse (the `ds-` prefix marks a cross-scenario library component, distinct from `vd-`/`fw-`). Use it anywhere a dashboard needs a KPI or reading: a horizontal summary strip above a board, a vertical column of readings beside it, the agentic slots in Fieldwork's dispatch canvas. Unlike stat-tile (Verdant, glyph-led, `kind` enum-locked to sensor readings), metric-tile carries no domain vocabulary — the composing agent computes the label and value from the scenario's own data, so one primitive expresses moisture, dispatch load, or anything else a metric can name. The tile displays; it does not judge — tone adds emphasis, never a threshold verdict the label does not already state.",
       "contract": null
     },
+    "mj-button": {
+      "class": "ds-mj-button",
+      "status": "shipped",
+      "props": {},
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "disabled"
+      ],
+      "children": [],
+      "usage": "Admitted by ratify (portal/lib/ratify.mjs) from import record `i2` in run `faster-payment`: imported from brilliant, licence: From The Ultimate Email Design System (Community), public Brilliant file. Terms: [as shown on file].\n\nPill-shaped call to action for the one main action on a screen, such as Continue or Send. Use instead of primary-button where the screen needs a single, prominent action; don't place two on one screen.",
+      "contract": null
+    },
     "modal-dialog": {
       "class": "ds-modal-dialog",
       "status": "shipped",
@@ -894,6 +908,7 @@
         "ghost-button",
         "icon",
         "list",
+        "mj-button",
         "modal-dialog",
         "nav-tabs",
         "primary-button",

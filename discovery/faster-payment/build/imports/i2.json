@@ -146,7 +146,7 @@
     }
   ],
   "elapsed": {
-    "ratify": null,
+    "ratify": 1482049,
     "recognition": 3
   },
   "fidelity": {
@@ -542,7 +542,7 @@
   },
   "provenance": {
     "attribution": null,
-    "licence": null,
+    "licence": "From The Ultimate Email Design System (Community), public Brilliant file. Terms: [as shown on file]",
     "mode": 1
   },
   "recognition": {
