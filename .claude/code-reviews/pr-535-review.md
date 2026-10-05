@@ -65,3 +65,4 @@ Derived figures are labelled derived. The only closing keyword in the report and
 ## Outcome
 
 F1–F5 fixed in the report in the commit that adds this file (prose only; no data, code or gate touched).
+After #534 merged (`7f01e0a`): build-checks all 52 groups, canvas-journey 258/257/257 passed and 0 failed, ratify-journey ✓ 52 (observed). build-journey's three arrangement reds reproduce on `main` `3c1817e`, so they are older than this PR: #536.

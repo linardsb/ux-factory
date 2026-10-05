@@ -2,7 +2,7 @@
 
 **Plan**: `.claude/plans/faster-payment-build-run-316.md` (amended in PR #529)
 **Branch**: `run/faster-payment-316`
-**Base**: `55c3843` → the sitting → merged with `origin/main` `5e42472` · **Status**: COMPLETE — five of five ACs met, with the findings below
+**Base**: `55c3843` → the sitting → merged with `origin/main` `5e42472`, then `3c1817e` (#534) · **Status**: COMPLETE — five of five ACs met, with the findings below
 
 ## Summary
 
@@ -191,21 +191,23 @@ Given in chat on 2026-10-05. No inbox button was pressed. This line is the recor
   by at most 3/255 per channel, with no pixel over 10. That is render noise, so `main`'s copy was restored
   (`0952df6`). Two full-suite compare runs each timed out once on a different factory pack (a stable-screenshot
   timeout, not a pixel diff); factory alone passed 9/9.
-- **Two gate PRs, not zero:** #532 (build-checks, merged) and #534 (the journeys), each `Refs #316`, off `main`.
+- **Two gate PRs, not zero:** #532 (build-checks) and #534 (the journeys), both merged, each `Refs #316`, off `main`.
 
 ## Validation results
 
-At the PR head (observed):
+At `7f01e0a`, after merging #534 (observed; HEAD unchanged across every run below):
 
 - `node tooling/build-checks.mjs` → `build ✓  all 52 groups pass`
 - `node tooling/drift-check.mjs` ✓ · `node tooling/token-lint.mjs` ✓ (63 contract tokens, 0 orphan)
 - `node agent-layer/gen-build-handoff.mjs --check` → no drift · `node agent-layer/gen-loc-summary.mjs --check` → no drift
 - `verifyBuild` → `[]` · `missingStates` lane A → `[]`
-- `catalog-journey all` ✓ on three engines
-- canvas-journey and ratify-journey: red here on 3 cases (2 and X4 per engine, and R4) until #534 merges. With #534's diff applied to this branch: canvas-journey chromium 258/0 · firefox 257/0 · webkit 257/0, ratify-journey ✓ 52 (observed)
+- `canvas-journey all`: chromium 258/0 · firefox 257/0 · webkit 257/0
+- `ratify-journey all`: ✓ 52 assertions (R4 "3/24 → 3/25")
+- `catalog-journey all` ✓ on three engines; `studio-journey all` chromium 559/0 · firefox 549/0 · webkit 549/0 (both at `4dc8cc6`, before the #534 merge, which touched neither page)
+- `build-journey all`: 3 arrangement assertions red per engine (plus webkit extras). **The same three fail on `main` at `3c1817e`** (observed in a clean checkout), so this run did not cause them; tracked by #536
 
 ## Commits
 
 `d613b87` the sitting to the commit pause · `48bc368`, `4b4671d` gate fixes (cherry-picked; landed on `main` as #532)
 · `d7af428` the mj-button admission (ratify's writes, unedited) · `9edf665` the sitting's close · `046c3ca` the
-baselines · `0d634db` merge of `origin/main` · `0952df6` main's factory-neutral baseline restored.
+baselines · `0d634db` merge of `origin/main` · `0952df6` main's factory-neutral baseline restored · `cc0e67d` this report · `4dc8cc6` review F1–F5 · `7f01e0a` merge of `origin/main` (#534).
