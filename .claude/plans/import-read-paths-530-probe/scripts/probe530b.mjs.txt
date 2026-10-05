@@ -1,0 +1,35 @@
+// Throwaway (#530 Phase 0): raw stdio JSON-RPC against @brilliant-hq/mcp. No model, no spend. READ tools only.
+import { spawn } from "node:child_process";
+import { mkdirSync, writeFileSync } from "node:fs";
+const OUT = process.argv[2]; mkdirSync(OUT, { recursive: true });
+const p = spawn("npx", ["-y", "@brilliant-hq/mcp"], { stdio: ["pipe", "pipe", "pipe"] });
+const t0 = Date.now(), log = (s) => console.log(`[${((Date.now()-t0)/1000).toFixed(1)}s] ${s}`);
+p.stderr.on("data", (d) => log("ERR " + String(d).trim().slice(0, 300)));
+const pending = new Map(); let buf = "", nid = 1;
+p.stdout.setEncoding("utf8");
+p.stdout.on("data", (d) => { buf += d; let i; while ((i = buf.indexOf("\n")) >= 0) { const l = buf.slice(0, i); buf = buf.slice(i + 1); let m; try { m = JSON.parse(l); } catch { log("NONJSON " + l.slice(0,120)); continue; } pending.get(m.id)?.(m); } });
+const rpc = (method, params) => new Promise((r) => { const id = nid++; pending.set(id, r); p.stdin.write(JSON.stringify({ jsonrpc: "2.0", id, method, params }) + "\n"); });
+const strip = (v, tag) => JSON.parse(JSON.stringify(v), (k, x) => (k === "data" && typeof x === "string" && x.length > 200 ? (writeFileSync(`${OUT}/${tag}.full.b64`, x), `${x.slice(0, 64)}…[${x.length} base64 chars]`) : x));
+let n = 0;
+const call = async (name, args) => { n++; const tag = `${String(n).padStart(2,"0")}-${name}`; const s = Date.now(); const m = await rpc("tools/call", { name, arguments: args });
+  writeFileSync(`${OUT}/${tag}.json`, JSON.stringify({ tool: name, input: args, ms: Date.now() - s, reply: strip(m, tag) }, null, 2) + "\n");
+  log(`${tag} ${JSON.stringify(args)} ${m.error ? "ERROR " + m.error.message : m.result?.isError ? "isError " + JSON.stringify(m.result.content).slice(0, 200) : "ok " + textOf(m).slice(0, 160).replace(/\n/g, "⏎")} ${Date.now() - s}ms`); return m; };
+const textOf = (m) => (m.result?.content ?? []).filter((c) => c.type === "text").map((c) => c.text).join("\n");
+const initR = await rpc("initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "uxf-probe-530", version: "0" } });
+writeFileSync(`${OUT}/00-initialize.json`, JSON.stringify(initR, null, 2) + "\n");
+p.stdin.write(JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }) + "\n");
+const tl = await rpc("tools/list", {});
+writeFileSync(`${OUT}/00-tools-list.json`, JSON.stringify(tl, null, 2) + "\n");
+log(`tools: ${tl.result?.tools?.map((t) => t.name).join(",") ?? tl.error?.message}`);
+if (!tl.result?.tools?.length) { p.kill(); process.exit(1); }
+const init = await call("init", { agentName: "uxf probe 530" });
+const canvasId = textOf(init).match(/\*\*sessionCanvasId:\*\*\s*`([^`]+)`/)?.[1];
+log(`canvasId=${canvasId}`);
+n = 10;
+const two = ["c8bbcf65449d9bb7", "362c650b80b0762d"];
+await call("read", { ids: two, format: "blueprint", expandInstances: true });
+await call("export", { canvasId, ids: [two[1]], format: "png", scale: 1 });
+await call("export", { canvasId, ids: [two[1]], format: "png", width: 160 });
+await call("read", { paths: ["No Such Folder/Nope"], format: "summary" });
+await call("read", { ids: ["ab5af154659f848d"], format: "blueprint", expandInstances: true });
+log("DONE"); p.kill(); process.exit(0);

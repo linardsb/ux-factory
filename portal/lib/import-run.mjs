@@ -29,7 +29,7 @@
 //   6. ONE FENCE, ONE SITE: the client's `call()`. importFenceDecision is the one predicate, injected
 //      into openBridge as `decide`; it runs before a request is written, so a denied tool never leaves
 //      the portal, and a throw inside it DENIES. The denial is recorded here, through `onDeny` →
-//      deniedLine({ via: "client" }). An import reads Brilliant — init, get_selection, lookup, export —
+//      deniedLine({ via: "client" }). An import reads Brilliant — init, get_selection, read, export —
 //      and nothing else.
 //
 // WHERE A SNAP OVERRIDE GOES. By the ROOT's provenance — the one the route resolved the package with
@@ -42,7 +42,7 @@
 // THE LIVE READ (#311 PR B; the owner's 2026-09-27 call for a direct client over the SDK relay, after
 // the Phase 0 probe showed the SDK hides the pairing error, strips `_meta` and costs a model call).
 // readBrilliant: openBridge → initialize → notifications/initialized → tools/list → init (the canvas
-// id) → get_selection (skipped for an `ids` read) → lookup {format:"blueprint"} → export {png}. Each
+// id) → get_selection (skipped for an `ids` read) → read {paths:[canvas], ids, format:"blueprint"} → export {png}. Each
 // step is classified by brilliant-mcp.mjs's classifyBridge into at most one refusal with one action.
 // ONE OVERALL TIMER, armed before the first await: an UNPAIRED tab makes tools/list wait ~46 s before
 // its -32000 (observed 45.8 s) and opens a brilliant.design tab as a side effect, so the 150 s default
@@ -84,7 +84,7 @@ import { checkPairs } from "../../system/wcag.mjs";
 import { foldLedger, loadBuild, loadDecisions, placeExhibit, positionsOf, saveConflict, saveRun } from "./canvas-store.mjs";
 import { isRunInFlight, withRunLock } from "./builder.mjs";
 import { JOBS_DIR, REPO_DIR } from "./env.mjs";
-import { bindingOf, brilliantServer, classifyBridge, failureOf, openBridge, parseExport, parseInit, parseLookup, parsePage, parseSelection, TOOLS } from "./brilliant-mcp.mjs";
+import { bindingOf, brilliantServer, classifyBridge, failureOf, openBridge, parseExport, parseInit, parsePage, parseRead, parseSelection, TOOLS } from "./brilliant-mcp.mjs";
 
 // Re-exported so ratify can answer `busy` without importing builder.mjs (build-checks 50.1 pins its specifiers).
 export { isRunInFlight };
@@ -619,7 +619,7 @@ async function openSession({ bridge, step }, transcript = null) {
   return { canvasId: parseInit(i.reply).canvasId, initReply: i.reply, call };
 }
 
-// The read. `ids` (Browse → import) skips get_selection; the binding then comes from the lookup reply.
+// The read. `ids` (Browse → import) skips get_selection; the binding then comes from the read reply.
 // Returns { refused, transcript } or { text, transcript, reference, binding } — runImport's contract.
 export async function readBrilliant({ ids = null, timeoutMs = TIMEOUT_MS(), streams = null, server } = {}) {
   const transcript = [];
@@ -640,9 +640,9 @@ export async function readBrilliant({ ids = null, timeoutMs = TIMEOUT_MS(), stre
       read = sel.selectedIds;
       bindingReply = g.reply;
     }
-    const l = await s.call("lookup", { scope: read, format: "blueprint", expandInstances: true }, project);
+    const l = await s.call("read", { paths: [s.canvasId], ids: read, format: "blueprint", expandInstances: true }, project);
     if (l.refused) return l;
-    const { text } = parseLookup(l.reply);
+    const { text } = parseRead(l.reply);
     bindingReply ??= l.reply;
     const x = await s.call("export", { canvasId: s.canvasId, ids: [read[0]], format: "png", scale: EXPORT_SCALE }, project);
     if (x.refused) return x;
@@ -688,17 +688,18 @@ export async function browse({ refresh = false, streams = null, server, timeoutM
     if (refresh) browseCache.delete(key);
     if (browseCache.has(key)) return { ...browseCache.get(key), binding, cached: true };
     const project = binding?.project ?? null;
-    // depth: 0, as the capture asked (import/fixtures/brilliant-live/lookup-page.json).
-    const l = await s.call("lookup", { scope: [s.canvasId], format: "summary", depth: 0 }, project);
+    // A summary over the canvas path is top-level only — childCount, no children — so no `depth` is sent
+    // (Brilliant documents it as blueprint-only; import/fixtures/brilliant-live/read-page.json).
+    const l = await s.call("read", { paths: [s.canvasId], format: "summary" }, project);
     if (l.refused) return l;
-    const all = parsePage(l.reply);
+    const { elements: all, total } = parsePage(l.reply);
     const elements = [];
     for (const e of all.slice(0, BROWSE_MAX)) {
       const x = await s.call("export", { canvasId: s.canvasId, ids: [e.id], format: "png", width: 160 }, project);
       if (x.refused) return x;
       elements.push({ ...e, thumb: `data:image/png;base64,${parseExport(x.reply).bytes.toString("base64")}` });
     }
-    const entry = { canvasId: s.canvasId, elements, total: all.length, truncated: all.length > BROWSE_MAX };
+    const entry = { canvasId: s.canvasId, elements, total, truncated: all.length > BROWSE_MAX };
     browseCache.set(key, entry);
     return { ...entry, binding, cached: false };
   }), "a browse");

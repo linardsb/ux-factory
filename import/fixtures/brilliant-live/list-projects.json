@@ -1,21 +1,21 @@
 {
   "jsonrpc": "2.0",
-  "id": 7,
+  "id": 12,
   "result": {
     "content": [
       {
         "type": "text",
-        "text": "{\"projects\":[]}"
+        "text": "{\"projects\":[{\"name\":\"scratch-import-probe\",\"key\":\"brilliant-cloud://indigo-cherry/scratch-import-probe\",\"backing\":\"cloud\",\"openState\":\"active tab\",\"handle\":\"indigo-cherry\",\"published\":true,\"url\":\"https://brilliant.design/indigo-cherry/scratch-import-probe\",\"visibility\":\"public\",\"audience\":\"live\",\"role\":\"owner\"}]}"
       }
     ],
     "_meta": {
       "brilliant": {
         "project": {
-          "handle": "",
-          "name": "",
-          "title": ""
+          "handle": "indigo-cherry",
+          "name": "scratch-import-probe",
+          "title": "scratch-import-probe"
         },
-        "tabId": "tab-222a9bd0-eade-49a3-a33b-de0c8e409d4b",
+        "tabId": "tab-04647386-e9fb-457c-b07c-5108fb41a006",
         "viewOnly": false,
         "surface": "web",
         "otherTabs": []

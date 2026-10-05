@@ -34,7 +34,7 @@
 // its read resolves to stale-binding whose one action routes to the binding check (I5); a stale drop's
 // one action reloads the page (I7), an oversize drop is a refusal and a traversal name a 400 (I8).
 // Then side children over tooling/fake-brilliant-bridge.mjs (#311 PR B, Task 7.1): `paired` — Check
-// binding names "this tab's project (name not exposed) · web", Import selection writes a record whose
+// binding names "scratch-import-probe · web", Import selection writes a record whose
 // source.ids is the one selected id, a reference.png the Original pane shows, and a mapping edit
 // rewrites mapping.json (I9); Browse shows two thumbnail tiles, both picked import as one record with
 // both ids, and Browse again is served from the session cache (I11); `unpaired` — the not-paired
@@ -1322,7 +1322,7 @@ async function importPass(engine, base, page, t, step, errors) {
 // ---- the fake-bridge pass (#311 PR B, Task 7.1) ---------------------------------------------------------
 // Side children only. Each leaves the page on about:blank before its child dies, so a dead origin never
 // reaches step 16's error list. I7/I8 above rely on the main child's page, so this pass runs after them.
-const SELECTED = "630fe03901352c90";
+const SELECTED = "d37836a642d995ba";
 const PNG_SIG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 const isPng = (file) => existsSync(file) && readFileSync(file).subarray(0, 8).equals(PNG_SIG);
 const recordOk = (id) => { try { checkRecord(readRec(id)); return null; } catch (e) { return e.message; } };
@@ -1403,7 +1403,7 @@ async function fakeBridgePass(page, t, step) {
       await bresp;
       await settledLine(page);
       const line = await lineOf(page);
-      t("I9 · Check binding → \"Reads: this tab's project (name not exposed) · web\"", line.startsWith("Reads: this tab's project (name not exposed) · web"), line);
+      t("I9 · Check binding → \"Reads: scratch-import-probe · web\"", line.startsWith("Reads: scratch-import-probe · web"), line);
       const small = await sizes(page, ["[data-import-binding-check]", "[data-import-browse]", "[data-import-selection]"]);
       t("I9 · Check binding and Browse the page measure at least 44×44", small.length === 0, small.join(", "));
       const body = await importVia(page, "[data-import-selection]");
@@ -1419,7 +1419,7 @@ async function fakeBridgePass(page, t, step) {
       const shown = (await img.count()) === 1 && await img.evaluate((i) => i.complete && i.naturalWidth > 0);
       t("I9 · the Original pane shows the exported <img>", shown);
       const kept = await lineOf(page);
-      t("I9 · after the reload, the binding line is the read's (kept for the session)", kept.includes("this tab's project (name not exposed) · web") && kept.includes("at the last Brilliant read"), kept);
+      t("I9 · after the reload, the binding line is the read's (kept for the session)", kept.includes("scratch-import-probe · web") && kept.includes("at the last Brilliant read"), kept);
       const d = await dropOnePart(page, body.name);
       t("I9 · dropping a part rewrote mapping.json and the view re-rendered its drop list with the owner's row", d.ok, d.why);
     });

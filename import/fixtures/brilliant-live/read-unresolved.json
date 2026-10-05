@@ -1,13 +1,14 @@
 {
   "jsonrpc": "2.0",
-  "id": 4,
+  "id": 7,
   "result": {
     "content": [
       {
         "type": "text",
-        "text": "{\"canvasId\":\"main.bl\",\"count\":2,\"selectedIds\":[\"d37836a642d995ba\",\"ac97393dda604ee1\"],\"blueprint\":\"d37836a642d995ba r p(651,441) s(387,122) f[(9df0cbadf986e307,#000000)] rd(12:$radius.xl) \\\"Rectangle 1\\\"\\nac97393dda604ee1 t(\\\"PAY\\\",Inter,24,r,align(l),lh(auto,1.21)) p(822,487) s(hug:44.64,hug:29) f[(9df0cbadf986e307,#000000)] \\\"PAY\\\"\\n  spans[(0,3,#CFD5E1)]\"}"
+        "text": "Error in read: Invalid argument(s): Could not resolve scope item: \"9df0cbadf986e307\". Element IDs are only resolved against the active canvas + recently-loaded canvases. Pair with a canvas path (e.g. scope: [\"Folder/Canvas\", \"9df0cbadf986e307\"]) when the element lives on an unloaded canvas."
       }
     ],
+    "isError": true,
     "_meta": {
       "brilliant": {
         "project": {
