@@ -62,6 +62,7 @@ package, the admission, its baselines, the report and the review, body `Closes #
 ## Out of Scope / Non-Goals
 
 - Not included: D1/D2/D5 mechanisms — #319/#318/#320 build them; this ticket exercises them.
+- Not included (Q3, 2026-10-04): D2's re-record on faster-payment — #498 refuses a fictional package; tracked by #528.
 - Not included: a re-declare path for states. The op count is final at fourteen; a wrong declaration is
   `frame.remove` + re-compose (refused while states exist, `canvas-ops.mjs:443`). Recorded as a known limit.
 - Not included: replaying the run on `/factory` (AC #1).
@@ -339,6 +340,13 @@ build-checks 50/50, canvas-journey 212/211/211 with 0 failed. #319 and #320 open
 answered and **adds a dependency**: #318 ships no product path to re-record a decision on a closed run, so D2 in the
 sitting needs #498 (Q2). F4 and the G2 race are still open on `main`, so T10a stands.
 
+**Status at `82054e0` (2026-10-04, observed) — T10 MET; T11 may start.** #319 (PR #501), #320 (PR #516), #498
+(PR #502) and T10a (PR #500) merged; #493 closed (PR #525). `env -u ANTHROPIC_API_KEY node tooling/run-316-ready.mjs`
+→ `run-316 ready ✓  12 checks`; checks 3 and 4 pin `inbox` + its `stale-frame`/`missing-state` kinds and the
+`alternative` param by name (PR #495 F3, ticked by #319 and #320). Spine still 6 lines. canvas-journey `all` →
+chromium 259/0, firefox 258/0, webkit 258/0; ratify-journey `all` exit 0. T10b, T10c and T10d resolved below; **D2
+is Not run (Q3, owner 2026-10-04), tracked by #528.**
+
 - #318's `{id, seq}` pin: `node tooling/build-checks.mjs` green means `seedSpine` still folds the spine; if #318 migrated the spine's `decisionRefs`, confirm it rewrote rather than appended (`wc -l discovery/faster-payment/build/ops.jsonl` → 6).
 - #320's alternatives param beside `states` in PARAMS `:84`; 47.2b re-pinned by #320 over Segment A's value.
 - #319's inbox rows include declared-but-missing states (it reads `missingStates`).
@@ -361,6 +369,13 @@ sitting needs #498 (Q2). F4 and the G2 race are still open on `main`, so T10a st
   **That fallback needs the same re-open path as D2** (`faster-payment` closed at `2026-09-13T12:50:58.903Z`,
   `run.json:21`; `runTurn` refuses a closed run, `portal/lib/discovery.mjs` `if (head.endedAt)`), so under Q2b a
   0-fork count makes T12 step 3 Not run as well.
+  **Resolved at 82054e0 (observed): no Grill turn is needed.** `forkList(fold(spine), {questions:
+  loadOpenQuestions(fp), decisions: loadDecisions(fp), buildTx: []})` → 0 rows (0 open questions, 20 decisions), the
+  expected count before any fork turn. But a fork ask also accepts any **current decision** seq (`canvas-session.mjs`
+  `ask.kind === "fork"` branch; 47.19 "a current decision and a parked question each running"); faster-payment's
+  current decisions are seq 3, 4, 6–12, 14–17, 22, 23, 26–30. The owner types one into `#cv-fork` ("Fork on a question
+  or decision (its seq)"), and the turn writes the `flagged` row. Check 4 **stays** pinned to `alternative`: a
+  "fork list non-empty" pin would stay red until a fork turn ran, which the gate itself blocks.
 - **T10c (agent, $0) — DONE at 9497455, and it refuses.** #318 added no route: its diff touches no file under
   `portal/lib/discovery*` or `portal/server.mjs`; its journey seeds the superseding decision through
   `discovery/ops.mjs`'s applier into a scratch copy (`tooling/canvas-journey.mjs` pass B, `seedSupersede`); its report
@@ -370,7 +385,14 @@ sitting needs #498 (Q2). F4 and the G2 race are still open on `main`, so T10a st
   `UXF_DISCOVERY_TRANSPORT` fake, gives the sitting nothing to click), and a ready check 13 pinning that re-open
   route by name, never a transport seam (REDDENS: today's tree, and a tree carrying only a fake transport);
   record in AMENDMENTS whether #498's path is a paid turn (option A, a real agent filing) and which files it writes.
-- **T10d (agent, $0)** — R15: `node tooling/<driver>-journey.mjs all` for each journey #318–#320 added; all green on
+  **Resolved at 82054e0 (observed): #498 cannot serve this run.** It shipped "the run stays closed + a revisit turn"
+  (a paid SDK turn appending to `answers.jsonl`, `transcript.jsonl` and `run.json`), and refuses a **fictional**
+  package at three sites: `assertRevisit`'s first branch, `sessionView`'s `revisit: isJobsRoot(root) ? … : null`,
+  and the drawer's hidden button (#498 plan Q4). A $0 probe lifting all three in a scratch worktree re-recorded
+  decision 7 on faster-payment (seq 31, turn `r1`) and build-checks then **aborted** at group 30 —
+  `record_decision: turn "r1" is already closed by op 31` (`build-checks.mjs:9229-9232`, a fixture that copies
+  faster-payment and appends its own `r1`). Owner, Q3: D2 **Not run**, tracked by #528. Ready check 13 is not added.
+- **T10d (agent, $0)** — R15: **met at 82054e0** (canvas-journey `all` 259/258/258, 0 failed; ratify-journey `all` exit 0; #319's inbox, #320's pass F and #498's pass B all live in canvas-journey). `node tooling/<driver>-journey.mjs all` for each journey #318–#320 added; all green on
   `main` before T11.
 - Re-resolve every Segment B `file:line` against the new `main`. T12–T17 cite by **symbol** (`missingStates`,
   `stateDiagram`, `frameTree`, `laneDoc`, `compositionCount`, `partProvenance`, `unboundCount`, `CLEAN_GUARD`);
@@ -378,7 +400,7 @@ sitting needs #498 (Q2). F4 and the G2 race are still open on `main`, so T10a st
 
 ### T11 OWNER — prepare the sitting tree
 
-A dedicated clean worktree of `main` **under `/Users`** (parallel sessions share the primary tree — memory `shared-worktree-parallel-sessions`; ratify needs a clean tree; VR needs Docker sharing). `npm ci` in `portal`, `tooling/icons`, `tooling/visual-regression`, `tooling/style-dictionary`; `git switch -c run/faster-payment-316`; confirm Console spend headroom (memory `api-usage-limit-until-2026-10-01`); `node tooling/run-316-ready.mjs` → `run-316 ready ✓  12 checks` (13 under Q2a). **Ready red → do not open the canvas.**
+A dedicated clean worktree of `main` **under `/Users`** (parallel sessions share the primary tree — memory `shared-worktree-parallel-sessions`; ratify needs a clean tree; VR needs Docker sharing). `npm ci` in `portal`, `tooling/icons`, `tooling/visual-regression`, `tooling/style-dictionary`; `git switch -c run/faster-payment-316`; confirm Console spend headroom (memory `api-usage-limit-until-2026-10-01`); `node tooling/run-316-ready.mjs` → `run-316 ready ✓  12 checks`. **Ready red → do not open the canvas.**
 **Start the portal through the gate (R14)**, never separately:
 `env -u ANTHROPIC_API_KEY sh -c 'node tooling/run-316-ready.mjs && cd portal && npm start'`. This machine's login
 shell exports `ANTHROPIC_API_KEY` (Segment A report §Issues); this way the portal only starts in the environment
@@ -389,11 +411,11 @@ check 8 passed. Console headroom ≥ the paid table's total high figure (R16).
 `cd portal && npm start` → `http://localhost:4747/canvas.html?provenance=fictional&slug=faster-payment`. Compose turns back to back (5-min cache TTL, memory `discovery-run-cache-ttl-cost`); one run at a time on the machine.
 
 0. **Brilliant first, at $0 (R11):** open the Brilliant tab, then **Check binding** in the canvas import panel. Green → continue. Red or a 120 s timeout → **Re-bind**; still red → stop the sitting with nothing spent. Do not import yet (step 5 keeps `elapsed.ratify` free of compose time).
-1. **Screens** (3 agent turns; add-payee is the spine's owner screen): brief in `#cv-brief` (≤500 chars) → **Ask for a screen** → read the `why` and the "States declared" line → **Accept** / **Refuse**. At least one briefed turn (D3). If the CoP or send screen arrives without its declared states, refuse with a brief naming them (R5 fallback); the refusal and the retry are both recorded.
+1. **Screens** (3 agent turns; add-payee is the spine's owner screen): brief in `#cv-brief` (≤500 chars) → **Ask for a screen** → read the `why` and the "States declared" line → **Accept** / **Refuse**. At least one briefed turn (D3). If the CoP or send screen arrives without its declared states, refuse with a brief naming them (R5 fallback); the refusal and the retry are both recorded. **One of the three is the fork turn (step 3)** — a fork turn is itself a `screen.compose` that lands one new frame on Pick A/B, so asking it after three plain screens would add a fourth agent screen (observed: `screen.compose` keys frames by generated id, not `screenId`, so nothing refuses a second copy of a screen).
 2. **States**: the `[data-cv-ask-state]` chips, accept/refuse each. Target: `missingStates` on lane A reads zero, or each remaining gap gets the owner's own reason, noted for the report.
-3. **D5 fork** (#320's UI): one flagged-open decision → two lanes → pick one.
-4. **D2** (#318's flag + Re-confirm; the re-record is #498's path — Q2): re-record one decision in the discovery view → the frame flags → re-confirm. This writes to `discovery/faster-payment/` (R10); it must happen before step 7, whose commit includes that directory. Under Q2b this step is **Not run**, tracked by #498, and the report says so.
-5. **Import (R4 — avoid #493):** in Brilliant, pick an element **the owner did not draw for a test** that is a **leaf** (no nested repeated children: a row, a badge, a banner; not a list or a container). #493 fires only for an admission with `children: "many"` plus a text slot. If the ratify preview's planned spec shows `children: "many"`, stop and pick another element, or proceed knowingly and ask before paying for #493's re-pin. **Check binding** (Re-bind if stale — a 120 s timeout, not an error; memory `brilliant-mcp-binding`) → **Import selection** / **Browse the page** → side-by-side → mapping editor → **Measure fidelity**. Note the grain (static / interactive / data-bound) — the owner's annotation; the code's `grain` is component/screen only (`import/ir.mjs:50`).
+3. **D5 fork** (#320's UI) — **asked in place of one of step 1's plain screen turns**, for the screen the flagged decision governs, with that screen's state asks (step 2) after the pick. The PRD parks no open question, so the owner flags a **current decision** — type its seq into **Fork on a question or decision (its seq)** (`#cv-fork`; current seqs at 82054e0: 3, 4, 6–12, 14–17, 22, 23, 26–30) → the turn drafts options A and B of that screen → **Pick A** / **Pick B**. **Neither** lands no frame and leaves the fork open: the owner then asks a second fork turn or a plain compose for that screen, both recorded.
+4. **D2 — Not run (Q3, owner 2026-10-04), tracked by #528.** #498 refuses a revisit on a fictional package, and lifting that refusal aborts build-checks group 30 (T10c). The report names it under Not run; nothing in the sitting writes to `discovery/faster-payment/` outside `build/`.
+5. **Import:** in Brilliant, pick an element **the owner did not draw for a test**. #493 is fixed (PR #525: an unnamed container never outscores the structural fallback), so a container is no longer a paid re-pin risk; ratify's CHAIN regenerates the importer's committed verdict either way (#493's report re-ran the original `top-bar` `children: "many"` admission end to end: ten steps, code 0, `build-checks` green). **Check binding** (Re-bind if stale — a 120 s timeout, not an error; memory `brilliant-mcp-binding`) → **Import selection** / **Browse the page** → side-by-side → mapping editor → **Measure fidelity**. Note the grain (static / interactive / data-bound) — the owner's annotation; the code's `grain` is component/screen only (`import/ir.mjs:50`).
 6. Optional: compose-and-name (**Promote**) where a shape repeats.
 7. **Mark the pause, then commit (R3):** **annotate** a note "commit pause before ratify" (an owner op, so its `at` is a server timestamp in the ledger) → **Write handoff pack** → commit `discovery/faster-payment/build/` (ratify's second CLEAN_GUARD call includes `discovery`, `ratify.mjs:71-74`; unavoidable) → return.
 8. **Ratify**: **Preview the ratify** → **Ratify: write, run every gate, show the diff**. Red: leave the files, take the revert command, report it.
@@ -421,7 +443,8 @@ From the committed package only, **recorded, never judged**:
 - **Unbound**: the count of records with `source.bound === false` (`import-run.mjs:236`) AND each record's slot outcomes (`report.mjs:120-140`) — both named, since they answer different questions.
 - **Compose vs admit**: `compositionCount` (flow.md). **Parts by provenance**: `lineage.json`.
 - **Eleventh primitive (Q9)**: any refused turn or owner reason naming a missing primitive (`transcript.jsonl` `refused` lines). **Unused primitives**: the ten (PRD MVP 4: button, card, dialog, nav, text field/dropdown, stack, text, list, icon, choice) against every composition's node names.
-- **Cost**: sum `stats.costUsd` over distinct turns (memory `discovery-cost-baselines`); count failed turns separately.
+- **Cost**: sum `stats.costUsd` over distinct turns (memory `discovery-cost-baselines`); count failed turns separately. Record each turn's `designVersion`/`designSha` from its stats line (#321) so the report names the conventions file the run composed under.
+- **PR #516 F2 (deferred onto this ticket):** for every fork turn, read its transcript lines: one `proposed` plus a `not-drafted` line — say whether the second option was never attempted (one proposal call), refused (a `refused` line in that turn), or the turn failed (`stats.ok:false`). Record which; the wording fix in `canvas-session.mjs` (`notDraftedLine`) is #316's only if this sitting shows the misleading case, otherwise it stays a deferral with this sitting's evidence.
 
 ### T15 CHECK traceability (agent) — AC #5
 `verifyBuild` with `buildTranscript` green — the trace rule is TR1–TR5 on `main` (TR5, PR #495 F2: an agent line's
@@ -490,11 +513,12 @@ Every added check has a REDDENS row and a positive control: T4 (a declaration-fr
 | T12 briefs, verdicts, fork pick, re-confirm, inbox, gap reasons | owner's hand | PR B yes | #316 stays open — never drafted by the agent (memory `honesty-contract-mirror-direction`) |
 | T12 the Brilliant leaf element not drawn for a test | owner's hand, $0 per import | PR B yes | AC #3 NOT MET, reported |
 | T12 grain annotation | owner's hand | PR B yes | reported as not recorded |
-| #493 re-pin, only if a container is admitted anyway | paid (Jev) | stop and ask | #493 |
+| ~~#493 re-pin~~ | — #493 fixed (PR #525) | — | — |
 | T9/T13 VR update:docker | Docker, $0, ~2 min each | yes (their PR) | — |
-| R9: a Grill turn to park one open question, only if T10b counts 0 forks | $0.06–0.18 (memory `discovery-run-cache-ttl-cost`) | PR B yes | T12 step 3 Not run, reported |
-| R10: re-recording one decision through #498's path (Q2a), if it is a model turn | $0.06–0.18 | PR B yes | T12 step 4 Not run, tracked by #498 |
-| Console spend headroom | owner check, ≥ $4.45 (the $4.09 high plus both rows above at their high) | — | — |
+| ~~R9 Grill turn~~ | — not needed: a fork names a current decision (T10b) | — | — |
+| ~~R10 revisit turn~~ | — D2 Not run (Q3) | — | #528 |
+| T12 the fork turn (two proposals in one turn) and step 9's placement turn | unmeasured on their own; ≤ $0.36 at the per-turn high ($0.1538 × 2 + escape) — derived, expected | PR B yes | #316 stays open |
+| Console spend headroom | owner check, ≥ $4.45 (the compose table's $4.09 high plus the row above) | — | — |
 
 ---
 
@@ -523,19 +547,19 @@ Every added check has a REDDENS row and a positive control: T4 (a declaration-fr
 | R1 | The run's commit reds CI across six groups and two drivers | **Observed** list (118 reds, five roots) → T6/T7 fix each root → T8 re-runs the same grower and must read 0 | none once T8 is green |
 | R2 | #318/#320 edit the same PARAMS line, `renderLineage` and the fingerprint pin | Merge order: PR A first, the three rebase over it (additive keys); T9 offers the rebase note; T10 re-checks with commands | none for this plan: a conflict is resolved inside #318–#320's own PRs, and T10 does not start until all three are merged and `run-316-ready` reads ✓ |
 | R3 | Ratify's clean-tree guard forces a mid-sitting commit inside `elapsed.ratify` | Unavoidable (`ratify.mjs:71-74` includes `discovery`); timed by an owner `annotate` note's server `at`; T14 reports both spans | none — the number is split, not estimated |
-| R4 | A container admission triggers #493 (paid re-pin) | T12 step 5: pick a leaf; stop at the preview if the spec shows `children:"many"` | none unintended: admitting a container is an explicit owner decision at the preview, made with #493's cost in front of them (paid table) |
+| R4 | A container admission triggers #493 (paid re-pin) | **Closed by #493's fix** (PR #525, 2026-10-04) | none |
 | R5 | The tool-description edit changes the prompt surface a paid probe observed | Re-pin with the provenance stated; preflight proves the schema at $0; the sitting's first turn is the owner-watched observation; refuse-and-brief fallback | none unrecoverable: an omitted `states` costs one refusal plus one briefed retry (~$0.15–0.31, inside the paid table's high figure) and both are recorded; a second omission is reported as a finding on A2, never worked round |
 | R6 | The owner cannot see declared states before accepting | T3 adds "States declared" to the proposal card | none |
 | R7 | Environment gaps abort the ratify chain (Style Dictionary, icons) | Ready check 9 requires all four `node_modules` | none |
 | R8 | Uncaught throws in build-checks hide later reds | T7 routes the three observed throws through `fold()`/guards | none |
-| R9 | **The D5 fork has no trigger**: the PRD's Open questions reads "_TBD — the run parked no question._" (observed), and #320's fork list reads open `open_question`s first | T10b: run #320's fork-list fold on `faster-payment`; ≥1 fork (its second kind, a state whose copy or layout the brief leaves unsaid, can supply it) → proceed. 0 forks → the owner parks one question in a Grill turn **before** T11 (paid, row in the paid table), commits it, and T10b re-runs | none: T11 cannot start with 0 forks, because T10b is a precondition of the ready gate going green (check 4 is re-pinned to read the fork list, T10) |
-| R10 | **D2 mutates the discovery package mid-sitting**: re-recording a decision appends server-written lines to `discovery/faster-payment/{transcript,answers}.jsonl` and regenerates `prd.md`, and ratify's `CLEAN_GUARD` covers `discovery` | T12 order: the D2 step (4) runs before the commit pause (7), and step 7's commit includes `discovery/faster-payment/` whole; T10c read #318's merged code: **no route exists** (#498 OPEN), so Q2 decides — wait for #498 (Q2a) or run D2 as Not run (Q2b) | none: decided before T11, with nothing spent either way |
+| R9 | **The D5 fork has no trigger**: the PRD's Open questions reads "_TBD — the run parked no question._" (observed) | **Closed at 82054e0**: #320's fork ask accepts any current decision seq, so the owner flags one (T10b, T12 step 3); no Grill turn | none |
+| R10 | **D2 mutates the discovery package mid-sitting** | **Closed by Q3**: D2 Not run (#498 refuses fictional packages; a $0 probe lifting that refusal aborted build-checks group 30), tracked by #528 | D2 is absent from the run's evidence; the report says so |
 | R11 | **Brilliant is the one external dependency** (binding, bridge pairing, a tab on the owner's machine), and it is first touched at step 5, after paid turns | T12 step 0: **Check binding** at $0 before the first compose turn; red → fix the binding (memory `brilliant-mcp-binding`) or stop with nothing spent. The import itself stays at step 5 so `elapsed.ratify` is not inflated by compose time | none: a binding failure is found at $0 |
 | R12 | Groups 43/50 can turn a failed seed into an empty ledger (PR #495 F4) | T10a: one `ok(false, …)` at seed time per group, with its REDDENS | none once T10a's mutation has gone red |
 | R13 | canvas-journey G2 races `saveRun`'s `groups/g1.json` write, so PR B's journey can red for no reason | T10a: G2 polls for the file (≤6 s, the `waitLines` budget) before asserting | none once fixed; T13's re-run rule stays as a fallback |
 | R14 | The portal inherits `ANTHROPIC_API_KEY` from the login shell, an environment check 8 never saw | T11 starts the portal **through** the ready gate in one command: `env -u ANTHROPIC_API_KEY sh -c 'node tooling/run-316-ready.mjs && cd portal && npm start'` — the portal cannot start in an environment the gate did not pass | none |
 | R15 | #318–#320's real names and routes are unknown today, and T12 steps 3, 4 and 10 drive their UIs | T10 reads the merged diffs, and requires each ticket's own journey AC (#318: link → re-record → flag → re-confirm; #319: open → follow → clear; #320: fork → two lanes → pick) green on `main` — those journeys are the exact gestures T12 uses | none: T12 only drives gestures a merged journey has already driven |
-| R16 | Credit or spend limit stops the sitting part-way | T11 confirms Console headroom ≥ the paid table's high figure ($4.09 + R9/R10 turns); a stop leaves `ok:false` stats (memory `sdk-error-result-wears-success`) and the sitting resumes in the same package — lines are never edited | none: resumable from disk, as #293's run 2 did (memory `run-2-audit-result-for-293`) |
+| R16 | Credit or spend limit stops the sitting part-way | T11 confirms Console headroom ≥ the paid table's high figure ($4.45; R9/R10 spend nothing since 82054e0); a stop leaves `ok:false` stats (memory `sdk-error-result-wears-success`) and the sitting resumes in the same package — lines are never edited | none: resumable from disk, as #293's run 2 did (memory `run-2-audit-result-for-293`) |
 
 ## OPEN QUESTIONS / ASSUMPTIONS
 
@@ -558,6 +582,12 @@ removes R15's closure and puts T12 steps 3, 4 and 10 in Not run.)
     re-open also accepts a park turn (#498 words scope A as "one revisited question"; `assertParkable` reads the
     question on the table) — otherwise R9 still rests on #320's second fork kind.
   - **Q2b — run without it.** T12 step 4 is Not run (tracked by #498); if T10b counts 0 forks, step 3 is too.
+  - **Closed 2026-10-04 by events:** Q1 — the wait finished (#319, #320, #498 merged). Q2 — #498 landed, but as a
+    revisit on **real** packages only, so neither branch applies as written; superseded by Q3.
+- **Q3 — D2 on a committed fictional package (owner, 2026-10-04): Not run, tracked by #528.** Options put: Not run
+  (chosen); a new harness segment lifting #498's Q4 for faster-payment and re-seeding the discovery fixtures (probe:
+  build-checks aborts at group 30); a jobs-folder copy (rejected: its decisions are not the ones the build links, so no
+  frame goes stale). The report lists T12 step 4 under Not run with #528. The confidence note's D2 clauses read under Q3.
 
 ## NOTES (open canvas)
 
@@ -644,6 +674,36 @@ Ran in a fresh worktree under `/Users` (`wt-316-t10`), `npm ci` in all four modu
 Changed because of it: T10 status block, T10a's G2 citation, T10b's fallback, T10c (done, refuses), T12 step 4, the
 paid table's R10 row, R10, Q2 (rewritten with options), the confidence note.
 
+### Pre-flight (2026-10-04, `origin/main` 82054e0 — T10 closed)
+
+Ran in `wt-316-t10` (under `/Users`, detached at 82054e0, `node_modules` from 9497455; no lockfile changed since,
+`git diff --stat 9497455 origin/main` on all four lockfiles empty) (observed):
+- `env -u ANTHROPIC_API_KEY node tooling/run-316-ready.mjs` → `run-316 ready ✓  12 checks`, exit 0. Check 11 runs
+  build-checks, so the gate is green on `main`. `wc -l discovery/faster-payment/build/ops.jsonl` → 6.
+- `node tooling/canvas-journey.mjs all` → chromium 259 passed / 0 failed, firefox 258/0, webkit 258/0;
+  `node tooling/ratify-journey.mjs all` → exit 0 (`R7 · ten steps, every exit 0`).
+- Merged since 9497455: #319 (PR #501), #498 (PR #502), #320 (PR #516), #331 (PR #523), #321 (PR #524), #493
+  (PR #525). #317 OPEN (parked).
+- T10b: `forkList` on the spine → 0 (0 open questions, 20 decisions). The fork ask takes a current decision
+  (`canvas-session.mjs` fork branch; 47.19), so the owner flags one; check 4 stays on `alternative`.
+- T10c: `assertRevisit` refuses `provenance !== 'real'`; `sessionView` sets `revisit` only under `isJobsRoot`; #498's
+  plan Q4 says so. **Probe** (scratch worktree under `os.tmpdir()`, removed after): lifted both plus the fake's repo
+  guard, ran `runTurn({slug:"faster-payment", provenance:"fictional", questionId:"s1-what-would-have-to-be-true",
+  revisit:true})` through `fake-discovery-agent.mjs` → `answers.jsonl` +1, `transcript.jsonl` +1 (seq 31 `record_decision`,
+  turn `r1`), `run.json` +16 lines; `node tooling/build-checks.mjs` → **uncaught throw at group 30**,
+  `record_decision: turn "r1" is already closed by op 31` (`build-checks.mjs:9229-9232`); groups after 30 not reached.
+  → Q3, #528.
+- #321: `system/DESIGN.md` (5,044 bytes) is read into every compose turn's system prompt; stats lines carry
+  `designVersion`/`designSha`. 47.2b now pins `32e186e7fedd687d` (#320's surface, unprobed by a paid run). Cost
+  observation (derived): S6 runs 3 and 4 under DESIGN.md v1 cost $0.5162 and $0.3966 for a four-screen run with one
+  fork (`.claude/reports/design-md-compose-conventions-321-report.md:79-80`), ≈ $0.10–0.13 per turn — inside the paid
+  table's per-turn range, so the table stands. No fork-turn cost is measured on its own.
+- #493 fixed (PR #525) → R4 closed, the step 5 leaf rule and the paid row dropped.
+- PR #516 F2 (on the ticket body) → a T14 reading.
+
+Changed because of it: T10 status, T10b, T10c, T10d, T11 (12 checks), T12 steps 1 and 3–5 (the fork is one of the three screen turns), T14 (design sha, F2), the paid
+table, R4, R9, R10, R16, Q1–Q3.
+
 ### Why confidence is 10 for Segment A
 Every task in Segment A either edits a line read and audited this session, or fixes a red that was **observed**. Its done-condition is mechanical: the same grower that produced 118 reds must produce 0, bar the intended `fake` red. An implementer who meets T8 cannot have missed a fixture, because T8 is the fixture census.
 
@@ -657,7 +717,8 @@ Each risk R1–R16 now closes with an observable gate and none has an open resid
   needs each one's journey — the same gestures T12 uses — green on `main`.
 - **The run's own preconditions (R9, R10):** checked at $0 in T10b/T10c, with a paid fallback costed and owner-gated.
   T10c has run and fired Q2; confidence 10 holds under Q2a (wait for #498). Under Q2b it holds for execution, with
-  T12 step 4 reported Not run.
+  T12 step 4 reported Not run. **At 82054e0** both are settled at $0: R9 needs no fallback (a fork names a current
+  decision), and R10 is Q3's Not run (#528) — confidence 10 for execution, with T12 step 4 reported Not run.
 - **The one external service (R11):** proven at $0 as step 0.
 - **Environment (R7, R14, R16):** the portal starts only through the ready gate; headroom is checked against the
   costed total.
@@ -705,3 +766,9 @@ Each risk R1–R16 now closes with an observable gate and none has an open resid
   `ops.jsonl` as `[]`, so both groups print by name. G2 polls until `groups/g1.json` parses (`waitJson`), because
   `saveRun` writes it with a plain `writeFileSync`. 50.18's `groupPkg` was already `fold()`-wrapped at every call and is unchanged.
   Report: `.claude/reports/faster-payment-build-run-316-t10a-report.md`. T10b–T10d still wait on #319, #320, #498.
+- 2026-10-04 (T10 pre-flight, `origin/main` 82054e0) — T10 met: ready ✓ 12 checks, canvas-journey 0 failed ×3,
+  ratify-journey green. T10b: no Grill turn; the owner forks on a current decision seq. T10c: #498 refuses fictional
+  packages and a $0 probe lifting that aborted build-checks group 30, so **D2 is Not run** (Q3, owner's choice),
+  tracked by #528. #493 fixed → R4 closed and step 5's leaf rule dropped. #321's DESIGN.md noted (cost within range;
+  T14 records `designSha`). PR #516 F2 added to T14. Paid table: three rows retired, one added (fork + placement turns), headroom $4.45. T12: the fork turn replaces one of step 1's three screen turns (a fork is a `screen.compose`; asked after three screens it adds a fourth). No AC changed;
+  Segment B's T11 may start.
