@@ -5162,8 +5162,9 @@ function scanSvg(svg, label) {
   // THE PIN IS ONE MACHINE-EDITABLE LINE (#313): a ratify admits a wrapper-less part, so it moves `without` by one and
   // appends its reason to WRAPPER_PIN_REASONS — the tripwire note above, continued as data. Both anchors' comment text
   // is part of what portal/lib/ratify.mjs matches, and it refuses unless each matches exactly once.
-  const WRAPPER_PIN = { with: 3, without: 23 }; // ratify-pin — portal/lib/ratify.mjs moves this line and appends a reason below; one line, one match
+  const WRAPPER_PIN = { with: 3, without: 24 }; // ratify-pin — portal/lib/ratify.mjs moves this line and appends a reason below; one line, one match
   const WRAPPER_PIN_REASONS = [ // ratify-reasons
+    "3/23 → 3/24: mj-button admitted by ratify from import i2 (run faster-payment) — wrapper-less, no vd-mj-button custom element, so its absent vd/react tabs are honest",
   ];
   ok(withWrapper === WRAPPER_PIN.with && withoutWrapper === WRAPPER_PIN.without,
     `the wrapper histogram moved — ${withWrapper} with / ${withoutWrapper} without (pinned ${WRAPPER_PIN.with}/${WRAPPER_PIN.without}; see the tripwire note above)`);

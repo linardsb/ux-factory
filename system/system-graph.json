@@ -1469,11 +1469,23 @@
         "--motion-ease",
         "--motion-ease-spring"
       ]
+    },
+    {
+      "id": "ds-mj-button-admitted-by-ratify-from-import-i2",
+      "label": "ds-mj-button — admitted by ratify from import i2",
+      "spec": "system/specs/mj-button.md",
+      "tokens": [
+        "--color-accent",
+        "--color-accent-fg",
+        "--spacing-md",
+        "--radius-lg",
+        "--font-body"
+      ]
     }
   ],
   "counts": {
     "tokens": 63,
-    "consumers": 49,
-    "edges": 557
+    "consumers": 50,
+    "edges": 562
   }
 }

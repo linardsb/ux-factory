@@ -13,7 +13,7 @@
   },
   "tokens": ["--spacing-xs", "--spacing-sm", "--spacing-md", "--spacing-lg", "--spacing-xl", "--spacing-2xl", "--spacing-3xl", "--spacing-4xl"],
   "states": ["default"],
-  "children": ["card", "choice", "ghost-button", "icon", "list", "modal-dialog", "nav-tabs", "primary-button", "screen-header", "select-field", "stack", "text", "text-field"],
+  "children": ["card", "choice", "ghost-button", "icon", "list", "mj-button", "modal-dialog", "nav-tabs", "primary-button", "screen-header", "select-field", "stack", "text", "text-field"],
   "childrenCardinality": "many",
   "example": { "direction": "column", "gap": "sm", "pad": "md" }
 }

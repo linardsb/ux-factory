@@ -1,0 +1,200 @@
+{
+  "note": "drafted by portal/lib/import-run.mjs from import record i1, not by an agent — props, states, behaviour and the accessibility model are the owner's at ratify (#313)",
+  "compositions": [
+    {
+      "name": "stack",
+      "props": {
+        "direction": "column"
+      },
+      "children": [
+        {
+          "name": "stack",
+          "props": {
+            "direction": "row",
+            "align": "center",
+            "size": "fill"
+          }
+        },
+        {
+          "name": "stack",
+          "props": {
+            "direction": "row",
+            "align": "center",
+            "size": "fill"
+          },
+          "children": [
+            {
+              "name": "stack",
+              "props": {
+                "direction": "column",
+                "align": "center",
+                "size": "fill"
+              },
+              "children": [
+                {
+                  "name": "stack",
+                  "props": {
+                    "direction": "row",
+                    "align": "center",
+                    "size": "fill"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "stack",
+          "props": {
+            "direction": "row",
+            "align": "center",
+            "size": "fill"
+          }
+        },
+        {
+          "name": "stack",
+          "props": {
+            "direction": "row",
+            "align": "center",
+            "size": "fill"
+          },
+          "children": [
+            {
+              "name": "stack",
+              "props": {
+                "direction": "column",
+                "align": "center",
+                "size": "fill"
+              },
+              "children": [
+                {
+                  "name": "stack",
+                  "props": {
+                    "direction": "row",
+                    "align": "center",
+                    "size": "fill"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "stack",
+              "props": {
+                "direction": "column",
+                "align": "center",
+                "size": "fill"
+              },
+              "children": [
+                {
+                  "name": "stack",
+                  "props": {
+                    "direction": "row",
+                    "align": "center",
+                    "size": "fill"
+                  }
+                },
+                {
+                  "name": "stack",
+                  "props": {
+                    "direction": "row",
+                    "align": "center",
+                    "size": "fill"
+                  }
+                },
+                {
+                  "name": "stack",
+                  "props": {
+                    "direction": "row",
+                    "align": "center",
+                    "size": "fill"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "stack",
+          "props": {
+            "direction": "row",
+            "align": "center",
+            "size": "fill"
+          }
+        },
+        {
+          "name": "stack",
+          "props": {
+            "direction": "row",
+            "align": "center",
+            "size": "fill"
+          },
+          "children": [
+            {
+              "name": "stack",
+              "props": {
+                "direction": "column",
+                "align": "center",
+                "size": "fill"
+              },
+              "children": [
+                {
+                  "name": "stack",
+                  "props": {
+                    "direction": "row",
+                    "align": "center",
+                    "size": "fill"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "stack",
+          "props": {
+            "direction": "row",
+            "align": "center",
+            "size": "fill"
+          }
+        },
+        {
+          "name": "stack",
+          "props": {
+            "direction": "row",
+            "align": "center",
+            "size": "fill"
+          },
+          "children": [
+            {
+              "name": "stack",
+              "props": {
+                "direction": "column",
+                "align": "center",
+                "size": "fill"
+              },
+              "children": [
+                {
+                  "name": "stack",
+                  "props": {
+                    "direction": "row",
+                    "align": "center",
+                    "size": "fill"
+                  },
+                  "children": [
+                    {
+                      "name": "stack",
+                      "props": {
+                        "direction": "row",
+                        "align": "center"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
