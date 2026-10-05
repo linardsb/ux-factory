@@ -52,7 +52,7 @@ connected to the next. Nothing in the run's tasks asked for one, and no gate mea
 | 2026-10-04 15:13–15:53Z | c1–c16 | $2.5954 |
 | 2026-10-04 20:23–20:56Z | c17–c35 | $3.4103 |
 | 2026-10-05 09:33–10:01Z | imports, propose, pause note, ratify (no compose turns) | $0 |
-| 2026-10-05 11:54–13:26Z | c36–c40, inbox, pack | $1.5386 |
+| 2026-10-05 11:54–12:26Z | c36–c40, inbox, pack | $1.5386 |
 
 Not one sitting. The 2026-10-05 import was blocked first by Brilliant renaming `lookup` to `read({ paths })`, which
 #530 fixed before the import ran.
@@ -64,9 +64,9 @@ Not one sitting. The 2026-10-05 import was blocked first by Brilliant renaming `
 | Turns | 40, 0 failed |
 | Total | $7.5443 |
 | Per turn | $0.1886 (derived: 7.5443 / 40) |
-| Latency | min 4.3 s · median 14.4 s · max 57.7 s (`stats.durationMs`) |
+| Latency | min 4.3 s · median 14.3 s · max 57.7 s (`stats.durationMs`) |
 | Empty-yield turns | 3, with no op line: c11 $0.0433, c13 $0.0561, c28 $0.0590 ($0.1584). Each was an unbriefed re-ask after an owner refusal; the agent refiled nothing or declined a repeat |
-| Most expensive | c36 $0.580 and c37 $0.570 (each re-cached a ~97k-token prompt: a portal restart and a 14-minute gap, past the 5-minute TTL) · c17 $0.491 (the fork, two proposals) |
+| Most expensive | c36 $0.580 and c37 $0.570 (each re-cached a ~97k-token prompt: c36 after a portal restart, per the session record, and c37 after a 14 min 56 s gap, past the 5-minute TTL) · c17 $0.491 (the fork, two proposals, and a cold cache: 60,928 tokens re-cached after the 4.5-hour gap) |
 
 **Against the plan:** the paid table's high case plus the fork and placement row came to $4.45 of headroom. The
 run spent $3.09 more (derived: 7.5443 − 4.45). The plan's per-turn figure ($0.15) came from short probe runs. Here
@@ -116,10 +116,11 @@ the prompt grew with the canvas, and cold-cache turns cost 3–4 times a warm on
   `list-row.value` is a free string".
 - **Not a primitive but a grammar limit:** a state can set or hide a part and never add one (F1 below).
 - **Unused** (walked over every owner-accepted or owner-applied `screen.compose` composition; state overrides cannot
-  add parts, so they cannot change this): of the PRD's ten, **icon** is unused. Within the pairs, `nav-tabs` (nav;
-  `screen-header` was used) and `select-field` (text field / dropdown; `text-field` was used) are unused. Used:
-  `primary-button`, `ghost-button`, `mj-button`, `card`, `modal-dialog`, `screen-header`, `text-field`, `stack`,
-  `text`, `list`, `list-row`, `choice`.
+  add parts, so they cannot change this): of the PRD's ten, **icon** and **choice** are unused (`choice` appeared once, in the fork's option A, seq 36,
+  which the owner refused at seq 39). Within the pairs, `nav-tabs` (nav; `screen-header` was used) and
+  `select-field` (text field / dropdown; `text-field` was used) are unused. Used: `primary-button`, `ghost-button`,
+  `mj-button`, `card`, `modal-dialog`, `screen-header`, `text-field`, `stack`, `text`, `list`, `list-row`. Refused
+  compositions are left out of the walk (PR #535 review F1).
 
 ### PR #516 F2, the fork reading
 
