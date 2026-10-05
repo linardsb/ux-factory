@@ -436,8 +436,9 @@ async function leg(engine, base, results) {
       const where = await page.locator("[data-canvas-where]").textContent();
       t("2 · the save notice names discovery/faster-payment/build/ (R2)", where.includes("discovery/faster-payment/build/") && where.includes("git checkout"), where);
       t("2 · ZERO save requests across load and a 1 s idle (D11)", saves.length === 0, `${saves.length} request(s)`);
-      const o = await overlaps(page);
-      t("2 · no two nodes' rendered boxes overlap", o.length === 0, o.join(", "));
+      // No overlap check here: the committed package's positions are the owner's (#316's sitting stacked 31 frames
+      // where they were dropped), and positions are authored, never derived. 3b checks overlaps on a seed, whose
+      // positions are seedSpine's frozen SPINE_POSITIONS.
     });
 
     await step("3 · a copied run in the jobs folder", async () => {

@@ -12690,7 +12690,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
 
 {
   const { applyOps: cApplyOps } = await import("../system/canvas-ops.mjs");
-  const { CANVAS_DESCRIPTION, arrangement, foldLedger, groupFiles, laneFlaws, listBuilds, loadBuild, loadDecisions, placeExhibit, positionsOf, provenanceLabel, saveBuild, saveConflict, saveRun, seedSpine, verifyBuild } =
+  const { CANVAS_DESCRIPTION, SPINE_POSITIONS, arrangement, foldLedger, groupFiles, laneFlaws, listBuilds, loadBuild, loadDecisions, placeExhibit, positionsOf, provenanceLabel, saveBuild, saveConflict, saveRun, seedSpine, verifyBuild } =
     await import("../portal/lib/canvas-store.mjs");
   const { cpSync } = await import("node:fs");
   const deep = (v) => (v && typeof v === "object" && !Array.isArray(v)
@@ -12887,6 +12887,19 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   // because saveRun stamps a group file's provenance.run with the package dir's name and verifyBuild refuses a non-slug.
   const scratchSpine = () => seedSpine(join(DISCOVERY_DIR, "faster-payment"), join(mkdtempSync(join(tmpdir(), "canvas-run-")), "fp-spine"), { discovery: true });
   const posOf = (dir) => positionsOf(loadBuild(join(dir, "build")).canvas);
+  // 36.8b (#316): a seed's layout is SPINE_POSITIONS whatever the source canvas holds. Run 1's owner moved d7 and d8,
+  // and a seed that read the committed canvas placed an exhibit at x 894, not 1518 (canvas-journey X4). The source
+  // here is a copy with every node moved; the seed must not follow it.
+  {
+    const moved = join(mkdtempSync(join(tmpdir(), "canvas-moved-")), "fp-moved");
+    mkdirSync(join(moved, "build"), { recursive: true });
+    writeFileSync(join(moved, "build/ops.jsonl"), readFileSync(join(DISCOVERY_DIR, "faster-payment/build/ops.jsonl"), "utf8"));
+    const cj = JSON.parse(readFileSync(join(DISCOVERY_DIR, "faster-payment/build/canvas.json"), "utf8"));
+    for (const n of cj.nodes) { n.x += 1000; n.y += 500; }
+    writeFileSync(join(moved, "build/canvas.json"), JSON.stringify(cj));
+    const got = posOf(seedSpine(moved, join(mkdtempSync(join(tmpdir(), "canvas-moved-seed-")), "fp-seed")));
+    ok(deep(got) === deep(SPINE_POSITIONS), `36.8b: a seed from a source whose canvas moved every node laid out ${deep(got)} — it must be SPINE_POSITIONS ${deep(SPINE_POSITIONS)}, never the source's positions`);
+  }
   const decisionsFP = (() => { try { return loadDecisions(join(DISCOVERY_DIR, "faster-payment")); } catch (e) { ok(false, `loadDecisions refused faster-payment (${e.message})`); return []; } })();
   {
     const dir = scratchSpine();
@@ -15922,10 +15935,10 @@ const synthPng = (w, h, ct, px) => {
       const png = fold("parseExport(export-png.json) for 43.15", () => BM.parseExport(live("export-png.json")).bytes, null);
       const pm = pkgCopy("m2");
       const bm = ledger(pm).length;
-      // The expected place is computed from the SEEDED copy's own canvas — seedSpine takes the spine's
-      // positions from the committed canvas.json, which the owner moves during a real run (#316) — so this
-      // is never a literal: right of the rightmost node's edge + 32, at the frames' top row. On an unmoved
-      // spine that is 1518/0 (d8 1206 + 280 + 32), pinned in memory by 36.11.
+      // The expected place is computed from the SEEDED copy's own canvas, never a literal: right of the
+      // rightmost node's edge + 32, at the frames' top row. seedSpine lays the spine out under its frozen
+      // SPINE_POSITIONS (#316), so that is 1518/0 (d8 1206 + 280 + 32), pinned in memory by 36.11 and
+      // seedSpine's own case by 36.8b.
       const nodes15 = fold("read the seeded canvas.json (43.15)", () => lb(join(pm, "build")).canvas.nodes, []);
       const at15 = { x: Math.max(...nodes15.map((n) => n.x + n.width)) + 32, y: Math.min(...nodes15.filter((n) => n.type === "frame").map((n) => n.y)) };
       const r15 = await afold("a Mode 2 runImport (43.15)", () => M.runImport({ pkgRoot: pm, provenance: "real", base: bm, entrance: "selection", mode: 2, overridesDir: scratch("ov15"),
